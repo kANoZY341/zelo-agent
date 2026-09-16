@@ -55,6 +55,9 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     error: Mapped[str | None] = mapped_column(String(256))
+    selected_alias: Mapped[str | None] = mapped_column(String(64))
+    selected_model: Mapped[str | None] = mapped_column(String(128))
+    config_version: Mapped[str | None] = mapped_column(String(64))
 
 
 class TaskAttempt(Base):

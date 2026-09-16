@@ -4,7 +4,8 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.schemas import ApprovalDemoResult, EchoResult, TextPayload, TextStatsResult
+from app.gateway import ModelGatewayError
+from app.schemas import AIPromptResult, ApprovalDemoResult, EchoResult, TextPayload, TextStatsResult
 from app.tasks import Execution
 
 Worker = Callable[[Execution], Awaitable[dict[str, Any]]]
@@ -12,6 +13,7 @@ RESULT_MODELS = {
     "echo": EchoResult,
     "text_stats": TextStatsResult,
     "approval_demo": ApprovalDemoResult,
+    "ai_prompt": AIPromptResult,
 }
 
 
@@ -28,5 +30,7 @@ async def execute(execution: Execution) -> dict[str, Any]:
             ).model_dump(mode="json")
         case "approval_demo":
             return ApprovalDemoResult(text=text).model_dump(mode="json")
+        case "ai_prompt":
+            raise ModelGatewayError("model_gateway_not_configured")
         case _:
             raise ValueError("Unsupported worker type")
