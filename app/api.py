@@ -2,8 +2,9 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app import __version__
 from app.config import Settings
@@ -18,7 +19,7 @@ class RootResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["healthy"] = "healthy"
+    status: Literal["healthy", "unavailable"] = "healthy"
 
 
 @router.get("/", response_model=RootResponse)
@@ -28,6 +29,16 @@ def root(request: Request) -> RootResponse:
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    """Report process liveness; there are no external dependencies to check yet."""
+def health(request: Request, response: Response) -> HealthResponse:
+    """Readiness without paths, credentials, or configuration in the response."""
+    try:
+        database = request.app.state.database
+        database.check_schema()
+        with database.read() as session:
+            session.execute(text("SELECT 1"))
+        if not request.app.state.runner.ready:
+            raise RuntimeError("Runner unavailable")
+    except Exception:
+        response.status_code = 503
+        return HealthResponse(status="unavailable")
     return HealthResponse()
