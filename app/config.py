@@ -25,6 +25,21 @@ class Settings(BaseSettings):
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
+    ollama_url: str = "http://127.0.0.1:11434"
+    ollama_general_model: str = "qwen3:4b-instruct"
+    ollama_reasoning_model: str = "deepseek-r1:7b"
+    model_config_version: str = "1"
+    model_timeout_seconds: float = Field(default=60.0, ge=0.01, le=600)
+
+    @field_validator("ollama_url")
+    @classmethod
+    def validate_ollama_url(cls, value: str) -> str:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(value)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
+            raise ValueError("Ollama URL must be localhost HTTP")
+        return value.rstrip("/")
 
     @field_validator("operator_token")
     @classmethod

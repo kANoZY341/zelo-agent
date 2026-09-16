@@ -75,3 +75,24 @@ def task_events(
 @router.post("/approvals/{approval_id}/decision", response_model=ApprovalResponse)
 def decide_approval(approval_id: str, body: ApprovalDecision, tasks: Service) -> ApprovalResponse:
     return tasks.decide(approval_id, body.decision)
+
+
+@router.get("/models")
+async def models(request: Request) -> dict:
+    gateway = request.app.state.tasks.gateway
+    aliases = gateway.aliases if gateway else {}
+    available: list[str] = []
+    error = None
+    if gateway:
+        try:
+            available = await gateway.provider.models()
+        except Exception:
+            error = "unavailable"
+    return {
+        "provider": "ollama",
+        "status": "available" if error is None else "unavailable",
+        "aliases": [
+            {"alias": alias, "model": model, "available": model in available}
+            for alias, model in aliases.items()
+        ],
+    }

@@ -33,7 +33,19 @@ class ApprovalDemoInput(TaskInput):
     kind: Literal["approval_demo"]
 
 
-TaskCreate = Annotated[EchoInput | TextStatsInput | ApprovalDemoInput, Field(discriminator="kind")]
+class AIPromptPayload(StrictModel):
+    prompt: str = Field(min_length=1, max_length=65536)
+    profile: Literal["general", "reasoning"]
+
+
+class AIPromptInput(TaskInput):
+    kind: Literal["ai_prompt"]
+    payload: AIPromptPayload
+
+
+TaskCreate = Annotated[
+    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput, Field(discriminator="kind")
+]
 
 
 class EchoResult(StrictModel):
@@ -49,6 +61,16 @@ class TextStatsResult(StrictModel):
 class ApprovalDemoResult(StrictModel):
     text: str = Field(max_length=65536)
     approved: Literal[True] = True
+
+
+class AIPromptResult(StrictModel):
+    text: str = Field(max_length=65536)
+    provider: str
+    alias: str
+    actual_model: str
+    usage: dict[str, int | float | None] = Field(default_factory=dict)
+    timing: dict[str, int | float | None] = Field(default_factory=dict)
+    completed_at: datetime
 
 
 class AttemptResponse(StrictModel):
@@ -75,8 +97,8 @@ class ApprovalResponse(StrictModel):
 
 class TaskResponse(StrictModel):
     id: str
-    kind: Literal["echo", "text_stats", "approval_demo"]
-    payload: TextPayload
+    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt"]
+    payload: TextPayload | AIPromptPayload
     timeout_seconds: float
     status: State
     action_version: int
@@ -87,6 +109,9 @@ class TaskResponse(StrictModel):
     error: str | None
     attempts: list[AttemptResponse] = Field(default_factory=list)
     approvals: list[ApprovalResponse] = Field(default_factory=list)
+    selected_alias: str | None = None
+    selected_model: str | None = None
+    config_version: str | None = None
 
 
 class TaskPage(StrictModel):

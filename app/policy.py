@@ -44,7 +44,19 @@ def fingerprint(value: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-def action_hash(kind: str, payload: dict[str, Any], timeout_seconds: float, version: int) -> str:
-    return fingerprint(
-        {"kind": kind, "payload": payload, "timeout_seconds": timeout_seconds, "version": version}
-    )
+def action_hash(
+    kind: str,
+    payload: dict[str, Any],
+    timeout_seconds: float,
+    version: int,
+    selection: dict[str, Any] | None = None,
+) -> str:
+    value = {
+        "kind": kind,
+        "payload": payload,
+        "timeout_seconds": timeout_seconds,
+        "version": version,
+    }
+    if selection is not None:
+        value["selection"] = selection
+    return fingerprint(value)

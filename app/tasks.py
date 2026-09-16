@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.database import Database
+from app.gateway import ModelGateway
 from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
 from app.schemas import (
@@ -30,6 +31,9 @@ class Execution:
     kind: str
     payload: dict[str, Any]
     timeout_seconds: float
+    profile: str | None = None
+    selected_alias: str | None = None
+    selected_model: str | None = None
 
 
 def audit(
@@ -68,7 +72,23 @@ def require_task(session: Session, task_id: str) -> Task:
 
 
 def snapshot(session: Session, task: Task) -> TaskResponse:
-    response = TaskResponse.model_validate(task)
+    values = {
+        "id": task.id,
+        "kind": task.kind,
+        "payload": task.payload,
+        "timeout_seconds": task.timeout_seconds,
+        "status": task.status,
+        "action_version": task.action_version,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "cancel_requested": task.cancel_requested,
+        "result": task.result,
+        "error": task.error,
+        "selected_alias": task.selected_alias,
+        "selected_model": task.selected_model,
+        "config_version": task.config_version,
+    }
+    response = TaskResponse.model_validate(values)
     response.attempts = [
         AttemptResponse.model_validate(attempt)
         for attempt in session.scalars(
@@ -85,9 +105,12 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
 
 
 class TaskService:
-    def __init__(self, database: Database, settings: Settings) -> None:
+    def __init__(
+        self, database: Database, settings: Settings, gateway: ModelGateway | None = None
+    ) -> None:
         self.database = database
         self.settings = settings
+        self.gateway = gateway
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -131,10 +154,40 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
+            if request.kind == "ai_prompt":
+                if self.gateway is None:
+                    raise DomainError("Model gateway unavailable", 503)
+                try:
+                    alias, model = self.gateway.select(payload["profile"])
+                except Exception:
+                    raise DomainError("Invalid model profile", 422) from None
+                task.selected_alias, task.selected_model = alias, model
+                task.config_version = self.gateway.config_version
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    {
+                        "profile": payload["profile"],
+                        "alias": alias,
+                        "model": model,
+                        "config_version": task.config_version,
+                    },
+                )
             session.add(task)
             session.flush()
             audit(session, task, "task_submitted")
-            if task.kind == "approval_demo":
+            if task.kind == "ai_prompt":
+                audit(
+                    session,
+                    task,
+                    "model_selected",
+                    alias=task.selected_alias,
+                    actual_model=task.selected_model,
+                    config_version=task.config_version,
+                )
+            if task.kind in {"approval_demo", "ai_prompt"}:
                 # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
                 audit(
@@ -146,6 +199,11 @@ class TaskService:
                 )
                 self._new_approval(session, task)
             return snapshot(session, task), True
+
+    def model_event(self, task_id: str, event: str, attempt_id: str, **details: Any) -> None:
+        with self.database.transaction() as session:
+            task = require_task(session, task_id)
+            audit(session, task, event, attempt_id=attempt_id, **details)
 
     def get(self, task_id: str) -> TaskResponse:
         with self.database.read() as session:
@@ -179,7 +237,17 @@ class TaskService:
             ]
 
     def _valid_action(self, task: Task, approval: Approval) -> bool:
-        current = action_hash(task.kind, task.payload, task.timeout_seconds, task.action_version)
+        selection = None
+        if task.kind == "ai_prompt":
+            selection = {
+                "alias": task.selected_alias,
+                "model": task.selected_model,
+                "config_version": task.config_version,
+                "profile": task.payload.get("profile"),
+            }
+        current = action_hash(
+            task.kind, task.payload, task.timeout_seconds, task.action_version, selection
+        )
         return (
             approval.action_version == task.action_version
             and approval.action_hash == current == task.action_hash
@@ -277,19 +345,43 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
-            target = State.AWAITING_APPROVAL if task.kind == "approval_demo" else State.PENDING
+            target = (
+                State.AWAITING_APPROVAL
+                if task.kind in {"approval_demo", "ai_prompt"}
+                else State.PENDING
+            )
             validate_transition(task.status, target)
             self._check_capacity(session)
             audit(session, task, "retry_requested")
             transition(session, task, target)
             task.action_version += 1
             task.action_hash = action_hash(
-                task.kind, task.payload, task.timeout_seconds, task.action_version
+                task.kind,
+                task.payload,
+                task.timeout_seconds,
+                task.action_version,
+                {
+                    "profile": task.payload.get("profile"),
+                    "alias": task.selected_alias,
+                    "model": task.selected_model,
+                    "config_version": task.config_version,
+                }
+                if task.kind == "ai_prompt"
+                else None,
             )
             task.cancel_requested = False
             task.result = None
             task.error = None
-            if task.kind == "approval_demo":
+            if task.kind in {"approval_demo", "ai_prompt"}:
+                if task.kind == "ai_prompt":
+                    audit(
+                        session,
+                        task,
+                        "model_selected",
+                        alias=task.selected_alias,
+                        actual_model=task.selected_model,
+                        config_version=task.config_version,
+                    )
                 self._new_approval(session, task)
             return snapshot(session, task)
 
@@ -305,7 +397,7 @@ class TaskService:
             )
             if task is None:
                 return None
-            if task.kind == "approval_demo":
+            if task.kind in {"approval_demo", "ai_prompt"}:
                 approval = session.scalar(
                     select(Approval)
                     .where(Approval.task_id == task.id)
@@ -324,7 +416,18 @@ class TaskService:
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
             current_hash = action_hash(
-                task.kind, task.payload, task.timeout_seconds, task.action_version
+                task.kind,
+                task.payload,
+                task.timeout_seconds,
+                task.action_version,
+                {
+                    "alias": task.selected_alias,
+                    "model": task.selected_model,
+                    "config_version": task.config_version,
+                    "profile": task.payload.get("profile"),
+                }
+                if task.kind == "ai_prompt"
+                else None,
             )
             if current_hash != task.action_hash:
                 task.error = "action_changed"
@@ -343,7 +446,16 @@ class TaskService:
             audit(session, task, "attempt_created", attempt_id=attempt.id, number=attempt.number)
             transition(session, task, State.RUNNING)
             audit(session, task, "execution_started", attempt_id=attempt.id)
-            return Execution(task.id, attempt.id, task.kind, task.payload, task.timeout_seconds)
+            return Execution(
+                task.id,
+                attempt.id,
+                task.kind,
+                task.payload,
+                task.timeout_seconds,
+                task.payload.get("profile"),
+                task.selected_alias,
+                task.selected_model,
+            )
 
     def finish(
         self,

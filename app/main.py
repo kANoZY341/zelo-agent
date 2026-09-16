@@ -10,6 +10,7 @@ from app import __version__
 from app.api import router
 from app.config import Settings
 from app.database import Database
+from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
 from app.policy import DomainError
 from app.runner import Runner
@@ -18,7 +19,12 @@ from app.tasks import TaskService
 from app.workers import Worker, execute
 
 
-def create_app(settings: Settings | None = None, *, worker: Worker = execute) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    worker: Worker = execute,
+    provider: ModelProvider | None = None,
+) -> FastAPI:
     """Build an application with optional explicit settings for tests or tools."""
     configuration = settings if settings is not None else Settings()
 
@@ -32,10 +38,17 @@ def create_app(settings: Settings | None = None, *, worker: Worker = execute) ->
         try:
             database.acquire_runner()
             database.check_schema()
-            tasks = TaskService(database, configuration)
+            model_provider = provider or OllamaProvider(configuration.ollama_url)
+            gateway = ModelGateway(
+                model_provider,
+                configuration.ollama_general_model,
+                configuration.ollama_reasoning_model,
+                configuration.model_config_version,
+            )
+            tasks = TaskService(database, configuration, gateway)
             tasks.recover()
             tasks.expire_approvals()
-            runner = Runner(tasks, worker)
+            runner = Runner(tasks, worker, gateway)
             application.state.database = database
             application.state.tasks = tasks
             application.state.runner = runner
