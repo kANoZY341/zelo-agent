@@ -1,0 +1,43 @@
+# Virtual environments and local configuration
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Local agent and Codex tooling state
+/.agents/
+/.codex/
+
+# Private and agent-generated data
+/secrets/
+/memory/
+/workspaces/
+*.pem
+*.key
+credentials.json
+
+# Python caches and generated build/test files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Logs, generated output, and editor files
+logs/
+*.log
+generated/
+.cache/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
