@@ -162,7 +162,7 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
-            if request.kind == "ai_prompt":
+            if request.kind in {"ai_prompt", "agent_run"}:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
                 try:
@@ -193,7 +193,7 @@ class TaskService:
             session.add(task)
             session.flush()
             audit(session, task, "task_submitted")
-            if task.kind == "ai_prompt":
+            if task.kind in {"ai_prompt", "agent_run"}:
                 audit(
                     session,
                     task,
@@ -255,7 +255,7 @@ class TaskService:
 
     def _valid_action(self, task: Task, approval: Approval) -> bool:
         selection = None
-        if task.kind == "ai_prompt":
+        if task.kind in {"ai_prompt", "agent_run"}:
             selection = {
                 "alias": task.selected_alias,
                 "model": task.selected_model,
@@ -383,7 +383,7 @@ class TaskService:
                     "model": task.selected_model,
                     "config_version": task.config_version,
                 }
-                if task.kind == "ai_prompt"
+                if task.kind in {"ai_prompt", "agent_run"}
                 else None,
             )
             task.cancel_requested = False
@@ -457,7 +457,7 @@ class TaskService:
                     "config_version": task.config_version,
                     "profile": task.payload.get("profile"),
                 }
-                if task.kind == "ai_prompt"
+                if task.kind in {"ai_prompt", "agent_run"}
                 else None,
             )
             if current_hash != task.action_hash:
@@ -516,6 +516,19 @@ class TaskService:
                 State.INTERRUPTED: "execution_interrupted",
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
+            if task.kind == "agent_run":
+                details = (
+                    {"model_steps": result["model_steps"], "tool_calls": result["tool_calls"]}
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                audit(
+                    session,
+                    task,
+                    "agent_completed" if outcome == State.SUCCEEDED else "agent_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
 
     def recover(self) -> None:
         with self.database.transaction() as session:
@@ -538,3 +551,11 @@ class TaskService:
                     "startup_interruption_recovery",
                     attempt_id=attempt.id if attempt else None,
                 )
+                if task.kind == "agent_run":
+                    audit(
+                        session,
+                        task,
+                        "agent_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )

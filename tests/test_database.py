@@ -44,13 +44,14 @@ def test_migration_from_empty_database(settings) -> None:
         database.close()
 
 
-def test_migration_preserves_foreign_key_dependents(settings) -> None:
+@pytest.mark.parametrize("starting_revision", ["0001_task_foundation", "0003_tool_call"])
+def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
     database = Database(settings.database_path)
     try:
         config = migration_config()
         with database.engine.connect() as connection:
             config.attributes["connection"] = connection
-            command.upgrade(config, "0001_task_foundation")
+            command.upgrade(config, starting_revision)
 
         with database.transaction() as session:
             session.execute(
@@ -155,9 +156,15 @@ def test_migration_preserves_foreign_key_dependents(settings) -> None:
             )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
-                session.scalar(text("SELECT version_num FROM alembic_version")) == "0003_tool_call"
+                session.scalar(text("SELECT version_num FROM alembic_version"))
+                == "0004_agent_runtime"
             )
             assert "tool_call" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            assert "agent_run" in next(
                 constraint["sqltext"]
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
@@ -170,13 +177,22 @@ def test_migration_preserves_foreign_key_dependents(settings) -> None:
         database.close()
 
 
-def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
+@pytest.mark.parametrize(
+    "starting_revision,target_revision,failure_statement",
+    [
+        ("0001_task_foundation", "0002_model_gateway", "ADD COLUMN selected_alias"),
+        ("0003_tool_call", "0004_agent_runtime", "DROP TABLE tasks"),
+    ],
+)
+def test_failed_migration_rolls_back_and_can_retry(
+    settings, starting_revision, target_revision, failure_statement
+) -> None:
     database = Database(settings.database_path)
     try:
         config = migration_config()
         with database.engine.connect() as connection:
             config.attributes["connection"] = connection
-            command.upgrade(config, "0001_task_foundation")
+            command.upgrade(config, starting_revision)
 
         with database.transaction() as session:
             session.execute(
@@ -246,7 +262,7 @@ def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
         def fail_after_selected_alias(
             _connection, _cursor, statement, _parameters, _context, _executemany
         ) -> None:
-            if "ADD COLUMN selected_alias" in statement:
+            if failure_statement in statement:
                 raise RuntimeError("injected migration failure")
 
         with database.engine.connect() as connection:
@@ -254,7 +270,7 @@ def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
             config = migration_config()
             config.attributes["connection"] = connection
             with pytest.raises(RuntimeError, match="injected migration failure"):
-                command.upgrade(config, "0002_model_gateway")
+                command.upgrade(config, target_revision)
             event.remove(connection, "after_cursor_execute", fail_after_selected_alias)
 
         assert {
@@ -268,8 +284,8 @@ def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
             "tasks",
         }
         with database.read() as session:
-            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0001_task_foundation"
+            assert (
+                session.scalar(text("SELECT version_num FROM alembic_version")) == starting_revision
             )
             for table, count in before_counts.items():
                 assert session.scalar(text(f"SELECT COUNT(*) FROM {table}")) == count
@@ -280,7 +296,7 @@ def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0003_tool_call"
+                "0004_agent_runtime"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1

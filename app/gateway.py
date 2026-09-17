@@ -2,9 +2,15 @@
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Literal, Protocol
 
 import httpx
+
+
+@dataclass(frozen=True)
+class ModelMessage:
+    role: Literal["user", "assistant", "tool"]
+    content: str
 
 
 @dataclass(frozen=True)
@@ -13,6 +19,8 @@ class ModelRequest:
     system_prompt: str
     user_messages: list[str]
     timeout_seconds: float
+    messages: tuple[ModelMessage, ...] = ()
+    output_schema: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -67,20 +75,29 @@ class OllamaProvider:
             raise ModelGatewayError("model_unavailable") from None
 
     async def generate(self, request: ModelRequest) -> ModelResult:
+        messages = request.messages or tuple(ModelMessage("user", m) for m in request.user_messages)
+        body: dict[str, Any] = {
+            "model": request.model_id,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": request.system_prompt},
+                *({"role": m.role, "content": m.content} for m in messages),
+            ],
+        }
+        if request.output_schema is not None:
+            # The provider enforces JSON syntax; Zelo validates the full action union.
+            body.update(
+                format="json",
+                think=False,
+                options={"temperature": 0, "num_predict": 2048},
+            )
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url, timeout=request.timeout_seconds
             ) as client:
                 response = await client.post(
                     "/api/chat",
-                    json={
-                        "model": request.model_id,
-                        "stream": False,
-                        "messages": [
-                            {"role": "system", "content": request.system_prompt},
-                            *({"role": "user", "content": m} for m in request.user_messages),
-                        ],
-                    },
+                    json=body,
                 )
                 response.raise_for_status()
                 body = response.json()
@@ -90,7 +107,7 @@ class OllamaProvider:
                 return ModelResult(
                     text=message["content"],
                     provider="ollama",
-                    model_id=request.model_id,
+                    model_id=body.get("model", request.model_id),
                     prompt_tokens=body.get("prompt_eval_count"),
                     completion_tokens=body.get("eval_count"),
                     total_tokens=(
@@ -135,3 +152,25 @@ class ModelGateway:
         return await self.provider.generate(
             ModelRequest(model, "You are a local Zelo assistant.", [prompt], timeout)
         ), alias
+
+    async def generate_action(
+        self,
+        *,
+        profile: str,
+        expected_model: str,
+        system_prompt: str,
+        messages: tuple[ModelMessage, ...],
+        output_schema: dict[str, Any],
+        timeout: float,
+    ) -> ModelResult:
+        if profile != "general":
+            raise ModelGatewayError("invalid_profile")
+        _, model = self.select(profile)
+        if model != expected_model:
+            raise ModelGatewayError("model_selection_changed")
+        result = await self.provider.generate(
+            ModelRequest(model, system_prompt, [], timeout, messages, output_schema)
+        )
+        if result.model_id != model:
+            raise ModelGatewayError("model_selection_changed")
+        return result

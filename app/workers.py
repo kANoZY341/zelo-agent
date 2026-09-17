@@ -5,7 +5,14 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.gateway import ModelGatewayError
-from app.schemas import AIPromptResult, ApprovalDemoResult, EchoResult, TextPayload, TextStatsResult
+from app.schemas import (
+    AgentRunResult,
+    AIPromptResult,
+    ApprovalDemoResult,
+    EchoResult,
+    TextPayload,
+    TextStatsResult,
+)
 from app.tasks import Execution
 
 Worker = Callable[[Execution], Awaitable[dict[str, Any]]]
@@ -14,6 +21,7 @@ RESULT_MODELS = {
     "text_stats": TextStatsResult,
     "approval_demo": ApprovalDemoResult,
     "ai_prompt": AIPromptResult,
+    "agent_run": AgentRunResult,
 }
 
 

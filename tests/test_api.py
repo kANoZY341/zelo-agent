@@ -32,7 +32,7 @@ def wait_for(client: TestClient, task_id: str, expected: str, timeout: float = 3
 
 def test_root_and_health_are_public(client: TestClient) -> None:
     client.headers.pop("Authorization")
-    assert client.get("/").json() == {"name": "Zelo Agent", "version": "0.4.0", "status": "online"}
+    assert client.get("/").json() == {"name": "Zelo Agent", "version": "0.5.0", "status": "online"}
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}

@@ -43,6 +43,17 @@ class AIPromptInput(TaskInput):
     payload: AIPromptPayload
 
 
+class AgentRunPayload(StrictModel):
+    prompt: str = Field(min_length=1, max_length=65536)
+    profile: Literal["general"] = "general"
+
+
+class AgentRunInput(TaskInput):
+    kind: Literal["agent_run"]
+    payload: AgentRunPayload
+    timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
+
+
 class ToolCallPayload(StrictModel):
     tool: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -54,7 +65,7 @@ class ToolCallInput(TaskInput):
 
 
 TaskCreate = Annotated[
-    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput | ToolCallInput,
+    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput | ToolCallInput | AgentRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -84,6 +95,17 @@ class AIPromptResult(StrictModel):
     completed_at: datetime
 
 
+class AgentRunResult(StrictModel):
+    final_response: str = Field(min_length=1, max_length=16384)
+    alias: Literal["local_general"]
+    actual_model: str
+    model_steps: int = Field(ge=1)
+    tool_calls: int = Field(ge=0)
+    tools_used: list[str]
+    usage: list[dict[str, int | None]]
+    completed_at: datetime
+
+
 class AttemptResponse(StrictModel):
     id: str
     number: int
@@ -108,8 +130,8 @@ class ApprovalResponse(StrictModel):
 
 class TaskResponse(StrictModel):
     id: str
-    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt", "tool_call"]
-    payload: TextPayload | AIPromptPayload | ToolCallPayload
+    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt", "tool_call", "agent_run"]
+    payload: TextPayload | AIPromptPayload | ToolCallPayload | AgentRunPayload
     timeout_seconds: float
     status: State
     action_version: int

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app import __version__
+from app.agent import AgentRuntime
 from app.api import router
 from app.config import Settings
 from app.database import Database
@@ -51,7 +52,8 @@ def create_app(
             tasks = TaskService(database, configuration, gateway, tool_gateway)
             tasks.recover()
             tasks.expire_approvals()
-            runner = Runner(tasks, worker, gateway)
+            agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
+            runner = Runner(tasks, worker, gateway, agent_runtime)
             application.state.database = database
             application.state.tasks = tasks
             application.state.tool_gateway = tool_gateway

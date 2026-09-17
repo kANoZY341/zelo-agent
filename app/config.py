@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     workspace_max_entries: int = Field(default=1000, ge=1, le=10000)
     workspace_max_depth: int = Field(default=8, ge=1, le=32)
     workspace_max_file_size: int = Field(default=1_048_576, ge=1, le=10_485_760)
+    max_agent_steps: int = Field(default=6, ge=1, le=20)
+    max_agent_tool_calls: int = Field(default=4, ge=0, le=16)
+    agent_timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
+    max_model_parse_retries: int = Field(default=1, ge=0, le=2)
+    max_agent_tool_result_chars: int = Field(default=8192, ge=256, le=32768)
 
     @field_validator("ollama_url")
     @classmethod
