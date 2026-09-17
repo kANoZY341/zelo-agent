@@ -7,6 +7,7 @@ from typing import Any
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
 from app.tasks import Execution, TaskService
+from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
 
 logger = logging.getLogger("zelo")
@@ -74,17 +75,37 @@ class Runner:
                 alias=execution.selected_alias,
                 actual_model=execution.selected_model,
             )
+        if execution.kind == "tool_call":
+            self.service.model_event(
+                execution.task_id,
+                "tool_execution_started",
+                execution.attempt_id,
+                tool=execution.tool_name,
+            )
         if execution.kind == "ai_prompt":
             self.operation = asyncio.create_task(self._model_worker(execution))
+        elif execution.kind == "tool_call":
+            self.operation = asyncio.create_task(self._tool_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
             raw = await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
-            result = RESULT_MODELS[execution.kind].model_validate(raw).model_dump(mode="json")
+            result = (
+                raw
+                if execution.kind == "tool_call"
+                else RESULT_MODELS[execution.kind].model_validate(raw).model_dump(mode="json")
+            )
             self.service.finish(execution, State.SUCCEEDED, result=result)
             if execution.kind == "ai_prompt":
                 self.service.model_event(
                     execution.task_id, "model_execution_completed", execution.attempt_id
+                )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_completed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
                 )
         except TimeoutError:
             error = "model_timeout" if execution.kind == "ai_prompt" else "execution_timeout"
@@ -96,6 +117,14 @@ class Runner:
                     execution.attempt_id,
                     reason="model_timeout",
                 )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason="tool_timeout",
+                )
         except ModelGatewayError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
             if execution.kind == "ai_prompt":
@@ -105,6 +134,24 @@ class Runner:
                     execution.attempt_id,
                     reason=error.code,
                 )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason=error.code,
+                )
+        except ToolRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.args[0])
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason=error.args[0],
+                )
         except asyncio.CancelledError:
             outcome = State.INTERRUPTED if self.stopping else State.CANCELLED
             reason = "service_shutdown" if self.stopping else "cancelled_by_operator"
@@ -113,6 +160,14 @@ class Runner:
                 self.service.model_event(
                     execution.task_id, "model_execution_failed", execution.attempt_id, reason=reason
                 )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason=reason,
+                )
         except Exception:
             self.service.finish(execution, State.FAILED, error="worker_error")
             if execution.kind == "ai_prompt":
@@ -120,6 +175,14 @@ class Runner:
                     execution.task_id,
                     "model_execution_failed",
                     execution.attempt_id,
+                    reason="worker_error",
+                )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
                     reason="worker_error",
                 )
         finally:
@@ -155,3 +218,12 @@ class Runner:
             "timing": timing,
             "completed_at": result.completed_at.isoformat(),
         }
+
+    async def _tool_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.service.tool_gateway is None or execution.tool_name is None:
+            raise ToolRuntimeError("tool_gateway_unavailable")
+        return await asyncio.to_thread(
+            self.service.tool_gateway.execute,
+            execution.tool_name,
+            execution.tool_arguments or {},
+        )

@@ -20,6 +20,7 @@ from app.schemas import (
     TaskPage,
     TaskResponse,
 )
+from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
 
@@ -34,6 +35,8 @@ class Execution:
     profile: str | None = None
     selected_alias: str | None = None
     selected_model: str | None = None
+    tool_name: str | None = None
+    tool_arguments: dict[str, Any] | None = None
 
 
 def audit(
@@ -106,11 +109,16 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
 
 class TaskService:
     def __init__(
-        self, database: Database, settings: Settings, gateway: ModelGateway | None = None
+        self,
+        database: Database,
+        settings: Settings,
+        gateway: ModelGateway | None = None,
+        tool_gateway: ToolGateway | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
         self.gateway = gateway
+        self.tool_gateway = tool_gateway
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -175,6 +183,13 @@ class TaskService:
                         "config_version": task.config_version,
                     },
                 )
+            if request.kind == "tool_call":
+                if self.tool_gateway is None:
+                    raise DomainError("Tool gateway unavailable", 503)
+                try:
+                    self.tool_gateway.validate(payload["tool"], payload["arguments"])
+                except ToolRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
             session.add(task)
             session.flush()
             audit(session, task, "task_submitted")
@@ -187,6 +202,8 @@ class TaskService:
                     actual_model=task.selected_model,
                     config_version=task.config_version,
                 )
+            if task.kind == "tool_call":
+                audit(session, task, "tool_selected", tool=task.payload["tool"])
             if task.kind in {"approval_demo", "ai_prompt"}:
                 # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
@@ -415,6 +432,20 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            if task.kind == "tool_call":
+                if self.tool_gateway is None:
+                    task.error = "tool_gateway_unavailable"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "tool_policy_denied", reason=task.error)
+                    return None
+                try:
+                    tool = self.tool_gateway.registry.get(task.payload["tool"])
+                    self.tool_gateway.policy.evaluate(tool)
+                except ToolPolicyDenied as error:
+                    task.error = error.args[0]
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "tool_policy_denied", tool=task.payload["tool"])
+                    return None
             current_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -455,6 +486,8 @@ class TaskService:
                 task.payload.get("profile"),
                 task.selected_alias,
                 task.selected_model,
+                task.payload.get("tool"),
+                task.payload.get("arguments"),
             )
 
     def finish(

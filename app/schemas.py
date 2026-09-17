@@ -43,8 +43,19 @@ class AIPromptInput(TaskInput):
     payload: AIPromptPayload
 
 
+class ToolCallPayload(StrictModel):
+    tool: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolCallInput(TaskInput):
+    kind: Literal["tool_call"]
+    payload: ToolCallPayload
+
+
 TaskCreate = Annotated[
-    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput, Field(discriminator="kind")
+    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput | ToolCallInput,
+    Field(discriminator="kind"),
 ]
 
 
@@ -97,8 +108,8 @@ class ApprovalResponse(StrictModel):
 
 class TaskResponse(StrictModel):
     id: str
-    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt"]
-    payload: TextPayload | AIPromptPayload
+    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt", "tool_call"]
+    payload: TextPayload | AIPromptPayload | ToolCallPayload
     timeout_seconds: float
     status: State
     action_version: int

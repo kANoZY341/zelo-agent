@@ -96,3 +96,8 @@ async def models(request: Request) -> dict:
             for alias, model in aliases.items()
         ],
     }
+
+
+@router.get("/tools")
+def tools(request: Request) -> list[dict]:
+    return request.app.state.tool_gateway.registry.metadata()

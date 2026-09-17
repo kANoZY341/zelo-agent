@@ -66,7 +66,7 @@ class Database:
 
     def migrate(self) -> None:
         config = migration_config()
-        with self.engine.begin() as connection:
+        with self.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
 

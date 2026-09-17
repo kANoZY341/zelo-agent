@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     ollama_reasoning_model: str = "deepseek-r1:7b"
     model_config_version: str = "1"
     model_timeout_seconds: float = Field(default=60.0, ge=0.01, le=600)
+    workspace_root: Path = ROOT / "workspaces"
+    workspace_max_entries: int = Field(default=1000, ge=1, le=10000)
+    workspace_max_depth: int = Field(default=8, ge=1, le=32)
+    workspace_max_file_size: int = Field(default=1_048_576, ge=1, le=10_485_760)
 
     @field_validator("ollama_url")
     @classmethod
@@ -64,6 +68,14 @@ class Settings(BaseSettings):
         resolved = (ROOT / value).resolve() if not value.is_absolute() else value.resolve()
         if not resolved.is_relative_to(ROOT / "runtime"):
             raise ValueError("Runtime directory must be inside the repository's runtime/ directory")
+        return resolved
+
+    @field_validator("workspace_root")
+    @classmethod
+    def validate_workspace_root(cls, value: Path) -> Path:
+        resolved = (ROOT / value).resolve() if not value.is_absolute() else value.resolve()
+        if not resolved.is_relative_to(ROOT / "workspaces"):
+            raise ValueError("Workspace root must be inside the repository's workspaces/ directory")
         return resolved
 
     @property
