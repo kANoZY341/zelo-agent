@@ -1,8 +1,8 @@
-# Zelo Core v0.3
+# Zelo Core v0.4
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
-application, durable task execution, approvals, and a localhost-only Ollama
-model gateway.
+application, durable task execution, approvals, a localhost-only Ollama model
+gateway, and a small native read-only tool runtime.
 
 ## Setup
 
@@ -32,7 +32,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.3.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.4.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -64,7 +64,9 @@ The development requirements add pytest and Ruff.
 - `memory/`, `secrets/`, `workspaces/`: reserved local directories, ignored by Git.
 
 Existing contents of the reserved directories must be preserved. On a fresh
-clone, create them only when needed. Keep credentials out of source control.
+clone, application startup creates the configured workspace root if missing;
+create the other reserved directories only when needed. Keep credentials out of
+source control.
 
 Provider access is typed and replaceable behind `app.gateway.ModelProvider`.
 The authenticated `GET /models` endpoint reports local alias availability.
@@ -90,6 +92,35 @@ HTTP endpoint with `ZELO_OLLAMA_URL` (default
 `http://127.0.0.1:11434`). Zelo never accepts provider URLs from tasks, uses
 cloud providers, downloads models, or silently falls back. Model calls require
 operator approval, and models return text only without tool or action access.
+
+## Native Tool Runtime
+
+v0.4 adds a Zelo-owned, typed runtime for explicitly registered tools:
+
+```text
+Task (tool_call) -> ToolGateway -> ToolRegistry -> ToolPolicy -> tool -> typed result
+                                                     -> task and audit persistence
+```
+
+The initial safe-read registry contains `system_info`, `repo_status`,
+`list_workspace_files`, and `read_workspace_file`. Each tool has a stable name,
+description, Pydantic input and result model, risk level, approval requirement,
+and bounded execution timeout. `GET /tools` is authenticated and exposes only
+these safe metadata and input schemas.
+
+The policy supports `safe_read`, `sensitive_read`, `write`, `external`, and
+`destructive` risk levels. Only `safe_read` tools execute in v0.4; all other
+levels fail closed. Workspace tools accept only relative paths, reject
+traversal and symlink escapes, stay under `workspaces/`, do not read contents
+while listing, and bound UTF-8 file reads by size. Runtime databases, secrets,
+and files outside that root are unavailable.
+
+`ModelGateway` and `ToolGateway` are separate. Models cannot register tools,
+call Python functions, choose executables, or create shell commands. Arbitrary
+shell, browser, cloud, URL, write, deletion, package-installation, and external
+network tools are intentionally unavailable. A future Agent Runtime may decide
+when a model requests a registered tool, but v0.4 does not implement an
+autonomous model/tool loop.
 
 List and pull models manually with Ollama; Zelo does not do either operation
 automatically:

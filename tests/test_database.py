@@ -3,11 +3,12 @@
 import sqlite3
 
 import pytest
+from alembic import command
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect, select, text
+from sqlalchemy import event, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.database import Database
+from app.database import Database, migration_config
 from app.main import create_app
 from app.models import AuditEvent, Task
 from app.schemas import EchoInput
@@ -28,12 +29,266 @@ def test_migration_from_empty_database(settings) -> None:
             "approvals",
             "audit_events",
         }
+        assert not any(
+            table.startswith("_alembic_tmp_")
+            for table in inspect(database.engine).get_table_names()
+        )
         database.migrate()  # Re-running upgrade head is non-destructive.
         with database.read() as session:
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
             assert session.scalar(text("PRAGMA journal_mode")) == "wal"
             assert session.scalar(text("PRAGMA busy_timeout")) == 5000
             assert session.scalar(text("PRAGMA integrity_check")) == "ok"
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    finally:
+        database.close()
+
+
+def test_migration_preserves_foreign_key_dependents(settings) -> None:
+    database = Database(settings.database_path)
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0001_task_foundation")
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, kind, payload, timeout_seconds, status, action_version,
+                        action_hash, request_hash, cancel_requested, created_at, updated_at
+                    ) VALUES (
+                        :task_id, 'echo', '{}', 30, 'succeeded', 1,
+                        :action_hash, :request_hash, 0, '2026-01-01 00:00:00',
+                        '2026-01-01 00:00:00'
+                    )
+                    """
+                ),
+                {
+                    "task_id": "task-before-model-gateway",
+                    "action_hash": "a" * 64,
+                    "request_hash": "b" * 64,
+                },
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO task_attempts (
+                        id, task_id, number, started_at, outcome
+                    ) VALUES (
+                        'attempt-before-model-gateway', :task_id, 1,
+                        '2026-01-01 00:00:00', 'succeeded'
+                    )
+                    """
+                ),
+                {"task_id": "task-before-model-gateway"},
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO approvals (
+                        id, task_id, action_version, action_hash, status,
+                        created_at, expires_at
+                    ) VALUES (
+                        'approval-before-model-gateway', :task_id, 1, :action_hash,
+                        'approved', '2026-01-01 00:00:00', '2026-01-02 00:00:00'
+                    )
+                    """
+                ),
+                {"task_id": "task-before-model-gateway", "action_hash": "c" * 64},
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO audit_events (
+                        id, task_id, attempt_id, approval_id, event,
+                        created_at, details
+                    ) VALUES (
+                        'audit-before-model-gateway', :task_id, :attempt_id,
+                        :approval_id, 'task_submitted', '2026-01-01 00:00:00', '{}'
+                    )
+                    """
+                ),
+                {
+                    "task_id": "task-before-model-gateway",
+                    "attempt_id": "attempt-before-model-gateway",
+                    "approval_id": "approval-before-model-gateway",
+                },
+            )
+
+        with database.read() as session:
+            assert session.scalar(text("PRAGMA foreign_keys")) == 1
+
+        database.migrate()
+
+        with database.read() as session:
+            assert session.scalar(text("PRAGMA foreign_keys")) == 1
+            assert session.execute(
+                text("SELECT kind, selected_alias FROM tasks WHERE id = :task_id"),
+                {"task_id": "task-before-model-gateway"},
+            ).one() == ("echo", None)
+            assert (
+                session.execute(
+                    text("SELECT task_id FROM task_attempts WHERE id = :attempt_id"),
+                    {"attempt_id": "attempt-before-model-gateway"},
+                ).scalar_one()
+                == "task-before-model-gateway"
+            )
+            assert (
+                session.execute(
+                    text("SELECT task_id FROM approvals WHERE id = :approval_id"),
+                    {"approval_id": "approval-before-model-gateway"},
+                ).scalar_one()
+                == "task-before-model-gateway"
+            )
+            assert session.execute(
+                text(
+                    "SELECT task_id, attempt_id, approval_id FROM audit_events WHERE id = :event_id"
+                ),
+                {"event_id": "audit-before-model-gateway"},
+            ).one() == (
+                "task-before-model-gateway",
+                "attempt-before-model-gateway",
+                "approval-before-model-gateway",
+            )
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+            assert (
+                session.scalar(text("SELECT version_num FROM alembic_version")) == "0003_tool_call"
+            )
+            assert "tool_call" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            assert not any(
+                table.startswith("_alembic_tmp_")
+                for table in inspect(database.engine).get_table_names()
+            )
+    finally:
+        database.close()
+
+
+def test_failed_migration_rolls_back_and_can_retry(settings) -> None:
+    database = Database(settings.database_path)
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0001_task_foundation")
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, kind, payload, timeout_seconds, status, action_version,
+                        action_hash, request_hash, cancel_requested, created_at, updated_at
+                    ) VALUES (
+                        'task-rollback', 'echo', '{}', 30, 'succeeded', 1,
+                        :action_hash, :request_hash, 0, '2026-01-01 00:00:00',
+                        '2026-01-01 00:00:00'
+                    )
+                    """
+                ),
+                {"action_hash": "a" * 64, "request_hash": "b" * 64},
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO task_attempts (
+                        id, task_id, number, started_at, outcome
+                    ) VALUES (
+                        'attempt-rollback', 'task-rollback', 1,
+                        '2026-01-01 00:00:00', 'succeeded'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO approvals (
+                        id, task_id, action_version, action_hash, status,
+                        created_at, expires_at
+                    ) VALUES (
+                        'approval-rollback', 'task-rollback', 1, :action_hash,
+                        'approved', '2026-01-01 00:00:00', '2026-01-02 00:00:00'
+                    )
+                    """
+                ),
+                {"action_hash": "c" * 64},
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO audit_events (
+                        id, task_id, attempt_id, approval_id, event,
+                        created_at, details
+                    ) VALUES (
+                        'audit-rollback', 'task-rollback', 'attempt-rollback',
+                        'approval-rollback', 'task_submitted',
+                        '2026-01-01 00:00:00', '{}'
+                    )
+                    """
+                )
+            )
+
+        before_columns = {
+            column["name"] for column in inspect(database.engine).get_columns("tasks")
+        }
+        before_counts = {}
+        with database.read() as session:
+            for table in ("tasks", "task_attempts", "approvals", "audit_events"):
+                before_counts[table] = session.scalar(text(f"SELECT COUNT(*) FROM {table}"))
+
+        def fail_after_selected_alias(
+            _connection, _cursor, statement, _parameters, _context, _executemany
+        ) -> None:
+            if "ADD COLUMN selected_alias" in statement:
+                raise RuntimeError("injected migration failure")
+
+        with database.engine.connect() as connection:
+            event.listen(connection, "after_cursor_execute", fail_after_selected_alias)
+            config = migration_config()
+            config.attributes["connection"] = connection
+            with pytest.raises(RuntimeError, match="injected migration failure"):
+                command.upgrade(config, "0002_model_gateway")
+            event.remove(connection, "after_cursor_execute", fail_after_selected_alias)
+
+        assert {
+            column["name"] for column in inspect(database.engine).get_columns("tasks")
+        } == before_columns
+        assert set(inspect(database.engine).get_table_names()) == {
+            "alembic_version",
+            "approvals",
+            "audit_events",
+            "task_attempts",
+            "tasks",
+        }
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0001_task_foundation"
+            )
+            for table, count in before_counts.items():
+                assert session.scalar(text(f"SELECT COUNT(*) FROM {table}")) == count
+            assert session.scalar(text("PRAGMA foreign_keys")) == 1
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+
+        database.migrate()
+
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0003_tool_call"
+            )
+            assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
+            assert session.scalar(text("PRAGMA foreign_keys")) == 1
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+        assert not any(
+            table.startswith("_alembic_tmp_")
+            for table in inspect(database.engine).get_table_names()
+        )
     finally:
         database.close()
 

@@ -16,6 +16,7 @@ from app.policy import DomainError
 from app.runner import Runner
 from app.task_api import router as task_router
 from app.tasks import TaskService
+from app.tools import ToolGateway
 from app.workers import Worker, execute
 
 
@@ -38,6 +39,7 @@ def create_app(
         try:
             database.acquire_runner()
             database.check_schema()
+            configuration.workspace_root.mkdir(parents=True, exist_ok=True, mode=0o700)
             model_provider = provider or OllamaProvider(configuration.ollama_url)
             gateway = ModelGateway(
                 model_provider,
@@ -45,12 +47,14 @@ def create_app(
                 configuration.ollama_reasoning_model,
                 configuration.model_config_version,
             )
-            tasks = TaskService(database, configuration, gateway)
+            tool_gateway = ToolGateway(configuration)
+            tasks = TaskService(database, configuration, gateway, tool_gateway)
             tasks.recover()
             tasks.expire_approvals()
             runner = Runner(tasks, worker, gateway)
             application.state.database = database
             application.state.tasks = tasks
+            application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()
             yield
