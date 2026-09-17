@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
+from app.agent import AgentRuntime, AgentRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
 from app.tasks import Execution, TaskService
@@ -15,11 +16,16 @@ logger = logging.getLogger("zelo")
 
 class Runner:
     def __init__(
-        self, service: TaskService, worker: Worker = execute, gateway: ModelGateway | None = None
+        self,
+        service: TaskService,
+        worker: Worker = execute,
+        gateway: ModelGateway | None = None,
+        agent_runtime: AgentRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
+        self.agent_runtime = agent_runtime
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -86,10 +92,17 @@ class Runner:
             self.operation = asyncio.create_task(self._model_worker(execution))
         elif execution.kind == "tool_call":
             self.operation = asyncio.create_task(self._tool_worker(execution))
+        elif execution.kind == "agent_run":
+            self.operation = asyncio.create_task(self._agent_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
-            raw = await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
+            # AgentRuntime enforces both its configured deadline and the task deadline.
+            raw = (
+                await self.operation
+                if execution.kind == "agent_run"
+                else await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
+            )
             result = (
                 raw
                 if execution.kind == "tool_call"
@@ -125,6 +138,8 @@ class Runner:
                     tool=execution.tool_name,
                     reason="tool_timeout",
                 )
+        except AgentRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
         except ModelGatewayError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
             if execution.kind == "ai_prompt":
@@ -226,4 +241,20 @@ class Runner:
             self.service.tool_gateway.execute,
             execution.tool_name,
             execution.tool_arguments or {},
+        )
+
+    async def _agent_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.agent_runtime is None:
+            raise AgentRuntimeError("agent_runtime_unavailable")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await self.agent_runtime.run(
+            prompt=execution.payload["prompt"],
+            profile=execution.profile or "",
+            selected_alias=execution.selected_alias or "",
+            selected_model=execution.selected_model or "",
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
         )

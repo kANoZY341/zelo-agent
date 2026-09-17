@@ -1,8 +1,8 @@
-# Zelo Core v0.4
+# Zelo Core v0.5.0 — Agent Runtime
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
-gateway, and a small native read-only tool runtime.
+gateway, native read-only tools, and a bounded Agent Runtime.
 
 ## Setup
 
@@ -23,6 +23,9 @@ defined in `app/__init__.py`.
 ## Run locally
 
 ```bash
+# Set ZELO_OPERATOR_TOKEN to a private random token (32–512 ASCII characters).
+# Stop any process using this database before applying migrations.
+python -m alembic upgrade head
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -32,13 +35,13 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.4.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.5.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
 ```
 
-`/health` is a process liveness check. Model calls are available only through Ollama on `127.0.0.1`; there is no cloud,
+`/health` checks database and runner readiness. Model calls are available only through Ollama on `127.0.0.1`; there is no cloud,
 arbitrary URL, download, or fallback provider. `ai_prompt` tasks always require
 an explicit approval. Logical profiles select the configured
 `local_general`/`local_reasoning` aliases and bind the selection snapshot to the
@@ -90,8 +93,9 @@ configuration version is included in the approval binding.
 Ollama is the only provider in v0.3 and must remain on localhost. Configure its
 HTTP endpoint with `ZELO_OLLAMA_URL` (default
 `http://127.0.0.1:11434`). Zelo never accepts provider URLs from tasks, uses
-cloud providers, downloads models, or silently falls back. Model calls require
-operator approval, and models return text only without tool or action access.
+cloud providers, downloads models, or silently falls back. `ai_prompt` calls require
+operator approval and return text. Authenticated `agent_run` tasks use the separate
+bounded proposal loop described below.
 
 ## Native Tool Runtime
 
@@ -118,9 +122,127 @@ and files outside that root are unavailable.
 `ModelGateway` and `ToolGateway` are separate. Models cannot register tools,
 call Python functions, choose executables, or create shell commands. Arbitrary
 shell, browser, cloud, URL, write, deletion, package-installation, and external
-network tools are intentionally unavailable. A future Agent Runtime may decide
-when a model requests a registered tool, but v0.4 does not implement an
-autonomous model/tool loop.
+network tools are intentionally unavailable. The v0.5 Agent Runtime validates
+model proposals and routes approved capabilities through this same gateway.
+
+## Agent Runtime
+
+The model proposes; Zelo decides; Zelo executes. `ModelGateway` owns provider
+access and deterministic model routing. `ToolGateway` owns typed tool execution
+and `ToolPolicy`. `AgentRuntime` owns one attempt's in-memory conversation,
+structured proposals, budgets, and the handoff between these gateways. The task
+engine owns persistence, cancellation, retry, and audit history.
+
+```text
+authenticated POST /tasks (agent_run)
+  -> AgentRuntime -> ModelGateway -> local general model
+  -> validate one action
+     final     -> persist final result and complete the attempt
+     tool_call -> ToolRegistry -> typed arguments -> ToolPolicy -> ToolGateway
+               -> bounded, untrusted tool output -> next model step
+```
+
+Use the existing tasks API; no new endpoint is required:
+
+```json
+{
+  "kind": "agent_run",
+  "payload": {
+    "prompt": "Check the current Zelo repository status and tell me what branch I am on.",
+    "profile": "general"
+  },
+  "timeout_seconds": 120
+}
+```
+
+`general` is the only allowed agent profile and is also the default. It selects
+`local_general` (`qwen3:4b-instruct` by default). Agent runs never automatically
+invoke the reasoning/DeepSeek profile. The selected model is persisted at submission
+and checked on each model step; changing its alias mapping fails the attempt.
+
+Every model response must be exactly one Pydantic-validated JSON action:
+
+```json
+{"type": "tool_call", "tool": "repo_status", "arguments": {}}
+```
+
+or:
+
+```json
+{"type": "final", "content": "Your current branch is ..."}
+```
+
+Extra fields, unknown action types, duplicate JSON keys, non-finite numbers,
+multiple actions, prose, and markdown/code fences are rejected. No command is
+extracted from arbitrary text. Tool metadata comes from `ToolRegistry`, filtered
+by `ToolPolicy`, and every execution passes through `ToolGateway`. The current
+four tools are `system_info`, `repo_status`, `list_workspace_files`, and
+`read_workspace_file`. Only safe-read tools can execute without further operator
+approval. Other risks and approval-required tools fail closed. A future approval
+flow belongs at this policy/gateway boundary; an agent never bypasses it.
+
+| Setting | Default | Bound |
+| --- | --- | --- |
+| `ZELO_MAX_AGENT_STEPS` | 6 | 1–20 model calls, including parse retries |
+| `ZELO_MAX_AGENT_TOOL_CALLS` | 4 | 0–16 executed tool calls |
+| `ZELO_AGENT_TIMEOUT_SECONDS` | 120 | 0.01–600 seconds per attempt |
+| `ZELO_MODEL_TIMEOUT_SECONDS` | 60 | 0.01–600 seconds per model call |
+| `ZELO_MAX_MODEL_PARSE_RETRIES` | 1 | 0–2 retries total per attempt |
+| `ZELO_MAX_AGENT_TOOL_RESULT_CHARS` | 8192 | 256–32768 serialized result characters |
+
+The earlier of the task timeout and configured agent timeout ends the run. Tools
+use their registered timeout (currently five seconds). The final model step must
+produce a final answer; a tool proposal at that step fails without executing it.
+Ollama action generation requests JSON output, disables thinking, and caps
+generation at 2048 tokens. Actions are additionally limited to 32768 characters;
+Zelo validates the complete Pydantic action schema before any execution. Final
+answers are limited to 16384 characters. There is no infinite retry or automatic model
+download. A timeout stops the loop and discards late results. Existing synchronous
+safe-read tools run in a thread; Python cannot forcibly terminate that thread, so
+an already-running read may finish after timeout. No further model or tool step
+is scheduled for that attempt.
+
+Tool output has a distinct `tool` conversation role and a Zelo-generated envelope:
+`type=tool_output`, `untrusted=true`, tool name, bounded `result_json`, and a
+`truncated` flag. The serialized result is escaped as data, never interpolated
+into the system prompt. A truncated prefix may be incomplete JSON. Envelope and
+escaping overhead are outside the content budget but remain bounded. The system
+prompt tells the model to treat file contents as evidence rather than instructions.
+This does not guarantee that a model ignores every injected instruction; registry,
+typed argument, policy, and workspace checks enforce permissions regardless of
+what it proposes. There is no arbitrary shell, direct Python callable access,
+browser access, cloud fallback, autonomous write, deletion, or package installation.
+
+Results contain `final_response`, `alias`, `actual_model`, `model_steps`,
+`tool_calls`, unique `tools_used` in first-use order, per-step token `usage`, and
+`completed_at`. Private model thinking fields and internal conversation transcripts
+are not persisted. The task stores the original request and final result as before.
+Audit events record `agent_started`, `agent_model_step`, `agent_tool_requested`,
+`agent_tool_completed`, `agent_parse_failed`, `agent_limit_reached`, and a terminal
+`agent_completed` or `agent_failed`, linked to the attempt. They omit full prompts,
+model output, tool arguments, file contents, and raw exception details. Completion
+and failure events commit atomically with the attempt outcome.
+
+Provider, protocol, tool, policy, and budget failures use existing failed attempts.
+`POST /tasks/{id}/retry` starts a new bounded execution with fresh conversation and
+counters; it preserves previous attempts and does not resume a hidden reasoning
+loop. Process restart marks interrupted runs without replaying them.
+
+Migration `0004_agent_runtime` only extends the task-kind CHECK constraint. It
+uses the existing atomic SQLite/Alembic transaction and foreign-key integrity
+checks; no conversation table or other persistence schema is added.
+
+Automated tests use fake providers and require no Ollama. To run the real local
+smoke test with an already-installed `qwen3:4b-instruct`:
+
+```bash
+.venv/bin/python -m scripts.smoke_agent
+```
+
+It creates an isolated temporary database, starts Zelo on an ephemeral
+`127.0.0.1` port, submits the repository-status request above through HTTP, checks
+the persisted result and audit events, then stops the server and cleans up its
+temporary database. It never downloads a model or invokes DeepSeek.
 
 List and pull models manually with Ollama; Zelo does not do either operation
 automatically:
