@@ -160,7 +160,7 @@ def test_deleted_file_is_absent_from_promoted_tree(developer_case):
     (repo.parent / "owner.json").write_text(
         json.dumps({"task": task_id, "execution": attempt_id, "active": False})
     )
-    (repo / "test_example.py").unlink()
+    (repo / ".gitignore").unlink()
     reviewer = PromotionReviewer(developer_case)
     review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
@@ -176,4 +176,4 @@ def test_deleted_file_is_absent_from_promoted_tree(developer_case):
 
     result, promotion_repo = run_commit(developer_case, request, reviewer, promotion)
 
-    assert trusted_git(promotion_repo, "ls-tree", result.commit_sha, "--", "test_example.py") == ""
+    assert trusted_git(promotion_repo, "ls-tree", result.commit_sha, "--", ".gitignore") == ""
