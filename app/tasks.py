@@ -946,6 +946,21 @@ class TaskService:
             validate_transition(task.status, target)
             self._check_capacity(session)
             audit(session, task, "retry_requested")
+            for approval in session.scalars(
+                select(Approval).where(
+                    Approval.task_id == task.id,
+                    Approval.status.in_(("pending", "approved")),
+                )
+            ):
+                approval.status = "cancelled"
+                approval.decided_at = utcnow()
+                audit(
+                    session,
+                    task,
+                    "approval_cancelled",
+                    approval_id=approval.id,
+                    reason="retry_superseded",
+                )
             transition(session, task, target)
             task.action_version += 1
             if task.kind == "developer_run":
