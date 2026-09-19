@@ -246,3 +246,81 @@ class MergeRunResult(PromotionContract):
     head_sha: str = Field(pattern=GIT_SHA)
     merge_method: Literal["squash"]
     merge_commit_sha: str = Field(pattern=GIT_SHA)
+
+
+class ReleaseRequest(PromotionContract):
+    merge_task_id: str = Field(min_length=36, max_length=36)
+    merge_action_version: int = Field(ge=1)
+    merge_action_hash: str = Field(pattern=SHA256)
+    merge: MergeRequest
+    merge_result: MergeRunResult
+    publisher: PromotionPublisherIdentity
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    branch: Literal["main"] = "main"
+    main_sha: str = Field(pattern=GIT_SHA)
+    tag: str = Field(
+        min_length=6,
+        max_length=64,
+        pattern=r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$",
+    )
+    tag_message: str = Field(min_length=1, max_length=4096)
+    tagger_name: str = Field(min_length=1, max_length=128)
+    tagger_email: str = Field(min_length=3, max_length=254)
+    tagger_date: datetime
+
+    @field_validator("tag_message", "tagger_name", "tagger_email")
+    @classmethod
+    def reject_release_controls(cls, value: str) -> str:
+        if "\x00" in value or "\r" in value:
+            raise ValueError("Release metadata contains forbidden control characters")
+        return value
+
+    @field_validator("tagger_name")
+    @classmethod
+    def validate_tagger_name(cls, value: str) -> str:
+        if "\n" in value or "<" in value or ">" in value:
+            raise ValueError("Invalid release tagger name")
+        return value
+
+    @field_validator("tagger_email")
+    @classmethod
+    def validate_tagger_email(cls, value: str) -> str:
+        if (
+            "\n" in value
+            or value.count("@") != 1
+            or any(character.isspace() for character in value)
+            or "<" in value
+            or ">" in value
+        ):
+            raise ValueError("Invalid release tagger email")
+        return value
+
+    @field_validator("tagger_date")
+    @classmethod
+    def validate_tagger_date(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("Release tagger date must be timezone-aware")
+        return value.astimezone(UTC).replace(microsecond=0)
+
+    @model_validator(mode="after")
+    def validate_release_lineage(self):
+        if (
+            self.merge_result.repository != self.repository
+            or self.merge_result.base_branch != self.branch
+            or self.merge_result.merge_commit_sha != self.main_sha
+            or self.merge_result.pr_number != self.merge.publication.pr_number
+            or self.merge_result.head_sha != self.merge.publication.pr_head_sha
+            or self.publisher != self.merge.promotion.publisher
+        ):
+            raise ValueError("Release request lineage does not match")
+        return self
+
+
+class ReleaseRunResult(PromotionContract):
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    branch: Literal["main"]
+    main_sha: str = Field(pattern=GIT_SHA)
+    tag: str = Field(min_length=6, max_length=64)
+    tag_object_sha: str = Field(pattern=GIT_SHA)
+    annotated: bool
+    reused: bool
