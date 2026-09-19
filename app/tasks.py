@@ -14,7 +14,8 @@ from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeEr
 from app.gateway import ModelGateway
 from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
-from app.promotion_contracts import PromotionRequest
+from app.promotion_ci import PromotionCIVerifier
+from app.promotion_contracts import MergeRequest, PromotionRequest, PromotionRunResult
 from app.promotion_github import publisher_identity
 from app.promotion_review import PromotionReviewer
 from app.schemas import (
@@ -44,6 +45,7 @@ class Execution:
     tool_arguments: dict[str, Any] | None = None
     developer_request: DeveloperRequest | None = None
     promotion_request: PromotionRequest | None = None
+    merge_request: MergeRequest | None = None
 
 
 def audit(
@@ -99,6 +101,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "config_version": task.config_version,
         "developer_spec": task.developer_spec,
         "promotion_spec": task.promotion_spec,
+        "merge_spec": task.merge_spec,
     }
     response = TaskResponse.model_validate(values)
     response.attempts = [
@@ -125,6 +128,7 @@ class TaskService:
         tool_gateway: ToolGateway | None = None,
         developer_runtime: DeveloperRuntime | None = None,
         promotion_reviewer: PromotionReviewer | None = None,
+        promotion_ci_verifier: PromotionCIVerifier | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -132,6 +136,7 @@ class TaskService:
         self.tool_gateway = tool_gateway
         self.developer_runtime = developer_runtime
         self.promotion_reviewer = promotion_reviewer
+        self.promotion_ci_verifier = promotion_ci_verifier
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -301,9 +306,164 @@ class TaskService:
             )
             return snapshot(session, task), True
 
+    def _merge_source(
+        self, promotion_task_id: str
+    ) -> tuple[PromotionRequest, PromotionRunResult, int, str, str]:
+        with self.database.read() as session:
+            source = require_task(session, promotion_task_id)
+            latest = session.scalar(
+                select(TaskAttempt)
+                .where(TaskAttempt.task_id == promotion_task_id)
+                .order_by(TaskAttempt.number.desc())
+                .limit(1)
+            )
+            if (
+                source.kind != "promotion_run"
+                or source.status != State.SUCCEEDED
+                or source.promotion_spec is None
+                or source.result is None
+                or latest is None
+                or latest.outcome != State.SUCCEEDED
+                or latest.error is not None
+                or latest.result != source.result
+            ):
+                raise DomainError("Merge source must be a successful promotion task")
+            try:
+                promotion = PromotionRequest.model_validate(source.promotion_spec)
+                result = PromotionRunResult.model_validate(source.result)
+            except ValueError:
+                raise DomainError("Merge source specification is invalid") from None
+            if (
+                result.publication.repository != promotion.repository
+                or result.publication.pr_head_sha != result.commit.commit_sha
+                or result.publication.pr_base_sha != promotion.review.base_sha
+            ):
+                raise DomainError("Merge source identities do not match")
+            return (
+                promotion,
+                result,
+                source.action_version,
+                source.action_hash,
+                latest.id,
+            )
+
+    def _submit_merge(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
+        request_hash = fingerprint(request.model_dump(mode="json"))
+        if key is not None:
+            with self.database.read() as session:
+                existing = session.scalar(select(Task).where(Task.idempotency_key == key))
+                if existing:
+                    if existing.request_hash != request_hash:
+                        raise DomainError(
+                            "Idempotency key was already used with a different request"
+                        )
+                    return snapshot(session, existing), False
+
+        if self.promotion_ci_verifier is None:
+            raise DomainError("Promotion CI verifier unavailable", 503)
+
+        payload = request.payload.model_dump(mode="json")
+        promotion, result, source_version, source_hash, source_attempt_id = self._merge_source(
+            payload["promotion_task_id"]
+        )
+        try:
+            ci = asyncio.run(
+                self.promotion_ci_verifier.verify(
+                    promotion,
+                    result.publication,
+                )
+            )
+            merge = MergeRequest(
+                promotion_task_id=payload["promotion_task_id"],
+                promotion_action_version=source_version,
+                promotion_action_hash=source_hash,
+                promotion=promotion,
+                publication=result.publication,
+                ci=ci,
+                merge_commit_title=promotion.pr_title,
+                merge_commit_message=promotion.pr_body,
+            )
+        except DeveloperRuntimeError as error:
+            raise DomainError(error.args[0]) from None
+        except ValueError:
+            raise DomainError("Merge request is invalid", 422) from None
+
+        with self.database.transaction() as session:
+            if key is not None:
+                existing = session.scalar(select(Task).where(Task.idempotency_key == key))
+                if existing:
+                    if existing.request_hash != request_hash:
+                        raise DomainError(
+                            "Idempotency key was already used with a different request"
+                        )
+                    return snapshot(session, existing), False
+            self._check_capacity(session)
+            source = require_task(session, payload["promotion_task_id"])
+            latest_attempt_id = session.scalar(
+                select(TaskAttempt.id)
+                .where(TaskAttempt.task_id == source.id)
+                .order_by(TaskAttempt.number.desc())
+                .limit(1)
+            )
+            if (
+                source.kind != "promotion_run"
+                or source.status != State.SUCCEEDED
+                or source.action_version != source_version
+                or source.action_hash != source_hash
+                or source.result != result.model_dump(mode="json")
+                or latest_attempt_id != source_attempt_id
+            ):
+                raise DomainError("Merge source changed during CI verification")
+
+            spec = merge.model_dump(mode="json")
+            task = Task(
+                kind=request.kind,
+                payload=payload,
+                timeout_seconds=request.timeout_seconds,
+                status=State.AWAITING_APPROVAL,
+                action_version=1,
+                action_hash=action_hash(request.kind, payload, request.timeout_seconds, 1, spec),
+                idempotency_key=key,
+                request_hash=request_hash,
+                merge_spec=spec,
+            )
+            session.add(task)
+            session.flush()
+            audit(session, task, "task_submitted")
+            audit(
+                session,
+                task,
+                "promotion_ci_verified",
+                promotion_task_id=source.id,
+                pr_number=ci.pr_number,
+                head_sha=ci.head_sha,
+                base_sha=ci.base_sha,
+                required_checks=ci.required_checks,
+            )
+            audit(
+                session,
+                task,
+                "state_transition",
+                previous=None,
+                target=State.AWAITING_APPROVAL,
+            )
+            approval = self._new_approval(session, task)
+            audit(
+                session,
+                task,
+                "merge_approval_created",
+                approval_id=approval.id,
+                promotion_task_id=source.id,
+                pr_number=ci.pr_number,
+                head_sha=ci.head_sha,
+            )
+            return snapshot(session, task), True
+
     def submit(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
         if request.kind == "promotion_run":
             return self._submit_promotion(request, key)
+        if request.kind == "merge_run":
+            return self._submit_merge(request, key)
         request_hash = fingerprint(request.model_dump(mode="json"))
         with self.database.transaction() as session:
             if key is not None:
@@ -387,7 +547,13 @@ class TaskService:
                 )
             if task.kind == "tool_call":
                 audit(session, task, "tool_selected", tool=task.payload["tool"])
-            if task.kind in {"approval_demo", "ai_prompt", "developer_run", "promotion_run"}:
+            if task.kind in {
+                "approval_demo",
+                "ai_prompt",
+                "developer_run",
+                "promotion_run",
+                "merge_run",
+            }:
                 # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
                 audit(
@@ -476,6 +642,19 @@ class TaskService:
                 ):
                     return False
             except (ValueError, TypeError, KeyError):
+                return False
+        elif task.kind == "merge_run":
+            selection = task.merge_spec
+            try:
+                request = MergeRequest.model_validate(selection)
+                if (
+                    request.promotion_task_id != task.payload["promotion_task_id"]
+                    or self.settings.promotion_repository is None
+                    or request.promotion.repository != self.settings.promotion_repository
+                    or request.promotion.publisher != publisher_identity(self.settings)
+                ):
+                    return False
+            except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
                 return False
         current = action_hash(
             task.kind, task.payload, task.timeout_seconds, task.action_version, selection
@@ -577,8 +756,8 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
-            if task.kind == "promotion_run":
-                raise DomainError("Promotion retry is not enabled yet", 503)
+            if task.kind in {"promotion_run", "merge_run"}:
+                raise DomainError("Promotion or merge retry is not enabled yet", 503)
             target = (
                 State.AWAITING_APPROVAL
                 if task.kind in {"approval_demo", "ai_prompt", "developer_run"}
@@ -615,7 +794,11 @@ class TaskService:
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
-                    else (task.promotion_spec if task.kind == "promotion_run" else None)
+                    else (
+                        task.promotion_spec
+                        if task.kind == "promotion_run"
+                        else (task.merge_spec if task.kind == "merge_run" else None)
+                    )
                 ),
             )
             task.cancel_requested = False
@@ -704,6 +887,7 @@ class TaskService:
 
             developer_request = None
             promotion_request = None
+            merge_request = None
             if task.kind == "developer_run":
                 try:
                     developer_request = DeveloperRequest.model_validate(task.developer_spec)
@@ -745,6 +929,36 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            if task.kind == "merge_run":
+                try:
+                    merge_request = MergeRequest.model_validate(task.merge_spec)
+                    source = require_task(session, merge_request.promotion_task_id)
+                    latest = session.scalar(
+                        select(TaskAttempt)
+                        .where(TaskAttempt.task_id == source.id)
+                        .order_by(TaskAttempt.number.desc())
+                        .limit(1)
+                    )
+                    if (
+                        source.kind != "promotion_run"
+                        or source.status != State.SUCCEEDED
+                        or source.action_version != merge_request.promotion_action_version
+                        or source.action_hash != merge_request.promotion_action_hash
+                        or source.promotion_spec
+                        != merge_request.promotion.model_dump(mode="json")
+                        or source.result is None
+                        or PromotionRunResult.model_validate(source.result).publication
+                        != merge_request.publication
+                        or latest is None
+                        or latest.outcome != State.SUCCEEDED
+                        or latest.result != source.result
+                    ):
+                        raise ValueError("merge source changed")
+                except (DomainError, ValueError, TypeError, KeyError):
+                    task.error = "merge_source_changed"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
             number = (
                 session.scalar(
                     select(func.max(TaskAttempt.number)).where(TaskAttempt.task_id == task.id)
@@ -770,6 +984,7 @@ class TaskService:
                 task.payload.get("arguments"),
                 developer_request,
                 promotion_request,
+                merge_request,
             )
 
     def finish(
@@ -827,6 +1042,23 @@ class TaskService:
                     attempt_id=attempt.id,
                     **details,
                 )
+            if task.kind == "merge_run":
+                details = (
+                    {
+                        "pr_number": result["pr_number"],
+                        "head_sha": result["head_sha"],
+                        "merge_commit_sha": result["merge_commit_sha"],
+                    }
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                audit(
+                    session,
+                    task,
+                    "merge_completed" if outcome == State.SUCCEEDED else "merge_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
             if task.kind == "agent_run":
                 details = (
                     {"model_steps": result["model_steps"], "tool_calls": result["tool_calls"]}
@@ -867,6 +1099,14 @@ class TaskService:
                         session,
                         task,
                         "promotion_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "merge_run":
+                    audit(
+                        session,
+                        task,
+                        "merge_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )
