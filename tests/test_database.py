@@ -45,7 +45,8 @@ def test_migration_from_empty_database(settings) -> None:
 
 
 @pytest.mark.parametrize(
-    "starting_revision", ["0001_task_foundation", "0003_tool_call", "0004_agent_runtime"]
+    "starting_revision",
+    ["0001_task_foundation", "0003_tool_call", "0004_agent_runtime", "0005_developer_agent"],
 )
 def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
     database = Database(settings.database_path)
@@ -159,7 +160,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0005_developer_agent"
+                == "0006_promotion_review"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -176,9 +177,16 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
             )
-            assert "developer_spec" in {
+            assert "promotion_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            columns = {
                 column["name"] for column in inspect(database.engine).get_columns("tasks")
             }
+            assert "developer_spec" in columns
+            assert "promotion_spec" in columns
             assert not any(
                 table.startswith("_alembic_tmp_")
                 for table in inspect(database.engine).get_table_names()
@@ -193,6 +201,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
         ("0001_task_foundation", "0002_model_gateway", "ADD COLUMN selected_alias"),
         ("0003_tool_call", "0004_agent_runtime", "DROP TABLE tasks"),
         ("0004_agent_runtime", "0005_developer_agent", "DROP TABLE tasks"),
+        ("0005_developer_agent", "0006_promotion_review", "DROP TABLE tasks"),
     ],
 )
 def test_failed_migration_rolls_back_and_can_retry(

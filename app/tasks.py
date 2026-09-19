@@ -647,7 +647,7 @@ class TaskService:
             )
             if task is None:
                 return None
-            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
+            if task.kind in {"approval_demo", "ai_prompt", "developer_run", "promotion_run"}:
                 approval = session.scalar(
                     select(Approval)
                     .where(Approval.task_id == task.id)
@@ -691,7 +691,11 @@ class TaskService:
                     "profile": task.payload.get("profile"),
                 }
                 if task.kind in {"ai_prompt", "agent_run"}
-                else (task.developer_spec if task.kind == "developer_run" else None),
+                else (
+                    task.developer_spec
+                    if task.kind == "developer_run"
+                    else (task.promotion_spec if task.kind == "promotion_run" else None)
+                ),
             )
             if current_hash != task.action_hash:
                 task.error = "action_changed"

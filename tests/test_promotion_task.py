@@ -110,10 +110,9 @@ def test_promotion_spec_tamper_invalidates_pending_approval(developer_case, data
     service = configured(developer_case, database)
     promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
 
-    with database.transaction() as session:
-        stored = session.get(type("_", (), {}), "unused") if False else None
-        from app.models import Task
+    from app.models import Task
 
+    with database.transaction() as session:
         stored = session.get(Task, promotion.id)
         changed = dict(stored.promotion_spec)
         changed["branch"] = "zelo/promotion/tampered"
@@ -170,7 +169,7 @@ def test_promotion_repository_must_be_operator_configured(developer_case, databa
     _, developer, attempt = completed_developer(developer_case, database)
     service = TaskService(
         database,
-        developer_case.runtime.settings if hasattr(developer_case, "runtime") else developer_case.settings,
+        developer_case.settings,
         developer_runtime=developer_case,
         promotion_reviewer=PromotionReviewer(developer_case),
     )
