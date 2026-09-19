@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.gateway import ModelGatewayError
-from app.promotion_contracts import PromotionRunResult
+from app.promotion_contracts import MergeRunResult, PromotionRunResult
 from app.schemas import (
     AgentRunResult,
     AIPromptResult,
@@ -26,6 +26,7 @@ RESULT_MODELS = {
     "agent_run": AgentRunResult,
     "developer_run": DeveloperRunResult,
     "promotion_run": PromotionRunResult,
+    "merge_run": MergeRunResult,
 }
 
 
