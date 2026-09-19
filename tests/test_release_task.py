@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 from datetime import UTC, datetime
+
 from app.models import Task, TaskAttempt
 from app.policy import State, action_hash
 from app.promotion_contracts import ReleaseRunResult
@@ -121,7 +122,7 @@ def test_release_task_requires_separate_approval_and_exact_main(database, tmp_pa
 
 
 def test_release_source_change_fails_closed_before_tagging(database, tmp_path):
-    configured, merge_task_id, _, _ = merge_source(settings, database, tmp_path)
+    configured, merge_task_id, _, _ = merge_source(database, tmp_path)
     final = ReleaseRunResult(
         repository="kANoZY341/zelo-agent",
         branch="main",
