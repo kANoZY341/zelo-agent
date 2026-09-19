@@ -261,7 +261,10 @@ def test_interrupted_promotion_retry_requires_fresh_approval_and_preserves_spec(
     assert retried.result is None
     assert retried.error is None
     assert len(retried.approvals) == 2
+    assert retried.approvals[0].status == "cancelled"
     assert retried.approvals[-1].status == "pending"
     assert retried.approvals[-1].action_hash == retried.action_hash
+    service.expire_approvals()
+    assert service.get(promotion.id).status == State.AWAITING_APPROVAL
     events = [event.event for event in service.events(promotion.id, 100, 0)]
     assert events[-2:] == ["approval_created", "promotion_approval_created"]
