@@ -121,9 +121,8 @@ class PromotionReleaseRuntime:
         )
 
     async def verify_ready(self, request: ReleaseRequest) -> ReleaseRunResult | None:
-        if (
-            request.repository != self.repository
-            or request.publisher != publisher_identity(self.settings)
+        if request.repository != self.repository or request.publisher != publisher_identity(
+            self.settings
         ):
             raise DeveloperError("promotion_release_publisher_changed")
         await self._require_main(request)
@@ -179,10 +178,6 @@ class PromotionReleaseRuntime:
             raise DeveloperError("promotion_release_ref_mismatch")
 
         verified = await self._existing(request)
-        if (
-            verified is None
-            or not verified.annotated
-            or verified.tag_object_sha != tag_object_sha
-        ):
+        if verified is None or not verified.annotated or verified.tag_object_sha != tag_object_sha:
             raise DeveloperError("promotion_release_verification_failed")
         return verified.model_copy(update={"reused": False})

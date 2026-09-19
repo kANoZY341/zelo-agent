@@ -520,10 +520,7 @@ class TaskService:
                         )
                     return snapshot(session, existing), False
 
-        if (
-            self.promotion_release_runtime is None
-            or self.settings.promotion_repository is None
-        ):
+        if self.promotion_release_runtime is None or self.settings.promotion_repository is None:
             raise DomainError("Promotion release runtime unavailable", 503)
 
         payload = request.payload.model_dump(mode="json")
