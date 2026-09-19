@@ -3,12 +3,9 @@
 import asyncio
 import hashlib
 from datetime import UTC, datetime
-from pathlib import Path
-
 from app.models import Task, TaskAttempt
 from app.policy import State, action_hash
 from app.promotion_contracts import ReleaseRunResult
-from app.promotion_release import PromotionReleaseRuntime
 from app.runner import Runner
 from app.schemas import ReleaseRunInput
 from app.tasks import TaskService
@@ -30,7 +27,7 @@ class FakeReleaseRuntime:
         return self.result
 
 
-def merge_source(settings, database, tmp_path):
+def merge_source(database, tmp_path):
     configured, release_template = release_fixture(tmp_path)
     merge = release_template.merge
     merge_result = release_template.merge_result
@@ -63,10 +60,8 @@ def merge_source(settings, database, tmp_path):
     return configured, task_id, merge, merge_result
 
 
-def test_release_task_requires_separate_approval_and_exact_main(settings, database, tmp_path):
-    configured, merge_task_id, merge, merge_result = merge_source(
-        settings, database, tmp_path
-    )
+def test_release_task_requires_separate_approval_and_exact_main(database, tmp_path):
+    configured, merge_task_id, merge, merge_result = merge_source(database, tmp_path)
     final = ReleaseRunResult(
         repository=merge_result.repository,
         branch="main",
@@ -125,7 +120,7 @@ def test_release_task_requires_separate_approval_and_exact_main(settings, databa
     assert events[-1] == "release_tag_created"
 
 
-def test_release_source_change_fails_closed_before_tagging(settings, database, tmp_path):
+def test_release_source_change_fails_closed_before_tagging(database, tmp_path):
     configured, merge_task_id, _, _ = merge_source(settings, database, tmp_path)
     final = ReleaseRunResult(
         repository="kANoZY341/zelo-agent",
