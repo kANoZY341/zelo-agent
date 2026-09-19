@@ -1,6 +1,7 @@
 """Approval binding and persistence for v0.7 promotion tasks; no GitHub side effects."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -46,7 +47,15 @@ def promotion_input(task_id, attempt_id):
 
 
 def configured(runtime, database):
-    settings = runtime.settings.model_copy(update={"promotion_repository": "kANoZY341/zelo-agent"})
+    gh_config = runtime.settings.runtime_dir / "test-gh-config"
+    gh_config.mkdir(exist_ok=True, mode=0o700)
+    settings = runtime.settings.model_copy(
+        update={
+            "promotion_repository": "kANoZY341/zelo-agent",
+            "promotion_gh_executable": Path("/usr/bin/true"),
+            "promotion_gh_config_dir": gh_config,
+        }
+    )
     return TaskService(
         database,
         settings,
@@ -186,9 +195,17 @@ def test_promotion_requires_latest_successful_developer_attempt(developer_case, 
 @pytest.mark.developer_boundary
 def test_promotion_repository_must_be_operator_configured(developer_case, database):
     _, developer, attempt = completed_developer(developer_case, database)
+    gh_config = developer_case.settings.runtime_dir / "test-gh-config-missing-repo"
+    gh_config.mkdir(exist_ok=True, mode=0o700)
+    settings = developer_case.settings.model_copy(
+        update={
+            "promotion_gh_executable": Path("/usr/bin/true"),
+            "promotion_gh_config_dir": gh_config,
+        }
+    )
     service = TaskService(
         database,
-        developer_case.settings,
+        settings,
         developer_runtime=developer_case,
         promotion_reviewer=PromotionReviewer(developer_case),
     )

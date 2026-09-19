@@ -71,10 +71,21 @@ class PromotionReview(PromotionContract):
         return self
 
 
+class PromotionPublisherIdentity(PromotionContract):
+    gateway_version: Literal["github-promotion-v1"]
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    host: Literal["github.com"] = "github.com"
+    gh_executable: str = Field(min_length=1, max_length=4096)
+    gh_executable_sha256: str = Field(pattern=SHA256)
+    gh_config_dir: str = Field(min_length=1, max_length=4096)
+    timeout_seconds: float = Field(ge=1.0, le=120.0, allow_inf_nan=False)
+
+
 class PromotionRequest(PromotionContract):
     """Approval-bound external action specification."""
 
     review: PromotionReview
+    publisher: PromotionPublisherIdentity
     repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
     target_base_branch: Literal["main"] = "main"
     branch: str = Field(

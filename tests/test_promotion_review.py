@@ -12,7 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.developer import DeveloperError
-from app.promotion_contracts import PromotionRequest
+from app.promotion_contracts import PromotionPublisherIdentity, PromotionRequest
 from app.promotion_review import PromotionReviewer, validate_manifest_path
 from tests.test_developer_boundary import prepared
 
@@ -185,6 +185,14 @@ def test_promotion_request_is_frozen_and_binds_review(developer_case):
     review = create_review(reviewer, task_id, attempt_id, request)
     promotion = PromotionRequest(
         review=review,
+        publisher=PromotionPublisherIdentity(
+            gateway_version="github-promotion-v1",
+            repository="kANoZY341/zelo-agent",
+            gh_executable="/usr/bin/gh",
+            gh_executable_sha256="c" * 64,
+            gh_config_dir="/home/zelo/.config/gh",
+            timeout_seconds=30,
+        ),
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/test-123",
         commit_title="feat: promote reviewed candidate",

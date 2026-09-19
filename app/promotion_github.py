@@ -1,7 +1,10 @@
 """Trusted GitHub publication of an exact approval-bound local promotion commit."""
 
 import base64
+import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote, urlencode
@@ -13,12 +16,86 @@ from app.developer_process import DeveloperError, environment, run_process
 from app.promotion_contracts import (
     PromotionCommitResult,
     PromotionPublishResult,
+    PromotionPublisherIdentity,
     PromotionRequest,
 )
 from app.promotion_review import PromotionReviewer, read_candidate_bytes
 
 GATEWAY_VERSION = "github-promotion-v1"
 HEX = set("0123456789abcdef")
+MAX_GH_BYTES = 256 * 1024 * 1024
+
+
+def publisher_identity(settings: Settings) -> PromotionPublisherIdentity:
+    """Bind the exact trusted GitHub CLI and credential location without reading the token."""
+    if settings.promotion_repository is None:
+        raise DeveloperError("promotion_repository_unconfigured")
+    executable = settings.promotion_gh_executable
+    config_dir = settings.promotion_gh_config_dir
+    executable_fd = None
+    try:
+        if executable.is_symlink() or not executable.is_absolute():
+            raise DeveloperError("promotion_github_cli_untrusted")
+        resolved = executable.resolve(strict=True)
+        if resolved != executable:
+            raise DeveloperError("promotion_github_cli_untrusted")
+        executable_fd = os.open(
+            resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+        )
+        before = os.fstat(executable_fd)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != 0
+            or before.st_mode & 0o022
+            or not 0 < before.st_size <= MAX_GH_BYTES
+        ):
+            raise DeveloperError("promotion_github_cli_untrusted")
+        digest = hashlib.sha256()
+        total = 0
+        while block := os.read(executable_fd, 65536):
+            total += len(block)
+            if total > MAX_GH_BYTES:
+                raise DeveloperError("promotion_github_cli_untrusted")
+            digest.update(block)
+        after = os.fstat(executable_fd)
+        if (
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise DeveloperError("promotion_github_cli_changed")
+
+        if config_dir.is_symlink() or not config_dir.is_absolute():
+            raise DeveloperError("promotion_github_auth_unavailable")
+        resolved_config = config_dir.resolve(strict=True)
+        if resolved_config != config_dir or not resolved_config.is_dir():
+            raise DeveloperError("promotion_github_auth_unavailable")
+        config_stat = resolved_config.stat()
+        if config_stat.st_uid not in {0, os.getuid()} or config_stat.st_mode & 0o022:
+            raise DeveloperError("promotion_github_auth_untrusted")
+
+        return PromotionPublisherIdentity(
+            gateway_version=GATEWAY_VERSION,
+            repository=settings.promotion_repository,
+            host="github.com",
+            gh_executable=str(resolved),
+            gh_executable_sha256=digest.hexdigest(),
+            gh_config_dir=str(resolved_config),
+            timeout_seconds=settings.promotion_github_timeout_seconds,
+        )
+    except OSError:
+        raise DeveloperError("promotion_github_cli_unavailable") from None
+    finally:
+        if executable_fd is not None:
+            os.close(executable_fd)
 
 
 class GitHubTransport(Protocol):
@@ -336,6 +413,8 @@ class GitHubPromotionPublisher:
     ) -> PromotionPublishResult:
         if promotion.repository != self.repository:
             raise DeveloperError("promotion_repository_changed")
+        if promotion.publisher != publisher_identity(self.settings):
+            raise DeveloperError("promotion_publisher_changed")
         if (
             local.base_sha != promotion.review.base_sha
             or local.branch != promotion.branch

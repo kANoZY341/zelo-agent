@@ -15,6 +15,7 @@ from app.gateway import ModelGateway
 from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
 from app.promotion_contracts import PromotionRequest
+from app.promotion_github import publisher_identity
 from app.promotion_review import PromotionReviewer
 from app.schemas import (
     ApprovalResponse,
@@ -216,6 +217,7 @@ class TaskService:
             )
             promotion = PromotionRequest(
                 review=review,
+                publisher=publisher_identity(self.settings),
                 repository=self.settings.promotion_repository,
                 target_base_branch=payload["target_base_branch"],
                 branch=payload["branch"],

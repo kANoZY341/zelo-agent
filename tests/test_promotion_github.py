@@ -11,7 +11,7 @@ import pytest
 from app.developer_contracts import ValidationResult
 from app.developer_process import DeveloperError
 from app.promotion_contracts import PromotionCommitResult, PromotionRequest
-from app.promotion_github import GitHubPromotionPublisher
+from app.promotion_github import GitHubPromotionPublisher, publisher_identity
 from app.promotion_review import PromotionReviewer
 from tests.test_developer_boundary import prepared
 
@@ -52,8 +52,18 @@ def reviewed(runtime):
     (repo / "feature.py").write_text("VALUE = 7\n")
     reviewer = PromotionReviewer(runtime)
     review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
+    gh_config = runtime.settings.runtime_dir / "test-gh-config-publisher"
+    gh_config.mkdir(exist_ok=True, mode=0o700)
+    settings = runtime.settings.model_copy(
+        update={
+            "promotion_repository": "kANoZY341/zelo-agent",
+            "promotion_gh_executable": Path("/usr/bin/true"),
+            "promotion_gh_config_dir": gh_config,
+        }
+    )
     promotion = PromotionRequest(
         review=review,
+        publisher=publisher_identity(settings),
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/publish-fixture",
         commit_title="feat: publish reviewed candidate",
@@ -80,7 +90,6 @@ def reviewed(runtime):
         review_fingerprint=review.review_fingerprint,
         validation=validation,
     )
-    settings = runtime.settings.model_copy(update={"promotion_repository": "kANoZY341/zelo-agent"})
     return repo, request, reviewer, promotion, local, settings
 
 

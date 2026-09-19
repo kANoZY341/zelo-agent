@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 
 from app.developer_process import DeveloperError
-from app.promotion_contracts import PromotionRequest
+from app.promotion_contracts import PromotionPublisherIdentity, PromotionRequest
 from app.promotion_git import PromotionCommitter
 from app.promotion_review import PromotionReviewer
 from tests.test_developer_boundary import prepared
@@ -48,6 +48,14 @@ def reviewed_candidate(runtime):
     )
     promotion = PromotionRequest(
         review=review,
+        publisher=PromotionPublisherIdentity(
+            gateway_version="github-promotion-v1",
+            repository="kANoZY341/zelo-agent",
+            gh_executable="/usr/bin/gh",
+            gh_executable_sha256="c" * 64,
+            gh_config_dir="/home/zelo/.config/gh",
+            timeout_seconds=30,
+        ),
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/commit-fixture",
         commit_title="feat: promote reviewed candidate",
@@ -134,6 +142,14 @@ def test_symlink_bytes_are_promoted_without_following_target(developer_case):
     review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
         review=review,
+        publisher=PromotionPublisherIdentity(
+            gateway_version="github-promotion-v1",
+            repository="kANoZY341/zelo-agent",
+            gh_executable="/usr/bin/gh",
+            gh_executable_sha256="c" * 64,
+            gh_config_dir="/home/zelo/.config/gh",
+            timeout_seconds=30,
+        ),
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/symlink-fixture",
         commit_title="test: promote symlink",
@@ -165,6 +181,14 @@ def test_deleted_file_is_absent_from_promoted_tree(developer_case):
     review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
         review=review,
+        publisher=PromotionPublisherIdentity(
+            gateway_version="github-promotion-v1",
+            repository="kANoZY341/zelo-agent",
+            gh_executable="/usr/bin/gh",
+            gh_executable_sha256="c" * 64,
+            gh_config_dir="/home/zelo/.config/gh",
+            timeout_seconds=30,
+        ),
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/delete-fixture",
         commit_title="test: promote deletion",
