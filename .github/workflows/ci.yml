@@ -21,7 +21,7 @@ jobs:
       - name: Install system prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap
+          sudo apt-get install -y bubblewrap python3-venv
       - name: Allow Bubblewrap user namespaces on Ubuntu CI
         run: |
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -29,7 +29,7 @@ jobs:
           fi
       - name: Create trusted validation environment
         run: |
-          python -m venv .venv
+          /usr/bin/python3 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -r requirements-dev.txt
       - run: .venv/bin/python -m ruff check .
