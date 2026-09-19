@@ -182,6 +182,8 @@ class PromotionRunResult(PromotionContract):
 class CICheckSnapshot(PromotionContract):
     check_run_id: int = Field(ge=1)
     name: str = Field(min_length=1, max_length=256)
+    app_id: int = Field(ge=1)
+    app_slug: str = Field(min_length=1, max_length=128, pattern=r"^[a-z0-9][a-z0-9-]*$")
     status: Literal["completed"]
     conclusion: Literal["success"]
     completed_at: datetime

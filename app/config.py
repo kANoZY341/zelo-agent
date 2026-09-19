@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     promotion_gh_config_dir: Path = Path.home() / ".config/gh"
     promotion_github_timeout_seconds: float = Field(default=30.0, ge=1.0, le=120.0)
     promotion_required_checks: tuple[str, ...] = ("checks",)
+    promotion_ci_app_id: int = Field(default=15368, ge=1)
+    promotion_ci_app_slug: str = Field(
+        default="github-actions",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9-]*$",
+    )
 
     @field_validator("ollama_url")
     @classmethod

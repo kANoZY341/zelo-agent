@@ -96,6 +96,12 @@ class PromotionCIVerifier:
             if not matches:
                 raise DeveloperError("promotion_ci_required_check_missing")
             for run in matches:
+                app = _dict(run.get("app"))
+                if (
+                    app.get("id") != self.settings.promotion_ci_app_id
+                    or app.get("slug") != self.settings.promotion_ci_app_slug
+                ):
+                    raise DeveloperError("promotion_ci_app_mismatch")
                 if run.get("status") != "completed" or run.get("conclusion") != "success":
                     raise DeveloperError("promotion_ci_not_green")
                 check_id = run.get("id")
@@ -116,6 +122,8 @@ class PromotionCIVerifier:
                     CICheckSnapshot(
                         check_run_id=check_id,
                         name=name,
+                        app_id=self.settings.promotion_ci_app_id,
+                        app_slug=self.settings.promotion_ci_app_slug,
                         status="completed",
                         conclusion="success",
                         completed_at=stamp,
