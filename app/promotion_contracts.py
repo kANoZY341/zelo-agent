@@ -198,3 +198,51 @@ class PromotionCIVerification(PromotionContract):
     required_checks: list[str] = Field(min_length=1, max_length=32)
     checks: list[CICheckSnapshot] = Field(min_length=1, max_length=128)
     verified_at: datetime
+
+
+class MergeRequest(PromotionContract):
+    promotion_task_id: str = Field(min_length=36, max_length=36)
+    promotion_action_version: int = Field(ge=1)
+    promotion_action_hash: str = Field(pattern=SHA256)
+    promotion: PromotionRequest
+    publication: PromotionPublishResult
+    ci: PromotionCIVerification
+    merge_method: Literal["squash"] = "squash"
+    merge_commit_title: str = Field(min_length=1, max_length=256)
+    merge_commit_message: str = Field(default="", max_length=16384)
+
+    @field_validator("merge_commit_title", "merge_commit_message")
+    @classmethod
+    def validate_merge_text(cls, value: str) -> str:
+        if "\x00" in value or "\r" in value:
+            raise ValueError("Merge metadata contains forbidden control characters")
+        return value
+
+    @model_validator(mode="after")
+    def validate_identity(self):
+        if (
+            self.publication.repository != self.promotion.repository
+            or self.publication.base_branch != self.promotion.target_base_branch
+            or self.publication.base_sha != self.promotion.review.base_sha
+            or self.publication.branch != self.promotion.branch
+            or self.publication.pr_head_sha != self.publication.commit_sha
+            or self.ci.repository != self.publication.repository
+            or self.ci.pr_number != self.publication.pr_number
+            or self.ci.base_branch != self.publication.base_branch
+            or self.ci.base_sha != self.publication.pr_base_sha
+            or self.ci.head_branch != self.publication.branch
+            or self.ci.head_sha != self.publication.pr_head_sha
+        ):
+            raise ValueError("Merge request identities do not match")
+        return self
+
+
+class MergeRunResult(PromotionContract):
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    pr_number: int = Field(ge=1)
+    base_branch: Literal["main"]
+    base_sha: str = Field(pattern=GIT_SHA)
+    head_branch: str = Field(min_length=1, max_length=256)
+    head_sha: str = Field(pattern=GIT_SHA)
+    merge_method: Literal["squash"]
+    merge_commit_sha: str = Field(pattern=GIT_SHA)
