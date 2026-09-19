@@ -130,10 +130,9 @@ def _present_entry(repo: Path, relative: str, operation: str) -> CandidateEntry:
             finally:
                 os.close(descriptor)
             after_path = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-            if (
-                _stable_stat(after_fd) != _stable_stat(before)
-                or _stable_stat(after_path) != _stable_stat(before)
-            ):
+            if _stable_stat(after_fd) != _stable_stat(before) or _stable_stat(
+                after_path
+            ) != _stable_stat(before):
                 raise DeveloperError("promotion_candidate_changed")
             mode = "100755" if before.st_mode & 0o111 else "100644"
             return CandidateEntry(

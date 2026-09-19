@@ -60,9 +60,7 @@ def test_review_is_deterministic_sorted_and_ignores_generated_artifacts(develope
     assert first.review_fingerprint == second.review_fingerprint
     assert [entry.path for entry in first.candidate_manifest] == ["a.txt", "z.txt"]
     assert first.changed_file_count == 2
-    assert [item.path for item in first.ignored_artifact_summary] == [
-        ".ruff_cache/cache-entry"
-    ]
+    assert [item.path for item in first.ignored_artifact_summary] == [".ruff_cache/cache-entry"]
 
 
 def test_binary_content_is_hashed_exactly(developer_case):
