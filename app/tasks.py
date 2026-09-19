@@ -934,13 +934,15 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
-            if task.kind in {"promotion_run", "merge_run", "release_run"}:
-                raise DomainError("Promotion, merge, or release retry is not enabled yet", 503)
-            target = (
-                State.AWAITING_APPROVAL
-                if task.kind in {"approval_demo", "ai_prompt", "developer_run"}
-                else State.PENDING
-            )
+            approval_kinds = {
+                "approval_demo",
+                "ai_prompt",
+                "developer_run",
+                "promotion_run",
+                "merge_run",
+                "release_run",
+            }
+            target = State.AWAITING_APPROVAL if task.kind in approval_kinds else State.PENDING
             validate_transition(task.status, target)
             self._check_capacity(session)
             audit(session, task, "retry_requested")
@@ -986,7 +988,7 @@ class TaskService:
             task.cancel_requested = False
             task.result = None
             task.error = None
-            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
+            if task.kind in approval_kinds:
                 if task.kind == "ai_prompt":
                     audit(
                         session,
@@ -996,7 +998,34 @@ class TaskService:
                         actual_model=task.selected_model,
                         config_version=task.config_version,
                     )
-                self._new_approval(session, task)
+                approval = self._new_approval(session, task)
+                if task.kind == "promotion_run":
+                    audit(
+                        session,
+                        task,
+                        "promotion_approval_created",
+                        approval_id=approval.id,
+                        review_fingerprint=task.promotion_spec["review"]["review_fingerprint"],
+                    )
+                elif task.kind == "merge_run":
+                    audit(
+                        session,
+                        task,
+                        "merge_approval_created",
+                        approval_id=approval.id,
+                        promotion_task_id=task.merge_spec["promotion_task_id"],
+                        head_sha=task.merge_spec["publication"]["pr_head_sha"],
+                    )
+                elif task.kind == "release_run":
+                    audit(
+                        session,
+                        task,
+                        "release_approval_created",
+                        approval_id=approval.id,
+                        merge_task_id=task.release_spec["merge_task_id"],
+                        main_sha=task.release_spec["main_sha"],
+                        tag=task.release_spec["tag"],
+                    )
             return snapshot(session, task)
 
     def claim(self) -> Execution | None:
