@@ -15,8 +15,8 @@ from app.developer_contracts import DeveloperRequest
 from app.developer_process import DeveloperError, environment, run_process
 from app.promotion_contracts import (
     PromotionCommitResult,
-    PromotionPublishResult,
     PromotionPublisherIdentity,
+    PromotionPublishResult,
     PromotionRequest,
 )
 from app.promotion_review import PromotionReviewer, read_candidate_bytes

@@ -11,7 +11,7 @@ from app.promotion_contracts import (
     PromotionPublishResult,
     PromotionRequest,
 )
-from app.promotion_github import GitHubTransport, GhApiTransport, publisher_identity
+from app.promotion_github import GhApiTransport, GitHubTransport, publisher_identity
 
 CI_VERSION = "promotion-ci-v1"
 

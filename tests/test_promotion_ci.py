@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
+from app.developer_contracts import WorkerIdentity
 from app.developer_process import DeveloperError
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_contracts import (
-    PromotionPublishResult,
     PromotionPublisherIdentity,
+    PromotionPublishResult,
     PromotionRequest,
     PromotionReview,
 )
-from app.developer_contracts import WorkerIdentity
 
 
 class ScriptedTransport:
