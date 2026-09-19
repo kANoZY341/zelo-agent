@@ -134,10 +134,19 @@ def pr(publication, promotion, *, head_sha=None, base_sha=None, state="open"):
     }
 
 
-def check(check_id=10, *, name="checks", status="completed", conclusion="success"):
+def check(
+    check_id=10,
+    *,
+    name="checks",
+    status="completed",
+    conclusion="success",
+    app_id=15368,
+    app_slug="github-actions",
+):
     return {
         "id": check_id,
         "name": name,
+        "app": {"id": app_id, "slug": app_slug},
         "status": status,
         "conclusion": conclusion,
         "completed_at": "2026-09-19T12:30:00Z",
@@ -166,6 +175,8 @@ def test_exact_head_green_ci_is_snapshotted(tmp_path):
     assert result.base_sha == promotion.review.base_sha
     assert result.required_checks == ["checks"]
     assert result.checks[0].name == "checks"
+    assert result.checks[0].app_id == settings.promotion_ci_app_id
+    assert result.checks[0].app_slug == settings.promotion_ci_app_slug
     assert result.checks[0].conclusion == "success"
     assert transport.responses == []
 
@@ -176,6 +187,7 @@ def test_exact_head_green_ci_is_snapshotted(tmp_path):
         ([], "promotion_ci_required_check_missing"),
         ([check(status="in_progress", conclusion=None)], "promotion_ci_not_green"),
         ([check(conclusion="failure")], "promotion_ci_not_green"),
+        ([check(app_id=1)], "promotion_ci_app_mismatch"),
     ],
 )
 def test_missing_pending_or_failed_required_ci_fails_closed(tmp_path, checks, code):
