@@ -64,9 +64,7 @@ def run_commit(runtime, request, reviewer, promotion):
     task_id = str(uuid4())
     attempt_id = str(uuid4())
     result = asyncio.run(
-        PromotionCommitter(runtime, reviewer).create(
-            task_id, attempt_id, promotion, request
-        )
+        PromotionCommitter(runtime, reviewer).create(task_id, attempt_id, promotion, request)
     )
     return result, runtime.settings.workspace_root / "promotion" / attempt_id / "repo"
 
@@ -81,20 +79,18 @@ def test_promotion_commit_is_exact_single_parent_and_has_no_remote(developer_cas
     developer_repo, request, reviewer, promotion = reviewed_candidate(developer_case)
     primary_before = asyncio.run(developer_case.primary_snapshot(request))
 
-    result, promotion_repo = run_commit(
-        developer_case, request, reviewer, promotion
-    )
+    result, promotion_repo = run_commit(developer_case, request, reviewer, promotion)
 
     assert result.base_sha == request.base_sha
     assert result.review_fingerprint == promotion.review.review_fingerprint
     assert trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^") == request.base_sha
     assert (
-        trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^{tree}")
-        == result.tree_sha
+        trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^{tree}") == result.tree_sha
     )
-    assert trusted_git(
-        promotion_repo, "rev-parse", "refs/heads/" + promotion.branch
-    ) == result.commit_sha
+    assert (
+        trusted_git(promotion_repo, "rev-parse", "refs/heads/" + promotion.branch)
+        == result.commit_sha
+    )
     assert trusted_git(promotion_repo, "remote") == ""
     assert trusted_git(promotion_repo, "show", f"{result.commit_sha}:feature.py") == "VALUE = 7"
     assert trusted_git(developer_repo, "rev-parse", "HEAD") == request.base_sha
@@ -135,9 +131,7 @@ def test_symlink_bytes_are_promoted_without_following_target(developer_case):
     )
     (repo / "link").symlink_to("../outside")
     reviewer = PromotionReviewer(developer_case)
-    review = asyncio.run(
-        reviewer.create(task_id, attempt_id, request, validation_passed=True)
-    )
+    review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
         review=review,
         repository="kANoZY341/zelo-agent",
@@ -149,16 +143,14 @@ def test_symlink_bytes_are_promoted_without_following_target(developer_case):
         pr_title="test: promote symlink",
     )
 
-    result, promotion_repo = run_commit(
-        developer_case, request, reviewer, promotion
-    )
+    result, promotion_repo = run_commit(developer_case, request, reviewer, promotion)
 
-    assert trusted_git(
-        promotion_repo, "cat-file", "-p", f"{result.commit_sha}:link"
-    ) == "../outside"
-    assert trusted_git(
-        promotion_repo, "ls-tree", result.commit_sha, "--", "link"
-    ).startswith("120000 blob ")
+    assert (
+        trusted_git(promotion_repo, "cat-file", "-p", f"{result.commit_sha}:link") == "../outside"
+    )
+    assert trusted_git(promotion_repo, "ls-tree", result.commit_sha, "--", "link").startswith(
+        "120000 blob "
+    )
 
 
 def test_deleted_file_is_absent_from_promoted_tree(developer_case):
@@ -170,9 +162,7 @@ def test_deleted_file_is_absent_from_promoted_tree(developer_case):
     )
     (repo / "test_example.py").unlink()
     reviewer = PromotionReviewer(developer_case)
-    review = asyncio.run(
-        reviewer.create(task_id, attempt_id, request, validation_passed=True)
-    )
+    review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
         review=review,
         repository="kANoZY341/zelo-agent",
@@ -184,10 +174,6 @@ def test_deleted_file_is_absent_from_promoted_tree(developer_case):
         pr_title="test: promote deletion",
     )
 
-    result, promotion_repo = run_commit(
-        developer_case, request, reviewer, promotion
-    )
+    result, promotion_repo = run_commit(developer_case, request, reviewer, promotion)
 
-    assert trusted_git(
-        promotion_repo, "ls-tree", result.commit_sha, "--", "test_example.py"
-    ) == ""
+    assert trusted_git(promotion_repo, "ls-tree", result.commit_sha, "--", "test_example.py") == ""

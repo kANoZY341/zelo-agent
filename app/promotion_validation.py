@@ -22,9 +22,7 @@ async def validate_promotion_candidate(
         ("pytest", python_command("-m", "pytest", "-q", "-p", "no:cacheprovider")),
         (
             "git_diff_check",
-            git_argv(
-                "diff", "--no-ext-diff", "--no-textconv", "--check", request.base_sha, "--"
-            ),
+            git_argv("diff", "--no-ext-diff", "--no-textconv", "--check", request.base_sha, "--"),
         ),
     ]
     results: list[ValidationResult] = []

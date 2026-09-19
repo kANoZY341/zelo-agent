@@ -92,8 +92,8 @@ class PromotionCommitter:
         if await self._git(repo, request, "remote"):
             raise DeveloperError("promotion_remote_forbidden")
         object_type = (
-            await self._git(repo, request, "cat-file", "-t", request.base_sha)
-        ).decode().strip()
+            (await self._git(repo, request, "cat-file", "-t", request.base_sha)).decode().strip()
+        )
         if object_type != "commit":
             raise DeveloperError("promotion_base_invalid")
         await self._git(repo, request, "read-tree", request.base_sha)
@@ -111,15 +111,19 @@ class PromotionCommitter:
         if digest != entry.sha256 or len(content) != entry.size:
             raise DeveloperError("promotion_candidate_changed")
         blob = (
-            await self._git(
-                promotion_repo,
-                request,
-                "hash-object",
-                "-w",
-                "--stdin",
-                stdin=content,
+            (
+                await self._git(
+                    promotion_repo,
+                    request,
+                    "hash-object",
+                    "-w",
+                    "--stdin",
+                    stdin=content,
+                )
             )
-        ).decode().strip()
+            .decode()
+            .strip()
+        )
         if len(blob) != 40 or any(character not in "0123456789abcdef" for character in blob):
             raise DeveloperError("promotion_blob_invalid")
         return blob
@@ -246,17 +250,21 @@ class PromotionCommitter:
             message += "\n\n" + promotion.commit_message
         message += "\n"
         commit = (
-            await self._git(
-                repo,
-                request,
-                "commit-tree",
-                tree,
-                "-p",
-                request.base_sha,
-                stdin=message.encode("utf-8"),
-                env=self._commit_environment(promotion),
+            (
+                await self._git(
+                    repo,
+                    request,
+                    "commit-tree",
+                    tree,
+                    "-p",
+                    request.base_sha,
+                    stdin=message.encode("utf-8"),
+                    env=self._commit_environment(promotion),
+                )
             )
-        ).decode().strip()
+            .decode()
+            .strip()
+        )
         if len(commit) != 40:
             raise DeveloperError("promotion_commit_invalid")
         ref = "refs/heads/" + promotion.branch
@@ -264,14 +272,12 @@ class PromotionCommitter:
         await self._git(repo, request, "update-ref", ref, commit, ZERO_SHA)
         if (await self._git(repo, request, "rev-parse", ref)).decode().strip() != commit:
             raise DeveloperError("promotion_commit_invalid")
-        parent = (
-            await self._git(repo, request, "rev-parse", commit + "^")
-        ).decode().strip()
+        parent = (await self._git(repo, request, "rev-parse", commit + "^")).decode().strip()
         if parent != request.base_sha:
             raise DeveloperError("promotion_commit_invalid")
         observed_tree = (
-            await self._git(repo, request, "rev-parse", commit + "^{tree}")
-        ).decode().strip()
+            (await self._git(repo, request, "rev-parse", commit + "^{tree}")).decode().strip()
+        )
         if observed_tree != tree:
             raise DeveloperError("promotion_commit_invalid")
         if await self._git(repo, request, "remote"):
@@ -301,12 +307,8 @@ class PromotionCommitter:
         repo = None
         try:
             repo = await self._prepare_repo(task_id, attempt_id, developer_request)
-            tree = await self._build_tree(
-                repo, developer_repo, developer_request, promotion
-            )
-            commit = await self._create_commit(
-                repo, developer_request, promotion, tree
-            )
+            tree = await self._build_tree(repo, developer_repo, developer_request, promotion)
+            commit = await self._create_commit(repo, developer_request, promotion, tree)
             if await self.runtime.primary_snapshot(developer_request) != before:
                 raise DeveloperError("primary_repository_changed")
             return PromotionCommitResult(
