@@ -1,5 +1,6 @@
 """Separately approved exact-main-SHA release tag creation."""
 
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -84,17 +85,7 @@ class PromotionReleaseRuntime:
         object_type = obj.get("type")
         object_sha = _sha(obj.get("sha"))
         if object_type == "commit":
-            if object_sha != request.main_sha:
-                raise DeveloperError("promotion_release_tag_conflict")
-            return ReleaseRunResult(
-                repository=self.repository,
-                branch="main",
-                main_sha=request.main_sha,
-                tag=request.tag,
-                tag_object_sha=object_sha,
-                annotated=False,
-                reused=True,
-            )
+            raise DeveloperError("promotion_release_tag_conflict")
         if object_type != "tag":
             raise DeveloperError("promotion_release_tag_conflict")
         tag = _dict(
@@ -104,8 +95,21 @@ class PromotionReleaseRuntime:
             )
         )
         target = _dict(tag.get("object"))
+        tagger = _dict(tag.get("tagger"))
+        date = tagger.get("date")
+        try:
+            observed_date = datetime.fromisoformat(str(date).replace("Z", "+00:00"))
+        except ValueError:
+            raise DeveloperError("promotion_release_tag_conflict") from None
+        if observed_date.tzinfo is None:
+            raise DeveloperError("promotion_release_tag_conflict")
+        observed_date = observed_date.astimezone(UTC).replace(microsecond=0)
         if (
             tag.get("tag") != request.tag
+            or tag.get("message") != request.tag_message
+            or tagger.get("name") != request.tagger_name
+            or tagger.get("email") != request.tagger_email
+            or observed_date != request.tagger_date
             or target.get("type") != "commit"
             or _sha(target.get("sha")) != request.main_sha
         ):
