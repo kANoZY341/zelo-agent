@@ -176,7 +176,9 @@ class TaskService:
                 or attempt.result.get("validation_passed") is not True
                 or source.result != attempt.result
             ):
-                raise DomainError("Promotion source must be the latest successful developer attempt")
+                raise DomainError(
+                    "Promotion source must be the latest successful developer attempt"
+                )
             try:
                 developer_request = DeveloperRequest.model_validate(source.developer_spec)
             except ValueError:
