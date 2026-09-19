@@ -944,8 +944,7 @@ class TaskService:
                         or source.status != State.SUCCEEDED
                         or source.action_version != merge_request.promotion_action_version
                         or source.action_hash != merge_request.promotion_action_hash
-                        or source.promotion_spec
-                        != merge_request.promotion.model_dump(mode="json")
+                        or source.promotion_spec != merge_request.promotion.model_dump(mode="json")
                         or source.result is None
                         or PromotionRunResult.model_validate(source.result).publication
                         != merge_request.publication

@@ -318,7 +318,6 @@ class Runner:
             emit,
         )
 
-
     async def _merge_worker(self, execution: Execution) -> dict[str, Any]:
         if self.promotion_merge_runtime is None or execution.merge_request is None:
             raise DeveloperRuntimeError("promotion_merge_runtime_unavailable")

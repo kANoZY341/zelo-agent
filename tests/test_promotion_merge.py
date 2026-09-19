@@ -192,9 +192,7 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
         ]
     )
     verifier = FakeCIVerifier(ci)
-    result = asyncio.run(
-        PromotionMergeRuntime(settings, verifier, transport).run(request)
-    )
+    result = asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(request))
 
     assert result.merge_commit_sha == merge_sha
     assert result.head_sha == request.publication.pr_head_sha
@@ -217,9 +215,7 @@ def test_merge_refuses_changed_ci_identity_before_side_effect(tmp_path):
 
     with pytest.raises(DeveloperError, match="promotion_merge_ci_changed"):
         asyncio.run(
-            PromotionMergeRuntime(settings, FakeCIVerifier(changed), transport).run(
-                request
-            )
+            PromotionMergeRuntime(settings, FakeCIVerifier(changed), transport).run(request)
         )
 
     assert transport.calls == []
@@ -239,6 +235,4 @@ def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):
     )
 
     with pytest.raises(DeveloperError, match="promotion_merge_rejected"):
-        asyncio.run(
-            PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request)
-        )
+        asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
