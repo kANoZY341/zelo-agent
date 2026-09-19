@@ -118,6 +118,18 @@ def test_rename_is_normalized_to_delete_and_add(developer_case):
     assert operations == {("test_example.py", "delete"), ("renamed.py", "add")}
 
 
+def test_ignored_artifact_drift_does_not_change_promotable_candidate(developer_case):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    (repo / "candidate.txt").write_text("approved bytes\n")
+    approved = create_review(reviewer, task_id, attempt_id, request)
+
+    cache = repo / ".ruff_cache"
+    cache.mkdir()
+    (cache / "generated").write_text("ignored validation artifact\n")
+
+    asyncio.run(reviewer.reverify(approved, request))
+
+
 def test_mutation_after_review_invalidates_candidate(developer_case):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     path = repo / "candidate.txt"

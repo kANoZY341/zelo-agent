@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from app.config import ROOT
 from app.developer_contracts import WorkerIdentity
 from app.developer_process import DeveloperError
 from app.promotion_ci import PromotionCIVerifier
@@ -42,7 +43,8 @@ def fixture(tmp_path):
     }
     from app.config import Settings
 
-    settings = Settings(_env_file=None, runtime_dir=tmp_path, **settings_data)
+    (ROOT / "runtime").mkdir(exist_ok=True)
+    settings = Settings(_env_file=None, runtime_dir=ROOT / "runtime", **settings_data)
     publisher = PromotionPublisherIdentity(
         gateway_version="github-promotion-v1",
         repository="kANoZY341/zelo-agent",

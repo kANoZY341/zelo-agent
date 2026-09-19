@@ -355,13 +355,46 @@ class PromotionReviewer:
         return PromotionReview.model_validate(values)
 
     async def reverify(self, approved: PromotionReview, request: DeveloperRequest) -> None:
-        fresh = await self.create(
+        """Re-verify promotable bytes while allowing ignored validation artifacts to drift."""
+        if not self.runtime.compatible(request, request.limits.overall_seconds):
+            raise DeveloperError("developer_configuration_changed")
+        if self.runtime.validation_identity() != request.validation_identity:
+            raise DeveloperError("validation_environment_changed")
+        if (
+            approved.source_repository != request.source_repository
+            or approved.base_sha != request.base_sha
+            or approved.worker_identity != request.worker
+            or approved.validation_identity != request.validation_identity
+            or approved.validation_profile != request.validation_profile
+            or approved.validation_version != request.validation_version
+            or approved.sandbox_version != request.sandbox_version
+            or approved.workspace
+            != str(
+                self.runtime.path(approved.developer_attempt_id).relative_to(
+                    self.runtime.root()
+                )
+            )
+        ):
+            raise DeveloperError("promotion_candidate_changed")
+
+        first = await self._state(
             approved.developer_task_id,
             approved.developer_attempt_id,
             request,
-            validation_passed=True,
         )
-        if fresh.review_fingerprint != approved.review_fingerprint or fresh != approved:
+        second = await self._state(
+            approved.developer_task_id,
+            approved.developer_attempt_id,
+            request,
+        )
+        if first != second:
+            raise DeveloperError("promotion_candidate_changed")
+        head, manifest, _ignored = first
+        if (
+            head != approved.head_sha
+            or len(manifest) != approved.changed_file_count
+            or manifest != approved.candidate_manifest
+        ):
             raise DeveloperError("promotion_candidate_changed")
 
 
