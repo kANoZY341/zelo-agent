@@ -713,9 +713,7 @@ class TaskService:
             if task.kind == "promotion_run":
                 try:
                     promotion_request = PromotionRequest.model_validate(task.promotion_spec)
-                    source = require_task(
-                        session, promotion_request.review.developer_task_id
-                    )
+                    source = require_task(session, promotion_request.review.developer_task_id)
                     source_attempt = session.get(
                         TaskAttempt, promotion_request.review.developer_attempt_id
                     )
@@ -739,9 +737,7 @@ class TaskService:
                         or source.result != source_attempt.result
                     ):
                         raise ValueError("promotion source changed")
-                    developer_request = DeveloperRequest.model_validate(
-                        source.developer_spec
-                    )
+                    developer_request = DeveloperRequest.model_validate(source.developer_spec)
                 except (DomainError, ValueError, TypeError, KeyError):
                     task.error = "promotion_source_changed"
                     transition(session, task, State.CANCELLED)

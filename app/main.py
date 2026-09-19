@@ -56,9 +56,7 @@ def create_app(
             tool_gateway = ToolGateway(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
-            promotion_committer = PromotionCommitter(
-                developer_runtime, promotion_reviewer
-            )
+            promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
             tasks = TaskService(
                 database,
                 configuration,
