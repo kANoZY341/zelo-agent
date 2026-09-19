@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -187,6 +188,9 @@ def test_promotion_request_is_frozen_and_binds_review(developer_case):
         repository="kANoZY341/zelo-agent",
         branch="zelo/promotion/test-123",
         commit_title="feat: promote reviewed candidate",
+        commit_author_name="Zelo Agent",
+        commit_author_email="zelo@localhost.invalid",
+        commit_timestamp=datetime(2026, 9, 19, 12, 0, tzinfo=UTC),
         pr_title="feat: promote reviewed candidate",
     )
 
