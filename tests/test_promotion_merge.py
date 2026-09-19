@@ -252,7 +252,7 @@ def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):
                 "POST",
                 f"/repos/{repo}/pulls/7/merge",
                 {"merged": False, "sha": None},
-            )
+            ),
         ]
     )
 
