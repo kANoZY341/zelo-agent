@@ -8,6 +8,7 @@ from app.agent import AgentRuntime, AgentRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
+from app.promotion_git import PromotionCommitter
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -23,12 +24,14 @@ class Runner:
         gateway: ModelGateway | None = None,
         agent_runtime: AgentRuntime | None = None,
         developer_runtime: DeveloperRuntime | None = None,
+        promotion_committer: PromotionCommitter | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
         self.developer_runtime = developer_runtime
+        self.promotion_committer = promotion_committer
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -99,6 +102,8 @@ class Runner:
             self.operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "developer_run":
             self.operation = asyncio.create_task(self._developer_worker(execution))
+        elif execution.kind == "promotion_run":
+            self.operation = asyncio.create_task(self._promotion_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
@@ -288,3 +293,24 @@ class Runner:
         return await self.developer_runtime.run(
             execution.task_id, execution.attempt_id, execution.developer_request, emit
         )
+
+    async def _promotion_worker(self, execution: Execution) -> dict[str, Any]:
+        if (
+            self.promotion_committer is None
+            or execution.promotion_request is None
+            or execution.developer_request is None
+        ):
+            raise DeveloperRuntimeError("promotion_runtime_unavailable")
+        self.service.model_event(
+            execution.task_id,
+            "promotion_started",
+            execution.attempt_id,
+            review_fingerprint=execution.promotion_request.review.review_fingerprint,
+        )
+        result = await self.promotion_committer.create(
+            execution.task_id,
+            execution.attempt_id,
+            execution.promotion_request,
+            execution.developer_request,
+        )
+        return result.model_dump(mode="json")

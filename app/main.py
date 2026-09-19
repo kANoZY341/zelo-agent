@@ -16,6 +16,7 @@ from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
 from app.policy import DomainError
+from app.promotion_git import PromotionCommitter
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
 from app.task_api import router as task_router
@@ -55,6 +56,9 @@ def create_app(
             tool_gateway = ToolGateway(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
+            promotion_committer = PromotionCommitter(
+                developer_runtime, promotion_reviewer
+            )
             tasks = TaskService(
                 database,
                 configuration,
@@ -66,7 +70,14 @@ def create_app(
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
-            runner = Runner(tasks, worker, gateway, agent_runtime, developer_runtime)
+            runner = Runner(
+                tasks,
+                worker,
+                gateway,
+                agent_runtime,
+                developer_runtime,
+                promotion_committer,
+            )
             application.state.database = database
             application.state.tasks = tasks
             application.state.tool_gateway = tool_gateway

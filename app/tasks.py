@@ -42,6 +42,7 @@ class Execution:
     tool_name: str | None = None
     tool_arguments: dict[str, Any] | None = None
     developer_request: DeveloperRequest | None = None
+    promotion_request: PromotionRequest | None = None
 
 
 def audit(
@@ -518,14 +519,7 @@ class TaskService:
             task = require_task(session, approval.task_id)
             self._expire_or_invalidate(session, task, approval)
             target = "approved" if decision == "approve" else "rejected"
-            if (
-                task.kind == "promotion_run"
-                and decision == "approve"
-                and approval.status == "pending"
-                and task.status == State.AWAITING_APPROVAL
-            ):
-                error = DomainError("Promotion execution is not enabled yet", 503)
-            elif approval.status == target:
+            if approval.status == target:
                 pass  # Idempotent decision: no state changes, events, or scheduling.
             elif approval.status != "pending" or task.status != State.AWAITING_APPROVAL:
                 error = DomainError("Approval is no longer pending or the decision conflicts")
@@ -705,11 +699,54 @@ class TaskService:
                 transition(session, task, State.CANCELLED)
                 audit(session, task, "execution_denied", reason=task.error)
                 return None
+
+            developer_request = None
+            promotion_request = None
+            if task.kind == "developer_run":
+                try:
+                    developer_request = DeveloperRequest.model_validate(task.developer_spec)
+                except ValueError:
+                    task.error = "developer_spec_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
             if task.kind == "promotion_run":
-                task.error = "promotion_execution_unavailable"
-                transition(session, task, State.CANCELLED)
-                audit(session, task, "execution_denied", reason=task.error)
-                return None
+                try:
+                    promotion_request = PromotionRequest.model_validate(task.promotion_spec)
+                    source = require_task(
+                        session, promotion_request.review.developer_task_id
+                    )
+                    source_attempt = session.get(
+                        TaskAttempt, promotion_request.review.developer_attempt_id
+                    )
+                    latest_attempt_id = session.scalar(
+                        select(TaskAttempt.id)
+                        .where(TaskAttempt.task_id == source.id)
+                        .order_by(TaskAttempt.number.desc())
+                        .limit(1)
+                    )
+                    if (
+                        source.kind != "developer_run"
+                        or source.status != State.SUCCEEDED
+                        or source.developer_spec is None
+                        or source_attempt is None
+                        or source_attempt.task_id != source.id
+                        or source_attempt.id != latest_attempt_id
+                        or source_attempt.outcome != State.SUCCEEDED
+                        or source_attempt.error is not None
+                        or not isinstance(source_attempt.result, dict)
+                        or source_attempt.result.get("validation_passed") is not True
+                        or source.result != source_attempt.result
+                    ):
+                        raise ValueError("promotion source changed")
+                    developer_request = DeveloperRequest.model_validate(
+                        source.developer_spec
+                    )
+                except (DomainError, ValueError, TypeError, KeyError):
+                    task.error = "promotion_source_changed"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
             number = (
                 session.scalar(
                     select(func.max(TaskAttempt.number)).where(TaskAttempt.task_id == task.id)
@@ -733,9 +770,8 @@ class TaskService:
                 task.selected_model,
                 task.payload.get("tool"),
                 task.payload.get("arguments"),
-                DeveloperRequest.model_validate(task.developer_spec)
-                if task.kind == "developer_run"
-                else None,
+                developer_request,
+                promotion_request,
             )
 
     def finish(
@@ -775,6 +811,33 @@ class TaskService:
                     reason=error,
                     workspace=result.get("worktree") if result else None,
                 )
+            if task.kind == "promotion_run":
+                details = (
+                    {
+                        "base_sha": result["base_sha"],
+                        "tree_sha": result["tree_sha"],
+                        "commit_sha": result["commit_sha"],
+                        "branch": result["branch"],
+                        "review_fingerprint": result["review_fingerprint"],
+                    }
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                if outcome == State.SUCCEEDED:
+                    audit(
+                        session,
+                        task,
+                        "promotion_commit_created",
+                        attempt_id=attempt.id,
+                        **details,
+                    )
+                audit(
+                    session,
+                    task,
+                    "promotion_completed" if outcome == State.SUCCEEDED else "promotion_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
             if task.kind == "agent_run":
                 details = (
                     {"model_steps": result["model_steps"], "tool_calls": result["tool_calls"]}
@@ -810,6 +873,14 @@ class TaskService:
                     "startup_interruption_recovery",
                     attempt_id=attempt.id if attempt else None,
                 )
+                if task.kind == "promotion_run":
+                    audit(
+                        session,
+                        task,
+                        "promotion_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
                 if task.kind == "agent_run":
                     audit(
                         session,

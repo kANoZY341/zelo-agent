@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from app.policy import DomainError, State
+from app.promotion_git import PromotionCommitter
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
 from app.schemas import DeveloperRunInput, PromotionRunInput
@@ -124,19 +125,41 @@ def test_promotion_spec_tamper_invalidates_pending_approval(developer_case, data
 
 
 @pytest.mark.developer_boundary
-def test_promotion_approval_cannot_execute_before_executor_exists(developer_case, database):
+def test_approved_promotion_creates_only_local_trusted_commit(developer_case, database):
     _, developer, attempt = completed_developer(developer_case, database)
     service = configured(developer_case, database)
     promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+    reviewer = PromotionReviewer(developer_case)
+    committer = PromotionCommitter(developer_case, reviewer)
 
-    with pytest.raises(DomainError, match="not enabled yet") as failure:
-        service.decide(promotion.approvals[0].id, "approve")
-
-    assert failure.value.status_code == 503
-    current = service.get(promotion.id)
-    assert current.status == State.AWAITING_APPROVAL
-    assert current.approvals[0].status == "pending"
     assert service.claim() is None
+    service.decide(promotion.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    assert execution.promotion_request.review.review_fingerprint == (
+        promotion.promotion_spec.review.review_fingerprint
+    )
+
+    asyncio.run(
+        Runner(
+            service,
+            developer_runtime=developer_case,
+            promotion_committer=committer,
+        )._run(execution)
+    )
+
+    current = service.get(promotion.id)
+    assert current.status == State.SUCCEEDED
+    assert current.result["review_fingerprint"] == (
+        promotion.promotion_spec.review.review_fingerprint
+    )
+    assert current.result["branch"] == "zelo/promotion/review-fixture"
+    assert len(current.result["commit_sha"]) == 40
+    assert len(current.result["tree_sha"]) == 40
+    events = [event.event for event in service.events(promotion.id, 100, 0)]
+    assert "promotion_started" in events
+    assert "promotion_commit_created" in events
+    assert events[-1] == "promotion_completed"
 
 
 @pytest.mark.developer_boundary
