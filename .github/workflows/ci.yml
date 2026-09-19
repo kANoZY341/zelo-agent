@@ -29,4 +29,6 @@ jobs:
           .venv/bin/python -m pip install -r requirements-dev.txt
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
+      - name: Trust the checked-out CI workspace for privileged test setup
+        run: sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
       - run: sudo -E .venv/bin/python -m pytest -q

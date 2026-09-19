@@ -127,5 +127,7 @@ def git_argv(*arguments: str) -> list[str]:
         "diff.external=",
         "-c",
         "protocol.allow=never",
+        "-c",
+        "safe.directory=/workspace",
         *arguments,
     ]

@@ -48,6 +48,8 @@ def prepared(runtime):
 
 def test_local_presmoke_command_and_validation_path(settings):
     """Exercise the real local command sandbox without a Codex model request."""
+    if not settings.developer_codex_executable.is_file():
+        pytest.skip("Installed Codex required for local non-model sandbox probe")
     before_head = git(ROOT, "rev-parse", "HEAD")
     before_status = git(ROOT, "status", "--porcelain=v1", "-z")
     (ROOT / "workspaces").mkdir(exist_ok=True)
