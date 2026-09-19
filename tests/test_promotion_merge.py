@@ -288,3 +288,19 @@ def test_merge_retry_refuses_closed_unmerged_pr(tmp_path):
         asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
 
     assert all(method != "POST" for method, _, _ in transport.calls)
+
+
+def test_merge_refuses_replaced_ci_check_snapshot_before_side_effect(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    changed_check = ci.checks[0].model_copy(update={"check_run_id": 11})
+    changed = ci.model_copy(update={"checks": [changed_check]})
+    transport = ScriptedTransport(
+        [("GET", f"/repos/{request.promotion.repository}/pulls/7", open_pr(request))]
+    )
+
+    with pytest.raises(DeveloperError, match="promotion_merge_ci_changed"):
+        asyncio.run(
+            PromotionMergeRuntime(settings, FakeCIVerifier(changed), transport).run(request)
+        )
+
+    assert all(method != "POST" for method, _, _ in transport.calls)
