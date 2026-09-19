@@ -182,9 +182,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
             )
-            columns = {
-                column["name"] for column in inspect(database.engine).get_columns("tasks")
-            }
+            columns = {column["name"] for column in inspect(database.engine).get_columns("tasks")}
             assert "developer_spec" in columns
             assert "promotion_spec" in columns
             assert not any(

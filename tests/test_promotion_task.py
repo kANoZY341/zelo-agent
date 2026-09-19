@@ -45,9 +45,7 @@ def promotion_input(task_id, attempt_id):
 
 
 def configured(runtime, database):
-    settings = runtime.settings.model_copy(
-        update={"promotion_repository": "kANoZY341/zelo-agent"}
-    )
+    settings = runtime.settings.model_copy(update={"promotion_repository": "kANoZY341/zelo-agent"})
     return TaskService(
         database,
         settings,
@@ -83,9 +81,7 @@ def test_promotion_submission_persists_exact_review_and_approval(developer_case,
 
 
 @pytest.mark.developer_boundary
-def test_promotion_idempotency_returns_bound_review_without_recomputing(
-    developer_case, database
-):
+def test_promotion_idempotency_returns_bound_review_without_recomputing(developer_case, database):
     _, developer, attempt = completed_developer(developer_case, database)
     service = configured(developer_case, database)
     request = promotion_input(developer.id, attempt.id)

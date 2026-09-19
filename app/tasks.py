@@ -260,9 +260,7 @@ class TaskService:
                 timeout_seconds=request.timeout_seconds,
                 status=State.AWAITING_APPROVAL,
                 action_version=1,
-                action_hash=action_hash(
-                    request.kind, payload, request.timeout_seconds, 1, spec
-                ),
+                action_hash=action_hash(request.kind, payload, request.timeout_seconds, 1, spec),
                 idempotency_key=key,
                 request_hash=request_hash,
                 promotion_spec=spec,
