@@ -314,7 +314,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0005_developer_agent"
+                "0006_promotion_review"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
