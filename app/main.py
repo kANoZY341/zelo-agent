@@ -16,7 +16,9 @@ from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
 from app.policy import DomainError
+from app.promotion import PromotionRuntime
 from app.promotion_git import PromotionCommitter
+from app.promotion_github import GitHubPromotionPublisher
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
 from app.task_api import router as task_router
@@ -57,6 +59,17 @@ def create_app(
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
             promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
+            promotion_runtime = None
+            if configuration.promotion_repository is not None:
+                promotion_publisher = GitHubPromotionPublisher(
+                    configuration,
+                    developer_runtime,
+                    promotion_reviewer,
+                )
+                promotion_runtime = PromotionRuntime(
+                    promotion_committer,
+                    promotion_publisher,
+                )
             tasks = TaskService(
                 database,
                 configuration,
@@ -74,7 +87,7 @@ def create_app(
                 gateway,
                 agent_runtime,
                 developer_runtime,
-                promotion_committer,
+                promotion_runtime,
             )
             application.state.database = database
             application.state.tasks = tasks

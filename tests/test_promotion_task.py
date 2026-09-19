@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 
 from app.policy import DomainError, State
+from app.promotion import PromotionRuntime
+from app.promotion_contracts import PromotionPublishResult
 from app.promotion_git import PromotionCommitter
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
@@ -44,6 +46,23 @@ def promotion_input(task_id, attempt_id):
             "pr_title": "feat: promote reviewed candidate",
         },
     )
+
+
+class FakePublisher:
+    async def publish(self, promotion, local, developer_request):
+        return PromotionPublishResult(
+            repository=promotion.repository,
+            base_branch=promotion.target_base_branch,
+            base_sha=promotion.review.base_sha,
+            branch=promotion.branch,
+            commit_sha=local.commit_sha,
+            pr_number=7,
+            pr_url=f"https://github.com/{promotion.repository}/pull/7",
+            pr_head_sha=local.commit_sha,
+            pr_base_sha=promotion.review.base_sha,
+            branch_created=True,
+            pr_created=True,
+        )
 
 
 def configured(runtime, database):
@@ -140,6 +159,7 @@ def test_approved_promotion_creates_only_local_trusted_commit(developer_case, da
     promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
     reviewer = PromotionReviewer(developer_case)
     committer = PromotionCommitter(developer_case, reviewer)
+    promotion_runtime = PromotionRuntime(committer, FakePublisher())
 
     assert service.claim() is None
     service.decide(promotion.approvals[0].id, "approve")
@@ -153,21 +173,24 @@ def test_approved_promotion_creates_only_local_trusted_commit(developer_case, da
         Runner(
             service,
             developer_runtime=developer_case,
-            promotion_committer=committer,
+            promotion_runtime=promotion_runtime,
         )._run(execution)
     )
 
     current = service.get(promotion.id)
     assert current.status == State.SUCCEEDED
-    assert current.result["review_fingerprint"] == (
+    assert current.result["commit"]["review_fingerprint"] == (
         promotion.promotion_spec.review.review_fingerprint
     )
-    assert current.result["branch"] == "zelo/promotion/review-fixture"
-    assert len(current.result["commit_sha"]) == 40
-    assert len(current.result["tree_sha"]) == 40
+    assert current.result["commit"]["branch"] == "zelo/promotion/review-fixture"
+    assert len(current.result["commit"]["commit_sha"]) == 40
+    assert len(current.result["commit"]["tree_sha"]) == 40
+    assert current.result["publication"]["pr_number"] == 7
     events = [event.event for event in service.events(promotion.id, 100, 0)]
     assert "promotion_started" in events
     assert "promotion_commit_created" in events
+    assert "promotion_branch_pushed" in events
+    assert "promotion_pr_created" in events
     assert events[-1] == "promotion_completed"
 
 

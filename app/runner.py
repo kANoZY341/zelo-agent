@@ -8,7 +8,7 @@ from app.agent import AgentRuntime, AgentRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
-from app.promotion_git import PromotionCommitter
+from app.promotion import PromotionRuntime
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -24,14 +24,14 @@ class Runner:
         gateway: ModelGateway | None = None,
         agent_runtime: AgentRuntime | None = None,
         developer_runtime: DeveloperRuntime | None = None,
-        promotion_committer: PromotionCommitter | None = None,
+        promotion_runtime: PromotionRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
         self.developer_runtime = developer_runtime
-        self.promotion_committer = promotion_committer
+        self.promotion_runtime = promotion_runtime
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -296,21 +296,19 @@ class Runner:
 
     async def _promotion_worker(self, execution: Execution) -> dict[str, Any]:
         if (
-            self.promotion_committer is None
+            self.promotion_runtime is None
             or execution.promotion_request is None
             or execution.developer_request is None
         ):
             raise DeveloperRuntimeError("promotion_runtime_unavailable")
-        self.service.model_event(
-            execution.task_id,
-            "promotion_started",
-            execution.attempt_id,
-            review_fingerprint=execution.promotion_request.review.review_fingerprint,
-        )
-        result = await self.promotion_committer.create(
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await self.promotion_runtime.run(
             execution.task_id,
             execution.attempt_id,
             execution.promotion_request,
             execution.developer_request,
+            emit,
         )
-        return result.model_dump(mode="json")

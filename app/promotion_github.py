@@ -322,7 +322,7 @@ class GitHubPromotionPublisher:
         if _sha(response.get("sha"), "promotion_remote_commit_mismatch") != local.commit_sha:
             raise DeveloperError("promotion_remote_commit_mismatch")
 
-    async def _branch(self, promotion: PromotionRequest, local: PromotionCommitResult) -> None:
+    async def _branch(self, promotion: PromotionRequest, local: PromotionCommitResult) -> bool:
         ref = f"refs/heads/{promotion.branch}"
         encoded = quote(f"heads/{promotion.branch}", safe="/")
         matches = _list(
@@ -335,7 +335,7 @@ class GitHubPromotionPublisher:
             observed = _sha(_dict(exact[0].get("object")).get("sha"))
             if len(exact) != 1 or observed != local.commit_sha:
                 raise DeveloperError("promotion_branch_conflict")
-            return
+            return False
         response = _dict(
             await self.transport.request(
                 "POST",
@@ -348,9 +348,13 @@ class GitHubPromotionPublisher:
             or _sha(_dict(response.get("object")).get("sha")) != local.commit_sha
         ):
             raise DeveloperError("promotion_branch_create_mismatch")
+        return True
 
     async def _pull_request(
-        self, promotion: PromotionRequest, local: PromotionCommitResult
+        self,
+        promotion: PromotionRequest,
+        local: PromotionCommitResult,
+        branch_created: bool,
     ) -> PromotionPublishResult:
         owner = self.repository.split("/", 1)[0]
         query = urlencode(
@@ -365,6 +369,7 @@ class GitHubPromotionPublisher:
             raise DeveloperError("promotion_pr_ambiguous")
         if found:
             response = _dict(found[0])
+            pr_created = False
         else:
             response = _dict(
                 await self.transport.request(
@@ -378,6 +383,7 @@ class GitHubPromotionPublisher:
                     },
                 )
             )
+            pr_created = True
         number = response.get("number")
         url = response.get("html_url")
         head = _dict(response.get("head"))
@@ -403,6 +409,8 @@ class GitHubPromotionPublisher:
             pr_url=url,
             pr_head_sha=local.commit_sha,
             pr_base_sha=promotion.review.base_sha,
+            branch_created=branch_created,
+            pr_created=pr_created,
         )
 
     async def publish(
@@ -428,6 +436,6 @@ class GitHubPromotionPublisher:
         await self._commit(promotion, local)
         await self.reviewer.reverify(promotion.review, developer_request)
         await self._require_base(promotion)
-        await self._branch(promotion, local)
+        branch_created = await self._branch(promotion, local)
         await self._require_base(promotion)
-        return await self._pull_request(promotion, local)
+        return await self._pull_request(promotion, local, branch_created)

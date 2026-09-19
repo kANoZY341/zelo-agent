@@ -812,23 +812,14 @@ class TaskService:
             if task.kind == "promotion_run":
                 details = (
                     {
-                        "base_sha": result["base_sha"],
-                        "tree_sha": result["tree_sha"],
-                        "commit_sha": result["commit_sha"],
-                        "branch": result["branch"],
-                        "review_fingerprint": result["review_fingerprint"],
+                        "commit_sha": result["commit"]["commit_sha"],
+                        "pr_number": result["publication"]["pr_number"],
+                        "head_sha": result["publication"]["pr_head_sha"],
+                        "base_sha": result["publication"]["pr_base_sha"],
                     }
                     if outcome == State.SUCCEEDED and result is not None
                     else {"reason": error}
                 )
-                if outcome == State.SUCCEEDED:
-                    audit(
-                        session,
-                        task,
-                        "promotion_commit_created",
-                        attempt_id=attempt.id,
-                        **details,
-                    )
                 audit(
                     session,
                     task,

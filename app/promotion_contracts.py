@@ -170,3 +170,10 @@ class PromotionPublishResult(PromotionContract):
     pr_url: str = Field(min_length=1, max_length=2048)
     pr_head_sha: str = Field(pattern=GIT_SHA)
     pr_base_sha: str = Field(pattern=GIT_SHA)
+    branch_created: bool
+    pr_created: bool
+
+
+class PromotionRunResult(PromotionContract):
+    commit: PromotionCommitResult
+    publication: PromotionPublishResult
