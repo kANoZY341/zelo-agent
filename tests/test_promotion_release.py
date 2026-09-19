@@ -193,6 +193,12 @@ def tag_object(request, tag_object_sha):
     return {
         "sha": tag_object_sha,
         "tag": request.tag,
+        "message": request.tag_message,
+        "tagger": {
+            "name": request.tagger_name,
+            "email": request.tagger_email,
+            "date": request.tagger_date.isoformat().replace("+00:00", "Z"),
+        },
         "object": {"type": "commit", "sha": request.main_sha},
     }
 
@@ -277,3 +283,43 @@ def test_release_refuses_main_move_or_tag_conflict(tmp_path):
     )
     with pytest.raises(DeveloperError, match="promotion_release_tag_conflict"):
         asyncio.run(PromotionReleaseRuntime(settings, conflict).run(request))
+
+
+def test_release_rejects_lightweight_or_metadata_mismatched_existing_tag(tmp_path):
+    settings, request = fixture(tmp_path)
+    repo = request.repository
+
+    lightweight = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/git/ref/heads/main", main_ref(request)),
+            (
+                "GET",
+                f"/repos/{repo}/git/matching-refs/tags/{request.tag}",
+                [
+                    {
+                        "ref": f"refs/tags/{request.tag}",
+                        "object": {"type": "commit", "sha": request.main_sha},
+                    }
+                ],
+            ),
+        ]
+    )
+    with pytest.raises(DeveloperError, match="promotion_release_tag_conflict"):
+        asyncio.run(PromotionReleaseRuntime(settings, lightweight).run(request))
+
+    tag_sha = "7" * 40
+    wrong = tag_object(request, tag_sha)
+    wrong["message"] = "different approved content"
+    metadata = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/git/ref/heads/main", main_ref(request)),
+            (
+                "GET",
+                f"/repos/{repo}/git/matching-refs/tags/{request.tag}",
+                [tag_ref(request, tag_sha)],
+            ),
+            ("GET", f"/repos/{repo}/git/tags/{tag_sha}", wrong),
+        ]
+    )
+    with pytest.raises(DeveloperError, match="promotion_release_tag_conflict"):
+        asyncio.run(PromotionReleaseRuntime(settings, metadata).run(request))
