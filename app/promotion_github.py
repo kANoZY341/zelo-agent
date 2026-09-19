@@ -99,7 +99,11 @@ class GhApiTransport:
 
 
 def _sha(value: Any, code: str = "promotion_github_response_invalid") -> str:
-    if not isinstance(value, str) or len(value) != 40 or any(character not in HEX for character in value):
+    if (
+        not isinstance(value, str)
+        or len(value) != 40
+        or any(character not in HEX for character in value)
+    ):
         raise DeveloperError(code)
     return value
 
@@ -263,7 +267,8 @@ class GitHubPromotionPublisher:
             if isinstance(item, dict) and item.get("ref") == ref
         ]
         if exact:
-            if len(exact) != 1 or _sha(_dict(exact[0].get("object")).get("sha")) != local.commit_sha:
+            observed = _sha(_dict(exact[0].get("object")).get("sha"))
+            if len(exact) != 1 or observed != local.commit_sha:
                 raise DeveloperError("promotion_branch_conflict")
             return
         response = _dict(

@@ -212,8 +212,14 @@ def test_publish_reuses_exact_existing_branch_and_pr(developer_case):
     result = asyncio.run(publisher.publish(promotion, local, request))
 
     assert result.pr_number == 9
-    assert not any(method == "POST" and endpoint.endswith("/git/refs") for method, endpoint, _ in transport.calls)
-    assert not any(method == "POST" and endpoint.endswith("/pulls") for method, endpoint, _ in transport.calls)
+    assert not any(
+        method == "POST" and endpoint.endswith("/git/refs")
+        for method, endpoint, _ in transport.calls
+    )
+    assert not any(
+        method == "POST" and endpoint.endswith("/pulls")
+        for method, endpoint, _ in transport.calls
+    )
 
 
 def test_remote_base_move_fails_before_branch_creation(developer_case):
@@ -226,7 +232,10 @@ def test_remote_base_move_fails_before_branch_creation(developer_case):
     with pytest.raises(DeveloperError, match="promotion_remote_base_changed"):
         asyncio.run(publisher.publish(promotion, local, request))
 
-    assert not any(method == "POST" and endpoint.endswith("/git/refs") for method, endpoint, _ in transport.calls)
+    assert not any(
+        method == "POST" and endpoint.endswith("/git/refs")
+        for method, endpoint, _ in transport.calls
+    )
 
 
 def test_remote_tree_or_commit_mismatch_fails_closed(developer_case):
@@ -272,7 +281,10 @@ def test_conflicting_existing_branch_is_never_overwritten(developer_case):
     with pytest.raises(DeveloperError, match="promotion_branch_conflict"):
         asyncio.run(publisher.publish(promotion, local, request))
 
-    assert not any(method == "POST" and endpoint.endswith("/git/refs") for method, endpoint, _ in transport.calls)
+    assert not any(
+        method == "POST" and endpoint.endswith("/git/refs")
+        for method, endpoint, _ in transport.calls
+    )
 
 
 def test_candidate_mutation_fails_before_any_github_request(developer_case):
