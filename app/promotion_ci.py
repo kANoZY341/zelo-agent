@@ -64,9 +64,7 @@ class PromotionCIVerifier:
             raise DeveloperError("promotion_ci_identity_mismatch")
 
         pr = _dict(
-            await self.transport.request(
-                "GET", self.endpoint(f"/pulls/{publication.pr_number}")
-            )
+            await self.transport.request("GET", self.endpoint(f"/pulls/{publication.pr_number}"))
         )
         head = _dict(pr.get("head"))
         base = _dict(pr.get("base"))
@@ -93,9 +91,7 @@ class PromotionCIVerifier:
         selected: list[CICheckSnapshot] = []
         for name in required:
             matches = [
-                _dict(item)
-                for item in runs
-                if isinstance(item, dict) and item.get("name") == name
+                _dict(item) for item in runs if isinstance(item, dict) and item.get("name") == name
             ]
             if not matches:
                 raise DeveloperError("promotion_ci_required_check_missing")
@@ -104,8 +100,10 @@ class PromotionCIVerifier:
                     raise DeveloperError("promotion_ci_not_green")
                 check_id = run.get("id")
                 completed_at = run.get("completed_at")
-                if not isinstance(check_id, int) or check_id < 1 or not isinstance(
-                    completed_at, str
+                if (
+                    not isinstance(check_id, int)
+                    or check_id < 1
+                    or not isinstance(completed_at, str)
                 ):
                     raise DeveloperError("promotion_ci_response_invalid")
                 try:

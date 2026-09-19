@@ -47,7 +47,9 @@ def fixture(tmp_path):
         gateway_version="github-promotion-v1",
         repository="kANoZY341/zelo-agent",
         gh_executable="/usr/bin/true",
-        gh_executable_sha256=__import__("hashlib").sha256(Path("/usr/bin/true").read_bytes()).hexdigest(),
+        gh_executable_sha256=__import__("hashlib")
+        .sha256(Path("/usr/bin/true").read_bytes())
+        .hexdigest(),
         gh_config_dir=str(gh_config),
         timeout_seconds=settings.promotion_github_timeout_seconds,
     )
@@ -155,9 +157,7 @@ def script(publication, promotion, checks):
 def test_exact_head_green_ci_is_snapshotted(tmp_path):
     settings, promotion, publication = fixture(tmp_path)
     transport = ScriptedTransport(script(publication, promotion, [check()]))
-    result = asyncio.run(
-        PromotionCIVerifier(settings, transport).verify(promotion, publication)
-    )
+    result = asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
 
     assert result.pr_number == 7
     assert result.head_sha == publication.pr_head_sha
@@ -192,9 +192,7 @@ def test_missing_pending_or_failed_required_ci_fails_closed(tmp_path, checks, co
         (None, None, "closed"),
     ],
 )
-def test_pr_identity_change_invalidates_ci_verification(
-    tmp_path, head_sha, base_sha, state
-):
+def test_pr_identity_change_invalidates_ci_verification(tmp_path, head_sha, base_sha, state):
     settings, promotion, publication = fixture(tmp_path)
     repo = promotion.repository
     transport = ScriptedTransport(
