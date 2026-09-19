@@ -521,6 +521,9 @@ ZELO_PROMOTION_GH_EXECUTABLE=/usr/bin/gh
 ZELO_PROMOTION_GH_CONFIG_DIR=/home/zelo/.config/gh
 ZELO_PROMOTION_GITHUB_TIMEOUT_SECONDS=30
 ZELO_PROMOTION_REQUIRED_CHECKS='["checks"]'
+# Bind required check-runs to the trusted GitHub Actions app identity.
+ZELO_PROMOTION_CI_APP_ID=15368
+ZELO_PROMOTION_CI_APP_SLUG="github-actions"
 ```
 
 The three v0.7 migrations add the frozen promotion, merge, and release
