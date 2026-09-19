@@ -174,6 +174,8 @@ def source_fixture(settings, database):
     check = CICheckSnapshot(
         check_run_id=10,
         name="checks",
+        app_id=15368,
+        app_slug="github-actions",
         status="completed",
         conclusion="success",
         completed_at=datetime(2026, 9, 19, 12, 30, tzinfo=UTC),
