@@ -49,9 +49,7 @@ class GhApiTransport:
         )
         return env
 
-    async def request(
-        self, method: str, endpoint: str, body: dict[str, Any] | None = None
-    ) -> Any:
+    async def request(self, method: str, endpoint: str, body: dict[str, Any] | None = None) -> Any:
         if method not in {"GET", "POST"} or not endpoint.startswith("/repos/"):
             raise DeveloperError("promotion_github_request_invalid")
         executable = self.settings.promotion_gh_executable
@@ -146,9 +144,7 @@ class GitHubPromotionPublisher:
     async def _base_sha(self, promotion: PromotionRequest) -> str:
         branch = quote(promotion.target_base_branch, safe="")
         response = _dict(
-            await self.transport.request(
-                "GET", self.endpoint(f"/git/ref/heads/{branch}")
-            )
+            await self.transport.request("GET", self.endpoint(f"/git/ref/heads/{branch}"))
         )
         return _sha(_dict(response.get("object")).get("sha"))
 
@@ -227,9 +223,7 @@ class GitHubPromotionPublisher:
             message += "\n\n" + promotion.commit_message
         return message + "\n"
 
-    async def _commit(
-        self, promotion: PromotionRequest, local: PromotionCommitResult
-    ) -> None:
+    async def _commit(self, promotion: PromotionRequest, local: PromotionCommitResult) -> None:
         identity = {
             "name": promotion.commit_author_name,
             "email": promotion.commit_author_email,
@@ -251,20 +245,14 @@ class GitHubPromotionPublisher:
         if _sha(response.get("sha"), "promotion_remote_commit_mismatch") != local.commit_sha:
             raise DeveloperError("promotion_remote_commit_mismatch")
 
-    async def _branch(
-        self, promotion: PromotionRequest, local: PromotionCommitResult
-    ) -> None:
+    async def _branch(self, promotion: PromotionRequest, local: PromotionCommitResult) -> None:
         ref = f"refs/heads/{promotion.branch}"
         encoded = quote(f"heads/{promotion.branch}", safe="/")
         matches = _list(
-            await self.transport.request(
-                "GET", self.endpoint(f"/git/matching-refs/{encoded}")
-            )
+            await self.transport.request("GET", self.endpoint(f"/git/matching-refs/{encoded}"))
         )
         exact = [
-            _dict(item)
-            for item in matches
-            if isinstance(item, dict) and item.get("ref") == ref
+            _dict(item) for item in matches if isinstance(item, dict) and item.get("ref") == ref
         ]
         if exact:
             observed = _sha(_dict(exact[0].get("object")).get("sha"))
@@ -295,11 +283,7 @@ class GitHubPromotionPublisher:
                 "base": promotion.target_base_branch,
             }
         )
-        found = _list(
-            await self.transport.request(
-                "GET", self.endpoint(f"/pulls?{query}")
-            )
-        )
+        found = _list(await self.transport.request("GET", self.endpoint(f"/pulls?{query}")))
         if len(found) > 1:
             raise DeveloperError("promotion_pr_ambiguous")
         if found:

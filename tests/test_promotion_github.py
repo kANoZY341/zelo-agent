@@ -51,9 +51,7 @@ def reviewed(runtime):
     )
     (repo / "feature.py").write_text("VALUE = 7\n")
     reviewer = PromotionReviewer(runtime)
-    review = asyncio.run(
-        reviewer.create(task_id, attempt_id, request, validation_passed=True)
-    )
+    review = asyncio.run(reviewer.create(task_id, attempt_id, request, validation_passed=True))
     promotion = PromotionRequest(
         review=review,
         repository="kANoZY341/zelo-agent",
@@ -82,9 +80,7 @@ def reviewed(runtime):
         review_fingerprint=review.review_fingerprint,
         validation=validation,
     )
-    settings = runtime.settings.model_copy(
-        update={"promotion_repository": "kANoZY341/zelo-agent"}
-    )
+    settings = runtime.settings.model_copy(update={"promotion_repository": "kANoZY341/zelo-agent"})
     return repo, request, reviewer, promotion, local, settings
 
 
@@ -217,8 +213,7 @@ def test_publish_reuses_exact_existing_branch_and_pr(developer_case):
         for method, endpoint, _ in transport.calls
     )
     assert not any(
-        method == "POST" and endpoint.endswith("/pulls")
-        for method, endpoint, _ in transport.calls
+        method == "POST" and endpoint.endswith("/pulls") for method, endpoint, _ in transport.calls
     )
 
 
