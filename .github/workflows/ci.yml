@@ -18,7 +18,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements-dev.txt
-      - run: python -m ruff check .
-      - run: python -m ruff format --check .
-      - run: python -m pytest -q
+      - name: Install system prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+      - name: Create trusted validation environment
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+      - run: .venv/bin/python -m ruff check .
+      - run: .venv/bin/python -m ruff format --check .
+      - run: .venv/bin/python -m pytest -q
