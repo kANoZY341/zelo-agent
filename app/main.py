@@ -11,6 +11,8 @@ from app.agent import AgentRuntime
 from app.api import router
 from app.config import Settings
 from app.database import Database
+from app.developer import DeveloperRuntime
+from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
 from app.policy import DomainError
@@ -26,6 +28,7 @@ def create_app(
     *,
     worker: Worker = execute,
     provider: ModelProvider | None = None,
+    developer_worker: DeveloperWorker | None = None,
 ) -> FastAPI:
     """Build an application with optional explicit settings for tests or tools."""
     configuration = settings if settings is not None else Settings()
@@ -49,11 +52,12 @@ def create_app(
                 configuration.model_config_version,
             )
             tool_gateway = ToolGateway(configuration)
-            tasks = TaskService(database, configuration, gateway, tool_gateway)
+            developer_runtime = DeveloperRuntime(configuration, developer_worker)
+            tasks = TaskService(database, configuration, gateway, tool_gateway, developer_runtime)
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
-            runner = Runner(tasks, worker, gateway, agent_runtime)
+            runner = Runner(tasks, worker, gateway, agent_runtime, developer_runtime)
             application.state.database = database
             application.state.tasks = tasks
             application.state.tool_gateway = tool_gateway

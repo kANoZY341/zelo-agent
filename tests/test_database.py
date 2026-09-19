@@ -44,7 +44,9 @@ def test_migration_from_empty_database(settings) -> None:
         database.close()
 
 
-@pytest.mark.parametrize("starting_revision", ["0001_task_foundation", "0003_tool_call"])
+@pytest.mark.parametrize(
+    "starting_revision", ["0001_task_foundation", "0003_tool_call", "0004_agent_runtime"]
+)
 def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
     database = Database(settings.database_path)
     try:
@@ -157,7 +159,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0004_agent_runtime"
+                == "0005_developer_agent"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -169,6 +171,14 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
             )
+            assert "developer_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            assert "developer_spec" in {
+                column["name"] for column in inspect(database.engine).get_columns("tasks")
+            }
             assert not any(
                 table.startswith("_alembic_tmp_")
                 for table in inspect(database.engine).get_table_names()
@@ -182,6 +192,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
     [
         ("0001_task_foundation", "0002_model_gateway", "ADD COLUMN selected_alias"),
         ("0003_tool_call", "0004_agent_runtime", "DROP TABLE tasks"),
+        ("0004_agent_runtime", "0005_developer_agent", "DROP TABLE tasks"),
     ],
 )
 def test_failed_migration_rolls_back_and_can_retry(
@@ -296,7 +307,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0004_agent_runtime"
+                "0005_developer_agent"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
@@ -313,6 +324,28 @@ def test_unmigrated_application_refuses_start(settings) -> None:
     with pytest.raises(RuntimeError, match="migration required"):
         with TestClient(create_app(settings)):
             pass
+
+
+def test_developer_kind_and_specification_persist(database) -> None:
+    with database.transaction() as session:
+        task = Task(
+            kind="developer_run",
+            payload={"instruction": "fixture", "validation_profile": "zelo_core"},
+            timeout_seconds=30,
+            status="awaiting_approval",
+            action_version=1,
+            action_hash="a" * 64,
+            request_hash="b" * 64,
+            developer_spec={"base_sha": "c" * 40, "limits": {"overall_seconds": 30}},
+        )
+        session.add(task)
+        session.flush()
+        task_id = task.id
+    with database.read() as session:
+        task = session.get(Task, task_id)
+        assert task.kind == "developer_run"
+        assert task.developer_spec["limits"]["overall_seconds"] == 30
+        assert session.execute(text("PRAGMA foreign_key_check")).all() == []
 
 
 def test_audit_consistency_and_append_only(client, database) -> None:

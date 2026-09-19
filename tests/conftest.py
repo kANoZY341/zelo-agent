@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.config import ROOT, Settings
 from app.database import Database
 from app.main import create_app
+from tests.developer_helpers import developer_case  # noqa: F401
 
 TEST_TOKEN = "test-only-operator-token-not-a-real-credential"
 AUTH = {"Authorization": f"Bearer {TEST_TOKEN}"}

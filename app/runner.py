@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from app.agent import AgentRuntime, AgentRuntimeError
+from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
 from app.tasks import Execution, TaskService
@@ -21,11 +22,13 @@ class Runner:
         worker: Worker = execute,
         gateway: ModelGateway | None = None,
         agent_runtime: AgentRuntime | None = None,
+        developer_runtime: DeveloperRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
+        self.developer_runtime = developer_runtime
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -94,13 +97,15 @@ class Runner:
             self.operation = asyncio.create_task(self._tool_worker(execution))
         elif execution.kind == "agent_run":
             self.operation = asyncio.create_task(self._agent_worker(execution))
+        elif execution.kind == "developer_run":
+            self.operation = asyncio.create_task(self._developer_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
                 await self.operation
-                if execution.kind == "agent_run"
+                if execution.kind in {"agent_run", "developer_run"}
                 else await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
             )
             result = (
@@ -108,7 +113,19 @@ class Runner:
                 if execution.kind == "tool_call"
                 else RESULT_MODELS[execution.kind].model_validate(raw).model_dump(mode="json")
             )
-            self.service.finish(execution, State.SUCCEEDED, result=result)
+            outcome = (
+                State.FAILED
+                if execution.kind == "developer_run" and not result["validation_passed"]
+                else State.SUCCEEDED
+            )
+            if execution.kind == "developer_run" and result["cancelled"]:
+                outcome = State.INTERRUPTED if self.stopping else State.CANCELLED
+            self.service.finish(
+                execution,
+                outcome,
+                result=result,
+                error=result.get("error") if execution.kind == "developer_run" else None,
+            )
             if execution.kind == "ai_prompt":
                 self.service.model_event(
                     execution.task_id, "model_execution_completed", execution.attempt_id
@@ -140,6 +157,8 @@ class Runner:
                 )
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
+        except DeveloperRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.args[0])
         except ModelGatewayError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
             if execution.kind == "ai_prompt":
@@ -257,4 +276,15 @@ class Runner:
             selected_model=execution.selected_model or "",
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+        )
+
+    async def _developer_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.developer_runtime is None or execution.developer_request is None:
+            raise DeveloperRuntimeError("developer_runtime_unavailable")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await self.developer_runtime.run(
+            execution.task_id, execution.attempt_id, execution.developer_request, emit
         )

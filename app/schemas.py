@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.developer_contracts import DeveloperRequest, ValidationResult
 from app.policy import State
 
 
@@ -54,6 +55,17 @@ class AgentRunInput(TaskInput):
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
 
 
+class DeveloperPayload(StrictModel):
+    instruction: str = Field(min_length=1, max_length=65536)
+    validation_profile: Literal["zelo_core"] = "zelo_core"
+
+
+class DeveloperRunInput(TaskInput):
+    kind: Literal["developer_run"]
+    payload: DeveloperPayload
+    timeout_seconds: float = Field(default=900.0, ge=1.0, le=3600, allow_inf_nan=False)
+
+
 class ToolCallPayload(StrictModel):
     tool: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -65,7 +77,13 @@ class ToolCallInput(TaskInput):
 
 
 TaskCreate = Annotated[
-    EchoInput | TextStatsInput | ApprovalDemoInput | AIPromptInput | ToolCallInput | AgentRunInput,
+    EchoInput
+    | TextStatsInput
+    | ApprovalDemoInput
+    | AIPromptInput
+    | ToolCallInput
+    | AgentRunInput
+    | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -106,6 +124,38 @@ class AgentRunResult(StrictModel):
     completed_at: datetime
 
 
+class DeveloperRunResult(StrictModel):
+    worker: str
+    worker_version: str
+    worker_config_version: str
+    base_sha: str
+    worktree: str
+    worker_exit_code: int | None
+    worker_summary: str = Field(max_length=4096)
+    usage: dict[str, int]
+    nonfatal_error_items: int = Field(ge=0, le=4096)
+    changed_files: list[str] = Field(max_length=1000)
+    ignored_generated_files: list[dict[str, str | int]] = Field(max_length=1000)
+    git_status: str = Field(max_length=1048576)
+    diff_stat: str = Field(max_length=8192)
+    diff: str = Field(max_length=131072)
+    head: str | None
+    head_changed: bool
+    validation: list[ValidationResult] = Field(max_length=4)
+    validation_passed: bool
+    started_at: datetime
+    worker_started_at: datetime | None
+    worker_completed_at: datetime | None
+    validation_completed_at: datetime | None
+    completed_at: datetime
+    duration_seconds: float
+    error: str | None
+    protocol_diagnostic: str | None
+    boundary_error: str | None
+    original_error: str | None
+    cancelled: bool
+
+
 class AttemptResponse(StrictModel):
     id: str
     number: int
@@ -130,8 +180,16 @@ class ApprovalResponse(StrictModel):
 
 class TaskResponse(StrictModel):
     id: str
-    kind: Literal["echo", "text_stats", "approval_demo", "ai_prompt", "tool_call", "agent_run"]
-    payload: TextPayload | AIPromptPayload | ToolCallPayload | AgentRunPayload
+    kind: Literal[
+        "echo",
+        "text_stats",
+        "approval_demo",
+        "ai_prompt",
+        "tool_call",
+        "agent_run",
+        "developer_run",
+    ]
+    payload: TextPayload | AIPromptPayload | ToolCallPayload | AgentRunPayload | DeveloperPayload
     timeout_seconds: float
     status: State
     action_version: int
@@ -145,6 +203,7 @@ class TaskResponse(StrictModel):
     selected_alias: str | None = None
     selected_model: str | None = None
     config_version: str | None = None
+    developer_spec: DeveloperRequest | None = None
 
 
 class TaskPage(StrictModel):

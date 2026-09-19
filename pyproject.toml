@@ -7,3 +7,4 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["developer_boundary: real Linux Git/process/Bubblewrap tests; no model service"]
