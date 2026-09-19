@@ -156,3 +156,45 @@ def test_release_source_change_fails_closed_before_tagging(database, tmp_path):
     assert current.status == State.CANCELLED
     assert current.error == "release_source_changed"
     assert runtime.calls == []
+
+
+def test_interrupted_release_retry_requires_fresh_approval(database, tmp_path):
+    configured, merge_task_id, _, merge_result = merge_source(database, tmp_path)
+    final = ReleaseRunResult(
+        repository=merge_result.repository,
+        branch="main",
+        main_sha=merge_result.merge_commit_sha,
+        tag="v0.7.0",
+        tag_object_sha="7" * 40,
+        annotated=True,
+        reused=False,
+    )
+    runtime = FakeReleaseRuntime(final)
+    service = TaskService(
+        database,
+        configured,
+        promotion_release_runtime=runtime,
+    )
+    task, _ = service.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": "v0.7.0"},
+        ),
+        None,
+    )
+    original_spec = task.release_spec.model_dump(mode="json")
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+
+    retried = service.retry(task.id)
+
+    assert retried.status == State.AWAITING_APPROVAL
+    assert retried.action_version == 2
+    assert retried.release_spec.model_dump(mode="json") == original_spec
+    assert retried.result is None
+    assert retried.error is None
+    assert len(retried.approvals) == 2
+    assert retried.approvals[-1].status == "pending"
+    assert retried.approvals[-1].action_hash == retried.action_hash

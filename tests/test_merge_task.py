@@ -265,3 +265,32 @@ def test_merge_source_change_fails_closed_before_execution(settings, database):
     current = service.get(task.id)
     assert current.status == State.CANCELLED
     assert current.error == "merge_source_changed"
+
+
+def test_interrupted_merge_retry_requires_fresh_approval(settings, database):
+    configured, source_id, _, _, ci = source_fixture(settings, database)
+    service = TaskService(
+        database,
+        configured,
+        promotion_ci_verifier=FakeCIVerifier(ci),
+    )
+    task, _ = service.submit(
+        MergeRunInput(kind="merge_run", payload={"promotion_task_id": source_id}),
+        None,
+    )
+    original_spec = task.merge_spec.model_dump(mode="json")
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+
+    retried = service.retry(task.id)
+
+    assert retried.status == State.AWAITING_APPROVAL
+    assert retried.action_version == 2
+    assert retried.merge_spec.model_dump(mode="json") == original_spec
+    assert retried.result is None
+    assert retried.error is None
+    assert len(retried.approvals) == 2
+    assert retried.approvals[-1].status == "pending"
+    assert retried.approvals[-1].action_hash == retried.action_hash
