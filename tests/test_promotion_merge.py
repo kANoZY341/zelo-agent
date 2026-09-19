@@ -159,6 +159,20 @@ def fixture(tmp_path):
     return settings, request, ci
 
 
+def open_pr(request):
+    return {
+        "number": request.publication.pr_number,
+        "state": "open",
+        "merged": False,
+        "merge_commit_sha": None,
+        "head": {
+            "ref": request.publication.branch,
+            "sha": request.publication.pr_head_sha,
+        },
+        "base": {"ref": "main", "sha": request.publication.pr_base_sha},
+    }
+
+
 def merged_pr(request, merge_sha):
     return {
         "number": request.publication.pr_number,
@@ -180,6 +194,11 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
     transport = ScriptedTransport(
         [
             (
+                "GET",
+                f"/repos/{repo}/pulls/7",
+                open_pr(request),
+            ),
+            (
                 "POST",
                 f"/repos/{repo}/pulls/7/merge",
                 {"merged": True, "sha": merge_sha},
@@ -197,7 +216,7 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
     assert result.merge_commit_sha == merge_sha
     assert result.head_sha == request.publication.pr_head_sha
     assert verifier.calls == [(request.promotion, request.publication)]
-    method, endpoint, body = transport.calls[0]
+    method, endpoint, body = transport.calls[1]
     assert method == "POST"
     assert endpoint.endswith("/pulls/7/merge")
     assert body == {
@@ -211,7 +230,9 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
 def test_merge_refuses_changed_ci_identity_before_side_effect(tmp_path):
     settings, request, ci = fixture(tmp_path)
     changed = ci.model_copy(update={"head_sha": "7" * 40})
-    transport = ScriptedTransport([])
+    transport = ScriptedTransport(
+        [("GET", f"/repos/{request.promotion.repository}/pulls/7", open_pr(request))]
+    )
 
     with pytest.raises(DeveloperError, match="promotion_merge_ci_changed"):
         asyncio.run(
@@ -226,6 +247,7 @@ def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):
     repo = request.promotion.repository
     transport = ScriptedTransport(
         [
+            ("GET", f"/repos/{repo}/pulls/7", open_pr(request)),
             (
                 "POST",
                 f"/repos/{repo}/pulls/7/merge",
@@ -236,3 +258,33 @@ def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):
 
     with pytest.raises(DeveloperError, match="promotion_merge_rejected"):
         asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
+
+
+def test_merge_retry_recovers_exact_already_merged_pr_without_second_merge(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    merge_sha = "8" * 40
+    repo = request.promotion.repository
+    transport = ScriptedTransport(
+        [("GET", f"/repos/{repo}/pulls/7", merged_pr(request, merge_sha))]
+    )
+    verifier = FakeCIVerifier(ci)
+
+    result = asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(request))
+
+    assert result.merge_commit_sha == merge_sha
+    assert result.reused is True
+    assert verifier.calls == []
+    assert all(method != "POST" for method, _, _ in transport.calls)
+
+
+def test_merge_retry_refuses_closed_unmerged_pr(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    repo = request.promotion.repository
+    closed = open_pr(request)
+    closed["state"] = "closed"
+    transport = ScriptedTransport([("GET", f"/repos/{repo}/pulls/7", closed)])
+
+    with pytest.raises(DeveloperError, match="promotion_merge_pr_closed"):
+        asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
+
+    assert all(method != "POST" for method, _, _ in transport.calls)

@@ -246,6 +246,7 @@ class MergeRunResult(PromotionContract):
     head_sha: str = Field(pattern=GIT_SHA)
     merge_method: Literal["squash"]
     merge_commit_sha: str = Field(pattern=GIT_SHA)
+    reused: bool = False
 
 
 class ReleaseRequest(PromotionContract):

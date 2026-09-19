@@ -48,12 +48,71 @@ class PromotionMergeRuntime:
             raise DeveloperError("promotion_merge_request_invalid")
         return f"/repos/{self.repository}{suffix}"
 
+    def _result_from_merged_pr(
+        self,
+        request: MergeRequest,
+        pr: dict[str, Any],
+        *,
+        reused: bool,
+    ) -> MergeRunResult:
+        head = _dict(pr.get("head"))
+        base = _dict(pr.get("base"))
+        merge_sha = _sha(pr.get("merge_commit_sha"))
+        if (
+            pr.get("number") != request.publication.pr_number
+            or pr.get("state") != "closed"
+            or pr.get("merged") is not True
+            or head.get("ref") != request.publication.branch
+            or _sha(head.get("sha")) != request.publication.pr_head_sha
+            or base.get("ref") != request.publication.base_branch
+            or _sha(base.get("sha")) != request.publication.pr_base_sha
+        ):
+            raise DeveloperError("promotion_merge_verification_failed")
+        return MergeRunResult(
+            repository=self.repository,
+            pr_number=request.publication.pr_number,
+            base_branch=request.publication.base_branch,
+            base_sha=request.publication.pr_base_sha,
+            head_branch=request.publication.branch,
+            head_sha=request.publication.pr_head_sha,
+            merge_method=request.merge_method,
+            merge_commit_sha=merge_sha,
+            reused=reused,
+        )
+
+    async def _current_pr(self, request: MergeRequest) -> dict[str, Any]:
+        return _dict(
+            await self.transport.request(
+                "GET",
+                self.endpoint(f"/pulls/{request.publication.pr_number}"),
+            )
+        )
+
     async def run(self, request: MergeRequest) -> MergeRunResult:
         if (
             request.promotion.repository != self.repository
             or request.promotion.publisher != publisher_identity(self.settings)
         ):
             raise DeveloperError("promotion_merge_publisher_changed")
+
+        current = await self._current_pr(request)
+        if current.get("state") == "closed":
+            if current.get("merged") is not True:
+                raise DeveloperError("promotion_merge_pr_closed")
+            return self._result_from_merged_pr(request, current, reused=True)
+
+        head = _dict(current.get("head"))
+        base = _dict(current.get("base"))
+        if (
+            current.get("number") != request.publication.pr_number
+            or current.get("state") != "open"
+            or current.get("merged") not in {False, None}
+            or head.get("ref") != request.publication.branch
+            or _sha(head.get("sha")) != request.publication.pr_head_sha
+            or base.get("ref") != request.publication.base_branch
+            or _sha(base.get("sha")) != request.publication.pr_base_sha
+        ):
+            raise DeveloperError("promotion_merge_pr_changed")
 
         fresh_ci = await self.ci_verifier.verify(
             request.promotion,
@@ -87,32 +146,8 @@ class PromotionMergeRuntime:
             raise DeveloperError("promotion_merge_rejected")
         merge_sha = _sha(response.get("sha"))
 
-        pr = _dict(
-            await self.transport.request(
-                "GET",
-                self.endpoint(f"/pulls/{request.publication.pr_number}"),
-            )
-        )
-        head = _dict(pr.get("head"))
-        base = _dict(pr.get("base"))
-        if (
-            pr.get("number") != request.publication.pr_number
-            or pr.get("state") != "closed"
-            or pr.get("merged") is not True
-            or _sha(pr.get("merge_commit_sha")) != merge_sha
-            or head.get("ref") != request.publication.branch
-            or _sha(head.get("sha")) != request.publication.pr_head_sha
-            or base.get("ref") != request.publication.base_branch
-        ):
+        pr = await self._current_pr(request)
+        result = self._result_from_merged_pr(request, pr, reused=False)
+        if result.merge_commit_sha != merge_sha:
             raise DeveloperError("promotion_merge_verification_failed")
-
-        return MergeRunResult(
-            repository=self.repository,
-            pr_number=request.publication.pr_number,
-            base_branch=request.publication.base_branch,
-            base_sha=request.publication.pr_base_sha,
-            head_branch=request.publication.branch,
-            head_sha=request.publication.pr_head_sha,
-            merge_method=request.merge_method,
-            merge_commit_sha=merge_sha,
-        )
+        return result
