@@ -237,3 +237,31 @@ def test_promotion_repository_must_be_operator_configured(developer_case, databa
         service.submit(promotion_input(developer.id, attempt.id), None)
 
     assert failure.value.status_code == 503
+
+
+@pytest.mark.developer_boundary
+def test_interrupted_promotion_retry_requires_fresh_approval_and_preserves_spec(
+    developer_case, database
+):
+    _, developer, attempt = completed_developer(developer_case, database)
+    service = configured(developer_case, database)
+    promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+    original_spec = promotion.promotion_spec.model_dump(mode="json")
+
+    service.decide(promotion.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+
+    retried = service.retry(promotion.id)
+
+    assert retried.status == State.AWAITING_APPROVAL
+    assert retried.action_version == 2
+    assert retried.promotion_spec.model_dump(mode="json") == original_spec
+    assert retried.result is None
+    assert retried.error is None
+    assert len(retried.approvals) == 2
+    assert retried.approvals[-1].status == "pending"
+    assert retried.approvals[-1].action_hash == retried.action_hash
+    events = [event.event for event in service.events(promotion.id, 100, 0)]
+    assert events[-2:] == ["approval_created", "promotion_approval_created"]
