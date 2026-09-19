@@ -59,6 +59,7 @@ class Task(Base):
     selected_model: Mapped[str | None] = mapped_column(String(128))
     config_version: Mapped[str | None] = mapped_column(String(64))
     developer_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    promotion_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class TaskAttempt(Base):

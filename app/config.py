@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     developer_changed_files: int = Field(default=200, ge=1, le=1000)
     developer_codex_executable: Path = Path.home() / ".local/bin/codex"
     developer_codex_auth_file: Path = Path.home() / ".codex/auth.json"
+    promotion_repository: str | None = None
 
     @field_validator("ollama_url")
     @classmethod
@@ -61,6 +62,21 @@ class Settings(BaseSettings):
         if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise ValueError("Ollama URL must be localhost HTTP")
         return value.rstrip("/")
+
+    @field_validator("promotion_repository")
+    @classmethod
+    def validate_promotion_repository(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parts = value.split("/")
+        allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+        if (
+            len(parts) != 2
+            or any(not part or len(part) > 100 for part in parts)
+            or any(character not in allowed for part in parts for character in part)
+        ):
+            raise ValueError("Promotion repository must use owner/name format")
+        return value
 
     @field_validator("operator_token")
     @classmethod

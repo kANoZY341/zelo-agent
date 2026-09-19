@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.developer_contracts import DeveloperRequest, ValidationResult
 from app.policy import State
+from app.promotion_contracts import PromotionRequest
 
 
 class StrictModel(BaseModel):
@@ -66,6 +67,31 @@ class DeveloperRunInput(TaskInput):
     timeout_seconds: float = Field(default=900.0, ge=1.0, le=3600, allow_inf_nan=False)
 
 
+class PromotionPayload(StrictModel):
+    developer_task_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    developer_attempt_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    target_base_branch: Literal["main"] = "main"
+    branch: str = Field(
+        min_length=16,
+        max_length=96,
+        pattern=r"^zelo/promotion/[A-Za-z0-9][A-Za-z0-9._-]*$",
+    )
+    commit_title: str = Field(min_length=1, max_length=200)
+    commit_message: str = Field(default="", max_length=4096)
+    pr_title: str = Field(min_length=1, max_length=256)
+    pr_body: str = Field(default="", max_length=16384)
+
+
+class PromotionRunInput(TaskInput):
+    kind: Literal["promotion_run"]
+    payload: PromotionPayload
+    timeout_seconds: float = Field(default=300.0, ge=1.0, le=900.0, allow_inf_nan=False)
+
+
 class ToolCallPayload(StrictModel):
     tool: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -83,7 +109,8 @@ TaskCreate = Annotated[
     | AIPromptInput
     | ToolCallInput
     | AgentRunInput
-    | DeveloperRunInput,
+    | DeveloperRunInput
+    | PromotionRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -188,8 +215,16 @@ class TaskResponse(StrictModel):
         "tool_call",
         "agent_run",
         "developer_run",
+        "promotion_run",
     ]
-    payload: TextPayload | AIPromptPayload | ToolCallPayload | AgentRunPayload | DeveloperPayload
+    payload: (
+        TextPayload
+        | AIPromptPayload
+        | ToolCallPayload
+        | AgentRunPayload
+        | DeveloperPayload
+        | PromotionPayload
+    )
     timeout_seconds: float
     status: State
     action_version: int
@@ -204,6 +239,7 @@ class TaskResponse(StrictModel):
     selected_model: str | None = None
     config_version: str | None = None
     developer_spec: DeveloperRequest | None = None
+    promotion_spec: PromotionRequest | None = None
 
 
 class TaskPage(StrictModel):

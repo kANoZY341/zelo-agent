@@ -1,5 +1,6 @@
 """Transactional task operations. Routes and workers delegate state changes here."""
 
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -13,6 +14,8 @@ from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeEr
 from app.gateway import ModelGateway
 from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
+from app.promotion_contracts import PromotionRequest
+from app.promotion_review import PromotionReviewer
 from app.schemas import (
     ApprovalResponse,
     AttemptResponse,
@@ -93,6 +96,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "selected_model": task.selected_model,
         "config_version": task.config_version,
         "developer_spec": task.developer_spec,
+        "promotion_spec": task.promotion_spec,
     }
     response = TaskResponse.model_validate(values)
     response.attempts = [
@@ -118,12 +122,14 @@ class TaskService:
         gateway: ModelGateway | None = None,
         tool_gateway: ToolGateway | None = None,
         developer_runtime: DeveloperRuntime | None = None,
+        promotion_reviewer: PromotionReviewer | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
         self.gateway = gateway
         self.tool_gateway = tool_gateway
         self.developer_runtime = developer_runtime
+        self.promotion_reviewer = promotion_reviewer
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -132,7 +138,7 @@ class TaskService:
         if count is not None and count >= self.settings.max_waiting_tasks:
             raise DomainError("Waiting task capacity reached; try again later", 503)
 
-    def _new_approval(self, session: Session, task: Task) -> None:
+    def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
             task_id=task.id,
             action_version=task.action_version,
@@ -143,8 +149,155 @@ class TaskService:
         session.add(approval)
         session.flush()
         audit(session, task, "approval_created", approval_id=approval.id)
+        return approval
+
+    def _promotion_source(
+        self, developer_task_id: str, developer_attempt_id: str
+    ) -> tuple[DeveloperRequest, int, str]:
+        with self.database.read() as session:
+            source = require_task(session, developer_task_id)
+            attempt = session.get(TaskAttempt, developer_attempt_id)
+            latest_attempt_id = session.scalar(
+                select(TaskAttempt.id)
+                .where(TaskAttempt.task_id == developer_task_id)
+                .order_by(TaskAttempt.number.desc())
+                .limit(1)
+            )
+            if (
+                source.kind != "developer_run"
+                or source.status != State.SUCCEEDED
+                or source.developer_spec is None
+                or attempt is None
+                or attempt.task_id != source.id
+                or attempt.id != latest_attempt_id
+                or attempt.outcome != State.SUCCEEDED
+                or attempt.error is not None
+                or not isinstance(attempt.result, dict)
+                or attempt.result.get("validation_passed") is not True
+                or source.result != attempt.result
+            ):
+                raise DomainError("Promotion source must be the latest successful developer attempt")
+            try:
+                developer_request = DeveloperRequest.model_validate(source.developer_spec)
+            except ValueError:
+                raise DomainError("Promotion source specification is invalid") from None
+            return developer_request, source.action_version, source.action_hash
+
+    def _submit_promotion(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
+        request_hash = fingerprint(request.model_dump(mode="json"))
+        if key is not None:
+            with self.database.read() as session:
+                existing = session.scalar(select(Task).where(Task.idempotency_key == key))
+                if existing:
+                    if existing.request_hash != request_hash:
+                        raise DomainError(
+                            "Idempotency key was already used with a different request"
+                        )
+                    return snapshot(session, existing), False
+
+        if self.promotion_reviewer is None or self.settings.promotion_repository is None:
+            raise DomainError("Promotion review unavailable", 503)
+
+        payload = request.payload.model_dump(mode="json")
+        developer_request, source_version, source_hash = self._promotion_source(
+            payload["developer_task_id"], payload["developer_attempt_id"]
+        )
+        try:
+            review = asyncio.run(
+                self.promotion_reviewer.create(
+                    payload["developer_task_id"],
+                    payload["developer_attempt_id"],
+                    developer_request,
+                    validation_passed=True,
+                )
+            )
+            promotion = PromotionRequest(
+                review=review,
+                repository=self.settings.promotion_repository,
+                target_base_branch=payload["target_base_branch"],
+                branch=payload["branch"],
+                commit_title=payload["commit_title"],
+                commit_message=payload["commit_message"],
+                pr_title=payload["pr_title"],
+                pr_body=payload["pr_body"],
+            )
+        except DeveloperRuntimeError as error:
+            raise DomainError(error.args[0]) from None
+        except ValueError:
+            raise DomainError("Promotion request is invalid", 422) from None
+
+        with self.database.transaction() as session:
+            if key is not None:
+                existing = session.scalar(select(Task).where(Task.idempotency_key == key))
+                if existing:
+                    if existing.request_hash != request_hash:
+                        raise DomainError(
+                            "Idempotency key was already used with a different request"
+                        )
+                    return snapshot(session, existing), False
+            self._check_capacity(session)
+            source = require_task(session, payload["developer_task_id"])
+            latest_attempt_id = session.scalar(
+                select(TaskAttempt.id)
+                .where(TaskAttempt.task_id == source.id)
+                .order_by(TaskAttempt.number.desc())
+                .limit(1)
+            )
+            if (
+                source.status != State.SUCCEEDED
+                or source.action_version != source_version
+                or source.action_hash != source_hash
+                or latest_attempt_id != payload["developer_attempt_id"]
+            ):
+                raise DomainError("Promotion source changed during review")
+
+            spec = promotion.model_dump(mode="json")
+            task = Task(
+                kind=request.kind,
+                payload=payload,
+                timeout_seconds=request.timeout_seconds,
+                status=State.AWAITING_APPROVAL,
+                action_version=1,
+                action_hash=action_hash(
+                    request.kind, payload, request.timeout_seconds, 1, spec
+                ),
+                idempotency_key=key,
+                request_hash=request_hash,
+                promotion_spec=spec,
+            )
+            session.add(task)
+            session.flush()
+            audit(session, task, "task_submitted")
+            audit(
+                session,
+                task,
+                "promotion_review_created",
+                developer_task_id=review.developer_task_id,
+                developer_attempt_id=review.developer_attempt_id,
+                base_sha=review.base_sha,
+                changed_file_count=review.changed_file_count,
+                review_fingerprint=review.review_fingerprint,
+            )
+            audit(
+                session,
+                task,
+                "state_transition",
+                previous=None,
+                target=State.AWAITING_APPROVAL,
+            )
+            approval = self._new_approval(session, task)
+            audit(
+                session,
+                task,
+                "promotion_approval_created",
+                approval_id=approval.id,
+                review_fingerprint=review.review_fingerprint,
+            )
+            return snapshot(session, task), True
 
     def submit(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
+        if request.kind == "promotion_run":
+            return self._submit_promotion(request, key)
         request_hash = fingerprint(request.model_dump(mode="json"))
         with self.database.transaction() as session:
             if key is not None:
@@ -228,7 +381,7 @@ class TaskService:
                 )
             if task.kind == "tool_call":
                 audit(session, task, "tool_selected", tool=task.payload["tool"])
-            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
+            if task.kind in {"approval_demo", "ai_prompt", "developer_run", "promotion_run"}:
                 # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
                 audit(
@@ -298,6 +451,26 @@ class TaskService:
                     return False
             except (ValueError, DeveloperRuntimeError):
                 return False
+        elif task.kind == "promotion_run":
+            selection = task.promotion_spec
+            try:
+                request = PromotionRequest.model_validate(selection)
+                payload = task.payload
+                if (
+                    self.settings.promotion_repository is None
+                    or request.repository != self.settings.promotion_repository
+                    or request.review.developer_task_id != payload["developer_task_id"]
+                    or request.review.developer_attempt_id != payload["developer_attempt_id"]
+                    or request.target_base_branch != payload["target_base_branch"]
+                    or request.branch != payload["branch"]
+                    or request.commit_title != payload["commit_title"]
+                    or request.commit_message != payload["commit_message"]
+                    or request.pr_title != payload["pr_title"]
+                    or request.pr_body != payload["pr_body"]
+                ):
+                    return False
+            except (ValueError, TypeError, KeyError):
+                return False
         current = action_hash(
             task.kind, task.payload, task.timeout_seconds, task.action_version, selection
         )
@@ -342,7 +515,14 @@ class TaskService:
             task = require_task(session, approval.task_id)
             self._expire_or_invalidate(session, task, approval)
             target = "approved" if decision == "approve" else "rejected"
-            if approval.status == target:
+            if (
+                task.kind == "promotion_run"
+                and decision == "approve"
+                and approval.status == "pending"
+                and task.status == State.AWAITING_APPROVAL
+            ):
+                error = DomainError("Promotion execution is not enabled yet", 503)
+            elif approval.status == target:
                 pass  # Idempotent decision: no state changes, events, or scheduling.
             elif approval.status != "pending" or task.status != State.AWAITING_APPROVAL:
                 error = DomainError("Approval is no longer pending or the decision conflicts")
@@ -398,6 +578,8 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            if task.kind == "promotion_run":
+                raise DomainError("Promotion retry is not enabled yet", 503)
             target = (
                 State.AWAITING_APPROVAL
                 if task.kind in {"approval_demo", "ai_prompt", "developer_run"}
@@ -431,7 +613,11 @@ class TaskService:
                     "config_version": task.config_version,
                 }
                 if task.kind in {"ai_prompt", "agent_run"}
-                else (task.developer_spec if task.kind == "developer_run" else None),
+                else (
+                    task.developer_spec
+                    if task.kind == "developer_run"
+                    else (task.promotion_spec if task.kind == "promotion_run" else None)
+                ),
             )
             task.cancel_requested = False
             task.result = None
@@ -509,6 +695,11 @@ class TaskService:
             )
             if current_hash != task.action_hash:
                 task.error = "action_changed"
+                transition(session, task, State.CANCELLED)
+                audit(session, task, "execution_denied", reason=task.error)
+                return None
+            if task.kind == "promotion_run":
+                task.error = "promotion_execution_unavailable"
                 transition(session, task, State.CANCELLED)
                 audit(session, task, "execution_denied", reason=task.error)
                 return None
