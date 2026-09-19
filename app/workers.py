@@ -9,6 +9,7 @@ from app.schemas import (
     AgentRunResult,
     AIPromptResult,
     ApprovalDemoResult,
+    DeveloperRunResult,
     EchoResult,
     TextPayload,
     TextStatsResult,
@@ -22,6 +23,7 @@ RESULT_MODELS = {
     "approval_demo": ApprovalDemoResult,
     "ai_prompt": AIPromptResult,
     "agent_run": AgentRunResult,
+    "developer_run": DeveloperRunResult,
 }
 
 

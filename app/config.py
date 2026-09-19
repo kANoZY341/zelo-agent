@@ -39,6 +39,18 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
     max_model_parse_retries: int = Field(default=1, ge=0, le=2)
     max_agent_tool_result_chars: int = Field(default=8192, ge=256, le=32768)
+    developer_timeout_seconds: float = Field(default=900.0, ge=1, le=3600)
+    developer_validation_timeout_seconds: float = Field(default=600.0, ge=1, le=1800)
+    developer_worker_timeout_seconds: float = Field(default=600.0, ge=1, le=1800)
+    developer_git_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
+    developer_stdout_bytes: int = Field(default=262144, ge=1024, le=1048576)
+    developer_stderr_bytes: int = Field(default=16384, ge=1024, le=65536)
+    developer_jsonl_line_bytes: int = Field(default=16384, ge=256, le=65536)
+    developer_jsonl_events: int = Field(default=1024, ge=4, le=4096)
+    developer_diff_bytes: int = Field(default=32768, ge=1024, le=131072)
+    developer_changed_files: int = Field(default=200, ge=1, le=1000)
+    developer_codex_executable: Path = Path.home() / ".local/bin/codex"
+    developer_codex_auth_file: Path = Path.home() / ".codex/auth.json"
 
     @field_validator("ollama_url")
     @classmethod

@@ -1,0 +1,6 @@
+# Fixed inspection configuration; worker-controlled configuration is never loaded.
+[core]
+    repositoryformatversion = 0
+    bare = false
+    hooksPath = /dev/null
+    fsmonitor = false

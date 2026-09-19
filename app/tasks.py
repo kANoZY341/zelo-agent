@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.database import Database
+from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
 from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
@@ -37,6 +38,7 @@ class Execution:
     selected_model: str | None = None
     tool_name: str | None = None
     tool_arguments: dict[str, Any] | None = None
+    developer_request: DeveloperRequest | None = None
 
 
 def audit(
@@ -90,6 +92,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "selected_alias": task.selected_alias,
         "selected_model": task.selected_model,
         "config_version": task.config_version,
+        "developer_spec": task.developer_spec,
     }
     response = TaskResponse.model_validate(values)
     response.attempts = [
@@ -114,11 +117,13 @@ class TaskService:
         settings: Settings,
         gateway: ModelGateway | None = None,
         tool_gateway: ToolGateway | None = None,
+        developer_runtime: DeveloperRuntime | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
         self.gateway = gateway
         self.tool_gateway = tool_gateway
+        self.developer_runtime = developer_runtime
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -190,6 +195,25 @@ class TaskService:
                     self.tool_gateway.validate(payload["tool"], payload["arguments"])
                 except ToolRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
+            if request.kind == "developer_run":
+                if self.developer_runtime is None:
+                    raise DomainError("Developer runtime unavailable", 503)
+                try:
+                    developer_request = self.developer_runtime.request(
+                        payload["instruction"],
+                        payload["validation_profile"],
+                        request.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                task.developer_spec = developer_request.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    task.developer_spec,
+                )
             session.add(task)
             session.flush()
             audit(session, task, "task_submitted")
@@ -204,7 +228,7 @@ class TaskService:
                 )
             if task.kind == "tool_call":
                 audit(session, task, "tool_selected", tool=task.payload["tool"])
-            if task.kind in {"approval_demo", "ai_prompt"}:
+            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
                 # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
                 audit(
@@ -262,6 +286,18 @@ class TaskService:
                 "config_version": task.config_version,
                 "profile": task.payload.get("profile"),
             }
+        elif task.kind == "developer_run":
+            selection = task.developer_spec
+            try:
+                request = DeveloperRequest.model_validate(selection)
+                if (
+                    self.developer_runtime is None
+                    or not self.developer_runtime.compatible(request, task.timeout_seconds)
+                    or request.instruction != task.payload["instruction"]
+                ):
+                    return False
+            except (ValueError, DeveloperRuntimeError):
+                return False
         current = action_hash(
             task.kind, task.payload, task.timeout_seconds, task.action_version, selection
         )
@@ -364,7 +400,7 @@ class TaskService:
             task = require_task(session, task_id)
             target = (
                 State.AWAITING_APPROVAL
-                if task.kind in {"approval_demo", "ai_prompt"}
+                if task.kind in {"approval_demo", "ai_prompt", "developer_run"}
                 else State.PENDING
             )
             validate_transition(task.status, target)
@@ -372,6 +408,17 @@ class TaskService:
             audit(session, task, "retry_requested")
             transition(session, task, target)
             task.action_version += 1
+            if task.kind == "developer_run":
+                if self.developer_runtime is None:
+                    raise DomainError("Developer runtime unavailable", 503)
+                try:
+                    task.developer_spec = self.developer_runtime.request(
+                        task.payload["instruction"],
+                        task.payload["validation_profile"],
+                        task.timeout_seconds,
+                    ).model_dump(mode="json")
+                except DeveloperRuntimeError as error:
+                    raise DomainError(str(error), 422) from None
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -384,12 +431,12 @@ class TaskService:
                     "config_version": task.config_version,
                 }
                 if task.kind in {"ai_prompt", "agent_run"}
-                else None,
+                else (task.developer_spec if task.kind == "developer_run" else None),
             )
             task.cancel_requested = False
             task.result = None
             task.error = None
-            if task.kind in {"approval_demo", "ai_prompt"}:
+            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
                 if task.kind == "ai_prompt":
                     audit(
                         session,
@@ -414,7 +461,7 @@ class TaskService:
             )
             if task is None:
                 return None
-            if task.kind in {"approval_demo", "ai_prompt"}:
+            if task.kind in {"approval_demo", "ai_prompt", "developer_run"}:
                 approval = session.scalar(
                     select(Approval)
                     .where(Approval.task_id == task.id)
@@ -458,7 +505,7 @@ class TaskService:
                     "profile": task.payload.get("profile"),
                 }
                 if task.kind in {"ai_prompt", "agent_run"}
-                else None,
+                else (task.developer_spec if task.kind == "developer_run" else None),
             )
             if current_hash != task.action_hash:
                 task.error = "action_changed"
@@ -488,6 +535,9 @@ class TaskService:
                 task.selected_model,
                 task.payload.get("tool"),
                 task.payload.get("arguments"),
+                DeveloperRequest.model_validate(task.developer_spec)
+                if task.kind == "developer_run"
+                else None,
             )
 
     def finish(
@@ -503,7 +553,9 @@ class TaskService:
             if attempt is None or attempt.outcome != State.RUNNING:
                 raise DomainError("Attempt is not running")
             if task.cancel_requested:
-                outcome, result, error = State.CANCELLED, None, "cancelled_by_operator"
+                outcome, error = State.CANCELLED, "cancelled_by_operator"
+                if task.kind != "developer_run":
+                    result = None
             transition(session, task, outcome)
             task.result, task.error = result, error
             attempt.outcome = outcome
@@ -516,6 +568,15 @@ class TaskService:
                 State.INTERRUPTED: "execution_interrupted",
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
+            if task.kind == "developer_run":
+                audit(
+                    session,
+                    task,
+                    "developer_completed" if outcome == State.SUCCEEDED else "developer_failed",
+                    attempt_id=attempt.id,
+                    reason=error,
+                    workspace=result.get("worktree") if result else None,
+                )
             if task.kind == "agent_run":
                 details = (
                     {"model_steps": result["model_steps"], "tool_calls": result["tool_calls"]}
@@ -556,6 +617,14 @@ class TaskService:
                         session,
                         task,
                         "agent_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "developer_run":
+                    audit(
+                        session,
+                        task,
+                        "developer_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

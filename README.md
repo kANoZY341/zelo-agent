@@ -1,8 +1,9 @@
-# Zelo Core v0.5.0 — Agent Runtime
+# Zelo Core v0.6.0 — Developer Agent
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
-gateway, native read-only tools, and a bounded Agent Runtime.
+gateway, native read-only tools, a bounded Agent Runtime, and an approved
+Developer Runtime.
 
 ## Setup
 
@@ -35,7 +36,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.5.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.6.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -243,6 +244,194 @@ It creates an isolated temporary database, starts Zelo on an ephemeral
 `127.0.0.1` port, submits the repository-status request above through HTTP, checks
 the persisted result and audit events, then stops the server and cleans up its
 temporary database. It never downloads a model or invokes DeepSeek.
+
+## Developer Runtime (v0.6)
+
+`DeveloperRuntime` delegates an explicitly approved coding instruction to a
+replaceable `DeveloperWorker`; the initial adapter is `CodexCliWorker`. This is
+separate from `AgentRuntime`, `ModelGateway` and `ToolGateway`. Codex proposes
+code changes; Zelo owns approval, execution boundaries, validation and results.
+
+Use the authenticated existing tasks API:
+
+```json
+{
+  "kind": "developer_run",
+  "payload": {
+    "instruction": "Describe the requested Zelo Core change here.",
+    "validation_profile": "zelo_core"
+  },
+  "timeout_seconds": 900
+}
+```
+
+The task starts in `awaiting_approval`. Its returned `developer_spec` records the
+instruction, configured source identity, exact base SHA, workspace root, worker
+implementation/configuration version, detected CLI version/capability profile,
+executable digest, authentication-file location (not its contents), validation
+environment identity, sandbox/validation profile versions, and effective limits.
+The existing approval hash binds this specification and the task request.
+Execution rechecks configuration and preflight; changes require a fresh approval.
+
+Before runtime preflight, Zelo snapshots protected primary state, opens the
+configured executable once, validates its ownership/type and approved resolved
+identity, and copies its bytes into a private Linux `memfd`. Its digest must match
+the approval before any code executes. The copy is sealed against writes, growth
+and truncation, then independently digest-checked. Capability probes, command
+sandbox probes and execution all use this same sealed artifact—not later opens
+of the configured binary. Bubblewrap consumes its explicitly passed descriptor,
+materializes a named executable in private tmpfs, and remounts that directory
+read-only before launch. This avoids anonymous-descriptor path-resolution issues
+in Bubblewrap while preserving verified bytes. Replacing the configured binary
+after pinning cannot change the artifact. The descriptor closes after the attempt.
+
+At submission there is no prior approval: trusted configured-file ownership and
+a sealed content snapshot establish the proposed identity. Capability checks run
+in a minimal network-disabled sandbox with no primary checkout or authentication
+mount. Unsupported sealing/Bubblewrap behavior fails closed; there is no unsafe
+fallback.
+
+Each attempt owns a standalone repository at
+`workspaces/developer/<attempt-id>/repo`. Zelo initializes a new Git database,
+fetches the approved commit over local file transport, and checks it out detached.
+There are no shared object stores, hard links, linked worktrees or configured
+remotes. An ownership record lives outside the worker's writable directory.
+A process lock serializes developer executions across Zelo runtime databases.
+
+### Codex prerequisites and boundaries
+
+This implementation supports Linux with functioning Bubblewrap user/PID/network
+namespaces and the inspected **codex-cli 0.154.0 and 0.155.1**. Unsupported binaries,
+capabilities or sandbox probes fail closed. Zelo does not install prerequisites
+or log in automatically. The configured executable defaults to
+`~/.local/bin/codex`; authentication uses the CLI-managed `~/.codex/auth.json`
+through a read-only bind. Zelo does not copy or implement authentication storage.
+Authentication refresh that needs to rewrite that file must be performed outside
+the worker by the operator.
+
+The outer Bubblewrap view exposes `/workspace`, required system binaries/libraries,
+selected public system configuration, the CLI binary, private temporary storage,
+and the CLI authentication file. It does **not** mount the primary repository,
+runtime database, secrets, other workspaces, host home directories or Docker socket.
+Only the isolated source directory is writable on the host; its `.git` is read-only.
+
+The Codex parent retains service networking. Generated commands use an explicit
+named permission profile with workspace writes, read-only Git metadata,
+`network.enabled=false`, and denied reads of the authentication directory.
+Zelo tests that exact profile using `codex sandbox` before invoking the model,
+including direct and `/proc` authentication paths and network socket denial.
+This installed CLI uses `codex sandbox`, not `codex sandbox linux`.
+
+Execution uses `codex exec --strict-config --ignore-user-config --ignore-rules
+--ephemeral --json -C /workspace`, with the prompt on stdin, explicit
+`approval_policy="never"`, and the named permission profile. The named profile
+provides workspace-write behavior plus authentication read denial; it is not
+combined with the legacy `--sandbox` flag. Project `.codex`/`.agents` directories
+are rejected; untrusted project configuration and optional hooks, plugins,
+MCP installation, browser/computer capabilities and delegation are disabled.
+These controls use the installed CLI's
+[documented permission profiles](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+Every process receives an explicit environment allowlist. Host credentials,
+Python paths, pytest options/plugins and Git override variables are not inherited.
+Generated-command environment policy is also explicitly configured.
+
+### Validation and review
+
+Ruff and pytest load from the trusted read-only Zelo venv with Python isolated
+mode (`-I`) and a fresh private Python bytecode-cache prefix; excluded existing
+bytecode caches cannot change their behavior. A worktree `ruff.py` or `pytest.py`
+cannot replace them. Pytest plugin autoloading is disabled. Generated project/tests execute inside a separate
+Bubblewrap filesystem/PID/network sandbox with `--unshare-net`, private temp,
+and no Codex authentication mount. Validation owns the four fixed Ruff check,
+Ruff format check, pytest and Git whitespace-check commands.
+
+The approval-bound validation identity hashes the trusted venv's file contents,
+relative paths and modes, including Python, Ruff, pytest, installed package code
+and distribution metadata/version records. Symlinked files bind their resolved
+targets and contents; external directory aliases are rejected. Python bytecode
+caches beneath `__pycache__` are excluded; standalone bytecode files are covered.
+The manifest also binds the
+trusted source checkout's requirements files, `pyproject.toml`, and presence/content
+of `uv.lock` and `poetry.lock`. Hashing is bounded to 50,000 files and 512 MiB.
+The manifest is checked before worker execution, before each validation command,
+and after validation. This detects changes across those boundaries; it does not
+freeze the host environment, hash the entire OS/stdlib/shared-library installation,
+or defend against a host administrator changing files during execution. Operators
+must keep the trusted environment stable for a run. Untrusted code sees it read-only.
+
+Post-worker Git inspection also runs inside a restricted, network-disabled view.
+Worker Git configuration is replaced there by Zelo-owned inspection configuration;
+hooks, fsmonitor, credentials, external diff and textconv are disabled. Results
+compare against the approved base and include staged/unstaged changes, NUL-delimited
+status, correctly decoded filenames, and bounded diffs for untracked files.
+An independent bounded filesystem inventory also finds ignored generated files,
+including files hidden by worker-edited ignore rules and nested ignored directories.
+Only root Git internals are excluded; nested `.git` paths are prohibited artifacts.
+`ignored_generated_files` records path, file type
+and size; ignored contents are never persisted, even for small text files. These
+artifacts—including validator caches—count toward changed-file and review limits.
+Symlinks are inventoried without following them; no generated file contents are
+read by the inventory process.
+Git metadata or HEAD changes are policy failures. Primary source/Git snapshots
+are verified on success, failure, timeout and cancellation after subprocess cleanup.
+
+JSONL must be valid UTF-8 JSON with bounded lines/events, an allowlisted Codex
+lifecycle, a final completed agent-message summary and a successful `turn.completed`
+event. Reasoning and raw command/event text are not persisted. Unknown event types
+fail closed; their bounded diagnostic contains only safe event/item type labels.
+Only reported usage counters are retained; Zelo invents no costs or model metadata.
+Results contain the workspace location, review data, validation outcomes, UTC
+lifecycle timestamps and a monotonic overall duration. Terminal audit events are
+committed with the task outcome.
+
+An observed protected-state mismatch emits `developer_boundary_violation`.
+An inability to complete verification emits `developer_boundary_verification_failed`.
+Both prevent success. Results retain `boundary_error` and `original_error` separately
+so a later boundary result does not discard an original worker or validation failure.
+
+### Limits and workspace lifecycle
+
+| Limit | Default |
+| --- | --- |
+| Overall attempt, including preparation/validation/review | 900 seconds |
+| Worker | 600 seconds |
+| Each validation command | 600 seconds |
+| Each Git operation | 15 seconds |
+| Worker/Git stdout | 256 KiB |
+| Subprocess stderr | 16 KiB |
+| Validation stdout | 32 KiB |
+| JSONL line / event count | 16 KiB / 1024 |
+| Review diff / stat / changed paths | 32 KiB / 8 KiB / 200 |
+
+The earlier task/configured overall deadline applies. Output is limited while
+streaming; overflow fails the attempt. Timeout/cancellation sends group SIGTERM,
+then SIGKILL, reaps the launcher and checks for surviving group members. Cleanup
+resists repeated cancellation. A bounded finalization grace may follow the
+deadline to verify protected state; a late attempt cannot succeed.
+
+Successful and diagnostic failed checkouts remain for review. A retry receives
+a new attempt directory and requires new approval. The internal `cleanup(id)`
+service accepts an execution UUID, verifies ownership/containment, rejects active
+or symlinked targets and holds the execution lock. It is not an API deletion tool.
+Interrupted ownership records that still say active require operator investigation.
+
+No runtime operation commits, pushes, merges, rebases, tags, opens a PR, deploys
+or promotes changes. Future promotion requires a separately designed review and
+approval flow. Passing validation means the fixed commands passed, not that the
+change or worker-modified tests are trustworthy; human review is required.
+
+Full CPU/RAM/PID/disk quotas are future hardening. Current namespace isolation,
+deadlines, streamed output caps and process cleanup do not provide those quotas.
+The Codex parent is not restricted to an endpoint allowlist; command and validation
+networking remain disabled. No real Codex smoke test is part of automated tests.
+Linux boundary tests use fake workers, disposable Git repositories and a local
+non-model Codex sandbox probe when that CLI is installed.
+
+Migration `0005_developer_agent` adds `developer_run` and the JSON execution
+specification through the existing atomic SQLite migration machinery. Released
+migrations are unchanged; tests cover upgrade, foreign keys, failure during 0005,
+rollback and retry. Apply migrations using the normal reviewed operator workflow.
 
 List and pull models manually with Ollama; Zelo does not do either operation
 automatically:
