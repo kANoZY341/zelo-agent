@@ -143,3 +143,19 @@ class PromotionCommitResult(PromotionContract):
     )
     review_fingerprint: str = Field(pattern=SHA256)
     validation: list[ValidationResult] = Field(min_length=4, max_length=4)
+
+
+class PromotionPublishResult(PromotionContract):
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    base_branch: Literal["main"]
+    base_sha: str = Field(pattern=GIT_SHA)
+    branch: str = Field(
+        min_length=16,
+        max_length=96,
+        pattern=r"^zelo/promotion/[A-Za-z0-9][A-Za-z0-9._-]*$",
+    )
+    commit_sha: str = Field(pattern=GIT_SHA)
+    pr_number: int = Field(ge=1)
+    pr_url: str = Field(min_length=1, max_length=2048)
+    pr_head_sha: str = Field(pattern=GIT_SHA)
+    pr_base_sha: str = Field(pattern=GIT_SHA)

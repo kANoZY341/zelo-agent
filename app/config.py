@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     promotion_git_author_email: str = Field(
         default="zelo@localhost.invalid", min_length=3, max_length=254
     )
+    promotion_gh_executable: Path = Path("/usr/bin/gh")
+    promotion_gh_config_dir: Path = Path.home() / ".config/gh"
+    promotion_github_timeout_seconds: float = Field(default=30.0, ge=1.0, le=120.0)
 
     @field_validator("ollama_url")
     @classmethod
