@@ -359,7 +359,7 @@ class GitHubPromotionPublisher:
         owner = self.repository.split("/", 1)[0]
         query = urlencode(
             {
-                "state": "open",
+                "state": "all",
                 "head": f"{owner}:{promotion.branch}",
                 "base": promotion.target_base_branch,
             }
@@ -369,6 +369,8 @@ class GitHubPromotionPublisher:
             raise DeveloperError("promotion_pr_ambiguous")
         if found:
             response = _dict(found[0])
+            if response.get("state") != "open":
+                raise DeveloperError("promotion_pr_closed")
             pr_created = False
         else:
             response = _dict(
@@ -389,7 +391,8 @@ class GitHubPromotionPublisher:
         head = _dict(response.get("head"))
         base = _dict(response.get("base"))
         if (
-            not isinstance(number, int)
+            response.get("state") != "open"
+            or not isinstance(number, int)
             or number < 1
             or not isinstance(url, str)
             or not url.startswith(f"https://github.com/{self.repository}/pull/")
