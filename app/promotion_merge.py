@@ -126,6 +126,7 @@ class PromotionMergeRuntime:
             or fresh_ci.head_branch != request.ci.head_branch
             or fresh_ci.head_sha != request.ci.head_sha
             or fresh_ci.required_checks != request.ci.required_checks
+            or fresh_ci.checks != request.ci.checks
         ):
             raise DeveloperError("promotion_merge_ci_changed")
 
