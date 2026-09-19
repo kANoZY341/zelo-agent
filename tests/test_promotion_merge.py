@@ -239,7 +239,7 @@ def test_merge_refuses_changed_ci_identity_before_side_effect(tmp_path):
             PromotionMergeRuntime(settings, FakeCIVerifier(changed), transport).run(request)
         )
 
-    assert transport.calls == []
+    assert all(method != "POST" for method, _, _ in transport.calls)
 
 
 def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):

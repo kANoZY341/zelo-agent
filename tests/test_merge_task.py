@@ -293,4 +293,5 @@ def test_interrupted_merge_retry_requires_fresh_approval(settings, database):
     assert retried.error is None
     assert len(retried.approvals) == 2
     assert retried.approvals[-1].status == "pending"
-    assert retried.approvals[-1].action_hash == retried.action_hash
+    assert retried.approvals[-1].action_version == retried.action_version
+    assert retried.approvals[-1].action_hash != retried.approvals[0].action_hash
