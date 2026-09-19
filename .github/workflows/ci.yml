@@ -22,6 +22,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bubblewrap
+      - name: Allow Bubblewrap user namespaces on Ubuntu CI
+        run: |
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
       - name: Create trusted validation environment
         run: |
           python -m venv .venv
@@ -29,106 +34,4 @@ jobs:
           .venv/bin/python -m pip install -r requirements-dev.txt
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - name: Trust the checked-out CI workspace for privileged test setup
-        run: sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Diagnose sandboxed Git
-        run: |
-          sudo -E .venv/bin/python - <<'PY'
-          import asyncio
-          import os
-          import shutil
-          import subprocess
-          from pathlib import Path
-
-          from app.developer_process import run_process
-          from app.developer_sandbox import git_argv, sandbox
-
-          root = Path(os.environ["GITHUB_WORKSPACE"])
-          repo = root / "workspaces" / "ci-sandbox-probe" / "repo"
-          shutil.rmtree(repo.parent, ignore_errors=True)
-          repo.mkdir(parents=True)
-
-          def host_git(*args):
-              return subprocess.run(
-                  ["/usr/bin/git", *args], cwd=repo, check=True,
-                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-              )
-
-          host_git("init", "--quiet")
-          host_git("config", "user.name", "CI Probe")
-          host_git("config", "user.email", "ci-probe@example.invalid")
-          (repo / "probe.txt").write_text("probe\\n")
-          host_git("add", "probe.txt")
-          host_git("commit", "--quiet", "--no-gpg-sign", "-m", "probe")
-
-          config_source = root / "app" / "developer_gitconfig"
-          repo_stat = repo.stat()
-          config_stat = config_source.stat()
-          print(
-              "ZELO_DIAG outside "
-              f"uid={os.getuid()} euid={os.geteuid()} gid={os.getgid()} egid={os.getegid()} "
-              f"sudo_uid={os.environ.get('SUDO_UID', '<unset>')} "
-              f"sudo_gid={os.environ.get('SUDO_GID', '<unset>')} "
-              f"repo_uid={repo_stat.st_uid} repo_gid={repo_stat.st_gid} "
-              f"config_uid={config_stat.st_uid} config_gid={config_stat.st_gid}"
-          )
-
-          identity_code = """
-          import os
-          from pathlib import Path
-          parts = [
-              f"uid={os.getuid()}", f"euid={os.geteuid()}",
-              f"gid={os.getgid()}", f"egid={os.getegid()}",
-              f"home={os.environ.get('HOME', '<unset>')}",
-              f"etc_gitconfig={Path('/etc/gitconfig').exists()}",
-          ]
-          for name in ('/workspace', '/workspace/.git', '/workspace/.git/config'):
-              st = os.stat(name)
-              parts.append(f"{name}_uid={st.st_uid}")
-              parts.append(f"{name}_gid={st.st_gid}")
-          print(' '.join(parts))
-          """
-
-          async def main():
-              identity = await run_process(
-                  sandbox(
-                      repo,
-                      ["/usr/bin/python3", "-I", "-c", identity_code],
-                      writable=False,
-                      git_inspection=True,
-                  ),
-                  cwd=repo,
-                  timeout=10,
-                  stdout_limit=4096,
-                  stderr_limit=4096,
-              )
-              print(
-                  "ZELO_DIAG inside "
-                  f"exit={identity.exit_code} "
-                  f"stdout={identity.stdout.decode('utf-8', 'replace')[:2048].strip()!r} "
-                  f"stderr={identity.stderr.decode('utf-8', 'replace')[:2048].strip()!r}"
-              )
-
-              result = await run_process(
-                  sandbox(
-                      repo,
-                      git_argv("rev-parse", "HEAD"),
-                      writable=False,
-                      git_inspection=True,
-                  ),
-                  cwd=repo,
-                  timeout=10,
-                  stdout_limit=4096,
-                  stderr_limit=4096,
-              )
-              print(
-                  "ZELO_DIAG git_rev_parse "
-                  f"exit={result.exit_code} "
-                  f"stdout={result.stdout.decode('utf-8', 'replace')[:2048].strip()!r} "
-                  f"stderr={result.stderr.decode('utf-8', 'replace')[:2048].strip()!r}"
-              )
-
-          asyncio.run(main())
-          shutil.rmtree(repo.parent, ignore_errors=True)
-          PY
-      - run: sudo -E .venv/bin/python -m pytest -q
+      - run: .venv/bin/python -m pytest -q
