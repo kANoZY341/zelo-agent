@@ -14,8 +14,8 @@ from app.promotion_contracts import (
     CICheckSnapshot,
     MergeRequest,
     PromotionCIVerification,
-    PromotionPublishResult,
     PromotionPublisherIdentity,
+    PromotionPublishResult,
     PromotionRequest,
     PromotionReview,
 )

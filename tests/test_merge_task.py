@@ -5,7 +5,6 @@ import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.config import Settings
 from app.developer_contracts import ValidationResult, WorkerIdentity
 from app.models import Task, TaskAttempt
 from app.policy import State, action_hash
