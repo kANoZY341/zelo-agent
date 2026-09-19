@@ -29,4 +29,51 @@ jobs:
           .venv/bin/python -m pip install -r requirements-dev.txt
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
+      - name: Diagnose developer Git sandbox
+        run: |
+          .venv/bin/python - <<'PY'
+          import asyncio
+          import json
+          import os
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          from app.developer_process import run_process
+          from app.developer_sandbox import git_argv, sandbox
+
+          with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+              repo = Path(directory) / "repo"
+              repo.mkdir()
+              subprocess.run(["/usr/bin/git", "init", "--quiet", str(repo)], check=True)
+              subprocess.run(
+                  ["/usr/bin/git", "commit", "--quiet", "--allow-empty", "-m", "diagnostic"],
+                  cwd=repo,
+                  check=True,
+                  env=os.environ | {
+                      "GIT_AUTHOR_NAME": "CI",
+                      "GIT_AUTHOR_EMAIL": "ci@example.invalid",
+                      "GIT_COMMITTER_NAME": "CI",
+                      "GIT_COMMITTER_EMAIL": "ci@example.invalid",
+                  },
+              )
+              result = asyncio.run(
+                  run_process(
+                      sandbox(repo, git_argv("rev-parse", "HEAD"), writable=False, git_inspection=True),
+                      cwd=repo,
+                      timeout=10,
+                  )
+              )
+              print(json.dumps({
+                  "argv": git_argv("rev-parse", "HEAD"),
+                  "bwrap": subprocess.run(["/usr/bin/bwrap", "--version"], capture_output=True, text=True).stdout.strip(),
+                  "exit_code": result.exit_code,
+                  "git": subprocess.run(["/usr/bin/git", "--version"], capture_output=True, text=True).stdout.strip(),
+                  "gid": os.getgid(),
+                  "git_owner": [repo.joinpath(".git").stat().st_uid, repo.joinpath(".git").stat().st_gid],
+                  "repo_owner": [repo.stat().st_uid, repo.stat().st_gid],
+                  "stderr": result.stderr.decode("utf-8", "replace")[:4096],
+                  "uid": os.getuid(),
+              }, sort_keys=True))
+          PY
       - run: .venv/bin/python -m pytest -q
