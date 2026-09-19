@@ -337,7 +337,6 @@ class Runner:
         result = await self.promotion_merge_runtime.run(execution.merge_request)
         return result.model_dump(mode="json")
 
-
     async def _release_worker(self, execution: Execution) -> dict[str, Any]:
         if self.promotion_release_runtime is None or execution.release_request is None:
             raise DeveloperRuntimeError("promotion_release_runtime_unavailable")
