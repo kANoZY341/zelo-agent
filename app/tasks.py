@@ -1011,7 +1011,14 @@ class TaskService:
             )
             if task is None:
                 return None
-            if task.kind in {"approval_demo", "ai_prompt", "developer_run", "promotion_run"}:
+            if task.kind in {
+                "approval_demo",
+                "ai_prompt",
+                "developer_run",
+                "promotion_run",
+                "merge_run",
+                "release_run",
+            }:
                 approval = session.scalar(
                     select(Approval)
                     .where(Approval.task_id == task.id)
@@ -1058,7 +1065,15 @@ class TaskService:
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
-                    else (task.promotion_spec if task.kind == "promotion_run" else None)
+                    else (
+                        task.promotion_spec
+                        if task.kind == "promotion_run"
+                        else (
+                            task.merge_spec
+                            if task.kind == "merge_run"
+                            else (task.release_spec if task.kind == "release_run" else None)
+                        )
+                    )
                 ),
             )
             if current_hash != task.action_hash:
