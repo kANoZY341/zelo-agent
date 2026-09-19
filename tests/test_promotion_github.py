@@ -151,6 +151,7 @@ def pr_query(endpoint, body):
 def exact_pr(promotion, local, number=7):
     return {
         "number": number,
+        "state": "open",
         "html_url": f"https://github.com/kANoZY341/zelo-agent/pull/{number}",
         "head": {"ref": promotion.branch, "sha": local.commit_sha},
         "base": {"ref": promotion.target_base_branch, "sha": promotion.review.base_sha},
@@ -301,3 +302,20 @@ def test_candidate_mutation_fails_before_any_github_request(developer_case):
         asyncio.run(publisher.publish(promotion, local, request))
 
     assert transport.calls == []
+
+
+def test_closed_exact_pull_request_is_not_recreated(developer_case):
+    _, request, reviewer, promotion, local, settings = reviewed(developer_case)
+    script = happy_script(promotion, local)
+    closed = exact_pr(promotion, local, 11)
+    closed["state"] = "closed"
+    script[-2:] = [("GET", pr_query, [closed])]
+    transport = ScriptedTransport(script)
+    publisher = GitHubPromotionPublisher(settings, developer_case, reviewer, transport)
+
+    with pytest.raises(DeveloperError, match="promotion_pr_closed"):
+        asyncio.run(publisher.publish(promotion, local, request))
+
+    assert not any(
+        method == "POST" and endpoint.endswith("/pulls") for method, endpoint, _ in transport.calls
+    )
