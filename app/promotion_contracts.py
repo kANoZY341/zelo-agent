@@ -177,3 +177,24 @@ class PromotionPublishResult(PromotionContract):
 class PromotionRunResult(PromotionContract):
     commit: PromotionCommitResult
     publication: PromotionPublishResult
+
+
+class CICheckSnapshot(PromotionContract):
+    check_run_id: int = Field(ge=1)
+    name: str = Field(min_length=1, max_length=256)
+    status: Literal["completed"]
+    conclusion: Literal["success"]
+    completed_at: datetime
+
+
+class PromotionCIVerification(PromotionContract):
+    verifier_version: Literal["promotion-ci-v1"] = "promotion-ci-v1"
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    pr_number: int = Field(ge=1)
+    base_branch: Literal["main"]
+    base_sha: str = Field(pattern=GIT_SHA)
+    head_branch: str = Field(min_length=1, max_length=256)
+    head_sha: str = Field(pattern=GIT_SHA)
+    required_checks: list[str] = Field(min_length=1, max_length=32)
+    checks: list[CICheckSnapshot] = Field(min_length=1, max_length=128)
+    verified_at: datetime

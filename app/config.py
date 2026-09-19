@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     promotion_gh_executable: Path = Path("/usr/bin/gh")
     promotion_gh_config_dir: Path = Path.home() / ".config/gh"
     promotion_github_timeout_seconds: float = Field(default=30.0, ge=1.0, le=120.0)
+    promotion_required_checks: tuple[str, ...] = ("checks",)
 
     @field_validator("ollama_url")
     @classmethod
@@ -69,6 +70,22 @@ class Settings(BaseSettings):
         if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise ValueError("Ollama URL must be localhost HTTP")
         return value.rstrip("/")
+
+    @field_validator("promotion_required_checks")
+    @classmethod
+    def validate_promotion_required_checks(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if (
+            not 1 <= len(value) <= 32
+            or len(set(value)) != len(value)
+            or any(
+                not 1 <= len(item) <= 256
+                or item.strip() != item
+                or any(character in item for character in "\r\n\x00")
+                for item in value
+            )
+        ):
+            raise ValueError("Promotion required checks must be unique bounded names")
+        return value
 
     @field_validator("promotion_git_author_name")
     @classmethod
