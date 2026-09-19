@@ -17,7 +17,7 @@ ZERO_SHA = "0" * 40
 
 
 class PromotionCommitter:
-    """Create a deterministic local commit without credentials, remotes, hooks, or checkout writes."""
+    """Create a deterministic local commit without credentials, remotes, or hooks."""
 
     def __init__(self, runtime: DeveloperRuntime, reviewer: PromotionReviewer) -> None:
         self.runtime = runtime
@@ -91,7 +91,9 @@ class PromotionCommitter:
         )
         if await self._git(repo, request, "remote"):
             raise DeveloperError("promotion_remote_forbidden")
-        object_type = (await self._git(repo, request, "cat-file", "-t", request.base_sha)).decode().strip()
+        object_type = (
+            await self._git(repo, request, "cat-file", "-t", request.base_sha)
+        ).decode().strip()
         if object_type != "commit":
             raise DeveloperError("promotion_base_invalid")
         await self._git(repo, request, "read-tree", request.base_sha)
@@ -262,9 +264,15 @@ class PromotionCommitter:
         await self._git(repo, request, "update-ref", ref, commit, ZERO_SHA)
         if (await self._git(repo, request, "rev-parse", ref)).decode().strip() != commit:
             raise DeveloperError("promotion_commit_invalid")
-        if (await self._git(repo, request, "rev-parse", commit + "^")).decode().strip() != request.base_sha:
+        parent = (
+            await self._git(repo, request, "rev-parse", commit + "^")
+        ).decode().strip()
+        if parent != request.base_sha:
             raise DeveloperError("promotion_commit_invalid")
-        if (await self._git(repo, request, "rev-parse", commit + "^{tree}")).decode().strip() != tree:
+        observed_tree = (
+            await self._git(repo, request, "rev-parse", commit + "^{tree}")
+        ).decode().strip()
+        if observed_tree != tree:
             raise DeveloperError("promotion_commit_invalid")
         if await self._git(repo, request, "remote"):
             raise DeveloperError("promotion_remote_forbidden")

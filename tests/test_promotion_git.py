@@ -88,7 +88,10 @@ def test_promotion_commit_is_exact_single_parent_and_has_no_remote(developer_cas
     assert result.base_sha == request.base_sha
     assert result.review_fingerprint == promotion.review.review_fingerprint
     assert trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^") == request.base_sha
-    assert trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^{tree}") == result.tree_sha
+    assert (
+        trusted_git(promotion_repo, "rev-parse", result.commit_sha + "^{tree}")
+        == result.tree_sha
+    )
     assert trusted_git(
         promotion_repo, "rev-parse", "refs/heads/" + promotion.branch
     ) == result.commit_sha
