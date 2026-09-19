@@ -220,6 +220,9 @@ class TaskService:
                 branch=payload["branch"],
                 commit_title=payload["commit_title"],
                 commit_message=payload["commit_message"],
+                commit_author_name=self.settings.promotion_git_author_name,
+                commit_author_email=self.settings.promotion_git_author_email,
+                commit_timestamp=utcnow(),
                 pr_title=payload["pr_title"],
                 pr_body=payload["pr_body"],
             )

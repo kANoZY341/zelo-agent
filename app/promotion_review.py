@@ -363,3 +363,56 @@ class PromotionReviewer:
         )
         if fresh.review_fingerprint != approved.review_fingerprint or fresh != approved:
             raise DeveloperError("promotion_candidate_changed")
+
+
+def read_candidate_bytes(repo: Path, entry: CandidateEntry) -> bytes:
+    """Read exactly the bytes bound by a review entry without following symlinks."""
+    if entry.operation == "delete" or entry.size is None or entry.sha256 is None:
+        raise DeveloperError("promotion_candidate_invalid")
+    validate_manifest_path(entry.path)
+    parent_fd, name = _open_parent(repo, entry.path)
+    try:
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if entry.object_type == "file":
+            if not stat.S_ISREG(before.st_mode):
+                raise DeveloperError("promotion_candidate_changed")
+            mode = "100755" if before.st_mode & 0o111 else "100644"
+            if mode != entry.mode:
+                raise DeveloperError("promotion_candidate_changed")
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+            try:
+                opened = os.fstat(descriptor)
+                if _stable_stat(opened) != _stable_stat(before):
+                    raise DeveloperError("promotion_candidate_changed")
+                content = bytearray()
+                while block := os.read(descriptor, 65536):
+                    content.extend(block)
+                    if len(content) > MAX_MANIFEST_BYTES:
+                        raise DeveloperError("promotion_manifest_limit")
+                after_fd = os.fstat(descriptor)
+            finally:
+                os.close(descriptor)
+            after_path = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if (
+                _stable_stat(after_fd) != _stable_stat(before)
+                or _stable_stat(after_path) != _stable_stat(before)
+            ):
+                raise DeveloperError("promotion_candidate_changed")
+            raw = bytes(content)
+        elif entry.object_type == "symlink":
+            if not stat.S_ISLNK(before.st_mode) or entry.mode != "120000":
+                raise DeveloperError("promotion_candidate_changed")
+            target = os.readlink(name, dir_fd=parent_fd)
+            raw = os.fsencode(target) if isinstance(target, str) else target
+            after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if _stable_stat(after) != _stable_stat(before):
+                raise DeveloperError("promotion_candidate_changed")
+        else:
+            raise DeveloperError("promotion_candidate_invalid")
+        if len(raw) != entry.size or hashlib.sha256(raw).hexdigest() != entry.sha256:
+            raise DeveloperError("promotion_candidate_changed")
+        return raw
+    except FileNotFoundError:
+        raise DeveloperError("promotion_candidate_changed") from None
+    finally:
+        os.close(parent_fd)

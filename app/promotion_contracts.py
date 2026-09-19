@@ -1,10 +1,11 @@
 """Frozen contracts for reviewed developer output and future promotion actions."""
 
+from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.developer_contracts import WorkerIdentity
+from app.developer_contracts import ValidationResult, WorkerIdentity
 
 SHA256 = r"^[0-9a-f]{64}$"
 GIT_SHA = r"^[0-9a-f]{40}$"
@@ -71,7 +72,7 @@ class PromotionReview(PromotionContract):
 
 
 class PromotionRequest(PromotionContract):
-    """Approval-bound external action specification; execution is added later in v0.7."""
+    """Approval-bound external action specification."""
 
     review: PromotionReview
     repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
@@ -83,5 +84,62 @@ class PromotionRequest(PromotionContract):
     )
     commit_title: str = Field(min_length=1, max_length=200)
     commit_message: str = Field(default="", max_length=4096)
+    commit_author_name: str = Field(min_length=1, max_length=128)
+    commit_author_email: str = Field(min_length=3, max_length=254)
+    commit_timestamp: datetime
     pr_title: str = Field(min_length=1, max_length=256)
     pr_body: str = Field(default="", max_length=16384)
+
+    @field_validator(
+        "commit_title",
+        "commit_message",
+        "commit_author_name",
+        "commit_author_email",
+        "pr_title",
+        "pr_body",
+    )
+    @classmethod
+    def reject_nul_and_cr(cls, value: str) -> str:
+        if "\x00" in value or "\r" in value:
+            raise ValueError("Promotion metadata contains forbidden control characters")
+        return value
+
+    @field_validator("commit_author_name")
+    @classmethod
+    def validate_author_name(cls, value: str) -> str:
+        if "\n" in value or "<" in value or ">" in value:
+            raise ValueError("Invalid promotion commit author name")
+        return value
+
+    @field_validator("commit_author_email")
+    @classmethod
+    def validate_author_email(cls, value: str) -> str:
+        if (
+            "\n" in value
+            or value.count("@") != 1
+            or any(character.isspace() for character in value)
+            or "<" in value
+            or ">" in value
+        ):
+            raise ValueError("Invalid promotion commit author email")
+        return value
+
+    @field_validator("commit_timestamp")
+    @classmethod
+    def validate_commit_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("Promotion commit timestamp must be timezone-aware")
+        return value.astimezone(UTC).replace(microsecond=0)
+
+
+class PromotionCommitResult(PromotionContract):
+    base_sha: str = Field(pattern=GIT_SHA)
+    tree_sha: str = Field(pattern=GIT_SHA)
+    commit_sha: str = Field(pattern=GIT_SHA)
+    branch: str = Field(
+        min_length=16,
+        max_length=96,
+        pattern=r"^zelo/promotion/[A-Za-z0-9][A-Za-z0-9._-]*$",
+    )
+    review_fingerprint: str = Field(pattern=SHA256)
+    validation: list[ValidationResult] = Field(min_length=4, max_length=4)

@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     developer_codex_executable: Path = Path.home() / ".local/bin/codex"
     developer_codex_auth_file: Path = Path.home() / ".codex/auth.json"
     promotion_repository: str | None = None
+    promotion_git_author_name: str = Field(default="Zelo Agent", min_length=1, max_length=128)
+    promotion_git_author_email: str = Field(
+        default="zelo@localhost.invalid", min_length=3, max_length=254
+    )
 
     @field_validator("ollama_url")
     @classmethod
@@ -62,6 +66,24 @@ class Settings(BaseSettings):
         if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise ValueError("Ollama URL must be localhost HTTP")
         return value.rstrip("/")
+
+    @field_validator("promotion_git_author_name")
+    @classmethod
+    def validate_promotion_author_name(cls, value: str) -> str:
+        if any(character in value for character in "\r\n<>\x00"):
+            raise ValueError("Invalid promotion Git author name")
+        return value
+
+    @field_validator("promotion_git_author_email")
+    @classmethod
+    def validate_promotion_author_email(cls, value: str) -> str:
+        if (
+            value.count("@") != 1
+            or any(character.isspace() for character in value)
+            or any(character in value for character in "\r\n<>\x00")
+        ):
+            raise ValueError("Invalid promotion Git author email")
+        return value
 
     @field_validator("promotion_repository")
     @classmethod
