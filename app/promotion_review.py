@@ -370,9 +370,7 @@ class PromotionReviewer:
             or approved.sandbox_version != request.sandbox_version
             or approved.workspace
             != str(
-                self.runtime.path(approved.developer_attempt_id).relative_to(
-                    self.runtime.root()
-                )
+                self.runtime.path(approved.developer_attempt_id).relative_to(self.runtime.root())
             )
         ):
             raise DeveloperError("promotion_candidate_changed")
