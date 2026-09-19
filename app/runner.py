@@ -10,6 +10,7 @@ from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
+from app.promotion_release import PromotionReleaseRuntime
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -27,6 +28,7 @@ class Runner:
         developer_runtime: DeveloperRuntime | None = None,
         promotion_runtime: PromotionRuntime | None = None,
         promotion_merge_runtime: PromotionMergeRuntime | None = None,
+        promotion_release_runtime: PromotionReleaseRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -35,6 +37,7 @@ class Runner:
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
         self.promotion_merge_runtime = promotion_merge_runtime
+        self.promotion_release_runtime = promotion_release_runtime
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -109,6 +112,8 @@ class Runner:
             self.operation = asyncio.create_task(self._promotion_worker(execution))
         elif execution.kind == "merge_run":
             self.operation = asyncio.create_task(self._merge_worker(execution))
+        elif execution.kind == "release_run":
+            self.operation = asyncio.create_task(self._release_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
@@ -330,4 +335,19 @@ class Runner:
             head_sha=execution.merge_request.publication.pr_head_sha,
         )
         result = await self.promotion_merge_runtime.run(execution.merge_request)
+        return result.model_dump(mode="json")
+
+
+    async def _release_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.promotion_release_runtime is None or execution.release_request is None:
+            raise DeveloperRuntimeError("promotion_release_runtime_unavailable")
+
+        self.service.model_event(
+            execution.task_id,
+            "release_reverified",
+            execution.attempt_id,
+            tag=execution.release_request.tag,
+            main_sha=execution.release_request.main_sha,
+        )
+        result = await self.promotion_release_runtime.run(execution.release_request)
         return result.model_dump(mode="json")

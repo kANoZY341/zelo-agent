@@ -21,6 +21,7 @@ from app.promotion_ci import PromotionCIVerifier
 from app.promotion_git import PromotionCommitter
 from app.promotion_github import GitHubPromotionPublisher
 from app.promotion_merge import PromotionMergeRuntime
+from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
 from app.task_api import router as task_router
@@ -64,6 +65,7 @@ def create_app(
             promotion_runtime = None
             promotion_ci_verifier = None
             promotion_merge_runtime = None
+            promotion_release_runtime = None
             if configuration.promotion_repository is not None:
                 promotion_publisher = GitHubPromotionPublisher(
                     configuration,
@@ -79,6 +81,7 @@ def create_app(
                     configuration,
                     promotion_ci_verifier,
                 )
+                promotion_release_runtime = PromotionReleaseRuntime(configuration)
             tasks = TaskService(
                 database,
                 configuration,
@@ -87,6 +90,7 @@ def create_app(
                 developer_runtime,
                 promotion_reviewer,
                 promotion_ci_verifier,
+                promotion_release_runtime,
             )
             tasks.recover()
             tasks.expire_approvals()
@@ -99,6 +103,7 @@ def create_app(
                 developer_runtime,
                 promotion_runtime,
                 promotion_merge_runtime,
+                promotion_release_runtime,
             )
             application.state.database = database
             application.state.tasks = tasks

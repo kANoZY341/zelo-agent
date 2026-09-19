@@ -120,15 +120,17 @@ class PromotionReleaseRuntime:
             reused=True,
         )
 
-    async def run(self, request: ReleaseRequest) -> ReleaseRunResult:
+    async def verify_ready(self, request: ReleaseRequest) -> ReleaseRunResult | None:
         if (
             request.repository != self.repository
             or request.publisher != publisher_identity(self.settings)
         ):
             raise DeveloperError("promotion_release_publisher_changed")
-
         await self._require_main(request)
-        existing = await self._existing(request)
+        return await self._existing(request)
+
+    async def run(self, request: ReleaseRequest) -> ReleaseRunResult:
+        existing = await self.verify_ready(request)
         if existing is not None:
             return existing
 
