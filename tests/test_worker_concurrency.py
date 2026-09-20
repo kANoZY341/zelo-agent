@@ -207,6 +207,38 @@ def test_runner_overlaps_different_workers(settings, database):
     asyncio.run(exercise())
 
 
+def test_runner_failure_interrupts_already_claimed_developer_work(
+    settings, database, monkeypatch
+):
+    runtime = CapacityRuntime(settings)
+    service = TaskService(database, settings, developer_runtime=runtime)
+    task = _approved(service, "alpha-one")
+    original_claim = service.claim
+    calls = 0
+
+    def fail_after_first_claim():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return original_claim()
+        raise RuntimeError("injected scheduler failure")
+
+    monkeypatch.setattr(service, "claim", fail_after_first_claim)
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=runtime)
+        runner.start()
+        await asyncio.wait_for(runner.loop_task, timeout=2)
+        assert runner.failed
+        assert not runner.ready
+        current = service.get(task.id)
+        assert current.status == State.INTERRUPTED
+        assert current.error == "runner_failed"
+        assert runner.operations == {}
+
+    asyncio.run(exercise())
+
+
 def test_runtime_worker_slots_enforce_descriptor_ceiling(developer_case):
     request = developer_case.request("test", "zelo_core", 30)
     first = developer_case.worker_lock(request)
