@@ -1,4 +1,4 @@
-"""One cooperative runner; SQLite is the bounded waiting list, not a replay engine."""
+"""One capacity-aware runner; SQLite is the bounded waiting list, not a replay engine."""
 
 import asyncio
 import logging
@@ -90,8 +90,14 @@ class Runner:
                 except TimeoutError:
                     pass
         except Exception:
-            # Fail closed; readiness becomes false. Never log exception payloads/private input.
+            # Fail closed; readiness becomes false. Never leave already-launched
+            # operations running without the scheduler that owns them.
             logger.error("runner_failed")
+            active = tuple(self.operations.values())
+            for operation in active:
+                operation.cancel()
+            if active:
+                await asyncio.gather(*active, return_exceptions=True)
 
     async def _run(self, execution: Execution) -> None:
         if execution.kind == "ai_prompt":
