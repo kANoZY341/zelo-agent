@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from app.developer_process import DeveloperError
 from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_contracts import PromotionPublishResult
@@ -150,6 +151,47 @@ def test_promotion_spec_tamper_invalidates_pending_approval(developer_case, data
     assert current.status == State.CANCELLED
     assert current.error == "approval_invalidated"
     assert current.approvals[0].status == "invalidated"
+
+
+@pytest.mark.developer_boundary
+def test_promotion_publisher_change_invalidates_pending_approval(developer_case, database):
+    _, developer, attempt = completed_developer(developer_case, database)
+    service = configured(developer_case, database)
+    promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+
+    replacement = service.settings.runtime_dir / "test-gh-config-replacement"
+    replacement.mkdir(exist_ok=True, mode=0o700)
+    service.settings = service.settings.model_copy(update={"promotion_gh_config_dir": replacement})
+
+    with pytest.raises(DomainError, match="no longer pending|conflicts"):
+        service.decide(promotion.approvals[0].id, "approve")
+
+    current = service.get(promotion.id)
+    assert current.status == State.CANCELLED
+    assert current.error == "approval_invalidated"
+    assert current.approvals[0].status == "invalidated"
+
+
+@pytest.mark.developer_boundary
+def test_transient_publisher_identity_failure_keeps_promotion_approval_pending(
+    developer_case, database, monkeypatch
+):
+    _, developer, attempt = completed_developer(developer_case, database)
+    service = configured(developer_case, database)
+    promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+
+    def unavailable(_settings):
+        raise DeveloperError("promotion_github_cli_unavailable")
+
+    monkeypatch.setattr("app.tasks.publisher_identity", unavailable)
+
+    with pytest.raises(DomainError) as failure:
+        service.decide(promotion.approvals[0].id, "approve")
+
+    assert failure.value.status_code == 503
+    current = service.get(promotion.id)
+    assert current.status == State.AWAITING_APPROVAL
+    assert current.approvals[0].status == "pending"
 
 
 @pytest.mark.developer_boundary

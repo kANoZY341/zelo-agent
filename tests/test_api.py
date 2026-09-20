@@ -1,5 +1,6 @@
 """HTTP contracts, operator protection, validation, and deterministic execution."""
 
+import inspect
 import time
 
 import pytest
@@ -8,7 +9,9 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.database import Database
 from app.main import create_app
+from app.task_api import decide_approval
 from tests.conftest import AUTH
+from tests.developer_helpers import FakeWorker
 
 
 def submit(client: TestClient, kind: str = "echo", **overrides) -> dict:
@@ -28,6 +31,45 @@ def wait_for(client: TestClient, task_id: str, expected: str, timeout: float = 3
             return task
         time.sleep(0.01)
     pytest.fail(f"Task did not reach {expected}: {task}")
+
+
+def test_approval_route_is_synchronous_threadpool_boundary() -> None:
+    assert not inspect.iscoroutinefunction(decide_approval)
+
+
+def test_developer_approval_succeeds_through_asgi_threadpool(
+    settings: Settings, database: Database, monkeypatch
+) -> None:
+    configured = settings.model_copy(update={"runner_poll_seconds": 1.0})
+    with TestClient(
+        create_app(configured, developer_worker=FakeWorker()),
+        headers=AUTH,
+    ) as client:
+        runtime = client.app.state.tasks.developer_runtime
+        monkeypatch.setattr(runtime, "validation_identity", lambda: "test-validation-identity")
+
+        created = client.post(
+            "/tasks",
+            json={
+                "kind": "developer_run",
+                "payload": {
+                    "instruction": "Verify the approval route threadpool boundary",
+                    "validation_profile": "zelo_core",
+                },
+                "timeout_seconds": 30,
+            },
+        )
+        assert created.status_code == 201, created.text
+        task = created.json()
+        approval_id = task["approvals"][0]["id"]
+
+        approved = client.post(
+            f"/approvals/{approval_id}/decision",
+            json={"decision": "approve"},
+        )
+
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["status"] == "approved"
 
 
 def test_root_and_health_are_public(client: TestClient) -> None:

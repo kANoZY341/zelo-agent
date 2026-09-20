@@ -57,11 +57,13 @@ class PromotionMergeRuntime:
     ) -> MergeRunResult:
         head = _dict(pr.get("head"))
         base = _dict(pr.get("base"))
+        head_repo = _dict(head.get("repo"))
         merge_sha = _sha(pr.get("merge_commit_sha"))
         if (
             pr.get("number") != request.publication.pr_number
             or pr.get("state") != "closed"
             or pr.get("merged") is not True
+            or head_repo.get("full_name") != self.repository
             or head.get("ref") != request.publication.branch
             or _sha(head.get("sha")) != request.publication.pr_head_sha
             or base.get("ref") != request.publication.base_branch
@@ -103,10 +105,12 @@ class PromotionMergeRuntime:
 
         head = _dict(current.get("head"))
         base = _dict(current.get("base"))
+        head_repo = _dict(head.get("repo"))
         if (
             current.get("number") != request.publication.pr_number
             or current.get("state") != "open"
             or current.get("merged") not in {False, None}
+            or head_repo.get("full_name") != self.repository
             or head.get("ref") != request.publication.branch
             or _sha(head.get("sha")) != request.publication.pr_head_sha
             or base.get("ref") != request.publication.base_branch
@@ -138,7 +142,7 @@ class PromotionMergeRuntime:
         }
         response = _dict(
             await self.transport.request(
-                "POST",
+                "PUT",
                 self.endpoint(f"/pulls/{request.publication.pr_number}/merge"),
                 body,
             )

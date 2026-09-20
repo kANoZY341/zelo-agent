@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
-from app.policy import State
+from app.policy import DomainError, State
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
 from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
@@ -144,6 +144,39 @@ def test_descriptor_set_fields_must_be_canonical():
         )
 
 
+def test_registry_version_is_content_derived():
+    worker = StubWorker()
+    first = WorkerRegistry([(descriptor("worker", priority=1), worker)])
+    second = WorkerRegistry([(descriptor("worker", priority=2), worker)])
+    third = WorkerRegistry(
+        [
+            (descriptor("worker", priority=1), worker),
+            (descriptor("disabled", enabled=False), StubWorker()),
+        ]
+    )
+
+    assert first.version != second.version
+    assert first.version != third.version
+    _, snapshot = Supervisor(first).select(
+        role="developer", capabilities=("zelo_core_development",)
+    )
+    assert not Supervisor(second).matches(snapshot)
+    assert not Supervisor(third).matches(snapshot)
+
+
+def test_registry_revalidates_descriptor_instances():
+    malformed = descriptor("worker").model_copy(
+        update={
+            "capabilities": (
+                "zelo_core_development",
+                "zelo_core_development",
+            )
+        }
+    )
+    with pytest.raises(ValidationError, match="not_canonical"):
+        WorkerRegistry([(malformed, StubWorker())])
+
+
 def test_developer_api_cannot_select_worker_or_authority():
     with pytest.raises(ValidationError):
         DeveloperRunInput(
@@ -169,15 +202,94 @@ def test_developer_submission_audits_routing_and_registry_change_invalidates(
     assert "supervisor_worker_selected" in names
 
     selected = developer_case.registry.list()[0]
-    developer_case.registry = WorkerRegistry(
-        [(selected, developer_case.registry.get(selected.worker_id).worker)],
-        version="changed",
-    )
+    registered = developer_case.registry.get(selected.worker_id)
+    assert registered is not None
+    original_version = developer_case.registry.version
+    changed = selected.model_copy(update={"priority": selected.priority + 1})
+    developer_case.registry = WorkerRegistry([(changed, registered.worker)])
+    assert developer_case.registry.version != original_version
     developer_case.supervisor = Supervisor(developer_case.registry)
     service.expire_approvals()
     invalidated = service.get(task.id)
     assert invalidated.status == State.CANCELLED
     assert invalidated.error == "approval_invalidated"
+
+
+def test_explicit_registry_rejects_unregistered_primary_worker(developer_case):
+    worker_a = StubWorker("worker_a")
+    worker_b = StubWorker("worker_b")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("worker_a").model_copy(update={"implementation": "worker_a"}),
+                worker_a,
+            )
+        ]
+    )
+
+    with pytest.raises(DeveloperError, match="worker_registry_mismatch"):
+        developer_case.__class__(
+            developer_case.settings,
+            worker_b,
+            developer_case.source_repository,
+            registry,
+        )
+
+
+def test_explicit_registry_rejects_worker_reassignment(developer_case):
+    worker = StubWorker("worker_a")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("worker_a").model_copy(update={"implementation": "worker_a"}),
+                worker,
+            )
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, worker, developer_case.source_repository, registry
+    )
+
+    with pytest.raises(DeveloperError, match="worker_registry_explicit"):
+        runtime.worker = StubWorker("worker_b")
+
+
+def test_validation_identity_change_invalidates_at_operator_approval(
+    developer_case, database, monkeypatch
+):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "test"}), None
+    )
+    monkeypatch.setattr(developer_case, "validation_identity", lambda: "changed")
+
+    with pytest.raises(DomainError, match="no longer pending|conflicts"):
+        service.decide(task.approvals[0].id, "approve")
+
+    invalidated = service.get(task.id)
+    assert invalidated.status == State.CANCELLED
+    assert invalidated.error == "approval_invalidated"
+
+
+def test_transient_revalidation_failure_leaves_approval_pending(
+    developer_case, database, monkeypatch
+):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "test"}), None
+    )
+
+    def unavailable(*args, **kwargs):
+        raise DeveloperError("approval_revalidation_unavailable")
+
+    monkeypatch.setattr(developer_case, "approval_compatible", unavailable)
+    with pytest.raises(DomainError) as failure:
+        service.decide(task.approvals[0].id, "approve")
+
+    assert failure.value.status_code == 503
+    current = service.get(task.id)
+    assert current.status == State.AWAITING_APPROVAL
+    assert current.approvals[0].status == "pending"
 
 
 def test_selected_worker_identity_and_execution_are_bound_to_registry(developer_case, monkeypatch):

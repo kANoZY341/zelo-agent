@@ -17,9 +17,11 @@ from app.codex_worker import (
 from app.developer import DeveloperError
 from app.developer_process import ProcessResult, environment
 from app.models import Approval, Task
-from app.policy import State
+from app.policy import DomainError, State
+from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
+from tests.developer_helpers import fixture_commit
 
 
 @pytest.fixture
@@ -398,6 +400,76 @@ def test_approval_binds_specification(developer_case, database, field):
         assert not service._valid_action(stored, approval)
     assert service.claim() is None
     assert service.get(task.id).status == State.CANCELLED
+
+
+def test_runner_poll_does_not_live_revalidate_pending_developer_approval(
+    developer_case, database, monkeypatch
+):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    calls = []
+
+    def forbidden(*args, **kwargs):
+        calls.append("live")
+        raise AssertionError("runner polling must not perform live developer revalidation")
+
+    monkeypatch.setattr(developer_case, "approval_compatible", forbidden)
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=developer_case)
+        runner.start()
+        await asyncio.sleep(developer_case.settings.runner_poll_seconds * 3)
+        assert runner.ready
+        await runner.stop()
+
+    asyncio.run(exercise())
+
+    current = service.get(task.id)
+    assert current.status == State.AWAITING_APPROVAL
+    assert current.approvals[0].status == "pending"
+    assert calls == []
+
+
+def test_source_head_drift_invalidates_at_operator_approval(developer_case, database):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    (developer_case.source_repository / "test_example.py").write_text(
+        "def test_example():\n    assert 2 + 2 == 4\n"
+    )
+    fixture_commit(developer_case.source_repository)
+
+    with pytest.raises(DomainError, match="no longer pending|conflicts"):
+        service.decide(task.approvals[0].id, "approve")
+
+    current = service.get(task.id)
+    assert current.status == State.CANCELLED
+    assert current.error == "approval_invalidated"
+
+
+def test_source_head_drift_after_approval_fails_before_worker_execution(developer_case, database):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+
+    (developer_case.source_repository / "test_example.py").write_text(
+        "def test_example():\n    assert 3 + 3 == 6\n"
+    )
+    fixture_commit(developer_case.source_repository)
+
+    execution = service.claim()
+    assert execution is not None
+    asyncio.run(Runner(service, developer_runtime=developer_case)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.FAILED
+    assert current.error == "source_repository_changed"
+    assert developer_case.worker.calls == []
 
 
 def test_live_limit_change_invalidates_approval(developer_case, database):

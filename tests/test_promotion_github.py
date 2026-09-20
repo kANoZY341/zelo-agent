@@ -153,7 +153,11 @@ def exact_pr(promotion, local, number=7):
         "number": number,
         "state": "open",
         "html_url": f"https://github.com/kANoZY341/zelo-agent/pull/{number}",
-        "head": {"ref": promotion.branch, "sha": local.commit_sha},
+        "head": {
+            "ref": promotion.branch,
+            "sha": local.commit_sha,
+            "repo": {"full_name": promotion.repository},
+        },
         "base": {"ref": promotion.target_base_branch, "sha": promotion.review.base_sha},
     }
 
@@ -319,3 +323,16 @@ def test_closed_exact_pull_request_is_not_recreated(developer_case):
     assert not any(
         method == "POST" and endpoint.endswith("/pulls") for method, endpoint, _ in transport.calls
     )
+
+
+def test_existing_pr_from_wrong_head_repository_fails_closed(developer_case):
+    _, request, reviewer, promotion, local, settings = reviewed(developer_case)
+    script = happy_script(promotion, local)
+    wrong = exact_pr(promotion, local, 12)
+    wrong["head"]["repo"]["full_name"] = "attacker/fork"
+    script[-2:] = [("GET", pr_query, [wrong])]
+    transport = ScriptedTransport(script)
+    publisher = GitHubPromotionPublisher(settings, developer_case, reviewer, transport)
+
+    with pytest.raises(DeveloperError, match="promotion_pr_mismatch"):
+        asyncio.run(publisher.publish(promotion, local, request))

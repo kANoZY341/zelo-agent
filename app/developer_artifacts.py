@@ -42,57 +42,61 @@ def pin_artifact(
     """
     source_fd = artifact_fd = None
     try:
-        source = configured.resolve(strict=True)
-        if approved_path is not None and str(source) != approved_path:
-            raise DeveloperError("worker_configuration_changed")
-        source_fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
-        before = os.fstat(source_fd)
-        if (
-            not stat.S_ISREG(before.st_mode)
-            or before.st_mode & 0o022
-            or before.st_uid not in {0, os.getuid()}
-            or not 0 < before.st_size <= MAX_BINARY_BYTES
-        ):
-            raise DeveloperError("codex_executable_untrusted")
-        artifact_fd = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
-        digest = hashlib.sha256()
-        total = 0
-        while block := os.read(source_fd, 65536):
-            total += len(block)
-            if total > MAX_BINARY_BYTES:
+        try:
+            source = configured.resolve(strict=True)
+            if approved_path is not None and str(source) != approved_path:
+                raise DeveloperError("worker_configuration_changed")
+            source_fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+            before = os.fstat(source_fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_mode & 0o022
+                or before.st_uid not in {0, os.getuid()}
+                or not 0 < before.st_size <= MAX_BINARY_BYTES
+            ):
                 raise DeveloperError("codex_executable_untrusted")
-            digest.update(block)
-            pending = memoryview(block)
-            while pending:
-                pending = pending[os.write(artifact_fd, pending) :]
-        after = os.fstat(source_fd)
-        if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
-            after.st_size,
-            after.st_mtime_ns,
-            after.st_ctime_ns,
-        ):
-            raise DeveloperError("worker_configuration_changed")
-        hexdigest = digest.hexdigest()
-        if approved_digest is not None and hexdigest != approved_digest:
-            raise DeveloperError("worker_configuration_changed")
-        os.fchmod(artifact_fd, 0o500)
-        fcntl.fcntl(artifact_fd, fcntl.F_ADD_SEALS, SEALS)
-        # Independently verify the sealed copy, not another open of the source.
-        os.lseek(artifact_fd, 0, os.SEEK_SET)
-        copied = hashlib.sha256()
-        while block := os.read(artifact_fd, 65536):
-            copied.update(block)
-        if copied.hexdigest() != hexdigest:
-            raise DeveloperError("worker_artifact_mismatch")
-        artifact = PinnedExecutable(source, hexdigest, artifact_fd)
-        artifact.verify()
+            artifact_fd = os.memfd_create(name, os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+            digest = hashlib.sha256()
+            total = 0
+            while block := os.read(source_fd, 65536):
+                total += len(block)
+                if total > MAX_BINARY_BYTES:
+                    raise DeveloperError("codex_executable_untrusted")
+                digest.update(block)
+                pending = memoryview(block)
+                while pending:
+                    pending = pending[os.write(artifact_fd, pending) :]
+            after = os.fstat(source_fd)
+            if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ):
+                raise DeveloperError("worker_configuration_changed")
+            hexdigest = digest.hexdigest()
+            if approved_digest is not None and hexdigest != approved_digest:
+                raise DeveloperError("worker_configuration_changed")
+            os.fchmod(artifact_fd, 0o500)
+            fcntl.fcntl(artifact_fd, fcntl.F_ADD_SEALS, SEALS)
+            # Independently verify the sealed copy, not another open of the source.
+            os.lseek(artifact_fd, 0, os.SEEK_SET)
+            copied = hashlib.sha256()
+            while block := os.read(artifact_fd, 65536):
+                copied.update(block)
+            if copied.hexdigest() != hexdigest:
+                raise DeveloperError("worker_artifact_mismatch")
+            artifact = PinnedExecutable(source, hexdigest, artifact_fd)
+            artifact.verify()
+        except OSError:
+            raise DeveloperError("codex_executable_unavailable") from None
         yield artifact
-    except OSError:
-        raise DeveloperError("codex_executable_unavailable") from None
     finally:
         for descriptor in (source_fd, artifact_fd):
             if descriptor is not None:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
 
 @contextmanager

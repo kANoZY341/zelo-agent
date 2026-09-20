@@ -15,7 +15,7 @@ from app.developer_artifacts import pin_executable
 from app.developer_process import run_process
 from app.developer_sandbox import CODEX, sandbox
 from app.developer_validation import validation_manifest
-from app.policy import State
+from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
@@ -57,8 +57,8 @@ def replacement(binary: Path, marker: Path):
     binary.chmod(0o700)
 
 
-def test_approved_binary_replacement_executes_zero_instructions(
-    developer_case, pinned_worker, database, monkeypatch
+def test_approved_binary_replacement_fails_before_worker_execution(
+    developer_case, pinned_worker, database
 ):
     runtime = developer_case
     runtime.worker = pinned_worker
@@ -70,21 +70,43 @@ def test_approved_binary_replacement_executes_zero_instructions(
     before = tree_digest(runtime.source_repository)
     marker = runtime.settings.workspace_root / "UNAPPROVED_EXECUTED"
     replacement(runtime.settings.developer_codex_executable, marker)
-    executions = []
 
-    async def forbidden_launch(*args, **kwargs):
-        executions.append(args)
-        raise AssertionError("Replacement must never reach executable launch")
-
-    monkeypatch.setattr("app.codex_worker.run_process", forbidden_launch)
     execution = service.claim()
+    assert execution is not None
     asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
     result = service.get(task.id)
     assert result.status == State.FAILED
     assert result.error == "worker_configuration_changed"
     assert not marker.exists()
-    assert executions == []
     assert tree_digest(runtime.source_repository) == before
+
+
+def test_binary_replacement_invalidates_at_operator_approval_without_execution(
+    developer_case, pinned_worker, database
+):
+    runtime = developer_case
+    runtime.worker = pinned_worker
+    service = TaskService(database, runtime.settings, developer_runtime=runtime)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "local fixture"}), None
+    )
+    marker = runtime.settings.workspace_root / "UNAPPROVED_APPROVAL_PROBE_EXECUTED"
+    replacement(runtime.settings.developer_codex_executable, marker)
+
+    with pytest.raises(DomainError, match="no longer pending|conflicts"):
+        service.decide(task.approvals[0].id, "approve")
+    current = service.get(task.id)
+
+    assert current.status == State.CANCELLED
+    assert current.error == "approval_invalidated"
+    assert current.approvals[0].status == "invalidated"
+    assert not marker.exists()
+
+
+def test_pin_executable_preserves_oserror_from_caller(pinned_worker):
+    with pytest.raises(OSError, match="caller failure"):
+        with pin_executable(pinned_worker.settings.developer_codex_executable):
+            raise OSError("caller failure")
 
 
 def test_source_replacement_after_pinning_cannot_change_preflight(pinned_worker):

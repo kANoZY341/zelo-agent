@@ -242,7 +242,7 @@ def test_merge_task_requires_second_approval_and_executes_exact_request(settings
     events = [event.event for event in service.events(task.id, 100, 0)]
     assert "promotion_ci_verified" in events
     assert "merge_approval_created" in events
-    assert "merge_reverified" in events
+    assert "merge_execution_started" in events
     assert events[-1] == "merge_completed"
 
 
