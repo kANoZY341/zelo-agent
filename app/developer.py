@@ -552,14 +552,18 @@ class DeveloperRuntime:
                 if not self.compatible(request, request.limits.overall_seconds):
                     raise DeveloperError("developer_configuration_changed")
                 source_head = (
-                    await self.git(
-                        self.source_repository,
-                        request,
-                        "rev-parse",
-                        "HEAD",
-                        trusted=True,
+                    (
+                        await self.git(
+                            self.source_repository,
+                            request,
+                            "rev-parse",
+                            "HEAD",
+                            trusted=True,
+                        )
                     )
-                ).decode().strip()
+                    .decode()
+                    .strip()
+                )
                 if source_head != request.base_sha:
                     raise DeveloperError("source_repository_changed")
                 # Trusted Git/state capture precedes every replaceable worker executable.
