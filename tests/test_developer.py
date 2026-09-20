@@ -412,6 +412,8 @@ def test_approval_binds_specification(developer_case, database, field):
         target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":
             target[keys[-1]] = "f" * 40
+        if field == "worker_selection.authority_policy_version":
+            target[keys[-1]] = "0" * 64
         stored.developer_spec = spec
         assert not service._valid_action(stored, approval)
     assert service.claim() is None
