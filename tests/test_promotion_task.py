@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from app.developer_process import DeveloperError
 from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_contracts import PromotionPublishResult
@@ -169,6 +170,28 @@ def test_promotion_publisher_change_invalidates_pending_approval(developer_case,
     assert current.status == State.CANCELLED
     assert current.error == "approval_invalidated"
     assert current.approvals[0].status == "invalidated"
+
+
+@pytest.mark.developer_boundary
+def test_transient_publisher_identity_failure_keeps_promotion_approval_pending(
+    developer_case, database, monkeypatch
+):
+    _, developer, attempt = completed_developer(developer_case, database)
+    service = configured(developer_case, database)
+    promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+
+    def unavailable(_settings):
+        raise DeveloperError("promotion_github_cli_unavailable")
+
+    monkeypatch.setattr("app.tasks.publisher_identity", unavailable)
+
+    with pytest.raises(DomainError) as failure:
+        service.decide(promotion.approvals[0].id, "approve")
+
+    assert failure.value.status_code == 503
+    current = service.get(promotion.id)
+    assert current.status == State.AWAITING_APPROVAL
+    assert current.approvals[0].status == "pending"
 
 
 @pytest.mark.developer_boundary
