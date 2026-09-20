@@ -1,9 +1,10 @@
-# Zelo Core v0.7.0 — Review & Promotion
+# Zelo Core v0.8.0 — Supervisor & Worker Registry
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
 gateway, native read-only tools, a bounded Agent Runtime, an approved
-Developer Runtime, and an approval-bound Review & Promotion Runtime.
+Developer Runtime, an approval-bound Review & Promotion Runtime, and a trusted
+worker registry with deterministic supervisor routing for developer work.
 
 ## Setup
 
@@ -36,7 +37,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.7.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.8.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
