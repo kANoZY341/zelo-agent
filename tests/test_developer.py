@@ -402,7 +402,6 @@ def test_approval_binds_specification(developer_case, database, field):
     assert service.get(task.id).status == State.CANCELLED
 
 
-
 def test_runner_poll_does_not_live_revalidate_pending_developer_approval(
     developer_case, database, monkeypatch
 ):
