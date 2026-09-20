@@ -1456,14 +1456,6 @@ class TaskService:
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
             if task.kind == "developer_run":
-                audit(
-                    session,
-                    task,
-                    "developer_completed" if outcome == State.SUCCEEDED else "developer_failed",
-                    attempt_id=attempt.id,
-                    reason=error,
-                    workspace=result.get("worktree") if result else None,
-                )
                 if execution.developer_request is not None:
                     audit(
                         session,
@@ -1472,6 +1464,14 @@ class TaskService:
                         attempt_id=attempt.id,
                         worker_id=execution.developer_request.worker_selection.descriptor.worker_id,
                     )
+                audit(
+                    session,
+                    task,
+                    "developer_completed" if outcome == State.SUCCEEDED else "developer_failed",
+                    attempt_id=attempt.id,
+                    reason=error,
+                    workspace=result.get("worktree") if result else None,
+                )
             if task.kind == "promotion_run":
                 details = (
                     {
