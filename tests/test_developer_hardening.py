@@ -87,6 +87,35 @@ def test_approved_binary_replacement_executes_zero_instructions(
     assert tree_digest(runtime.source_repository) == before
 
 
+
+
+def test_approved_binary_replacement_invalidates_approval_without_execution(
+    developer_case, pinned_worker, database
+):
+    runtime = developer_case
+    runtime.worker = pinned_worker
+    service = TaskService(database, runtime.settings, developer_runtime=runtime)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "local fixture"}), None
+    )
+    marker = runtime.settings.workspace_root / "UNAPPROVED_APPROVAL_PROBE_EXECUTED"
+    replacement(runtime.settings.developer_codex_executable, marker)
+
+    service.expire_approvals()
+    current = service.get(task.id)
+
+    assert current.status == State.CANCELLED
+    assert current.error == "approval_invalidated"
+    assert current.approvals[0].status == "invalidated"
+    assert not marker.exists()
+
+
+def test_pin_executable_preserves_oserror_from_caller(pinned_worker):
+    with pytest.raises(OSError, match="caller failure"):
+        with pin_executable(pinned_worker.settings.developer_codex_executable):
+            raise OSError("caller failure")
+
+
 def test_source_replacement_after_pinning_cannot_change_preflight(pinned_worker):
     approved = pinned_worker.identity()
     source = pinned_worker.settings.developer_codex_executable
