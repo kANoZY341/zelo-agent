@@ -1,6 +1,7 @@
 """v0.9 worker-capacity scheduling and concurrent runner regressions."""
 
 import asyncio
+import multiprocessing
 from datetime import UTC, datetime
 from multiprocessing import get_context
 from pathlib import Path
@@ -413,6 +414,8 @@ def test_persisted_descriptor_cannot_override_registry_ceiling(developer_case):
 
 
 def test_cross_process_worker_slots_enforce_same_trusted_ceiling(developer_case):
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("fork multiprocessing is unavailable")
     ctx = get_context("fork")
     worker_id = "cross-process-worker"
     started_one = ctx.Event()
