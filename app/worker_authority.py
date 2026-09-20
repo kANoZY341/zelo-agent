@@ -1,9 +1,11 @@
 """Trusted worker authority profiles and approval-binding policy."""
 
+import hashlib
+import json
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
-AUTHORITY_POLICY_VERSION = "zelo-worker-authority-v1"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +28,28 @@ _WORKSPACE_WRITE = WorkerAuthorityProfile(
 _PROFILES = {
     _WORKSPACE_WRITE.authority: _WORKSPACE_WRITE,
 }
+
+
+def authority_policy_fingerprint(profiles: Iterable[WorkerAuthorityProfile]) -> str:
+    """Hash the complete permission semantics so policy changes invalidate approvals."""
+    payload = {
+        "schema": AUTHORITY_POLICY_SCHEMA,
+        "profiles": [
+            asdict(profile)
+            for profile in sorted(profiles, key=lambda item: (item.authority, item.name))
+        ],
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+AUTHORITY_POLICY_VERSION = authority_policy_fingerprint(_PROFILES.values())
 
 
 def authority_profile(authority: Iterable[str]) -> WorkerAuthorityProfile:
