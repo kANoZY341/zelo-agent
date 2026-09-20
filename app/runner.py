@@ -49,7 +49,12 @@ class Runner:
 
     @property
     def ready(self) -> bool:
-        return self.loop_task is not None and not self.loop_task.done() and not self.stopping
+        return (
+            self.loop_task is not None
+            and not self.loop_task.done()
+            and not self.stopping
+            and not self.failed
+        )
 
     def cancel(self, task_id: str) -> None:
         operation = self.operations.get(task_id)
