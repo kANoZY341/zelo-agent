@@ -51,6 +51,22 @@ class Settings(BaseSettings):
     developer_changed_files: int = Field(default=200, ge=1, le=1000)
     developer_codex_executable: Path = Path.home() / ".local/bin/codex"
     developer_codex_auth_file: Path = Path.home() / ".codex/auth.json"
+    promotion_repository: str | None = None
+    promotion_git_author_name: str = Field(default="Zelo Agent", min_length=1, max_length=128)
+    promotion_git_author_email: str = Field(
+        default="zelo@localhost.invalid", min_length=3, max_length=254
+    )
+    promotion_gh_executable: Path = Path("/usr/bin/gh")
+    promotion_gh_config_dir: Path = Path.home() / ".config/gh"
+    promotion_github_timeout_seconds: float = Field(default=30.0, ge=1.0, le=120.0)
+    promotion_required_checks: tuple[str, ...] = ("checks",)
+    promotion_ci_app_id: int = Field(default=15368, ge=1)
+    promotion_ci_app_slug: str = Field(
+        default="github-actions",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9-]*$",
+    )
 
     @field_validator("ollama_url")
     @classmethod
@@ -61,6 +77,55 @@ class Settings(BaseSettings):
         if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise ValueError("Ollama URL must be localhost HTTP")
         return value.rstrip("/")
+
+    @field_validator("promotion_required_checks")
+    @classmethod
+    def validate_promotion_required_checks(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if (
+            not 1 <= len(value) <= 32
+            or len(set(value)) != len(value)
+            or any(
+                not 1 <= len(item) <= 256
+                or item.strip() != item
+                or any(character in item for character in "\r\n\x00")
+                for item in value
+            )
+        ):
+            raise ValueError("Promotion required checks must be unique bounded names")
+        return value
+
+    @field_validator("promotion_git_author_name")
+    @classmethod
+    def validate_promotion_author_name(cls, value: str) -> str:
+        if any(character in value for character in "\r\n<>\x00"):
+            raise ValueError("Invalid promotion Git author name")
+        return value
+
+    @field_validator("promotion_git_author_email")
+    @classmethod
+    def validate_promotion_author_email(cls, value: str) -> str:
+        if (
+            value.count("@") != 1
+            or any(character.isspace() for character in value)
+            or any(character in value for character in "\r\n<>\x00")
+        ):
+            raise ValueError("Invalid promotion Git author email")
+        return value
+
+    @field_validator("promotion_repository")
+    @classmethod
+    def validate_promotion_repository(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parts = value.split("/")
+        allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+        if (
+            len(parts) != 2
+            or any(not part or len(part) > 100 for part in parts)
+            or any(character not in allowed for part in parts for character in part)
+        ):
+            raise ValueError("Promotion repository must use owner/name format")
+        return value
 
     @field_validator("operator_token")
     @classmethod

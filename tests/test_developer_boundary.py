@@ -46,9 +46,9 @@ def prepared(runtime):
     return repo, request
 
 
-def test_local_presmoke_command_and_validation_path(settings):
+def test_local_presmoke_command_and_validation_path(developer_case):
     """Exercise the real local command sandbox without a Codex model request."""
-    if not settings.developer_codex_executable.is_file():
+    if not developer_case.settings.developer_codex_executable.is_file():
         pytest.skip("Installed Codex required for local non-model sandbox probe")
     before_head = git(ROOT, "rev-parse", "HEAD")
     before_status = git(ROOT, "status", "--porcelain=v1", "-z")
@@ -56,9 +56,9 @@ def test_local_presmoke_command_and_validation_path(settings):
     with TemporaryDirectory(prefix="presmoke-", dir=ROOT / "workspaces") as directory:
         workspace = Path(directory) / "workspaces"
         workspace.mkdir()
-        config = settings.model_copy(update={"workspace_root": workspace})
+        config = developer_case.settings.model_copy(update={"workspace_root": workspace})
         worker = CodexCliWorker(config)
-        runtime = DeveloperRuntime(config, worker, ROOT)
+        runtime = DeveloperRuntime(config, worker, developer_case.source_repository)
         request = runtime.request("Create only DEVELOPER_SMOKE.txt", "zelo_core", 60)
         repo = runtime.path(str(uuid4()))
         repo.parent.mkdir(parents=True)

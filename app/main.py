@@ -16,6 +16,13 @@ from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
 from app.policy import DomainError
+from app.promotion import PromotionRuntime
+from app.promotion_ci import PromotionCIVerifier
+from app.promotion_git import PromotionCommitter
+from app.promotion_github import GitHubPromotionPublisher
+from app.promotion_merge import PromotionMergeRuntime
+from app.promotion_release import PromotionReleaseRuntime
+from app.promotion_review import PromotionReviewer
 from app.runner import Runner
 from app.task_api import router as task_router
 from app.tasks import TaskService
@@ -53,11 +60,51 @@ def create_app(
             )
             tool_gateway = ToolGateway(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
-            tasks = TaskService(database, configuration, gateway, tool_gateway, developer_runtime)
+            promotion_reviewer = PromotionReviewer(developer_runtime)
+            promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
+            promotion_runtime = None
+            promotion_ci_verifier = None
+            promotion_merge_runtime = None
+            promotion_release_runtime = None
+            if configuration.promotion_repository is not None:
+                promotion_publisher = GitHubPromotionPublisher(
+                    configuration,
+                    developer_runtime,
+                    promotion_reviewer,
+                )
+                promotion_runtime = PromotionRuntime(
+                    promotion_committer,
+                    promotion_publisher,
+                )
+                promotion_ci_verifier = PromotionCIVerifier(configuration)
+                promotion_merge_runtime = PromotionMergeRuntime(
+                    configuration,
+                    promotion_ci_verifier,
+                )
+                promotion_release_runtime = PromotionReleaseRuntime(configuration)
+            tasks = TaskService(
+                database,
+                configuration,
+                gateway,
+                tool_gateway,
+                developer_runtime,
+                promotion_reviewer,
+                promotion_ci_verifier,
+                promotion_release_runtime,
+            )
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
-            runner = Runner(tasks, worker, gateway, agent_runtime, developer_runtime)
+            runner = Runner(
+                tasks,
+                worker,
+                gateway,
+                agent_runtime,
+                developer_runtime,
+                promotion_runtime,
+                promotion_merge_runtime,
+                promotion_release_runtime,
+            )
             application.state.database = database
             application.state.tasks = tasks
             application.state.tool_gateway = tool_gateway

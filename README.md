@@ -1,9 +1,9 @@
-# Zelo Core v0.6.0 — Developer Agent
+# Zelo Core v0.7.0 — Review & Promotion
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
-gateway, native read-only tools, a bounded Agent Runtime, and an approved
-Developer Runtime.
+gateway, native read-only tools, a bounded Agent Runtime, an approved
+Developer Runtime, and an approval-bound Review & Promotion Runtime.
 
 ## Setup
 
@@ -36,7 +36,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.6.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.7.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -416,10 +416,49 @@ service accepts an execution UUID, verifies ownership/containment, rejects activ
 or symlinked targets and holds the execution lock. It is not an API deletion tool.
 Interrupted ownership records that still say active require operator investigation.
 
-No runtime operation commits, pushes, merges, rebases, tags, opens a PR, deploys
-or promotes changes. Future promotion requires a separately designed review and
-approval flow. Passing validation means the fixed commands passed, not that the
-change or worker-modified tests are trustworthy; human review is required.
+The Developer Runtime itself never commits, pushes, merges, rebases, tags,
+opens a PR, deploys, or promotes changes. v0.7 adds a separate trusted
+Review & Promotion Runtime for those actions, with its own exact-result bindings
+and separate operator approvals. Passing developer validation means the fixed
+commands passed, not that the change or worker-modified tests are trustworthy;
+human review remains part of the promotion boundary.
+
+### v0.7 real Review & Promotion smoke
+
+Prerequisites are Linux with functioning Bubblewrap namespaces, an installed
+trusted `gh` executable, an existing authenticated `gh` configuration, and
+`ZELO_PROMOTION_REPOSITORY` set to the GitHub repository to promote into. The
+repository's `main` branch must be current, and its required CI check (by
+default `checks`) must be configured to run on pull requests. Run exactly one
+safe command from `~/zelo/core`:
+
+```bash
+.venv/bin/python -m scripts.smoke_promotion
+```
+
+The smoke creates a deterministic candidate in an isolated developer workspace,
+then uses the real `PromotionReviewer`, approval-bound `PromotionCommitter`,
+`GitHubPromotionPublisher`, and `PromotionCIVerifier`. It creates or exactly
+reuses one branch under `zelo/promotion/smoke-<base-sha-prefix>` and one open
+pull request in the configured repository. Its small persistent state is kept
+under `runtime/smoke-promotion/` and `workspaces/smoke-promotion/` so reruns can
+reuse the exact prior result. Identify the result from the printed `branch`,
+`pr_number`, and `pr_url`, or search GitHub for the `zelo/promotion/smoke-`
+branch prefix.
+
+CI verification is intentionally one-shot: the first invocation may successfully
+create or reuse the pull request while its required GitHub Actions check is still
+queued or running, and can therefore exit with `promotion_ci_not_green`. Wait
+for the required pull request check to complete, then rerun the exact same smoke
+command. Persistent smoke state and idempotency reuse the exact successful
+developer and promotion result rather than creating another branch or pull
+request. A genuinely failed CI check still fails closed.
+
+The smoke never invokes Codex, modifies `main`, overwrites a branch, force
+updates anything, recreates a closed pull request, merges a pull request, runs
+`merge_run` or `release_run`, creates a tag, or bypasses Zelo's promotion
+classes. Passing validation means the fixed commands passed; the pull request
+still requires normal human review and is intentionally left open.
 
 Full CPU/RAM/PID/disk quotas are future hardening. Current namespace isolation,
 deadlines, streamed output caps and process cleanup do not provide those quotas.
@@ -450,3 +489,82 @@ execution is intentionally bounded to one attempt.
 Future cloud providers can implement the same typed `ModelProvider` interface
 behind `ModelGateway`; adding one must still pass an explicit product and
 security review. v0.3 deliberately ships no cloud provider or API-key path.
+
+
+## Review & Promotion Runtime (v0.7)
+
+v0.7 turns one successful, validated Developer attempt into a separately
+reviewed promotion workflow. Codex and other Developer workers still have no
+GitHub credentials and no commit, push, PR, merge, or tag authority. Zelo owns
+the promotion boundary and re-verifies every identity before external action.
+
+The staged flow is:
+
+```text
+developer_run succeeds
+  -> promotion_run review fingerprint + operator approval
+  -> trusted deterministic commit
+  -> exact GitHub branch + pull request
+  -> exact-head CI verification
+  -> merge_run with a separate operator approval
+  -> squash merge of the approved PR head
+  -> release_run with another separate operator approval
+  -> annotated semantic-version tag on the exact merged main SHA
+```
+
+A `promotion_run` references the exact successful Developer task and latest
+successful attempt. Its frozen specification binds the base SHA, worker and
+validation identities, candidate manifest, review fingerprint, configured
+repository, branch, commit metadata, and PR metadata. Before publication Zelo
+re-inventories the retained workspace, reruns the fixed trusted validation
+profile, reconstructs the exact Git tree and commit, and confirms the protected
+primary checkout did not change.
+
+Only the operator-configured repository is valid. The branch must use the
+`zelo/promotion/` prefix. GitHub access uses the operator-owned `gh`
+configuration; the worker sandbox never receives that directory. The approved
+publisher identity binds the trusted `gh` executable digest, GitHub host,
+credential-directory location, repository, and timeout without persisting a
+token.
+
+After the PR exists, CI verification is tied to the exact PR head SHA and the
+configured required check-run names. A `merge_run` is a new task with a new
+approval; it binds the exact promotion task, PR number, base/head identities,
+successful CI snapshot, and merge method. The runtime re-checks the open PR and
+CI before merging. A changed head/base, closed PR, regressed/missing CI check,
+publisher change, or source-task mutation fails closed.
+
+A `release_run` is another separately approved task. It binds the exact
+successful merge task, merged `main` SHA, semantic version tag, tag message,
+tagger identity, and tagger timestamp. Zelo creates an annotated tag only on
+that approved SHA. Existing lightweight tags, tags pointing elsewhere, or
+annotated tags with different approved metadata are conflicts.
+
+Promotion, merge, and release recovery is explicit rather than automatic.
+Interrupted or failed actions may be retried only through a fresh approval on a
+new action version. Previous active approvals are cancelled as superseded.
+Retries preserve the frozen external-action specification so Zelo can safely
+discover and reuse an already-created exact commit, branch, PR, merge, or
+annotated tag instead of duplicating the side effect. Closed promotion PRs are
+never silently recreated.
+
+Operator configuration:
+
+```bash
+ZELO_PROMOTION_REPOSITORY="kANoZY341/zelo-agent"
+ZELO_PROMOTION_GIT_AUTHOR_NAME="Zelo Agent"
+ZELO_PROMOTION_GIT_AUTHOR_EMAIL="zelo@localhost.invalid"
+ZELO_PROMOTION_GH_EXECUTABLE=/usr/bin/gh
+ZELO_PROMOTION_GH_CONFIG_DIR=/home/zelo/.config/gh
+ZELO_PROMOTION_GITHUB_TIMEOUT_SECONDS=30
+ZELO_PROMOTION_REQUIRED_CHECKS='["checks"]'
+# Bind required check-runs to the trusted GitHub Actions app identity.
+ZELO_PROMOTION_CI_APP_ID=15368
+ZELO_PROMOTION_CI_APP_SLUG="github-actions"
+```
+
+The three v0.7 migrations add the frozen promotion, merge, and release
+specifications to the existing task table while preserving the established
+SQLite migration transaction and foreign-key safety rules:
+`0006_promotion_review`, `0007_merge_approval`, and
+`0008_release_approval`.

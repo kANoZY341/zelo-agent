@@ -8,6 +8,9 @@ from app.agent import AgentRuntime, AgentRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import State
+from app.promotion import PromotionRuntime
+from app.promotion_merge import PromotionMergeRuntime
+from app.promotion_release import PromotionReleaseRuntime
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -23,12 +26,18 @@ class Runner:
         gateway: ModelGateway | None = None,
         agent_runtime: AgentRuntime | None = None,
         developer_runtime: DeveloperRuntime | None = None,
+        promotion_runtime: PromotionRuntime | None = None,
+        promotion_merge_runtime: PromotionMergeRuntime | None = None,
+        promotion_release_runtime: PromotionReleaseRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
         self.developer_runtime = developer_runtime
+        self.promotion_runtime = promotion_runtime
+        self.promotion_merge_runtime = promotion_merge_runtime
+        self.promotion_release_runtime = promotion_release_runtime
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
@@ -99,6 +108,12 @@ class Runner:
             self.operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "developer_run":
             self.operation = asyncio.create_task(self._developer_worker(execution))
+        elif execution.kind == "promotion_run":
+            self.operation = asyncio.create_task(self._promotion_worker(execution))
+        elif execution.kind == "merge_run":
+            self.operation = asyncio.create_task(self._merge_worker(execution))
+        elif execution.kind == "release_run":
+            self.operation = asyncio.create_task(self._release_worker(execution))
         else:
             self.operation = asyncio.create_task(self.worker(execution))
         try:
@@ -288,3 +303,50 @@ class Runner:
         return await self.developer_runtime.run(
             execution.task_id, execution.attempt_id, execution.developer_request, emit
         )
+
+    async def _promotion_worker(self, execution: Execution) -> dict[str, Any]:
+        if (
+            self.promotion_runtime is None
+            or execution.promotion_request is None
+            or execution.developer_request is None
+        ):
+            raise DeveloperRuntimeError("promotion_runtime_unavailable")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await self.promotion_runtime.run(
+            execution.task_id,
+            execution.attempt_id,
+            execution.promotion_request,
+            execution.developer_request,
+            emit,
+        )
+
+    async def _merge_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.promotion_merge_runtime is None or execution.merge_request is None:
+            raise DeveloperRuntimeError("promotion_merge_runtime_unavailable")
+
+        self.service.model_event(
+            execution.task_id,
+            "merge_reverified",
+            execution.attempt_id,
+            pr_number=execution.merge_request.publication.pr_number,
+            head_sha=execution.merge_request.publication.pr_head_sha,
+        )
+        result = await self.promotion_merge_runtime.run(execution.merge_request)
+        return result.model_dump(mode="json")
+
+    async def _release_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.promotion_release_runtime is None or execution.release_request is None:
+            raise DeveloperRuntimeError("promotion_release_runtime_unavailable")
+
+        self.service.model_event(
+            execution.task_id,
+            "release_reverified",
+            execution.attempt_id,
+            tag=execution.release_request.tag,
+            main_sha=execution.release_request.main_sha,
+        )
+        result = await self.promotion_release_runtime.run(execution.release_request)
+        return result.model_dump(mode="json")
