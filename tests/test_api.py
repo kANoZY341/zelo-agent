@@ -37,12 +37,17 @@ def test_approval_route_is_synchronous_threadpool_boundary() -> None:
     assert not inspect.iscoroutinefunction(decide_approval)
 
 
-def test_developer_approval_succeeds_through_asgi_threadpool(settings: Settings) -> None:
+def test_developer_approval_succeeds_through_asgi_threadpool(
+    settings: Settings, database: Database, monkeypatch
+) -> None:
     configured = settings.model_copy(update={"runner_poll_seconds": 1.0})
     with TestClient(
         create_app(configured, developer_worker=FakeWorker()),
         headers=AUTH,
     ) as client:
+        runtime = client.app.state.tasks.developer_runtime
+        monkeypatch.setattr(runtime, "validation_identity", lambda: "test-validation-identity")
+
         created = client.post(
             "/tasks",
             json={
