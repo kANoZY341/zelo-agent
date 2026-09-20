@@ -1,9 +1,9 @@
 """v0.9 worker-capacity scheduling and concurrent runner regressions."""
 
 import asyncio
+from datetime import UTC, datetime
 from multiprocessing import get_context
 from pathlib import Path
-from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -140,7 +140,13 @@ def _hold_worker_slot(
 
 
 class CapacityRuntime:
-    def __init__(self, settings, *, capacities: dict[str, int] | None = None, error: str | None = None):
+    def __init__(
+        self,
+        settings,
+        *,
+        capacities: dict[str, int] | None = None,
+        error: str | None = None,
+    ):
         self.settings = settings
         self.capacities = capacities or {"alpha": 1, "beta": 1}
         self.error = error

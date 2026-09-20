@@ -14,8 +14,8 @@ from app.developer_contracts import (
 from app.developer_process import DeveloperError
 from app.worker_authority import (
     WorkerAuthorityProfile,
-    authority_profile,
     authority_policy_version,
+    authority_profile,
     authority_snapshot_matches,
 )
 

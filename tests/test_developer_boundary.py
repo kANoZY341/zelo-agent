@@ -174,7 +174,9 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
 
 def test_interrupted_developer_recovery_balances_capacity_audit(developer_case, database):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
-    task, _ = service.submit(DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
     service.decide(task.approvals[0].id, "approve")
     assert service.claim() is not None
     service.recover()
