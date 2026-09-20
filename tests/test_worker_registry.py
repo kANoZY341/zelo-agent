@@ -215,6 +215,27 @@ def test_developer_submission_audits_routing_and_registry_change_invalidates(
     assert invalidated.error == "approval_invalidated"
 
 
+def test_explicit_registry_rejects_unregistered_primary_worker(developer_case):
+    worker_a = StubWorker("worker_a")
+    worker_b = StubWorker("worker_b")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("worker_a").model_copy(update={"implementation": "worker_a"}),
+                worker_a,
+            )
+        ]
+    )
+
+    with pytest.raises(DeveloperError, match="worker_registry_mismatch"):
+        developer_case.__class__(
+            developer_case.settings,
+            worker_b,
+            developer_case.source_repository,
+            registry,
+        )
+
+
 def test_explicit_registry_rejects_worker_reassignment(developer_case):
     worker = StubWorker("worker_a")
     registry = WorkerRegistry(
