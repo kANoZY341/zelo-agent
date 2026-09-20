@@ -12,8 +12,14 @@ from app.developer_contracts import (
     WorkerSelectionSnapshot,
 )
 from app.developer_process import DeveloperError
+from app.worker_authority import (
+    AUTHORITY_POLICY_VERSION,
+    WorkerAuthorityProfile,
+    authority_profile,
+    authority_snapshot_matches,
+)
 
-REGISTRY_SCHEMA_VERSION = "zelo-worker-registry-v1"
+REGISTRY_SCHEMA_VERSION = "zelo-worker-registry-v2"
 
 
 def _registry_value(value: str, name: str) -> str:
@@ -25,8 +31,13 @@ def _registry_value(value: str, name: str) -> str:
 def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
     payload = {
         "schema": REGISTRY_SCHEMA_VERSION,
+        "authority_policy_version": AUTHORITY_POLICY_VERSION,
         "workers": [
-            workers[worker_id].descriptor.model_dump(mode="json") for worker_id in sorted(workers)
+            {
+                "descriptor": workers[worker_id].descriptor.model_dump(mode="json"),
+                "authority_profile": workers[worker_id].authority_profile.name,
+            }
+            for worker_id in sorted(workers)
         ],
     }
     encoded = json.dumps(
@@ -43,6 +54,7 @@ def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
 class RegisteredWorker:
     descriptor: WorkerDescriptor
     worker: DeveloperWorker
+    authority_profile: WorkerAuthorityProfile
 
 
 class WorkerRegistry:
@@ -59,7 +71,10 @@ class WorkerRegistry:
             trusted_descriptor = WorkerDescriptor.model_validate(descriptor.model_dump(mode="json"))
             if trusted_descriptor.worker_id in workers:
                 raise ValueError("duplicate_worker_id")
-            workers[trusted_descriptor.worker_id] = RegisteredWorker(trusted_descriptor, worker)
+            profile = authority_profile(trusted_descriptor.authority)
+            workers[trusted_descriptor.worker_id] = RegisteredWorker(
+                trusted_descriptor, worker, profile
+            )
         self._version = _registry_version(workers)
         self._routing_policy = _registry_value(routing_policy, "routing_policy")
         self._workers: Mapping[str, RegisteredWorker] = MappingProxyType(workers)
@@ -112,6 +127,8 @@ class Supervisor:
             descriptor=selected.descriptor,
             registry_version=self.registry.version,
             routing_policy=self.registry.routing_policy,
+            authority_profile=selected.authority_profile.name,
+            authority_policy_version=AUTHORITY_POLICY_VERSION,
         )
 
     def matches(self, snapshot: WorkerSelectionSnapshot) -> bool:
@@ -122,6 +139,12 @@ class Supervisor:
             and snapshot.routing_policy == self.registry.routing_policy
             and current.descriptor == snapshot.descriptor
             and current.descriptor.enabled
+            and current.authority_profile.name == snapshot.authority_profile
+            and authority_snapshot_matches(
+                current.descriptor.authority,
+                snapshot.authority_profile,
+                snapshot.authority_policy_version,
+            )
         )
 
 
