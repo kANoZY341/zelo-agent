@@ -215,16 +215,12 @@ def test_developer_submission_audits_routing_and_registry_change_invalidates(
     assert invalidated.error == "approval_invalidated"
 
 
-
-
 def test_explicit_registry_rejects_worker_reassignment(developer_case):
     worker = StubWorker("worker_a")
     registry = WorkerRegistry(
         [
             (
-                descriptor("worker_a").model_copy(
-                    update={"implementation": "worker_a"}
-                ),
+                descriptor("worker_a").model_copy(update={"implementation": "worker_a"}),
                 worker,
             )
         ]
