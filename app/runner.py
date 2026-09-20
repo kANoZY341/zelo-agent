@@ -39,6 +39,7 @@ class Runner:
         self.promotion_merge_runtime = promotion_merge_runtime
         self.promotion_release_runtime = promotion_release_runtime
         self.stopping = False
+        self.failed = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
         self.operations: dict[str, asyncio.Task[None]] = {}
@@ -93,6 +94,7 @@ class Runner:
             # Fail closed; readiness becomes false. Never leave already-launched
             # operations running without the scheduler that owns them.
             logger.error("runner_failed")
+            self.failed = True
             active = tuple(self.operations.values())
             for operation in active:
                 operation.cancel()
@@ -217,8 +219,12 @@ class Runner:
                     reason=error.args[0],
                 )
         except asyncio.CancelledError:
-            outcome = State.INTERRUPTED if self.stopping else State.CANCELLED
-            reason = "service_shutdown" if self.stopping else "cancelled_by_operator"
+            if self.failed:
+                outcome, reason = State.INTERRUPTED, "runner_failed"
+            elif self.stopping:
+                outcome, reason = State.INTERRUPTED, "service_shutdown"
+            else:
+                outcome, reason = State.CANCELLED, "cancelled_by_operator"
             self.service.finish(execution, outcome, error=reason)
             if execution.kind == "ai_prompt":
                 self.service.model_event(
