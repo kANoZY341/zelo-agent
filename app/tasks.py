@@ -937,7 +937,9 @@ class TaskService:
                 return self._valid_action(task, approval, live=True)
             except DeveloperRuntimeError as error:
                 if str(error) == "approval_revalidation_unavailable":
-                    raise DomainError("Approval revalidation temporarily unavailable", 503) from None
+                    raise DomainError(
+                        "Approval revalidation temporarily unavailable", 503
+                    ) from None
                 raise
 
     def decide(self, approval_id: str, decision: str) -> ApprovalResponse:
