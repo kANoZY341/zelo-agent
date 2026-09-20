@@ -687,7 +687,10 @@ class DeveloperRuntime:
                                 raise DeveloperError("developer_boundary_violation")
                             if git_before is not None:
                                 self.verify_checkout_path(repo)
-                                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
+                                if (
+                                    await asyncio.to_thread(tree_digest, repo / ".git")
+                                    != git_before
+                                ):
                                     try:
                                         head = (
                                             (await self.git(repo, request, "rev-parse", "HEAD"))
