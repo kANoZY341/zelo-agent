@@ -93,20 +93,34 @@ class DeveloperRuntime:
         self.settings = settings
         self.source_repository = source_repository.resolve()
         self._registry_explicit = registry is not None
-        self._worker = worker or CodexCliWorker(settings)
-        self.registry = registry or WorkerRegistry(
-            [
-                (
-                    descriptor_for_worker(
-                        self._worker,
-                        implementation=(
-                            "codex" if worker is None else self._worker.identity().implementation
-                        ),
-                    ),
-                    self._worker,
-                )
+        if registry is not None:
+            if worker is None:
+                raise DeveloperError("worker_registry_primary_required")
+            registered = [
+                registry.get(descriptor.worker_id)
+                for descriptor in registry.list()
             ]
-        )
+            if not any(item is not None and item.worker is worker for item in registered):
+                raise DeveloperError("worker_registry_mismatch")
+            self._worker = worker
+            self.registry = registry
+        else:
+            self._worker = worker or CodexCliWorker(settings)
+            self.registry = WorkerRegistry(
+                [
+                    (
+                        descriptor_for_worker(
+                            self._worker,
+                            implementation=(
+                                "codex"
+                                if worker is None
+                                else self._worker.identity().implementation
+                            ),
+                        ),
+                        self._worker,
+                    )
+                ]
+            )
         self.supervisor = Supervisor(self.registry)
 
     @property
