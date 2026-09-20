@@ -16,6 +16,7 @@ from app.developer_process import run_process
 from app.developer_sandbox import CODEX, sandbox
 from app.developer_validation import validation_manifest
 from app.policy import State
+from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
 from tests.developer_helpers import git
@@ -56,7 +57,7 @@ def replacement(binary: Path, marker: Path):
     binary.chmod(0o700)
 
 
-def test_approved_binary_replacement_invalidates_before_claim(
+def test_approved_binary_replacement_fails_before_worker_execution(
     developer_case, pinned_worker, database
 ):
     runtime = developer_case
@@ -70,16 +71,17 @@ def test_approved_binary_replacement_invalidates_before_claim(
     marker = runtime.settings.workspace_root / "UNAPPROVED_EXECUTED"
     replacement(runtime.settings.developer_codex_executable, marker)
 
-    assert service.claim() is None
+    execution = service.claim()
+    assert execution is not None
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
     result = service.get(task.id)
-    assert result.status == State.CANCELLED
-    assert result.error == "approval_invalidated"
-    assert result.approvals[0].status == "invalidated"
+    assert result.status == State.FAILED
+    assert result.error == "worker_configuration_changed"
     assert not marker.exists()
     assert tree_digest(runtime.source_repository) == before
 
 
-def test_approved_binary_replacement_invalidates_approval_without_execution(
+def test_binary_replacement_invalidates_at_operator_approval_without_execution(
     developer_case, pinned_worker, database
 ):
     runtime = developer_case
@@ -91,7 +93,8 @@ def test_approved_binary_replacement_invalidates_approval_without_execution(
     marker = runtime.settings.workspace_root / "UNAPPROVED_APPROVAL_PROBE_EXECUTED"
     replacement(runtime.settings.developer_codex_executable, marker)
 
-    service.expire_approvals()
+    with pytest.raises(Exception, match="no longer pending|conflicts"):
+        service.decide(task.approvals[0].id, "approve")
     current = service.get(task.id)
 
     assert current.status == State.CANCELLED
