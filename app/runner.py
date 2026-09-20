@@ -41,8 +41,7 @@ class Runner:
         self.stopping = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
-        self.operation: asyncio.Task[dict[str, Any]] | None = None
-        self.active_id: str | None = None
+        self.operations: dict[str, asyncio.Task[None]] = {}
 
     def start(self) -> None:
         self.loop_task = asyncio.create_task(self._loop(), name="zelo-runner")
@@ -52,39 +51,49 @@ class Runner:
         return self.loop_task is not None and not self.loop_task.done() and not self.stopping
 
     def cancel(self, task_id: str) -> None:
-        if self.active_id == task_id and self.operation:
-            self.operation.cancel()
+        operation = self.operations.get(task_id)
+        if operation is not None:
+            operation.cancel()
         self.wake.set()
 
     async def stop(self) -> None:
         self.stopping = True
-        if self.operation:
-            self.operation.cancel()
+        for operation in tuple(self.operations.values()):
+            operation.cancel()
         self.wake.set()
         if self.loop_task:
             await self.loop_task
+        remaining = tuple(self.operations.values())
+        if remaining:
+            await asyncio.gather(*remaining, return_exceptions=True)
 
     async def _loop(self) -> None:
         try:
             while not self.stopping:
                 self.wake.clear()
                 self.service.expire_approvals()
-                execution = self.service.claim()
-                if execution:
-                    await self._run(execution)
-                else:
-                    try:
-                        await asyncio.wait_for(
-                            self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
-                        )
-                    except TimeoutError:
-                        pass
+                while not self.stopping:
+                    execution = self.service.claim()
+                    if execution is None:
+                        break
+                    if execution.task_id in self.operations:
+                        raise RuntimeError("duplicate_running_task")
+                    operation = asyncio.create_task(
+                        self._run(execution),
+                        name=f"zelo-runner-{execution.kind}-{execution.task_id}",
+                    )
+                    self.operations[execution.task_id] = operation
+                try:
+                    await asyncio.wait_for(
+                        self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
+                    )
+                except TimeoutError:
+                    pass
         except Exception:
             # Fail closed; readiness becomes false. Never log exception payloads/private input.
             logger.error("runner_failed")
 
     async def _run(self, execution: Execution) -> None:
-        self.active_id = execution.task_id
         if execution.kind == "ai_prompt":
             self.service.model_event(
                 execution.task_id,
@@ -101,27 +110,27 @@ class Runner:
                 tool=execution.tool_name,
             )
         if execution.kind == "ai_prompt":
-            self.operation = asyncio.create_task(self._model_worker(execution))
+            operation = asyncio.create_task(self._model_worker(execution))
         elif execution.kind == "tool_call":
-            self.operation = asyncio.create_task(self._tool_worker(execution))
+            operation = asyncio.create_task(self._tool_worker(execution))
         elif execution.kind == "agent_run":
-            self.operation = asyncio.create_task(self._agent_worker(execution))
+            operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "developer_run":
-            self.operation = asyncio.create_task(self._developer_worker(execution))
+            operation = asyncio.create_task(self._developer_worker(execution))
         elif execution.kind == "promotion_run":
-            self.operation = asyncio.create_task(self._promotion_worker(execution))
+            operation = asyncio.create_task(self._promotion_worker(execution))
         elif execution.kind == "merge_run":
-            self.operation = asyncio.create_task(self._merge_worker(execution))
+            operation = asyncio.create_task(self._merge_worker(execution))
         elif execution.kind == "release_run":
-            self.operation = asyncio.create_task(self._release_worker(execution))
+            operation = asyncio.create_task(self._release_worker(execution))
         else:
-            self.operation = asyncio.create_task(self.worker(execution))
+            operation = asyncio.create_task(self.worker(execution))
         try:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
-                await self.operation
+                await operation
                 if execution.kind in {"agent_run", "developer_run"}
-                else await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
+                else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
                 raw
@@ -236,8 +245,8 @@ class Runner:
                 )
         finally:
             logger.info("attempt_finished", extra={"task_id": execution.task_id})
-            self.operation = None
-            self.active_id = None
+            self.operations.pop(execution.task_id, None)
+            self.wake.set()
 
     async def _model_worker(self, execution: Execution) -> dict[str, Any]:
         if self.gateway is None or execution.profile is None:
