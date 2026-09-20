@@ -207,9 +207,7 @@ def test_runner_overlaps_different_workers(settings, database):
     asyncio.run(exercise())
 
 
-def test_runner_failure_interrupts_already_claimed_developer_work(
-    settings, database, monkeypatch
-):
+def test_runner_failure_interrupts_already_claimed_developer_work(settings, database, monkeypatch):
     runtime = CapacityRuntime(settings)
     service = TaskService(database, settings, developer_runtime=runtime)
     task = _approved(service, "alpha-one")
