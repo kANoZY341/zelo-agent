@@ -1,9 +1,9 @@
 """Trusted, deterministic developer worker registration and selection."""
 
-import hashlib
-import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+import hashlib
+import json
 from types import MappingProxyType
 
 from app.developer_contracts import (
