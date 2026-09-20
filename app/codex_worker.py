@@ -423,7 +423,7 @@ class CodexCliWorker:
     ) -> None:
         if self.pinned is None:
             with self.bind() as bound:
-                return await bound.probe(repo, auth)
+                return await bound.probe(repo, auth, profile)
         args = [
             CODEX,
             *command_config(profile),
@@ -497,6 +497,7 @@ class CodexCliWorker:
                 code_mode_host_fd=self.host_artifact().fd,
                 auth=auth,
                 service_network=True,
+                writable=(profile or authority_profile(("workspace-write",))).workspace_write,
             ),
             cwd=repo,
             timeout=15,
