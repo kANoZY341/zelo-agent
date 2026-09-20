@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
-from app.policy import State
+from app.policy import DomainError, State
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
 from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
@@ -233,7 +233,7 @@ def test_explicit_registry_rejects_worker_reassignment(developer_case):
         runtime.worker = StubWorker("worker_b")
 
 
-def test_validation_identity_change_invalidates_pending_approval(
+def test_validation_identity_change_invalidates_at_operator_approval(
     developer_case, database, monkeypatch
 ):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
@@ -241,11 +241,36 @@ def test_validation_identity_change_invalidates_pending_approval(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "test"}), None
     )
     monkeypatch.setattr(developer_case, "validation_identity", lambda: "changed")
-    service.expire_approvals()
+
+    with pytest.raises(DomainError, match="no longer pending|conflicts"):
+        service.decide(task.approvals[0].id, "approve")
 
     invalidated = service.get(task.id)
     assert invalidated.status == State.CANCELLED
     assert invalidated.error == "approval_invalidated"
+
+
+
+
+def test_transient_revalidation_failure_leaves_approval_pending(
+    developer_case, database, monkeypatch
+):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "test"}), None
+    )
+
+    def unavailable(*args, **kwargs):
+        raise DeveloperError("approval_revalidation_unavailable")
+
+    monkeypatch.setattr(developer_case, "approval_compatible", unavailable)
+    with pytest.raises(DomainError) as failure:
+        service.decide(task.approvals[0].id, "approve")
+
+    assert failure.value.status_code == 503
+    current = service.get(task.id)
+    assert current.status == State.AWAITING_APPROVAL
+    assert current.approvals[0].status == "pending"
 
 
 def test_selected_worker_identity_and_execution_are_bound_to_registry(developer_case, monkeypatch):
