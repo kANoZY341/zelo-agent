@@ -94,13 +94,14 @@ class DeveloperRuntime:
         self.source_repository = source_repository.resolve()
         self._registry_explicit = registry is not None
         if registry is not None:
-            if worker is None:
-                raise DeveloperError("worker_registry_primary_required")
-            registered = [registry.get(descriptor.worker_id) for descriptor in registry.list()]
-            if not any(item is not None and item.worker is worker for item in registered):
-                raise DeveloperError("worker_registry_mismatch")
-            self._worker = worker
             self.registry = registry
+            self.supervisor = Supervisor(self.registry)
+            selected, _ = self.supervisor.select(
+                role="developer", capabilities=("zelo_core_development",)
+            )
+            if worker is not None and selected.worker is not worker:
+                raise DeveloperError("worker_registry_mismatch")
+            self._worker = selected.worker
         else:
             self._worker = worker or CodexCliWorker(settings)
             self.registry = WorkerRegistry(
@@ -118,7 +119,7 @@ class DeveloperRuntime:
                     )
                 ]
             )
-        self.supervisor = Supervisor(self.registry)
+            self.supervisor = Supervisor(self.registry)
 
     @property
     def worker(self) -> DeveloperWorker:
@@ -325,16 +326,8 @@ class DeveloperRuntime:
         if await self.git(repo, request, "remote"):
             raise DeveloperError("checkout_remote_forbidden")
 
-    async def primary_snapshot(self, request: DeveloperRequest) -> str:
+    def _primary_snapshot_digest(self, outputs: list[bytes]) -> str:
         source = self.source_repository
-        outputs = []
-        for args in (
-            ("rev-parse", "HEAD"),
-            ("status", "--porcelain=v1", "-z"),
-            ("show-ref", "--head"),
-            ("ls-files", "-z"),
-        ):
-            outputs.append(await self.git(source, request, *args, trusted=True))
         digest = hashlib.sha256(b"".join(outputs))
         # Hash tracked contents and Git state. Never open unrelated untracked user files.
         total = 0
@@ -352,6 +345,18 @@ class DeveloperRuntime:
         digest.update(tree_digest(source / ".git").encode())
         return digest.hexdigest()
 
+    async def primary_snapshot(self, request: DeveloperRequest) -> str:
+        source = self.source_repository
+        outputs = []
+        for args in (
+            ("rev-parse", "HEAD"),
+            ("status", "--porcelain=v1", "-z"),
+            ("show-ref", "--head"),
+            ("ls-files", "-z"),
+        ):
+            outputs.append(await self.git(source, request, *args, trusted=True))
+        return await asyncio.to_thread(self._primary_snapshot_digest, outputs)
+
     async def validate(self, repo: Path, request: DeveloperRequest) -> list[ValidationResult]:
         commands = [
             ("ruff_check", python_command("-m", "ruff", "check", ".")),
@@ -366,7 +371,7 @@ class DeveloperRuntime:
         ]
         results = []
         for name, command in commands:
-            if self.validation_identity() != request.validation_identity:
+            if await asyncio.to_thread(self.validation_identity) != request.validation_identity:
                 raise DeveloperError("validation_environment_changed")
             self.verify_checkout_path(repo)
             started = time.monotonic()
@@ -394,7 +399,7 @@ class DeveloperRuntime:
             )
             if code:
                 break
-        if self.validation_identity() != request.validation_identity:
+        if await asyncio.to_thread(self.validation_identity) != request.validation_identity:
             raise DeveloperError("validation_environment_changed")
         return results
 
@@ -485,15 +490,40 @@ class DeveloperRuntime:
             "diff": diff.decode("utf-8", "replace"),
         }
 
-    def lock(self):
+    def _lock_root(self) -> Path:
         root = self.root()
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root()
-        # Shared across runtime databases and configured workspace roots.
         lock_root = no_symlinks(ROOT / "runtime")
         lock_root.mkdir(exist_ok=True, mode=0o700)
+        return lock_root
+
+    def worker_lock(self, request: DeveloperRequest):
+        """Acquire one cross-process capacity slot for the approved worker."""
+        descriptor = request.worker_selection.descriptor
+        lock_root = self._lock_root()
+        for slot in range(descriptor.max_concurrency):
+            fd = os.open(
+                lock_root / f"developer-worker-{descriptor.worker_id}-{slot}.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+                0o600,
+            )
+            stream = os.fdopen(fd, "w")
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                stream.close()
+                continue
+            return stream
+        raise DeveloperError("developer_worker_capacity_exhausted")
+
+    def maintenance_lock(self):
+        """Serialize operator cleanup without globally serializing worker execution."""
+        lock_root = self._lock_root()
         fd = os.open(
-            lock_root / "developer-execution.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
+            lock_root / "developer-maintenance.lock",
+            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+            0o600,
         )
         stream = os.fdopen(fd, "w")
         try:
@@ -543,7 +573,7 @@ class DeveloperRuntime:
             "original_error": None,
             "cancelled": False,
         }
-        lock = self.lock()
+        lock = self.worker_lock(request)
         before = git_before = manifest = None
         artifacts = ExitStack()
         emit("developer_started", {})
@@ -575,7 +605,8 @@ class DeveloperRuntime:
                 actual = await bound_worker.preflight()
                 if (
                     actual != request.worker
-                    or self.validation_identity() != request.validation_identity
+                    or await asyncio.to_thread(self.validation_identity)
+                    != request.validation_identity
                 ):
                     raise DeveloperError("worker_configuration_changed")
                 repo.parent.mkdir(mode=0o700)
@@ -585,7 +616,7 @@ class DeveloperRuntime:
                 )
                 await self.prepare(repo, request)
                 emit("developer_workspace_created", {"workspace": result["worktree"]})
-                git_before = tree_digest(repo / ".git")
+                git_before = await asyncio.to_thread(tree_digest, repo / ".git")
                 self.verify_checkout_path(repo)
                 emit("developer_worker_started", {})
                 result["worker_started_at"] = datetime.now(UTC).isoformat()
@@ -608,7 +639,7 @@ class DeveloperRuntime:
                 if worker.exit_code:
                     raise DeveloperError("worker_nonzero_exit")
                 self.verify_checkout_path(repo)
-                if tree_digest(repo / ".git") != git_before:
+                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                     raise DeveloperError("developer_boundary_violation")
                 emit("developer_validation_started", {})
                 validation = await self.validate(repo, request)
@@ -621,7 +652,7 @@ class DeveloperRuntime:
                     # check can report a distinct boundary failure.
                     result["error"] = "developer_validation_failed"
                 self.verify_checkout_path(repo)
-                if tree_digest(repo / ".git") != git_before:
+                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                     raise DeveloperError("developer_boundary_violation")
                 result.update(await self.review(repo, request))
                 if result["head_changed"]:
@@ -656,7 +687,7 @@ class DeveloperRuntime:
                                 raise DeveloperError("developer_boundary_violation")
                             if git_before is not None:
                                 self.verify_checkout_path(repo)
-                                if tree_digest(repo / ".git") != git_before:
+                                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                                     try:
                                         head = (
                                             (await self.git(repo, request, "rev-parse", "HEAD"))
@@ -733,7 +764,7 @@ class DeveloperRuntime:
 
     def cleanup(self, execution_id: str) -> None:
         """Internal operator service only. No API accepts deletion paths."""
-        with self.lock():
+        with self.maintenance_lock():
             repo = self.path(execution_id)
             owner = no_symlinks(repo.parent / "owner.json")
             if not owner.is_file() or owner.stat().st_size > 1024:
