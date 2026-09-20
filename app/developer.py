@@ -551,6 +551,17 @@ class DeveloperRuntime:
             async with asyncio.timeout(request.limits.overall_seconds):
                 if not self.compatible(request, request.limits.overall_seconds):
                     raise DeveloperError("developer_configuration_changed")
+                source_head = (
+                    await self.git(
+                        self.source_repository,
+                        request,
+                        "rev-parse",
+                        "HEAD",
+                        trusted=True,
+                    )
+                ).decode().strip()
+                if source_head != request.base_sha:
+                    raise DeveloperError("source_repository_changed")
                 # Trusted Git/state capture precedes every replaceable worker executable.
                 before = await self.primary_snapshot(request)
                 selected = self.registry.get(request.worker_selection.descriptor.worker_id)
