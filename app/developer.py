@@ -498,13 +498,12 @@ class DeveloperRuntime:
         lock_root.mkdir(exist_ok=True, mode=0o700)
         return lock_root
 
-    def worker_lock(self, request: DeveloperRequest):
+    def worker_lock(self, worker_id: str, max_concurrency: int):
         """Acquire one cross-process capacity slot for the approved worker."""
-        descriptor = request.worker_selection.descriptor
         lock_root = self._lock_root()
-        for slot in range(descriptor.max_concurrency):
+        for slot in range(max_concurrency):
             fd = os.open(
-                lock_root / f"developer-worker-{descriptor.worker_id}-{slot}.lock",
+                lock_root / f"developer-worker-{worker_id}-{slot}.lock",
                 os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
                 0o600,
             )
@@ -580,11 +579,14 @@ class DeveloperRuntime:
             "original_error": None,
             "cancelled": False,
         }
-        lock = self.worker_lock(request)
+        lock = None
         before = git_before = manifest = None
         artifacts = ExitStack()
-        emit("developer_started", {})
+        bound_worker_context = None
+        bound_worker = None
+        bound_worker_entered = False
         try:
+            emit("developer_started", {})
             async with asyncio.timeout(request.limits.overall_seconds):
                 if not self.compatible(request, request.limits.overall_seconds):
                     raise DeveloperError("developer_configuration_changed")
@@ -608,7 +610,19 @@ class DeveloperRuntime:
                 selected = self.registry.get(request.worker_selection.descriptor.worker_id)
                 if selected is None or not self.supervisor.matches(request.worker_selection):
                     raise DeveloperError("worker_configuration_changed")
-                bound_worker = artifacts.enter_context(selected.worker.bind(request.worker))
+                lock = self.worker_lock(
+                    selected.descriptor.worker_id, selected.descriptor.max_concurrency
+                )
+                emit(
+                    "worker_capacity_claimed",
+                    {
+                        "worker_id": selected.descriptor.worker_id,
+                        "max_concurrency": selected.descriptor.max_concurrency,
+                    },
+                )
+                bound_worker_context = selected.worker.bind(request.worker)
+                bound_worker = await asyncio.to_thread(bound_worker_context.__enter__)
+                bound_worker_entered = True
                 actual = await bound_worker.preflight()
                 if (
                     actual != request.worker
@@ -759,8 +773,17 @@ class DeveloperRuntime:
                     if not result["error"]:
                         result["error"] = "developer_cancelled"
             finally:
+                if bound_worker_context is not None and bound_worker_entered:
+                    await asyncio.to_thread(bound_worker_context.__exit__, None, None, None)
                 artifacts.close()
-                lock.close()
+                if lock is not None:
+                    lock.close()
+                    emit(
+                        "worker_capacity_released",
+                        {
+                            "worker_id": request.worker_selection.descriptor.worker_id,
+                        },
+                    )
         if (
             time.monotonic() - monotonic_start > request.limits.overall_seconds
             and not result["error"]

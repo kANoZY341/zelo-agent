@@ -13,9 +13,9 @@ from app.developer_contracts import (
 )
 from app.developer_process import DeveloperError
 from app.worker_authority import (
-    AUTHORITY_POLICY_VERSION,
     WorkerAuthorityProfile,
     authority_profile,
+    authority_policy_version,
     authority_snapshot_matches,
 )
 
@@ -31,7 +31,7 @@ def _registry_value(value: str, name: str) -> str:
 def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
     payload = {
         "schema": REGISTRY_SCHEMA_VERSION,
-        "authority_policy_version": AUTHORITY_POLICY_VERSION,
+        "authority_policy_version": authority_policy_version(),
         "workers": [
             {
                 "descriptor": workers[worker_id].descriptor.model_dump(mode="json"),
@@ -128,7 +128,7 @@ class Supervisor:
             registry_version=self.registry.version,
             routing_policy=self.registry.routing_policy,
             authority_profile=selected.authority_profile.name,
-            authority_policy_version=AUTHORITY_POLICY_VERSION,
+            authority_policy_version=authority_policy_version(),
         )
 
     def matches(self, snapshot: WorkerSelectionSnapshot) -> bool:

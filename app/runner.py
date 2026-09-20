@@ -44,6 +44,41 @@ class Runner:
         self.loop_task: asyncio.Task[None] | None = None
         self.operations: dict[str, asyncio.Task[None]] = {}
 
+    def _cancellation_outcome(self) -> tuple[State, str]:
+        if self.failed:
+            return State.INTERRUPTED, "runner_failed"
+        if self.stopping:
+            return State.INTERRUPTED, "service_shutdown"
+        return State.CANCELLED, "cancelled_by_operator"
+
+    def _finalize_unstarted_operation(
+        self, execution: Execution, operation: asyncio.Task[None]
+    ) -> None:
+        if not operation.cancelled():
+            return
+        current = self.operations.get(execution.task_id)
+        if current is not operation:
+            return
+        outcome, reason = self._cancellation_outcome()
+        try:
+            self.service.finish(execution, outcome, error=reason)
+            if execution.kind == "ai_prompt":
+                self.service.model_event(
+                    execution.task_id, "model_execution_failed", execution.attempt_id, reason=reason
+                )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason=reason,
+                )
+        finally:
+            logger.info("attempt_finished", extra={"task_id": execution.task_id})
+            self.operations.pop(execution.task_id, None)
+            self.wake.set()
+
     def start(self) -> None:
         self.loop_task = asyncio.create_task(self._loop(), name="zelo-runner")
 
@@ -88,11 +123,12 @@ class Runner:
                         self._run(execution),
                         name=f"zelo-runner-{execution.kind}-{execution.task_id}",
                     )
+                    operation.add_done_callback(
+                        lambda task, execution=execution: self._finalize_unstarted_operation(
+                            execution, task
+                        )
+                    )
                     self.operations[execution.task_id] = operation
-                    # Let the claimed execution enter _run before another claim.
-                    # A task cancelled before its coroutine starts cannot persist
-                    # its terminal state, so this yield closes that lifecycle gap.
-                    await asyncio.sleep(0)
                 try:
                     await asyncio.wait_for(
                         self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
@@ -199,7 +235,10 @@ class Runner:
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DeveloperRuntimeError as error:
-            self.service.finish(execution, State.FAILED, error=error.args[0])
+            if error.args and error.args[0] == "developer_worker_capacity_exhausted":
+                self.service.defer(execution, error=error.args[0])
+            else:
+                self.service.finish(execution, State.FAILED, error=error.args[0])
         except ModelGatewayError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
             if execution.kind == "ai_prompt":
@@ -228,12 +267,7 @@ class Runner:
                     reason=error.args[0],
                 )
         except asyncio.CancelledError:
-            if self.failed:
-                outcome, reason = State.INTERRUPTED, "runner_failed"
-            elif self.stopping:
-                outcome, reason = State.INTERRUPTED, "service_shutdown"
-            else:
-                outcome, reason = State.CANCELLED, "cancelled_by_operator"
+            outcome, reason = self._cancellation_outcome()
             self.service.finish(execution, outcome, error=reason)
             if execution.kind == "ai_prompt":
                 self.service.model_event(

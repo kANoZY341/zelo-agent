@@ -1400,16 +1400,6 @@ class TaskService:
             audit(session, task, "attempt_created", attempt_id=attempt.id, number=attempt.number)
             transition(session, task, State.RUNNING)
             audit(session, task, "execution_started", attempt_id=attempt.id)
-            if developer_request is not None:
-                descriptor = developer_request.worker_selection.descriptor
-                audit(
-                    session,
-                    task,
-                    "worker_capacity_claimed",
-                    attempt_id=attempt.id,
-                    worker_id=descriptor.worker_id,
-                    max_concurrency=descriptor.max_concurrency,
-                )
             return Execution(
                 task.id,
                 attempt.id,
@@ -1456,14 +1446,6 @@ class TaskService:
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
             if task.kind == "developer_run":
-                if execution.developer_request is not None:
-                    audit(
-                        session,
-                        task,
-                        "worker_capacity_released",
-                        attempt_id=attempt.id,
-                        worker_id=execution.developer_request.worker_selection.descriptor.worker_id,
-                    )
                 audit(
                     session,
                     task,
@@ -1539,6 +1521,29 @@ class TaskService:
                     **details,
                 )
 
+    def defer(self, execution: Execution, *, error: str) -> None:
+        with self.database.transaction() as session:
+            task = require_task(session, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if attempt is None or attempt.outcome != State.RUNNING:
+                raise DomainError("Attempt is not running")
+            transition(session, task, State.PENDING)
+            task.error = None
+            task.result = None
+            attempt.outcome = State.INTERRUPTED
+            attempt.result = None
+            attempt.error = error
+            attempt.ended_at = utcnow()
+            audit(session, task, "execution_deferred", attempt_id=attempt.id, reason=error)
+            if task.kind == "developer_run":
+                audit(
+                    session,
+                    task,
+                    "developer_deferred",
+                    attempt_id=attempt.id,
+                    reason=error,
+                )
+
     def recover(self) -> None:
         with self.database.transaction() as session:
             for task in session.scalars(select(Task).where(Task.status == State.RUNNING)):
@@ -1560,6 +1565,23 @@ class TaskService:
                     "startup_interruption_recovery",
                     attempt_id=attempt.id if attempt else None,
                 )
+                if task.kind == "developer_run":
+                    descriptor = None
+                    if task.developer_spec is not None:
+                        try:
+                            descriptor = DeveloperRequest.model_validate(
+                                task.developer_spec
+                            ).worker_selection.descriptor
+                        except (ValueError, TypeError, KeyError):
+                            descriptor = None
+                    audit(
+                        session,
+                        task,
+                        "worker_capacity_released",
+                        attempt_id=attempt.id if attempt else None,
+                        worker_id=descriptor.worker_id if descriptor else None,
+                        recovered=True,
+                    )
                 if task.kind == "promotion_run":
                     audit(
                         session,

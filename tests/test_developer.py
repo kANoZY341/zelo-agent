@@ -3,6 +3,8 @@
 import asyncio
 import copy
 import json
+import threading
+import time
 from uuid import uuid4
 
 import pytest
@@ -21,7 +23,7 @@ from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
-from app.worker_authority import WorkerAuthorityProfile
+from app.worker_authority import WorkerAuthorityProfile, authority_profile
 from tests.developer_helpers import fixture_commit
 
 
@@ -555,9 +557,10 @@ def test_codex_invocation_is_explicit(developer_case, fake_codex):
     repo = developer_case.settings.workspace_root
     auth = repo / "fake-auth.json"
     auth.write_text("sentinel")
+    profile = authority_profile(("workspace-write",))
     worker.settings.developer_codex_auth_file = auth
     with worker.bind() as bound:
-        argv = bound.argv(repo)
+        argv = bound.argv(repo, profile)
     for flag in (
         "--ignore-user-config",
         "--ignore-rules",
@@ -571,7 +574,22 @@ def test_codex_invocation_is_explicit(developer_case, fake_codex):
     assert "--unshare-net" not in argv  # Parent service connectivity; inner commands are denied.
     assert "danger-full-access" not in str(argv)
     assert "sandbox" not in argv[argv.index("exec") + 1 :]
-    assert 'inherit="none"' in str(command_config())
+    assert 'inherit="none"' in str(command_config(profile))
+
+
+def test_codex_entry_points_require_explicit_profile(developer_case, fake_codex):
+    repo = developer_case.settings.workspace_root
+    auth = repo / "fake-auth.json"
+    auth.write_text("sentinel")
+    with pytest.raises(TypeError):
+        command_config()
+    with fake_codex.bind() as bound:
+        with pytest.raises(TypeError):
+            bound.argv(repo)
+        with pytest.raises(TypeError):
+            asyncio.run(bound.probe(repo, auth))
+        with pytest.raises(TypeError):
+            asyncio.run(bound.local_command_probe(repo, auth))
 
 
 def test_runtime_worker_change_fails_before_execution(developer_case):
@@ -609,6 +627,39 @@ def test_runtime_persists_only_nonfatal_error_item_count(developer_case):
     )
     assert result["nonfatal_error_items"] == 1
     assert "message" not in result
+
+
+def test_runtime_offloads_worker_binding_from_event_loop(developer_case, monkeypatch):
+    entered = threading.Event()
+    ticker_progress = threading.Event()
+    request_spec = request(developer_case)
+
+    class SlowBind:
+        def __enter__(self):
+            entered.set()
+            time.sleep(0.1)
+            assert ticker_progress.wait(0.2)
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowBind())
+
+    async def exercise():
+        async def ticker():
+            await asyncio.to_thread(entered.wait, 1)
+            await asyncio.sleep(0)
+            ticker_progress.set()
+
+        run_task = asyncio.create_task(
+            developer_case.run(str(uuid4()), str(uuid4()), request_spec, lambda *_: None)
+        )
+        await asyncio.gather(run_task, ticker())
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["error"] is None
 
 
 def test_jsonl_current_exec_rejects_collab_tool_call(developer_case):
@@ -688,6 +739,7 @@ def test_unsafe_codex_boundary_fails_closed(fake_codex, developer_case, monkeypa
             fake_codex.probe(
                 developer_case.settings.workspace_root,
                 fake_codex.settings.developer_codex_auth_file,
+                authority_profile(("workspace-write",)),
             )
         )
 

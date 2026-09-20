@@ -34,6 +34,7 @@ def decide(client, approval_id, decision="approve"):
     ("previous", "target"),
     [
         (State.PENDING, State.RUNNING),
+        (State.RUNNING, State.PENDING),
         (State.RUNNING, State.FAILED),
         (State.INTERRUPTED, State.PENDING),
         (State.AWAITING_APPROVAL, State.PENDING),

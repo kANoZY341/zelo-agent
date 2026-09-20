@@ -210,6 +210,27 @@ def test_authority_policy_fingerprint_binds_permission_semantics():
     assert authority_policy_fingerprint((denied,)) != authority_policy_fingerprint((allowed,))
 
 
+def test_authority_policy_matches_realized_permission_semantics(monkeypatch):
+    registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
+    _, snapshot = Supervisor(registry).select(
+        role="developer", capabilities=("zelo_core_development",)
+    )
+    assert Supervisor(registry).matches(snapshot)
+    from app import worker_authority
+
+    original = worker_authority.codex_permission_semantics
+
+    def widened(profile):
+        semantics = dict(original(profile))
+        filesystem = dict(semantics["filesystem"])
+        filesystem["/tmp/zelo-codex-engine"] = "read"
+        semantics["filesystem"] = filesystem
+        return semantics
+
+    monkeypatch.setattr(worker_authority, "codex_permission_semantics", widened)
+    assert not Supervisor(registry).matches(snapshot)
+
+
 def test_authority_policy_is_approval_bound():
     registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
     _, snapshot = Supervisor(registry).select(

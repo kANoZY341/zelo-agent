@@ -1,10 +1,15 @@
 """v0.9 worker-capacity scheduling and concurrent runner regressions."""
 
 import asyncio
+from multiprocessing import get_context
+from pathlib import Path
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 
+from app.config import Settings
+from app.developer import DeveloperRuntime
 from app.developer_contracts import (
     DeveloperRequest,
     Limits,
@@ -18,6 +23,7 @@ from app.runner import Runner
 from app.schemas import DeveloperRunInput, EchoInput
 from app.tasks import TaskService
 from app.worker_authority import AUTHORITY_POLICY_VERSION
+from tests.developer_helpers import FakeWorker
 
 
 def _limits(timeout: float) -> Limits:
@@ -109,17 +115,49 @@ def _result(request: DeveloperRequest) -> dict:
     }
 
 
+def _hold_worker_slot(
+    workspace_root: str,
+    source_repository: str,
+    worker_id: str,
+    max_concurrency: int,
+    started,
+    release,
+    results,
+):
+    settings = Settings(_env_file=None, workspace_root=Path(workspace_root))
+    runtime = DeveloperRuntime(settings, FakeWorker(), Path(source_repository))
+    try:
+        lock = runtime.worker_lock(worker_id, max_concurrency)
+    except Exception as error:  # pragma: no cover - exercised in subprocess
+        results.put(f"error:{type(error).__name__}:{error}")
+        started.set()
+        return
+    results.put("locked")
+    started.set()
+    release.wait(5)
+    lock.close()
+    results.put("released")
+
+
 class CapacityRuntime:
-    def __init__(self, settings):
+    def __init__(self, settings, *, capacities: dict[str, int] | None = None, error: str | None = None):
         self.settings = settings
+        self.capacities = capacities or {"alpha": 1, "beta": 1}
+        self.error = error
         self.started: set[str] = set()
+        self.started_count = 0
         self.both_started = asyncio.Event()
         self.release = asyncio.Event()
 
     def request(self, instruction: str, profile: str, timeout: float) -> DeveloperRequest:
         assert profile == "zelo_core"
         worker_id = "alpha" if instruction.startswith("alpha") else "beta"
-        return _request(worker_id, instruction, timeout)
+        return _request(
+            worker_id,
+            instruction,
+            timeout,
+            max_concurrency=self.capacities.get(worker_id, 1),
+        )
 
     def compatible(self, request: DeveloperRequest, timeout: float) -> bool:
         return request.limits == _limits(timeout)
@@ -128,8 +166,11 @@ class CapacityRuntime:
         return self.compatible(request, timeout)
 
     async def run(self, task_id, execution_id, request, emit):
+        if self.error is not None:
+            raise DeveloperError(self.error)
         self.started.add(request.worker_selection.descriptor.worker_id)
-        if len(self.started) >= 2:
+        self.started_count += 1
+        if self.started_count >= 2:
             self.both_started.set()
         await self.release.wait()
         return _result(request)
@@ -207,6 +248,53 @@ def test_runner_overlaps_different_workers(settings, database):
     asyncio.run(exercise())
 
 
+def test_scheduler_allows_same_worker_up_to_max_concurrency(settings, database):
+    runtime = CapacityRuntime(settings, capacities={"alpha": 2, "beta": 1})
+    service = TaskService(database, settings, developer_runtime=runtime)
+    alpha_one = _approved(service, "alpha-one")
+    alpha_two = _approved(service, "alpha-two")
+    alpha_three = _approved(service, "alpha-three")
+
+    first = service.claim()
+    second = service.claim()
+    assert first is not None and first.task_id == alpha_one.id
+    assert second is not None and second.task_id == alpha_two.id
+    assert service.claim() is None
+
+    assert first.developer_request is not None
+    service.finish(first, State.SUCCEEDED, _result(first.developer_request))
+    third = service.claim()
+    assert third is not None and third.task_id == alpha_three.id
+
+
+def test_runner_overlaps_same_worker_when_ceiling_allows(settings, database):
+    runtime = CapacityRuntime(settings, capacities={"alpha": 2, "beta": 1})
+    service = TaskService(database, settings, developer_runtime=runtime)
+    alpha_one = _approved(service, "alpha-one")
+    alpha_two = _approved(service, "alpha-two")
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=runtime)
+        runner.start()
+        await asyncio.wait_for(runtime.both_started.wait(), timeout=2)
+        assert service.get(alpha_one.id).status == State.RUNNING
+        assert service.get(alpha_two.id).status == State.RUNNING
+        assert set(runner.operations) == {alpha_one.id, alpha_two.id}
+        runtime.release.set()
+        for _ in range(100):
+            if (
+                service.get(alpha_one.id).status == State.SUCCEEDED
+                and service.get(alpha_two.id).status == State.SUCCEEDED
+            ):
+                break
+            await asyncio.sleep(0.01)
+        assert service.get(alpha_one.id).status == State.SUCCEEDED
+        assert service.get(alpha_two.id).status == State.SUCCEEDED
+        await runner.stop()
+
+    asyncio.run(exercise())
+
+
 def test_runner_failure_interrupts_already_claimed_developer_work(settings, database, monkeypatch):
     runtime = CapacityRuntime(settings)
     service = TaskService(database, settings, developer_runtime=runtime)
@@ -237,23 +325,122 @@ def test_runner_failure_interrupts_already_claimed_developer_work(settings, data
     asyncio.run(exercise())
 
 
-def test_runtime_worker_slots_enforce_descriptor_ceiling(developer_case):
+def test_cancel_before_first_operation_step_is_finalized(settings, database):
+    runtime = CapacityRuntime(settings)
+    service = TaskService(database, settings, developer_runtime=runtime)
+    first = _approved(service, "alpha-one")
+    second = _approved(service, "alpha-two")
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=runtime)
+        execution = service.claim()
+        assert execution is not None
+        operation = asyncio.create_task(runner._run(execution))
+        operation.add_done_callback(
+            lambda task: runner._finalize_unstarted_operation(execution, task)
+        )
+        runner.operations[execution.task_id] = operation
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
+        current = service.get(first.id)
+        assert current.status == State.CANCELLED
+        assert current.attempts[0].outcome == State.CANCELLED
+        assert runner.operations == {}
+        next_execution = service.claim()
+        assert next_execution is not None and next_execution.task_id == second.id
+
+    asyncio.run(exercise())
+
+
+def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
+    runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
+    service = TaskService(database, settings, developer_runtime=runtime)
+    task = _approved(service, "alpha-one")
+    execution = service.claim()
+    assert execution is not None
+
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.PENDING
+    assert current.error is None
+    assert current.approvals[0].status == "approved"
+    assert current.attempts[0].outcome == State.INTERRUPTED
+    retry = service.claim()
+    assert retry is not None and retry.task_id == task.id
+
+
+def test_runtime_worker_slots_enforce_trusted_ceiling(developer_case):
     request = developer_case.request("test", "zelo_core", 30)
-    first = developer_case.worker_lock(request)
+    worker_id = request.worker_selection.descriptor.worker_id
+    first = developer_case.worker_lock(worker_id, 1)
     try:
         with pytest.raises(DeveloperError, match="developer_worker_capacity_exhausted"):
-            developer_case.worker_lock(request)
+            developer_case.worker_lock(worker_id, 1)
     finally:
         first.close()
 
-    descriptor = request.worker_selection.descriptor.model_copy(update={"max_concurrency": 2})
-    selection = request.worker_selection.model_copy(update={"descriptor": descriptor})
-    two_slot_request = request.model_copy(update={"worker_selection": selection})
-    first = developer_case.worker_lock(two_slot_request)
-    second = developer_case.worker_lock(two_slot_request)
+    first = developer_case.worker_lock(worker_id, 2)
+    second = developer_case.worker_lock(worker_id, 2)
     try:
         with pytest.raises(DeveloperError, match="developer_worker_capacity_exhausted"):
-            developer_case.worker_lock(two_slot_request)
+            developer_case.worker_lock(worker_id, 2)
     finally:
         second.close()
         first.close()
+
+
+def test_persisted_descriptor_cannot_override_registry_ceiling(developer_case):
+    trusted = developer_case.request("test", "zelo_core", 30)
+    descriptor = trusted.worker_selection.descriptor.model_copy(update={"max_concurrency": 2})
+    selection = trusted.worker_selection.model_copy(update={"descriptor": descriptor})
+    stale = trusted.model_copy(update={"worker_selection": selection})
+    developer_case.compatible = lambda request, timeout: True
+    developer_case.supervisor.matches = lambda snapshot: True
+    worker_id = trusted.worker_selection.descriptor.worker_id
+    lock = developer_case.worker_lock(worker_id, 1)
+    try:
+        second = asyncio.run(developer_case.run(str(uuid4()), str(uuid4()), stale, lambda *_: None))
+    finally:
+        lock.close()
+    assert second["error"] == "developer_worker_capacity_exhausted"
+
+
+def test_cross_process_worker_slots_enforce_same_trusted_ceiling(developer_case):
+    ctx = get_context("fork")
+    worker_id = "cross-process-worker"
+    started_one = ctx.Event()
+    started_two = ctx.Event()
+    release = ctx.Event()
+    results = ctx.Queue()
+    args = (
+        str(developer_case.settings.workspace_root),
+        str(developer_case.source_repository),
+        worker_id,
+        2,
+        release,
+        results,
+    )
+    first = ctx.Process(
+        target=_hold_worker_slot,
+        args=(args[0], args[1], args[2], args[3], started_one, args[4], args[5]),
+    )
+    second = ctx.Process(
+        target=_hold_worker_slot,
+        args=(args[0], args[1], args[2], args[3], started_two, args[4], args[5]),
+    )
+    first.start()
+    second.start()
+    try:
+        assert started_one.wait(5)
+        assert results.get(timeout=5) == "locked"
+        assert started_two.wait(5)
+        assert results.get(timeout=5) == "locked"
+        with pytest.raises(DeveloperError, match="developer_worker_capacity_exhausted"):
+            developer_case.worker_lock(worker_id, 2)
+    finally:
+        release.set()
+        first.join(5)
+        second.join(5)
+    assert first.exitcode == 0
+    assert second.exitcode == 0
