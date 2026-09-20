@@ -450,9 +450,7 @@ def test_source_head_drift_invalidates_at_operator_approval(developer_case, data
     assert current.error == "approval_invalidated"
 
 
-def test_source_head_drift_after_approval_fails_before_worker_execution(
-    developer_case, database
-):
+def test_source_head_drift_after_approval_fails_before_worker_execution(developer_case, database):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
     task, _ = service.submit(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
