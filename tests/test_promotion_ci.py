@@ -160,7 +160,7 @@ def script(publication, promotion, checks):
         (
             "GET",
             f"/repos/{repo}/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100",
-            {"check_runs": checks},
+            {"total_count": len(checks), "check_runs": checks},
         ),
     ]
 
@@ -226,4 +226,22 @@ def test_pr_identity_change_invalidates_ci_verification(tmp_path, head_sha, base
     )
 
     with pytest.raises(DeveloperError, match="promotion_ci_pr_changed"):
+        asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
+
+
+def test_truncated_check_run_response_fails_closed(tmp_path):
+    settings, promotion, publication = fixture(tmp_path)
+    repo = promotion.repository
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", pr(publication, promotion)),
+            (
+                "GET",
+                f"/repos/{repo}/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100",
+                {"total_count": 101, "check_runs": [check()]},
+            ),
+        ]
+    )
+
+    with pytest.raises(DeveloperError, match="promotion_ci_response_invalid"):
         asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
