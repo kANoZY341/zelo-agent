@@ -87,6 +87,13 @@ class PromotionCIVerifier:
             )
         )
         runs = _list(response.get("check_runs"))
+        total_count = response.get("total_count")
+        if (
+            not isinstance(total_count, int)
+            or total_count < 0
+            or total_count != len(runs)
+        ):
+            raise DeveloperError("promotion_ci_response_invalid")
         required = list(self.settings.promotion_required_checks)
         selected: list[CICheckSnapshot] = []
         for name in required:
