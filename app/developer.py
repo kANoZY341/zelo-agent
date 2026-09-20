@@ -204,23 +204,58 @@ class DeveloperRuntime:
         )
 
     def approval_compatible(self, request: DeveloperRequest, timeout: float) -> bool:
+        """Perform the expensive live approval check only from a synchronous boundary.
+
+        Runner polling never calls this method. The operator approval route is synchronous
+        (FastAPI runs it in a worker thread), and execution performs the same definitive
+        checks again before any worker bytes can run.
+        """
         if not self.compatible(request, timeout):
             return False
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            raise DeveloperError("approval_revalidation_unavailable")
+
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
         try:
             head = run_sync(git_argv("rev-parse", "HEAD"), cwd=self.source_repository)
-            if (
-                head.exit_code
-                or head.stdout.decode().strip() != request.base_sha
-                or self.validation_identity() != request.validation_identity
-            ):
+            if head.exit_code:
+                raise DeveloperError("approval_revalidation_unavailable")
+            if head.stdout.decode().strip() != request.base_sha:
+                return False
+            try:
+                validation_identity = self.validation_identity()
+            except DeveloperError as error:
+                if str(error) in {
+                    "validation_environment_changed",
+                    "validation_environment_unavailable",
+                }:
+                    raise DeveloperError("approval_revalidation_unavailable") from None
+                raise
+            if validation_identity != request.validation_identity:
                 return False
             with selected.worker.bind(request.worker) as bound_worker:
                 identity = asyncio.run(bound_worker.preflight())
-        except (DeveloperError, OSError, ValueError, RuntimeError):
-            return False
+        except DeveloperError as error:
+            if str(error) in {
+                "worker_configuration_changed",
+                "codex_executable_untrusted",
+                "worker_artifact_mismatch",
+                "worker_artifact_unsealed",
+                "codex_version_unsupported",
+                "codex_capabilities_unsupported",
+            }:
+                return False
+            if str(error) == "approval_revalidation_unavailable":
+                raise
+            raise DeveloperError("approval_revalidation_unavailable") from None
+        except (OSError, ValueError, RuntimeError):
+            raise DeveloperError("approval_revalidation_unavailable") from None
         return (
             identity == request.worker
             and identity.implementation == request.worker_selection.descriptor.implementation
