@@ -104,7 +104,7 @@ class PromotionCIVerifier:
                 raise DeveloperError("promotion_ci_response_invalid")
             if len(runs) == total_count:
                 break
-            if not page_runs:
+            if len(page_runs) < 100:
                 raise DeveloperError("promotion_ci_response_truncated")
         if total_count is None or len(runs) != total_count:
             raise DeveloperError("promotion_ci_response_truncated")
