@@ -322,7 +322,6 @@ def test_codex_command_config_derives_filesystem_and_network_from_authority():
     )
     config = command_config(read_only)
     joined = " ".join(config)
-    assert '"' not in joined
     assert '"/workspace"="read"' in joined
     assert "permissions.zelo.network.enabled=false" in config
 
