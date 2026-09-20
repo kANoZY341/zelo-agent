@@ -83,9 +83,7 @@ class PromotionCIVerifier:
 
         runs: list[Any] = []
         total_count: int | None = None
-        base_checks = (
-            f"/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100"
-        )
+        base_checks = f"/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100"
         for page in range(1, MAX_CHECK_RUN_PAGES + 1):
             suffix = base_checks if page == 1 else f"{base_checks}&page={page}"
             response = _dict(await self.transport.request("GET", self.endpoint(suffix)))
