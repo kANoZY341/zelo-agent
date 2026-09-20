@@ -116,8 +116,7 @@ class DeveloperRuntime:
     @worker.setter
     def worker(self, value: DeveloperWorker) -> None:
         if self._registry_explicit:
-            self._worker = value
-            return
+            raise DeveloperError("worker_registry_explicit")
         implementation = value.identity().implementation
         self._worker = value
         self.registry = WorkerRegistry(
@@ -211,7 +210,15 @@ class DeveloperRuntime:
         if selected is None:
             return False
         try:
-            identity = selected.worker.identity()
+            head = run_sync(git_argv("rev-parse", "HEAD"), cwd=self.source_repository)
+            if (
+                head.exit_code
+                or head.stdout.decode().strip() != request.base_sha
+                or self.validation_identity() != request.validation_identity
+            ):
+                return False
+            with selected.worker.bind(request.worker) as bound_worker:
+                identity = asyncio.run(bound_worker.preflight())
         except (DeveloperError, OSError, ValueError, RuntimeError):
             return False
         return (
