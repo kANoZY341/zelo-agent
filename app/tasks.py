@@ -822,7 +822,7 @@ class TaskService:
                 if (
                     self.settings.promotion_repository is None
                     or request.repository != self.settings.promotion_repository
-                    or request.publisher != publisher_identity(self.settings)
+                    or (live and request.publisher != publisher_identity(self.settings))
                     or request.review.developer_task_id != payload["developer_task_id"]
                     or request.review.developer_attempt_id != payload["developer_attempt_id"]
                     or request.target_base_branch != payload["target_base_branch"]
@@ -843,7 +843,10 @@ class TaskService:
                     request.promotion_task_id != task.payload["promotion_task_id"]
                     or self.settings.promotion_repository is None
                     or request.promotion.repository != self.settings.promotion_repository
-                    or request.promotion.publisher != publisher_identity(self.settings)
+                    or (
+                        live
+                        and request.promotion.publisher != publisher_identity(self.settings)
+                    )
                 ):
                     return False
             except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
@@ -857,7 +860,7 @@ class TaskService:
                     or request.tag != task.payload["tag"]
                     or self.settings.promotion_repository is None
                     or request.repository != self.settings.promotion_repository
-                    or request.publisher != publisher_identity(self.settings)
+                    or (live and request.publisher != publisher_identity(self.settings))
                 ):
                     return False
             except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
