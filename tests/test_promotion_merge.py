@@ -170,6 +170,7 @@ def open_pr(request):
         "head": {
             "ref": request.publication.branch,
             "sha": request.publication.pr_head_sha,
+            "repo": {"full_name": request.publication.repository},
         },
         "base": {"ref": "main", "sha": request.publication.pr_base_sha},
     }
@@ -304,5 +305,18 @@ def test_merge_refuses_replaced_ci_check_snapshot_before_side_effect(tmp_path):
         asyncio.run(
             PromotionMergeRuntime(settings, FakeCIVerifier(changed), transport).run(request)
         )
+
+    assert all(method not in {"POST", "PUT"} for method, _, _ in transport.calls)
+
+
+def test_merge_rejects_changed_head_repository_before_side_effect(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    repo = request.promotion.repository
+    changed = open_pr(request)
+    changed["head"]["repo"]["full_name"] = "attacker/fork"
+    transport = ScriptedTransport([("GET", f"/repos/{repo}/pulls/7", changed)])
+
+    with pytest.raises(DeveloperError, match="promotion_merge_pr_changed"):
+        asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
 
     assert all(method not in {"POST", "PUT"} for method, _, _ in transport.calls)
