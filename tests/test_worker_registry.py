@@ -9,7 +9,12 @@ from app.developer_process import DeveloperError
 from app.policy import DomainError, State
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
-from app.worker_authority import AUTHORITY_POLICY_VERSION, authority_profile
+from app.worker_authority import (
+    AUTHORITY_POLICY_VERSION,
+    WorkerAuthorityProfile,
+    authority_policy_fingerprint,
+    authority_profile,
+)
 from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
 
 
@@ -187,6 +192,22 @@ def test_registry_rejects_unsupported_authority():
     unsupported = descriptor("worker").model_copy(update={"authority": ("network-write",)})
     with pytest.raises(ValueError, match="worker_authority_unsupported"):
         WorkerRegistry([(unsupported, StubWorker())])
+
+
+def test_authority_policy_fingerprint_binds_permission_semantics():
+    denied = WorkerAuthorityProfile(
+        name="profile",
+        authority=("workspace-write",),
+        workspace_write=True,
+        network=False,
+    )
+    allowed = WorkerAuthorityProfile(
+        name="profile",
+        authority=("workspace-write",),
+        workspace_write=True,
+        network=True,
+    )
+    assert authority_policy_fingerprint((denied,)) != authority_policy_fingerprint((allowed,))
 
 
 def test_authority_policy_is_approval_bound():
