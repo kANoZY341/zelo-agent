@@ -126,6 +126,7 @@ def pr(publication, promotion, *, head_sha=None, base_sha=None, state="open"):
         "head": {
             "ref": promotion.branch,
             "sha": head_sha or publication.pr_head_sha,
+            "repo": {"full_name": promotion.repository},
         },
         "base": {
             "ref": "main",
@@ -243,5 +244,60 @@ def test_truncated_check_run_response_fails_closed(tmp_path):
         ]
     )
 
+    with pytest.raises(DeveloperError, match="promotion_ci_response_truncated"):
+        asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
+
+
+def test_check_runs_paginate_until_total_count(tmp_path):
+    settings, promotion, publication = fixture(tmp_path)
+    repo = promotion.repository
+    first_page = [check(check_id=index + 1, name="noise") for index in range(100)]
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", pr(publication, promotion)),
+            (
+                "GET",
+                f"/repos/{repo}/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100",
+                {"total_count": 101, "check_runs": first_page},
+            ),
+            (
+                "GET",
+                f"/repos/{repo}/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100&page=2",
+                {"total_count": 101, "check_runs": [check(check_id=101)]},
+            ),
+        ]
+    )
+
+    result = asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
+
+    assert [item.name for item in result.checks] == ["checks"]
+    assert transport.responses == []
+
+
+def test_boolean_total_count_is_rejected(tmp_path):
+    settings, promotion, publication = fixture(tmp_path)
+    repo = promotion.repository
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", pr(publication, promotion)),
+            (
+                "GET",
+                f"/repos/{repo}/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100",
+                {"total_count": True, "check_runs": [check()]},
+            ),
+        ]
+    )
+
     with pytest.raises(DeveloperError, match="promotion_ci_response_invalid"):
+        asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
+
+
+def test_ci_rejects_changed_head_repository(tmp_path):
+    settings, promotion, publication = fixture(tmp_path)
+    repo = promotion.repository
+    changed = pr(publication, promotion)
+    changed["head"]["repo"]["full_name"] = "attacker/fork"
+    transport = ScriptedTransport([("GET", f"/repos/{repo}/pulls/7", changed)])
+
+    with pytest.raises(DeveloperError, match="promotion_ci_pr_changed"):
         asyncio.run(PromotionCIVerifier(settings, transport).verify(promotion, publication))
