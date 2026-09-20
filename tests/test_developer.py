@@ -450,6 +450,30 @@ def test_source_head_drift_invalidates_at_operator_approval(developer_case, data
     assert current.error == "approval_invalidated"
 
 
+def test_source_head_drift_after_approval_fails_before_worker_execution(
+    developer_case, database
+):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+
+    (developer_case.source_repository / "test_example.py").write_text(
+        "def test_example():\n    assert 3 + 3 == 6\n"
+    )
+    fixture_commit(developer_case.source_repository)
+
+    execution = service.claim()
+    assert execution is not None
+    asyncio.run(Runner(service, developer_runtime=developer_case)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.FAILED
+    assert current.error == "source_repository_changed"
+    assert developer_case.worker.calls == []
+
+
 def test_live_limit_change_invalidates_approval(developer_case, database):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
     task, _ = service.submit(
