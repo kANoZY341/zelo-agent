@@ -22,6 +22,7 @@ from app.developer_process import DeveloperError, run_process, run_sync, uncance
 from app.developer_review import inventory
 from app.developer_sandbox import SANDBOX_VERSION, git_argv, sandbox
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
+from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_worker
 
 DeveloperRuntimeError = DeveloperError
 Emit = Callable[[str, dict[str, Any]], None]
@@ -87,10 +88,42 @@ class DeveloperRuntime:
         settings: Settings,
         worker: DeveloperWorker | None = None,
         source_repository: Path = ROOT,
+        registry: WorkerRegistry | None = None,
     ) -> None:
         self.settings = settings
         self.source_repository = source_repository.resolve()
-        self.worker = worker or CodexCliWorker(settings)
+        self._registry_explicit = registry is not None
+        self._worker = worker or CodexCliWorker(settings)
+        self.registry = registry or WorkerRegistry(
+            [
+                (
+                    descriptor_for_worker(
+                        self._worker,
+                        implementation=(
+                            "codex" if worker is None else self._worker.identity().implementation
+                        ),
+                    ),
+                    self._worker,
+                )
+            ]
+        )
+        self.supervisor = Supervisor(self.registry)
+
+    @property
+    def worker(self) -> DeveloperWorker:
+        return self._worker
+
+    @worker.setter
+    def worker(self, value: DeveloperWorker) -> None:
+        if self._registry_explicit:
+            self._worker = value
+            return
+        implementation = value.identity().implementation
+        self._worker = value
+        self.registry = WorkerRegistry(
+            [(descriptor_for_worker(value, implementation=implementation), value)]
+        )
+        self.supervisor = Supervisor(self.registry)
 
     def limits(self, timeout: float) -> Limits:
         s = self.settings
@@ -136,6 +169,15 @@ class DeveloperRuntime:
         result = run_sync(git_argv("rev-parse", "HEAD"), cwd=self.source_repository)
         if result.exit_code:
             raise DeveloperError("source_repository_unavailable")
+        selected, selection = self.supervisor.select(
+            role="developer", capabilities=("zelo_core_development",)
+        )
+        try:
+            identity = selected.worker.identity()
+        except (DeveloperError, OSError, ValueError, RuntimeError):
+            raise DeveloperError("worker_identity_unavailable") from None
+        if identity.implementation != selected.descriptor.implementation:
+            raise DeveloperError("worker_descriptor_mismatch")
         return DeveloperRequest(
             instruction=instruction,
             source_repository=str(self.source_repository),
@@ -143,18 +185,38 @@ class DeveloperRuntime:
             validation_identity=self.validation_identity(),
             validation_version=VALIDATION_VERSION,
             base_sha=result.stdout.decode().strip(),
-            worker=self.worker.identity(),
+            worker=identity,
+            worker_selection=selection,
             sandbox_version=SANDBOX_VERSION,
             limits=self.limits(timeout),
         )
 
     def compatible(self, request: DeveloperRequest, timeout: float) -> bool:
+        selected = self.registry.get(request.worker_selection.descriptor.worker_id)
+        if selected is None:
+            return False
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
             and request.sandbox_version == SANDBOX_VERSION
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
+            and self.supervisor.matches(request.worker_selection)
+        )
+
+    def approval_compatible(self, request: DeveloperRequest, timeout: float) -> bool:
+        if not self.compatible(request, timeout):
+            return False
+        selected = self.registry.get(request.worker_selection.descriptor.worker_id)
+        if selected is None:
+            return False
+        try:
+            identity = selected.worker.identity()
+        except (DeveloperError, OSError, ValueError, RuntimeError):
+            return False
+        return (
+            identity == request.worker
+            and identity.implementation == request.worker_selection.descriptor.implementation
         )
 
     async def git(self, repo: Path, request: DeveloperRequest, *args: str, trusted=False) -> bytes:
@@ -438,7 +500,10 @@ class DeveloperRuntime:
                     raise DeveloperError("developer_configuration_changed")
                 # Trusted Git/state capture precedes every replaceable worker executable.
                 before = await self.primary_snapshot(request)
-                bound_worker = artifacts.enter_context(self.worker.bind(request.worker))
+                selected = self.registry.get(request.worker_selection.descriptor.worker_id)
+                if selected is None or not self.supervisor.matches(request.worker_selection):
+                    raise DeveloperError("worker_configuration_changed")
+                bound_worker = artifacts.enter_context(selected.worker.bind(request.worker))
                 actual = await bound_worker.preflight()
                 if (
                     actual != request.worker

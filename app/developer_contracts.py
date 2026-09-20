@@ -3,9 +3,9 @@
 from contextlib import AbstractContextManager
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Annotated, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Contract(BaseModel):
@@ -38,6 +38,34 @@ class WorkerIdentity(Contract):
     auth_location: str
 
 
+WorkerName = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")]
+
+
+class WorkerDescriptor(Contract):
+    worker_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    role: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    capabilities: tuple[WorkerName, ...] = Field(min_length=1, max_length=32)
+    authority: tuple[WorkerName, ...] = Field(min_length=1, max_length=16)
+    implementation: str = Field(min_length=1, max_length=64)
+    enabled: bool = True
+    priority: int = Field(ge=0, le=1000)
+    max_concurrency: int = Field(gt=0, le=32)
+
+    @model_validator(mode="after")
+    def _canonicalize(self):
+        for field in ("capabilities", "authority"):
+            value = getattr(self, field)
+            if tuple(value) != tuple(sorted(set(value))):
+                raise ValueError(f"{field}_not_canonical")
+        return self
+
+
+class WorkerSelectionSnapshot(Contract):
+    descriptor: WorkerDescriptor
+    registry_version: str = Field(min_length=1, max_length=64)
+    routing_policy: str = Field(min_length=1, max_length=64)
+
+
 class DeveloperRequest(Contract):
     instruction: str = Field(min_length=1, max_length=65536)
     source_repository: str
@@ -45,6 +73,7 @@ class DeveloperRequest(Contract):
     validation_identity: str
     base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     worker: WorkerIdentity
+    worker_selection: WorkerSelectionSnapshot
     validation_profile: Literal["zelo_core"] = "zelo_core"
     validation_version: str = "trusted-venv-content-manifest-v3"
     sandbox_version: str
