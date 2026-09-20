@@ -320,8 +320,8 @@ runtime database, secrets, other workspaces, host home directories or Docker soc
 Only the isolated source directory is writable on the host; its `.git` is read-only.
 
 The Codex parent retains service networking. The selected worker's approval-bound
-authority resolves through Zelo's versioned worker-authority policy. The current
-production profile, `workspace-write-no-network-v1`, gives generated commands
+authority resolves through Zelo's content-fingerprinted worker-authority policy.
+The current production profile, `workspace-write-no-network-v1`, gives generated commands
 workspace writes, read-only Git metadata, `network.enabled=false`, and denied
 reads of the authentication directory. Unsupported descriptor authority fails at
 registry construction instead of silently receiving a default permission set.
