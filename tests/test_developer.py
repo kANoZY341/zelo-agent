@@ -21,6 +21,7 @@ from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
+from app.worker_authority import WorkerAuthorityProfile
 from tests.developer_helpers import fixture_commit
 
 
@@ -310,6 +311,20 @@ def test_jsonl_limits(developer_case, field, value):
 def test_api_cannot_select_execution_inputs(field):
     with pytest.raises(ValueError):
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x", field: "unsafe"})
+
+
+def test_codex_command_config_derives_filesystem_and_network_from_authority():
+    read_only = WorkerAuthorityProfile(
+        name="test-read-only",
+        authority=("test-read-only",),
+        workspace_write=False,
+        network=False,
+    )
+    config = command_config(read_only)
+    joined = " ".join(config)
+    assert '"' not in joined
+    assert '"/workspace"="read"' in joined
+    assert 'permissions.zelo.network.enabled=false' in config
 
 
 def test_validation_profile_closed():
