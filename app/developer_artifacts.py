@@ -46,9 +46,7 @@ def pin_artifact(
             source = configured.resolve(strict=True)
             if approved_path is not None and str(source) != approved_path:
                 raise DeveloperError("worker_configuration_changed")
-            source_fd = os.open(
-                source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
-            )
+            source_fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
             before = os.fstat(source_fd)
             if (
                 not stat.S_ISREG(before.st_mode)
