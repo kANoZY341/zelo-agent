@@ -42,6 +42,13 @@ WorkerName = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][
 
 
 class WorkerDescriptor(Contract):
+    """Trusted routing metadata.
+
+    In v0.8, authority and max_concurrency are declarative metadata only.
+    Concrete sandbox authority and execution serialization remain enforced by
+    the worker/runtime boundaries, not by these fields.
+    """
+
     worker_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
     role: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
     capabilities: tuple[WorkerName, ...] = Field(min_length=1, max_length=32)
