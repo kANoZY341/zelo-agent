@@ -785,6 +785,16 @@ class TaskService:
                 )
             ]
 
+    def _publisher_compatible(self, expected: Any, *, live: bool) -> bool:
+        if not live:
+            return True
+        try:
+            return expected == publisher_identity(self.settings)
+        except DeveloperRuntimeError as error:
+            if str(error) == "promotion_github_cli_unavailable":
+                raise DeveloperRuntimeError("approval_revalidation_unavailable") from None
+            return False
+
     def _valid_action(self, task: Task, approval: Approval, *, live: bool = True) -> bool:
         selection = None
         if task.kind in {"ai_prompt", "agent_run"}:
@@ -822,7 +832,7 @@ class TaskService:
                 if (
                     self.settings.promotion_repository is None
                     or request.repository != self.settings.promotion_repository
-                    or (live and request.publisher != publisher_identity(self.settings))
+                    or not self._publisher_compatible(request.publisher, live=live)
                     or request.review.developer_task_id != payload["developer_task_id"]
                     or request.review.developer_attempt_id != payload["developer_attempt_id"]
                     or request.target_base_branch != payload["target_base_branch"]
@@ -833,7 +843,11 @@ class TaskService:
                     or request.pr_body != payload["pr_body"]
                 ):
                     return False
-            except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
+            except DeveloperRuntimeError as error:
+                if str(error) == "approval_revalidation_unavailable":
+                    raise
+                return False
+            except (ValueError, TypeError, KeyError):
                 return False
         elif task.kind == "merge_run":
             selection = task.merge_spec
@@ -843,10 +857,14 @@ class TaskService:
                     request.promotion_task_id != task.payload["promotion_task_id"]
                     or self.settings.promotion_repository is None
                     or request.promotion.repository != self.settings.promotion_repository
-                    or (live and request.promotion.publisher != publisher_identity(self.settings))
+                    or not self._publisher_compatible(request.promotion.publisher, live=live)
                 ):
                     return False
-            except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
+            except DeveloperRuntimeError as error:
+                if str(error) == "approval_revalidation_unavailable":
+                    raise
+                return False
+            except (ValueError, TypeError, KeyError):
                 return False
         elif task.kind == "release_run":
             selection = task.release_spec
@@ -860,7 +878,11 @@ class TaskService:
                     or (live and request.publisher != publisher_identity(self.settings))
                 ):
                     return False
-            except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
+            except DeveloperRuntimeError as error:
+                if str(error) == "approval_revalidation_unavailable":
+                    raise
+                return False
+            except (ValueError, TypeError, KeyError):
                 return False
         current = action_hash(
             task.kind, task.payload, task.timeout_seconds, task.action_version, selection
