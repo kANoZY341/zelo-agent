@@ -57,8 +57,8 @@ def replacement(binary: Path, marker: Path):
     binary.chmod(0o700)
 
 
-def test_approved_binary_replacement_executes_zero_instructions(
-    developer_case, pinned_worker, database, monkeypatch
+def test_approved_binary_replacement_invalidates_before_claim(
+    developer_case, pinned_worker, database
 ):
     runtime = developer_case
     runtime.worker = pinned_worker
@@ -70,22 +70,14 @@ def test_approved_binary_replacement_executes_zero_instructions(
     before = tree_digest(runtime.source_repository)
     marker = runtime.settings.workspace_root / "UNAPPROVED_EXECUTED"
     replacement(runtime.settings.developer_codex_executable, marker)
-    executions = []
 
-    async def forbidden_launch(*args, **kwargs):
-        executions.append(args)
-        raise AssertionError("Replacement must never reach executable launch")
-
-    monkeypatch.setattr("app.codex_worker.run_process", forbidden_launch)
-    execution = service.claim()
-    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+    assert service.claim() is None
     result = service.get(task.id)
-    assert result.status == State.FAILED
-    assert result.error == "worker_configuration_changed"
+    assert result.status == State.CANCELLED
+    assert result.error == "approval_invalidated"
+    assert result.approvals[0].status == "invalidated"
     assert not marker.exists()
-    assert executions == []
     assert tree_digest(runtime.source_repository) == before
-
 
 
 
