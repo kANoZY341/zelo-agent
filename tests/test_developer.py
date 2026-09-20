@@ -364,6 +364,8 @@ def test_environment_allowlist(monkeypatch, variable):
         "worker.executable",
         "worker.executable_sha256",
         "worker.auth_location",
+        "worker_selection.authority_profile",
+        "worker_selection.authority_policy_version",
         "limits.overall_seconds",
         "limits.worker_seconds",
         "limits.validation_seconds",
