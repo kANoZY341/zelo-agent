@@ -153,6 +153,25 @@ def test_promotion_spec_tamper_invalidates_pending_approval(developer_case, data
 
 
 @pytest.mark.developer_boundary
+def test_promotion_publisher_change_invalidates_pending_approval(developer_case, database):
+    _, developer, attempt = completed_developer(developer_case, database)
+    service = configured(developer_case, database)
+    promotion, _ = service.submit(promotion_input(developer.id, attempt.id), None)
+
+    replacement = service.settings.runtime_dir / "test-gh-config-replacement"
+    replacement.mkdir(exist_ok=True, mode=0o700)
+    service.settings = service.settings.model_copy(
+        update={"promotion_gh_config_dir": replacement}
+    )
+    service.expire_approvals()
+
+    current = service.get(promotion.id)
+    assert current.status == State.CANCELLED
+    assert current.error == "approval_invalidated"
+    assert current.approvals[0].status == "invalidated"
+
+
+@pytest.mark.developer_boundary
 def test_approved_promotion_creates_only_local_trusted_commit(developer_case, database):
     _, developer, attempt = completed_developer(developer_case, database)
     service = configured(developer_case, database)
