@@ -79,7 +79,6 @@ def test_approved_binary_replacement_invalidates_before_claim(
     assert tree_digest(runtime.source_repository) == before
 
 
-
 def test_approved_binary_replacement_invalidates_approval_without_execution(
     developer_case, pinned_worker, database
 ):
