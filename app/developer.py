@@ -96,10 +96,7 @@ class DeveloperRuntime:
         if registry is not None:
             if worker is None:
                 raise DeveloperError("worker_registry_primary_required")
-            registered = [
-                registry.get(descriptor.worker_id)
-                for descriptor in registry.list()
-            ]
+            registered = [registry.get(descriptor.worker_id) for descriptor in registry.list()]
             if not any(item is not None and item.worker is worker for item in registered):
                 raise DeveloperError("worker_registry_mismatch")
             self._worker = worker
