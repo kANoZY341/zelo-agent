@@ -138,7 +138,7 @@ class PromotionMergeRuntime:
         }
         response = _dict(
             await self.transport.request(
-                "POST",
+                "PUT",
                 self.endpoint(f"/pulls/{request.publication.pr_number}/merge"),
                 body,
             )
