@@ -523,7 +523,10 @@ class CodexCliWorker:
         if not valid:
             raise DeveloperError("codex_command_boundary_unverified")
 
-    def argv(self, repo: Path, profile: WorkerAuthorityProfile) -> list[str]:
+    def argv(
+        self, repo: Path, profile: WorkerAuthorityProfile | None = None
+    ) -> list[str]:
+        profile = profile or authority_profile(("workspace-write",))
         return sandbox(
             repo,
             [
