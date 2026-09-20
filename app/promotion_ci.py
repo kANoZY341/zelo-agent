@@ -14,6 +14,7 @@ from app.promotion_contracts import (
 from app.promotion_github import GhApiTransport, GitHubTransport, publisher_identity
 
 CI_VERSION = "promotion-ci-v1"
+MAX_CHECK_RUN_PAGES = 10
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -68,9 +69,11 @@ class PromotionCIVerifier:
         )
         head = _dict(pr.get("head"))
         base = _dict(pr.get("base"))
+        head_repo = _dict(head.get("repo"))
         if (
             pr.get("number") != publication.pr_number
             or pr.get("state") != "open"
+            or head_repo.get("full_name") != self.repository
             or head.get("ref") != promotion.branch
             or head.get("sha") != publication.pr_head_sha
             or base.get("ref") != promotion.target_base_branch
@@ -78,18 +81,33 @@ class PromotionCIVerifier:
         ):
             raise DeveloperError("promotion_ci_pr_changed")
 
-        response = _dict(
-            await self.transport.request(
-                "GET",
-                self.endpoint(
-                    f"/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100"
-                ),
-            )
+        runs: list[Any] = []
+        total_count: int | None = None
+        base_checks = (
+            f"/commits/{publication.pr_head_sha}/check-runs?filter=latest&per_page=100"
         )
-        runs = _list(response.get("check_runs"))
-        total_count = response.get("total_count")
-        if not isinstance(total_count, int) or total_count < 0 or total_count != len(runs):
-            raise DeveloperError("promotion_ci_response_invalid")
+        for page in range(1, MAX_CHECK_RUN_PAGES + 1):
+            suffix = base_checks if page == 1 else f"{base_checks}&page={page}"
+            response = _dict(await self.transport.request("GET", self.endpoint(suffix)))
+            page_runs = _list(response.get("check_runs"))
+            count = response.get("total_count")
+            if type(count) is not int or count < 0 or len(page_runs) > 100:
+                raise DeveloperError("promotion_ci_response_invalid")
+            if total_count is None:
+                total_count = count
+                if total_count > MAX_CHECK_RUN_PAGES * 100:
+                    raise DeveloperError("promotion_ci_response_truncated")
+            elif count != total_count:
+                raise DeveloperError("promotion_ci_response_invalid")
+            runs.extend(page_runs)
+            if len(runs) > total_count:
+                raise DeveloperError("promotion_ci_response_invalid")
+            if len(runs) == total_count:
+                break
+            if not page_runs:
+                raise DeveloperError("promotion_ci_response_truncated")
+        if total_count is None or len(runs) != total_count:
+            raise DeveloperError("promotion_ci_response_truncated")
         required = list(self.settings.promotion_required_checks)
         selected: list[CICheckSnapshot] = []
         for name in required:
