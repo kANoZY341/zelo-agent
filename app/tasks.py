@@ -785,7 +785,7 @@ class TaskService:
                 )
             ]
 
-    def _valid_action(self, task: Task, approval: Approval) -> bool:
+    def _valid_action(self, task: Task, approval: Approval, *, live: bool = True) -> bool:
         selection = None
         if task.kind in {"ai_prompt", "agent_run"}:
             selection = {
@@ -800,11 +800,19 @@ class TaskService:
                 request = DeveloperRequest.model_validate(selection)
                 if (
                     self.developer_runtime is None
-                    or not self.developer_runtime.approval_compatible(request, task.timeout_seconds)
+                    or not self.developer_runtime.compatible(request, task.timeout_seconds)
                     or request.instruction != task.payload["instruction"]
                 ):
                     return False
-            except (ValueError, DeveloperRuntimeError):
+                if live and not self.developer_runtime.approval_compatible(
+                    request, task.timeout_seconds
+                ):
+                    return False
+            except DeveloperRuntimeError as error:
+                if str(error) == "approval_revalidation_unavailable":
+                    raise
+                return False
+            except ValueError:
                 return False
         elif task.kind == "promotion_run":
             selection = task.promotion_spec
@@ -862,24 +870,45 @@ class TaskService:
             and approval.action_hash == current == task.action_hash
         )
 
-    def _expire_or_invalidate(self, session: Session, task: Task, approval: Approval) -> bool:
+    def _cancel_approval(
+        self, session: Session, task: Task, approval: Approval, reason: str
+    ) -> None:
+        approval.status = reason
+        approval.decided_at = utcnow()
+        task.error = f"approval_{reason}"
+        audit(session, task, f"approval_{reason}", approval_id=approval.id)
+        transition(session, task, State.CANCELLED)
+
+    def _expire_or_invalidate(
+        self,
+        session: Session,
+        task: Task,
+        approval: Approval,
+        *,
+        revalidate: bool = False,
+    ) -> bool:
         if approval.status not in {"pending", "approved"} or task.status not in WAITING:
             return False
-        reason = None
-        if not self._valid_action(task, approval):
-            reason = "invalidated"
-        elif approval.expires_at <= utcnow():
-            reason = "expired"
-        if reason:
-            approval.status = reason
-            approval.decided_at = utcnow()
-            task.error = f"approval_{reason}"
-            audit(session, task, f"approval_{reason}", approval_id=approval.id)
-            transition(session, task, State.CANCELLED)
+        if approval.expires_at <= utcnow():
+            self._cancel_approval(session, task, approval, "expired")
+            return True
+        try:
+            valid = self._valid_action(task, approval, live=revalidate)
+        except DeveloperRuntimeError as error:
+            if str(error) == "approval_revalidation_unavailable":
+                return False
+            valid = False
+        if not valid:
+            self._cancel_approval(session, task, approval, "invalidated")
             return True
         return False
 
     def expire_approvals(self) -> None:
+        """Expire TTLs and cheap structural mismatches only.
+
+        Expensive developer worker/venv revalidation is performed at the operator
+        approval boundary and again by DeveloperRuntime immediately before execution.
+        """
         with self.database.transaction() as session:
             pairs = session.execute(
                 select(Task, Approval)
@@ -887,16 +916,43 @@ class TaskService:
                 .where(Task.status.in_(WAITING), Approval.status.in_(("pending", "approved")))
             ).all()
             for task, approval in pairs:
-                self._expire_or_invalidate(session, task, approval)
+                self._expire_or_invalidate(session, task, approval, revalidate=False)
+
+    def _live_approval_validity(self, approval_id: str) -> bool | None:
+        with self.database.read() as session:
+            approval = session.get(Approval, approval_id)
+            if approval is None:
+                raise DomainError("Approval not found", 404)
+            task = require_task(session, approval.task_id)
+            if (
+                approval.status != "pending"
+                or task.status != State.AWAITING_APPROVAL
+                or approval.expires_at <= utcnow()
+            ):
+                return None
+            try:
+                return self._valid_action(task, approval, live=True)
+            except DeveloperRuntimeError as error:
+                if str(error) == "approval_revalidation_unavailable":
+                    raise DomainError("Approval revalidation temporarily unavailable", 503) from None
+                raise
 
     def decide(self, approval_id: str, decision: str) -> ApprovalResponse:
+        live_valid = self._live_approval_validity(approval_id) if decision == "approve" else None
         error = None
         with self.database.transaction() as session:
             approval = session.get(Approval, approval_id)
             if approval is None:
                 raise DomainError("Approval not found", 404)
             task = require_task(session, approval.task_id)
-            self._expire_or_invalidate(session, task, approval)
+            self._expire_or_invalidate(session, task, approval, revalidate=False)
+            if (
+                decision == "approve"
+                and live_valid is False
+                and approval.status == "pending"
+                and task.status == State.AWAITING_APPROVAL
+            ):
+                self._cancel_approval(session, task, approval, "invalidated")
             target = "approved" if decision == "approve" else "rejected"
             if approval.status == target:
                 pass  # Idempotent decision: no state changes, events, or scheduling.
@@ -1107,12 +1163,14 @@ class TaskService:
                     .order_by(Approval.created_at.desc())
                     .limit(1)
                 )
-                if approval and self._expire_or_invalidate(session, task, approval):
+                if approval and self._expire_or_invalidate(
+                    session, task, approval, revalidate=False
+                ):
                     return None
                 if (
                     approval is None
                     or approval.status != "approved"
-                    or not self._valid_action(task, approval)
+                    or not self._valid_action(task, approval, live=False)
                 ):
                     task.error = "approval_missing_or_invalid"
                     transition(session, task, State.CANCELLED)
