@@ -160,9 +160,7 @@ def test_promotion_publisher_change_invalidates_pending_approval(developer_case,
 
     replacement = service.settings.runtime_dir / "test-gh-config-replacement"
     replacement.mkdir(exist_ok=True, mode=0o700)
-    service.settings = service.settings.model_copy(
-        update={"promotion_gh_config_dir": replacement}
-    )
+    service.settings = service.settings.model_copy(update={"promotion_gh_config_dir": replacement})
     service.expire_approvals()
 
     current = service.get(promotion.id)
