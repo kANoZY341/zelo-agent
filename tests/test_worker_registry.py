@@ -271,7 +271,6 @@ def test_validation_identity_change_invalidates_at_operator_approval(
     assert invalidated.error == "approval_invalidated"
 
 
-
 def test_transient_revalidation_failure_leaves_approval_pending(
     developer_case, database, monkeypatch
 ):
