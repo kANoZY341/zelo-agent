@@ -814,6 +814,7 @@ class TaskService:
                 if (
                     self.settings.promotion_repository is None
                     or request.repository != self.settings.promotion_repository
+                    or request.publisher != publisher_identity(self.settings)
                     or request.review.developer_task_id != payload["developer_task_id"]
                     or request.review.developer_attempt_id != payload["developer_attempt_id"]
                     or request.target_base_branch != payload["target_base_branch"]
@@ -824,7 +825,7 @@ class TaskService:
                     or request.pr_body != payload["pr_body"]
                 ):
                     return False
-            except (ValueError, TypeError, KeyError):
+            except (ValueError, TypeError, KeyError, DeveloperRuntimeError):
                 return False
         elif task.kind == "merge_run":
             selection = task.merge_spec
