@@ -185,6 +185,7 @@ def merged_pr(request, merge_sha):
         "head": {
             "ref": request.publication.branch,
             "sha": request.publication.pr_head_sha,
+            "repo": {"full_name": request.publication.repository},
         },
         "base": {"ref": "main", "sha": request.publication.pr_base_sha},
     }
