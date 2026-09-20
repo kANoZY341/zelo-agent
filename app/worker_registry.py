@@ -1,9 +1,9 @@
 """Trusted, deterministic developer worker registration and selection."""
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
 import hashlib
 import json
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from types import MappingProxyType
 
 from app.developer_contracts import (
@@ -12,7 +12,6 @@ from app.developer_contracts import (
     WorkerSelectionSnapshot,
 )
 from app.developer_process import DeveloperError
-
 
 REGISTRY_SCHEMA_VERSION = "zelo-worker-registry-v1"
 
