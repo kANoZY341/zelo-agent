@@ -117,7 +117,7 @@ def test_release_task_requires_separate_approval_and_exact_main(database, tmp_pa
     events = [event.event for event in service.events(task.id, 100, 0)]
     assert "release_ready_verified" in events
     assert "release_approval_created" in events
-    assert "release_reverified" in events
+    assert "release_execution_started" in events
     assert events[-1] == "release_tag_created"
 
 
