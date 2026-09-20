@@ -324,7 +324,7 @@ def test_codex_command_config_derives_filesystem_and_network_from_authority():
     joined = " ".join(config)
     assert '"' not in joined
     assert '"/workspace"="read"' in joined
-    assert 'permissions.zelo.network.enabled=false' in config
+    assert "permissions.zelo.network.enabled=false" in config
 
 
 def test_validation_profile_closed():
