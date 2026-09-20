@@ -1,5 +1,7 @@
 """Trusted, deterministic developer worker registration and selection."""
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -12,10 +14,31 @@ from app.developer_contracts import (
 from app.developer_process import DeveloperError
 
 
+REGISTRY_SCHEMA_VERSION = "zelo-worker-registry-v1"
+
+
 def _registry_value(value: str, name: str) -> str:
     if not isinstance(value, str) or not 1 <= len(value) <= 64:
         raise ValueError(f"{name}_invalid")
     return value
+
+
+def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
+    payload = {
+        "schema": REGISTRY_SCHEMA_VERSION,
+        "workers": [
+            workers[worker_id].descriptor.model_dump(mode="json")
+            for worker_id in sorted(workers)
+        ],
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,15 +54,19 @@ class WorkerRegistry:
         self,
         registrations: Iterable[tuple[WorkerDescriptor, DeveloperWorker]] = (),
         *,
-        version: str = "zelo-worker-registry-v1",
         routing_policy: str = "priority-then-worker-id-v1",
     ) -> None:
         workers: dict[str, RegisteredWorker] = {}
         for descriptor, worker in registrations:
-            if descriptor.worker_id in workers:
+            trusted_descriptor = WorkerDescriptor.model_validate(
+                descriptor.model_dump(mode="json")
+            )
+            if trusted_descriptor.worker_id in workers:
                 raise ValueError("duplicate_worker_id")
-            workers[descriptor.worker_id] = RegisteredWorker(descriptor, worker)
-        self._version = _registry_value(version, "registry_version")
+            workers[trusted_descriptor.worker_id] = RegisteredWorker(
+                trusted_descriptor, worker
+            )
+        self._version = _registry_version(workers)
         self._routing_policy = _registry_value(routing_policy, "routing_policy")
         self._workers: Mapping[str, RegisteredWorker] = MappingProxyType(workers)
 
