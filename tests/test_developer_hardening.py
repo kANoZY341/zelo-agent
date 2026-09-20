@@ -16,7 +16,6 @@ from app.developer_process import run_process
 from app.developer_sandbox import CODEX, sandbox
 from app.developer_validation import validation_manifest
 from app.policy import State
-from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
 from tests.developer_helpers import git
