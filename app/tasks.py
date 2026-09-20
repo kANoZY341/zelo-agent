@@ -699,6 +699,25 @@ class TaskService:
             session.add(task)
             session.flush()
             audit(session, task, "task_submitted")
+            if task.kind == "developer_run":
+                selection = DeveloperRequest.model_validate(task.developer_spec).worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.descriptor.role,
+                    capabilities=list(selection.descriptor.capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    priority=selection.descriptor.priority,
+                )
             if task.kind in {"ai_prompt", "agent_run"}:
                 audit(
                     session,
@@ -781,7 +800,7 @@ class TaskService:
                 request = DeveloperRequest.model_validate(selection)
                 if (
                     self.developer_runtime is None
-                    or not self.developer_runtime.compatible(request, task.timeout_seconds)
+                    or not self.developer_runtime.approval_compatible(request, task.timeout_seconds)
                     or request.instruction != task.payload["instruction"]
                 ):
                     return False
@@ -974,6 +993,24 @@ class TaskService:
                     ).model_dump(mode="json")
                 except DeveloperRuntimeError as error:
                     raise DomainError(str(error), 422) from None
+                selection = DeveloperRequest.model_validate(task.developer_spec).worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.descriptor.role,
+                    capabilities=list(selection.descriptor.capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    priority=selection.descriptor.priority,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,

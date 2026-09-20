@@ -295,6 +295,7 @@ class CodexCliWorker:
         self.settings = settings
         self.pinned = pinned
         self.code_mode_host = code_mode_host
+        self._identity_cache: WorkerIdentity | None = None
 
     @contextmanager
     def bind(self, approved: WorkerIdentity | None = None):
@@ -327,7 +328,11 @@ class CodexCliWorker:
         return self.code_mode_host
 
     def identity(self) -> WorkerIdentity:
-        return asyncio.run(self.preflight())
+        if self._identity_cache is not None:
+            return self._identity_cache
+        identity = asyncio.run(self.preflight())
+        self._identity_cache = identity
+        return identity
 
     async def preflight(self) -> WorkerIdentity:
         if self.pinned is None:
@@ -382,7 +387,7 @@ class CodexCliWorker:
             or "--permission-profile" not in outputs[3]
         ):
             raise DeveloperError("codex_capabilities_unsupported")
-        return WorkerIdentity(
+        identity = WorkerIdentity(
             implementation="codex",
             config_version=CONFIG_VERSION,
             cli_version=version,
@@ -393,6 +398,8 @@ class CodexCliWorker:
             code_mode_host_sha256=self.host_artifact().digest,
             auth_location=str(self.settings.developer_codex_auth_file.absolute()),
         )
+        self._identity_cache = identity
+        return identity
 
     async def probe(self, repo: Path, auth: Path) -> None:
         if self.pinned is None:
