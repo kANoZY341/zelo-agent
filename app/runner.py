@@ -84,6 +84,10 @@ class Runner:
                         name=f"zelo-runner-{execution.kind}-{execution.task_id}",
                     )
                     self.operations[execution.task_id] = operation
+                    # Let the claimed execution enter _run before another claim.
+                    # A task cancelled before its coroutine starts cannot persist
+                    # its terminal state, so this yield closes that lifecycle gap.
+                    await asyncio.sleep(0)
                 try:
                     await asyncio.wait_for(
                         self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
