@@ -26,8 +26,7 @@ def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
     payload = {
         "schema": REGISTRY_SCHEMA_VERSION,
         "workers": [
-            workers[worker_id].descriptor.model_dump(mode="json")
-            for worker_id in sorted(workers)
+            workers[worker_id].descriptor.model_dump(mode="json") for worker_id in sorted(workers)
         ],
     }
     encoded = json.dumps(
@@ -57,14 +56,10 @@ class WorkerRegistry:
     ) -> None:
         workers: dict[str, RegisteredWorker] = {}
         for descriptor, worker in registrations:
-            trusted_descriptor = WorkerDescriptor.model_validate(
-                descriptor.model_dump(mode="json")
-            )
+            trusted_descriptor = WorkerDescriptor.model_validate(descriptor.model_dump(mode="json"))
             if trusted_descriptor.worker_id in workers:
                 raise ValueError("duplicate_worker_id")
-            workers[trusted_descriptor.worker_id] = RegisteredWorker(
-                trusted_descriptor, worker
-            )
+            workers[trusted_descriptor.worker_id] = RegisteredWorker(trusted_descriptor, worker)
         self._version = _registry_version(workers)
         self._routing_policy = _registry_value(routing_policy, "routing_policy")
         self._workers: Mapping[str, RegisteredWorker] = MappingProxyType(workers)
