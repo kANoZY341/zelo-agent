@@ -533,6 +533,13 @@ class DeveloperRuntime:
             raise DeveloperError("developer_runtime_busy") from None
         return stream
 
+    def lock(self):
+        """Compatibility alias for the maintenance lock.
+
+        Worker execution uses per-worker capacity slots and never this global lock.
+        """
+        return self.maintenance_lock()
+
     async def run(
         self,
         task_id: str,
