@@ -329,7 +329,7 @@ class Runner:
 
         self.service.model_event(
             execution.task_id,
-            "merge_reverified",
+            "merge_execution_started",
             execution.attempt_id,
             pr_number=execution.merge_request.publication.pr_number,
             head_sha=execution.merge_request.publication.pr_head_sha,
@@ -343,7 +343,7 @@ class Runner:
 
         self.service.model_event(
             execution.task_id,
-            "release_reverified",
+            "release_execution_started",
             execution.attempt_id,
             tag=execution.release_request.tag,
             main_sha=execution.release_request.main_sha,
