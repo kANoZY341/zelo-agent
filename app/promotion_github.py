@@ -127,7 +127,7 @@ class GhApiTransport:
         return env
 
     async def request(self, method: str, endpoint: str, body: dict[str, Any] | None = None) -> Any:
-        if method not in {"GET", "POST"} or not endpoint.startswith("/repos/"):
+        if method not in {"GET", "POST", "PUT"} or not endpoint.startswith("/repos/"):
             raise DeveloperError("promotion_github_request_invalid")
         executable = self.settings.promotion_gh_executable
         if executable.is_symlink() or not executable.is_file() or not executable.is_absolute():
@@ -143,7 +143,7 @@ class GhApiTransport:
         ]
         stdin = None
         if body is not None:
-            if method != "POST":
+            if method not in {"POST", "PUT"}:
                 raise DeveloperError("promotion_github_request_invalid")
             argv.extend(["--input", "-"])
             try:
@@ -390,12 +390,14 @@ class GitHubPromotionPublisher:
         url = response.get("html_url")
         head = _dict(response.get("head"))
         base = _dict(response.get("base"))
+        head_repo = _dict(head.get("repo"))
         if (
             response.get("state") != "open"
             or not isinstance(number, int)
             or number < 1
             or not isinstance(url, str)
             or not url.startswith(f"https://github.com/{self.repository}/pull/")
+            or head_repo.get("full_name") != self.repository
             or head.get("ref") != promotion.branch
             or _sha(head.get("sha")) != local.commit_sha
             or base.get("ref") != promotion.target_base_branch
