@@ -53,6 +53,7 @@ def test_migration_from_empty_database(settings) -> None:
         "0005_developer_agent",
         "0006_promotion_review",
         "0007_merge_approval",
+        "0008_release_approval",
     ],
 )
 def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
@@ -167,7 +168,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0008_release_approval"
+                == "0009_worker_concurrency"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -221,6 +222,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
         ("0005_developer_agent", "0006_promotion_review", "DROP TABLE tasks"),
         ("0006_promotion_review", "0007_merge_approval", "DROP TABLE tasks"),
         ("0007_merge_approval", "0008_release_approval", "DROP TABLE tasks"),
+        (
+            "0008_release_approval",
+            "0009_worker_concurrency",
+            "CREATE UNIQUE INDEX uq_running_attempt_per_task",
+        ),
     ],
 )
 def test_failed_migration_rolls_back_and_can_retry(
@@ -335,7 +341,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0008_release_approval"
+                "0009_worker_concurrency"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
@@ -374,6 +380,78 @@ def test_developer_kind_and_specification_persist(database) -> None:
         assert task.kind == "developer_run"
         assert task.developer_spec["limits"]["overall_seconds"] == 30
         assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+
+
+def test_running_attempt_database_invariant_allows_only_developer_concurrency(database) -> None:
+    with database.transaction() as session:
+        for task_id, kind in (
+            ("dev-one", "developer_run"),
+            ("dev-two", "developer_run"),
+            ("echo-one", "echo"),
+        ):
+            session.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, kind, payload, timeout_seconds, status, action_version,
+                        action_hash, request_hash, cancel_requested, created_at, updated_at
+                    ) VALUES (
+                        :task_id, :kind, '{}', 30, 'running', 1,
+                        :action_hash, :request_hash, 0,
+                        '2026-01-01 00:00:00', '2026-01-01 00:00:00'
+                    )
+                    """
+                ),
+                {
+                    "task_id": task_id,
+                    "kind": kind,
+                    "action_hash": ("a" if kind == "developer_run" else "c") * 64,
+                    "request_hash": ("b" if kind == "developer_run" else "d") * 64,
+                },
+            )
+
+        session.execute(
+            text(
+                """
+                INSERT INTO task_attempts (id, task_id, number, started_at, outcome)
+                VALUES ('dev-attempt-one', 'dev-one', 1, '2026-01-01 00:00:00', 'running')
+                """
+            )
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO task_attempts (id, task_id, number, started_at, outcome)
+                VALUES ('dev-attempt-two', 'dev-two', 1, '2026-01-01 00:00:00', 'running')
+                """
+            )
+        )
+        with pytest.raises(IntegrityError, match="exclusive"):
+            with session.begin_nested():
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO task_attempts (id, task_id, number, started_at, outcome)
+                        VALUES (
+                            'echo-attempt-one', 'echo-one', 1,
+                            '2026-01-01 00:00:00', 'running'
+                        )
+                        """
+                    )
+                )
+        with pytest.raises(IntegrityError):
+            with session.begin_nested():
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO task_attempts (id, task_id, number, started_at, outcome)
+                        VALUES (
+                            'dev-attempt-duplicate', 'dev-one', 2,
+                            '2026-01-01 00:00:00', 'running'
+                        )
+                        """
+                    )
+                )
 
 
 def test_audit_consistency_and_append_only(client, database) -> None:
