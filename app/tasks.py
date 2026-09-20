@@ -1161,16 +1161,54 @@ class TaskService:
                     )
             return snapshot(session, task)
 
-    def claim(self) -> Execution | None:
-        with self.database.transaction() as session:
-            if session.scalar(select(Task.id).where(Task.status == State.RUNNING).limit(1)):
-                return None
-            task = session.scalar(
+    def _claimable_task(self, session: Session) -> Task | None:
+        running = list(session.scalars(select(Task).where(Task.status == State.RUNNING)))
+        pending = list(
+            session.scalars(
                 select(Task)
                 .where(Task.status == State.PENDING)
                 .order_by(Task.created_at, Task.id)
-                .limit(1)
+                .limit(self.settings.max_waiting_tasks)
             )
+        )
+        if not pending:
+            return None
+
+        # v0.9 permits concurrency only between developer tasks. Every other task
+        # remains an exclusive barrier so external actions and model/tool tasks keep
+        # the existing single-operation semantics.
+        running_counts: dict[str, int] = {}
+        for current in running:
+            if current.kind != "developer_run":
+                return None
+            try:
+                request = DeveloperRequest.model_validate(current.developer_spec)
+            except ValueError:
+                return None
+            worker_id = request.worker_selection.descriptor.worker_id
+            running_counts[worker_id] = running_counts.get(worker_id, 0) + 1
+
+        if not running:
+            return pending[0]
+
+        for candidate in pending:
+            if candidate.kind != "developer_run":
+                # Preserve FIFO semantics: a non-developer task is an exclusivity
+                # barrier and later developer work cannot jump ahead of it.
+                return None
+            try:
+                request = DeveloperRequest.model_validate(candidate.developer_spec)
+            except ValueError:
+                # Let the normal claim validation cancel the malformed task.
+                return candidate
+            descriptor = request.worker_selection.descriptor
+            if running_counts.get(descriptor.worker_id, 0) < descriptor.max_concurrency:
+                return candidate
+        return None
+
+    def claim(self) -> Execution | None:
+        with self.database.transaction() as session:
+            task = self._claimable_task(session)
             if task is None:
                 return None
             if task.kind in {
@@ -1362,6 +1400,16 @@ class TaskService:
             audit(session, task, "attempt_created", attempt_id=attempt.id, number=attempt.number)
             transition(session, task, State.RUNNING)
             audit(session, task, "execution_started", attempt_id=attempt.id)
+            if developer_request is not None:
+                descriptor = developer_request.worker_selection.descriptor
+                audit(
+                    session,
+                    task,
+                    "worker_capacity_claimed",
+                    attempt_id=attempt.id,
+                    worker_id=descriptor.worker_id,
+                    max_concurrency=descriptor.max_concurrency,
+                )
             return Execution(
                 task.id,
                 attempt.id,
@@ -1416,6 +1464,14 @@ class TaskService:
                     reason=error,
                     workspace=result.get("worktree") if result else None,
                 )
+                if execution.developer_request is not None:
+                    audit(
+                        session,
+                        task,
+                        "worker_capacity_released",
+                        attempt_id=attempt.id,
+                        worker_id=execution.developer_request.worker_selection.descriptor.worker_id,
+                    )
             if task.kind == "promotion_run":
                 details = (
                     {
