@@ -423,6 +423,43 @@ and separate operator approvals. Passing developer validation means the fixed
 commands passed, not that the change or worker-modified tests are trustworthy;
 human review remains part of the promotion boundary.
 
+### v0.7 real Review & Promotion smoke
+
+Prerequisites are Linux with functioning Bubblewrap namespaces, an installed
+trusted `gh` executable, an existing authenticated `gh` configuration, and
+`ZELO_PROMOTION_REPOSITORY` set to the GitHub repository to promote into. The
+repository's `main` branch must be current, and its required CI check (by
+default `checks`) must be configured to run on pull requests. Run exactly one
+safe command from `~/zelo/core`:
+
+```bash
+.venv/bin/python -m scripts.smoke_promotion
+```
+
+The smoke creates a deterministic candidate in an isolated developer workspace,
+then uses the real `PromotionReviewer`, approval-bound `PromotionCommitter`,
+`GitHubPromotionPublisher`, and `PromotionCIVerifier`. It creates or exactly
+reuses one branch under `zelo/promotion/smoke-<base-sha-prefix>` and one open
+pull request in the configured repository. Its small persistent state is kept
+under `runtime/smoke-promotion/` and `workspaces/smoke-promotion/` so reruns can
+reuse the exact prior result. Identify the result from the printed `branch`,
+`pr_number`, and `pr_url`, or search GitHub for the `zelo/promotion/smoke-`
+branch prefix.
+
+CI verification is intentionally one-shot: the first invocation may successfully
+create or reuse the pull request while its required GitHub Actions check is still
+queued or running, and can therefore exit with `promotion_ci_not_green`. Wait
+for the required pull request check to complete, then rerun the exact same smoke
+command. Persistent smoke state and idempotency reuse the exact successful
+developer and promotion result rather than creating another branch or pull
+request. A genuinely failed CI check still fails closed.
+
+The smoke never invokes Codex, modifies `main`, overwrites a branch, force
+updates anything, recreates a closed pull request, merges a pull request, runs
+`merge_run` or `release_run`, creates a tag, or bypasses Zelo's promotion
+classes. Passing validation means the fixed commands passed; the pull request
+still requires normal human review and is intentionally left open.
+
 Full CPU/RAM/PID/disk quotas are future hardening. Current namespace isolation,
 deadlines, streamed output caps and process cleanup do not provide those quotas.
 The Codex parent is not restricted to an endpoint allowlist; command and validation
