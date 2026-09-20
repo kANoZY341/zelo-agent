@@ -403,7 +403,6 @@ def test_approval_binds_specification(developer_case, database, field):
 
 
 
-
 def test_runner_poll_does_not_live_revalidate_pending_developer_approval(
     developer_case, database, monkeypatch
 ):
