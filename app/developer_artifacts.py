@@ -93,7 +93,10 @@ def pin_artifact(
     finally:
         for descriptor in (source_fd, artifact_fd):
             if descriptor is not None:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
 
 @contextmanager
