@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -36,6 +36,20 @@ from app.schemas import (
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
+CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
+CAPACITY_BACKOFF_MAX_SECONDS = 5.0
+
+
+def _max_capacity_backoff_exponent() -> int:
+    exponent = 0
+    delay = CAPACITY_BACKOFF_INITIAL_SECONDS
+    while delay < CAPACITY_BACKOFF_MAX_SECONDS:
+        delay *= 2
+        exponent += 1
+    return exponent
+
+
+CAPACITY_BACKOFF_MAX_EXPONENT = _max_capacity_backoff_exponent()
 
 
 @dataclass(frozen=True)
@@ -82,6 +96,23 @@ def transition(session: Session, task: Task, target: State) -> None:
     task.status = target
     task.updated_at = utcnow()
     audit(session, task, "state_transition", previous=previous, target=target)
+
+
+def defer_transition(session: Session, task: Task) -> None:
+    if task.status != State.RUNNING:
+        raise DomainError(f"Cannot transition from {task.status} to {State.PENDING}")
+    previous = task.status
+    task.status = State.PENDING
+    task.updated_at = utcnow()
+    audit(session, task, "state_transition", previous=previous, target=State.PENDING)
+
+
+def capacity_backoff_seconds(consecutive_deferrals: int) -> float:
+    exponent = min(max(consecutive_deferrals - 1, 0), CAPACITY_BACKOFF_MAX_EXPONENT)
+    return min(
+        CAPACITY_BACKOFF_INITIAL_SECONDS * (2**exponent),
+        CAPACITY_BACKOFF_MAX_SECONDS,
+    )
 
 
 def require_task(session: Session, task_id: str) -> Task:
@@ -1034,6 +1065,8 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            if task.status == State.RUNNING:
+                raise DomainError(f"Cannot retry task in state {task.status}")
             approval_kinds = {
                 "approval_demo",
                 "ai_prompt",
@@ -1046,6 +1079,8 @@ class TaskService:
             validate_transition(task.status, target)
             self._check_capacity(session)
             audit(session, task, "retry_requested")
+            task.capacity_backoff_attempts = 0
+            task.capacity_backoff_until = None
             for approval in session.scalars(
                 select(Approval).where(
                     Approval.task_id == task.id,
@@ -1161,16 +1196,62 @@ class TaskService:
                     )
             return snapshot(session, task)
 
+    def _claimable_task(self, session: Session) -> Task | None:
+        running = list(session.scalars(select(Task).where(Task.status == State.RUNNING)))
+        pending = list(
+            session.scalars(
+                select(Task)
+                .where(
+                    Task.status == State.PENDING,
+                    Task.cancel_requested.is_(False),
+                    or_(
+                        Task.capacity_backoff_until.is_(None),
+                        Task.capacity_backoff_until <= utcnow(),
+                    ),
+                )
+                .order_by(Task.created_at, Task.id)
+                .limit(self.settings.max_waiting_tasks)
+            )
+        )
+        if not pending:
+            return None
+
+        # v0.9 permits concurrency only between developer tasks. Every other task
+        # remains an exclusive barrier so external actions and model/tool tasks keep
+        # the existing single-operation semantics.
+        running_counts: dict[str, int] = {}
+        for current in running:
+            if current.kind != "developer_run":
+                return None
+            try:
+                request = DeveloperRequest.model_validate(current.developer_spec)
+            except ValueError:
+                return None
+            worker_id = request.worker_selection.descriptor.worker_id
+            running_counts[worker_id] = running_counts.get(worker_id, 0) + 1
+
+        if not running:
+            return pending[0]
+
+        for candidate in pending:
+            if candidate.kind != "developer_run":
+                # Backed-off tasks are temporarily invisible here, so later runnable
+                # work may overtake them. Among currently claimable tasks, a
+                # non-developer entry remains an exclusivity barrier.
+                return None
+            try:
+                request = DeveloperRequest.model_validate(candidate.developer_spec)
+            except ValueError:
+                # Let the normal claim validation cancel the malformed task.
+                return candidate
+            descriptor = request.worker_selection.descriptor
+            if running_counts.get(descriptor.worker_id, 0) < descriptor.max_concurrency:
+                return candidate
+        return None
+
     def claim(self) -> Execution | None:
         with self.database.transaction() as session:
-            if session.scalar(select(Task.id).where(Task.status == State.RUNNING).limit(1)):
-                return None
-            task = session.scalar(
-                select(Task)
-                .where(Task.status == State.PENDING)
-                .order_by(Task.created_at, Task.id)
-                .limit(1)
-            )
+            task = self._claimable_task(session)
             if task is None:
                 return None
             if task.kind in {
@@ -1359,6 +1440,7 @@ class TaskService:
             attempt = TaskAttempt(task_id=task.id, number=number + 1, outcome=State.RUNNING)
             session.add(attempt)
             session.flush()
+            task.capacity_backoff_until = None
             audit(session, task, "attempt_created", attempt_id=attempt.id, number=attempt.number)
             transition(session, task, State.RUNNING)
             audit(session, task, "execution_started", attempt_id=attempt.id)
@@ -1395,6 +1477,8 @@ class TaskService:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
                 if task.kind != "developer_run":
                     result = None
+            task.capacity_backoff_attempts = 0
+            task.capacity_backoff_until = None
             transition(session, task, outcome)
             task.result, task.error = result, error
             attempt.outcome = outcome
@@ -1483,6 +1567,86 @@ class TaskService:
                     **details,
                 )
 
+    def defer(self, execution: Execution, *, error: str) -> None:
+        with self.database.transaction() as session:
+            task = require_task(session, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if attempt is None or attempt.outcome != State.RUNNING:
+                raise DomainError("Attempt is not running")
+            if task.cancel_requested:
+                task.capacity_backoff_attempts = 0
+                task.capacity_backoff_until = None
+                transition(session, task, State.CANCELLED)
+                task.error = "cancelled_by_operator"
+                task.result = None
+                attempt.outcome = State.CANCELLED
+                attempt.result = None
+                attempt.error = "cancelled_by_operator"
+                attempt.ended_at = utcnow()
+                audit(session, task, "cancellation_completed", attempt_id=attempt.id)
+                if task.kind == "developer_run":
+                    audit(
+                        session,
+                        task,
+                        "developer_failed",
+                        attempt_id=attempt.id,
+                        reason="cancelled_by_operator",
+                    )
+                return
+            task.capacity_backoff_attempts += 1
+            delay_seconds = capacity_backoff_seconds(task.capacity_backoff_attempts)
+            eligible_at = utcnow() + timedelta(seconds=delay_seconds)
+            task.capacity_backoff_until = eligible_at
+            defer_transition(session, task)
+            task.error = None
+            task.result = None
+            attempt.outcome = State.INTERRUPTED
+            attempt.result = None
+            attempt.error = error
+            attempt.ended_at = utcnow()
+            audit(
+                session,
+                task,
+                "execution_deferred",
+                attempt_id=attempt.id,
+                reason=error,
+                retry_after_seconds=delay_seconds,
+                eligible_at=eligible_at.isoformat(),
+                consecutive_deferrals=task.capacity_backoff_attempts,
+            )
+            if task.kind == "developer_run":
+                audit(
+                    session,
+                    task,
+                    "developer_deferred",
+                    attempt_id=attempt.id,
+                    reason=error,
+                    retry_after_seconds=delay_seconds,
+                    consecutive_deferrals=task.capacity_backoff_attempts,
+                )
+
+    @staticmethod
+    def _attempt_has_unreleased_capacity(session: Session, attempt_id: str) -> bool:
+        claimed = session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                AuditEvent.attempt_id == attempt_id,
+                AuditEvent.event == "worker_capacity_claimed",
+            )
+        )
+        if not claimed:
+            return False
+        released = session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                AuditEvent.attempt_id == attempt_id,
+                AuditEvent.event == "worker_capacity_released",
+            )
+        )
+        return claimed > (released or 0)
+
     def recover(self) -> None:
         with self.database.transaction() as session:
             for task in session.scalars(select(Task).where(Task.status == State.RUNNING)):
@@ -1504,6 +1668,27 @@ class TaskService:
                     "startup_interruption_recovery",
                     attempt_id=attempt.id if attempt else None,
                 )
+                if (
+                    task.kind == "developer_run"
+                    and attempt is not None
+                    and self._attempt_has_unreleased_capacity(session, attempt.id)
+                ):
+                    descriptor = None
+                    if task.developer_spec is not None:
+                        try:
+                            descriptor = DeveloperRequest.model_validate(
+                                task.developer_spec
+                            ).worker_selection.descriptor
+                        except (ValueError, TypeError, KeyError):
+                            descriptor = None
+                    audit(
+                        session,
+                        task,
+                        "worker_capacity_released",
+                        attempt_id=attempt.id if attempt else None,
+                        worker_id=descriptor.worker_id if descriptor else None,
+                        recovered=True,
+                    )
                 if task.kind == "promotion_run":
                     audit(
                         session,

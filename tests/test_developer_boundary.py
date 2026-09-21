@@ -16,13 +16,14 @@ import pytest
 from app.codex_worker import CodexCliWorker
 from app.config import ROOT
 from app.developer import DeveloperError, DeveloperRuntime, tree_digest
-from app.developer_process import run_process
+from app.developer_process import environment, run_process
 from app.developer_sandbox import VENV, sandbox
 from app.developer_validation import python_command
 from app.policy import State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
+from app.worker_authority import authority_profile
 from tests.developer_helpers import fixture_commit, git
 
 pytestmark = pytest.mark.developer_boundary
@@ -64,7 +65,14 @@ def test_local_presmoke_command_and_validation_path(developer_case):
         repo.parent.mkdir(parents=True)
         asyncio.run(runtime.prepare(repo, request))
         with worker.bind(request.worker) as bound:
-            asyncio.run(bound.local_command_probe(repo, config.developer_codex_auth_file, ROOT))
+            asyncio.run(
+                bound.local_command_probe(
+                    repo,
+                    config.developer_codex_auth_file,
+                    authority_profile(("workspace-write",)),
+                    ROOT,
+                )
+            )
         assert (repo / "DEVELOPER_SMOKE.txt").read_bytes() == b"Zelo developer worker online\n"
         # The real worker left these empty project directories in the failed smoke.
         # Validation must not interpret them as executable worker configuration.
@@ -149,11 +157,8 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
     assert git(repo, "rev-parse", "HEAD") == data["base_sha"]
     assert git(repo, "remote") == ""
     assert not (repo / ".git/objects/info/alternates").exists()
-    names = [
-        event.event
-        for event in service.events(task.id, 100, 0)
-        if event.event.startswith("developer_")
-    ]
+    events = service.events(task.id, 100, 0)
+    names = [event.event for event in events if event.event.startswith("developer_")]
     assert names == [
         "developer_started",
         "developer_workspace_created",
@@ -163,6 +168,43 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
         "developer_validation_completed",
         "developer_completed",
     ]
+    capacity = [event.event for event in events if event.event.startswith("worker_capacity_")]
+    assert capacity == ["worker_capacity_claimed", "worker_capacity_released"]
+
+
+def test_interrupted_developer_recovery_does_not_invent_capacity_release(developer_case, database):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    assert service.claim() is not None
+    service.recover()
+    events = [event.event for event in service.events(task.id, 100, 0)]
+    assert "worker_capacity_claimed" not in events
+    assert "worker_capacity_released" not in events
+
+
+def test_interrupted_developer_recovery_releases_only_claimed_capacity(developer_case, database):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None and execution.developer_request is not None
+    descriptor = execution.developer_request.worker_selection.descriptor
+    service.model_event(
+        task.id,
+        "worker_capacity_claimed",
+        execution.attempt_id,
+        worker_id=descriptor.worker_id,
+        max_concurrency=descriptor.max_concurrency,
+    )
+    service.recover()
+    events = [event.event for event in service.events(task.id, 100, 0)]
+    assert events.count("worker_capacity_claimed") == 1
+    assert events.count("worker_capacity_released") == 1
 
 
 def test_sandbox_private_files_environment_and_network(developer_case, monkeypatch):
@@ -225,7 +267,7 @@ def test_real_codex_command_profile_hides_fake_auth(developer_case):
     auth.write_text("harmless-fake-auth-sentinel")
     worker = CodexCliWorker(runtime.settings)
     assert worker.identity().cli_version == "codex-cli 0.155.1"
-    asyncio.run(worker.probe(repo, auth))
+    asyncio.run(worker.probe(repo, auth, authority_profile(("workspace-write",))))
 
 
 @pytest.mark.parametrize("module", ["ruff", "pytest"])
@@ -321,6 +363,28 @@ def test_head_change_is_detected_without_primary_mutation(developer_case):
     assert result["head_changed"] is True
     assert "developer_boundary_violation" in events
     assert tree_digest(runtime.source_repository / ".git") == source_before
+
+
+def test_concurrent_primary_snapshots_do_not_mutate_source_index(developer_case):
+    runtime = developer_case
+    request = spec(runtime)
+    index = runtime.source_repository / ".git" / "index"
+    before = index.read_bytes()
+    before_digest = tree_digest(index)
+    before_mtime = index.stat().st_mtime_ns
+    assert environment()["GIT_OPTIONAL_LOCKS"] == "0"
+
+    async def exercise():
+        first, second = await asyncio.gather(
+            runtime.primary_snapshot(request),
+            runtime.primary_snapshot(request),
+        )
+        assert first == second
+
+    asyncio.run(exercise())
+    assert index.read_bytes() == before
+    assert tree_digest(index) == before_digest
+    assert index.stat().st_mtime_ns == before_mtime
 
 
 @pytest.mark.parametrize("failure", ["exception", "timeout", "cancel", "success"])

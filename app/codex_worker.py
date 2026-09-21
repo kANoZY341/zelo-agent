@@ -12,6 +12,12 @@ from app.developer_artifacts import PinnedExecutable, pin_artifact, pin_executab
 from app.developer_contracts import DeveloperRequest, Limits, WorkerIdentity, WorkerResult
 from app.developer_process import DeveloperError, environment, run_process
 from app.developer_sandbox import CODE_MODE_HOST, CODEX, ENGINE, REPO, sandbox
+from app.worker_authority import (
+    WorkerAuthorityProfile,
+    authority_profile,
+    authority_snapshot_matches,
+    codex_cli_overrides,
+)
 
 CLI_VERSION = "codex-cli 0.155.1"
 SUPPORTED_CLI_VERSIONS = frozenset({"codex-cli 0.154.0", CLI_VERSION})
@@ -67,55 +73,24 @@ def file_digest(path: Path) -> str:
     return result.hexdigest()
 
 
-def toml_table(values: dict[str, str]) -> str:
-    return "{" + ",".join(json.dumps(k) + "=" + json.dumps(v) for k, v in values.items()) + "}"
-
-
-def command_config() -> list[str]:
+def command_config(profile: WorkerAuthorityProfile) -> list[str]:
     # A named workspace-write equivalent is required for explicit auth read denial.
     # Do not combine default_permissions with legacy sandbox_mode flags.
-    filesystem = toml_table(
-        {
-            ":minimal": "read",
-            "/opt/zelo-codex": "read",
-            REPO: "write",
-            REPO + "/.git": "read",
-            ENGINE: "deny",
-        }
-    )
-    overrides = [
-        'default_permissions="zelo"',
-        "permissions.zelo.filesystem=" + filesystem,
-        "permissions.zelo.network.enabled=false",
-        'approval_policy="never"',
-        'web_search="disabled"',
-        'model_reasoning_summary="none"',
-        "show_raw_agent_reasoning=false",
-        "allow_login_shell=false",
-        'shell_environment_policy.inherit="none"',
-        "shell_environment_policy.set=" + toml_table(environment()),
-        "shell_environment_policy.experimental_use_profile=false",
-        'projects."/workspace".trust_level="untrusted"',
-    ]
-    for feature in (
-        "apps",
-        "plugins",
-        "remote_plugin",
-        "hooks",
-        "multi_agent",
-        "browser_use",
-        "computer_use",
-        "image_generation",
-        "shell_snapshot",
-        "workspace_dependencies",
-        "skill_mcp_dependency_install",
-        "skill_search",
-        "network_proxy",
-        "guardian_approval",
+    return [part for value in codex_cli_overrides(profile) for part in ("-c", value)]
+
+
+def request_authority(request: DeveloperRequest) -> WorkerAuthorityProfile:
+    selection = request.worker_selection
+    if not authority_snapshot_matches(
+        selection.descriptor.authority,
+        selection.authority_profile,
+        selection.authority_policy_version,
     ):
-        overrides.append(f"features.{feature}=false")
-    overrides.append("features.skip_host_skill_discovery=true")
-    return [part for value in overrides for part in ("-c", value)]
+        raise DeveloperError("worker_authority_changed")
+    try:
+        return authority_profile(selection.descriptor.authority)
+    except ValueError:
+        raise DeveloperError("worker_authority_unsupported") from None
 
 
 # Run by the installed sandbox subcommand, never sent to a model. No credentials read.
@@ -395,13 +370,18 @@ class CodexCliWorker:
         )
         return identity
 
-    async def probe(self, repo: Path, auth: Path) -> None:
+    async def probe(
+        self,
+        repo: Path,
+        auth: Path,
+        profile: WorkerAuthorityProfile,
+    ) -> None:
         if self.pinned is None:
             with self.bind() as bound:
-                return await bound.probe(repo, auth)
+                return await bound.probe(repo, auth, profile)
         args = [
             CODEX,
-            *command_config(),
+            *command_config(profile),
             "sandbox",
             "-P",
             "zelo",
@@ -422,6 +402,7 @@ class CodexCliWorker:
                 code_mode_host_fd=self.host_artifact().fd,
                 auth=auth,
                 service_network=True,
+                writable=profile.workspace_write,
             ),
             cwd=repo,
             timeout=15,
@@ -441,11 +422,17 @@ class CodexCliWorker:
         if not valid:
             raise DeveloperError("codex_command_boundary_unverified")
 
-    async def local_command_probe(self, repo: Path, auth: Path, primary: Path = ROOT) -> None:
+    async def local_command_probe(
+        self,
+        repo: Path,
+        auth: Path,
+        profile: WorkerAuthorityProfile,
+        primary: Path = ROOT,
+    ) -> None:
         """Exercise the installed Codex command sandbox without a model request."""
         args = [
             CODEX,
-            *command_config(),
+            *command_config(profile),
             "sandbox",
             "-P",
             "zelo",
@@ -465,6 +452,7 @@ class CodexCliWorker:
                 code_mode_host_fd=self.host_artifact().fd,
                 auth=auth,
                 service_network=True,
+                writable=profile.workspace_write,
             ),
             cwd=repo,
             timeout=15,
@@ -490,7 +478,7 @@ class CodexCliWorker:
         if not valid:
             raise DeveloperError("codex_command_boundary_unverified")
 
-    def argv(self, repo: Path) -> list[str]:
+    def argv(self, repo: Path, profile: WorkerAuthorityProfile) -> list[str]:
         return sandbox(
             repo,
             [
@@ -503,13 +491,14 @@ class CodexCliWorker:
                 "--json",
                 "-C",
                 REPO,
-                *command_config(),
+                *command_config(profile),
                 "-",
             ],
             codex_fd=self.artifact().fd,
             code_mode_host_fd=self.host_artifact().fd,
             auth=self.settings.developer_codex_auth_file,
             service_network=True,
+            writable=profile.workspace_write,
         )
 
     async def run(self, request: DeveloperRequest, repo: Path) -> WorkerResult:
@@ -522,7 +511,8 @@ class CodexCliWorker:
             or binary.digest != request.worker.executable_sha256
         ):
             raise DeveloperError("worker_configuration_changed")
-        await self.probe(repo, self.settings.developer_codex_auth_file)
+        profile = request_authority(request)
+        await self.probe(repo, self.settings.developer_codex_auth_file, profile)
         prompt = (
             "You are Zelo's subordinate coding worker in a standalone isolated checkout. "
             "Read AGENTS.md; all work is confined to this checkout. Make only requested edits. "
@@ -533,7 +523,7 @@ class CodexCliWorker:
         started = datetime.now(UTC)
         limits = request.limits
         result = await run_process(
-            self.argv(repo),
+            self.argv(repo, profile),
             cwd=repo,
             timeout=limits.worker_seconds,
             stdout_limit=limits.stdout_bytes,

@@ -12,8 +12,8 @@ from sqlalchemy import select
 from app.config import Settings
 from app.database import Database
 from app.main import create_app
-from app.models import Approval, Task, utcnow
-from app.policy import DomainError, State, validate_transition
+from app.models import Approval, Task, TaskAttempt, utcnow
+from app.policy import DomainError, State, action_hash, validate_transition
 from app.schemas import ApprovalDemoInput, EchoInput
 from app.tasks import TaskService
 from app.workers import execute
@@ -50,11 +50,46 @@ def test_valid_transitions(previous, target) -> None:
         (State.PENDING, State.SUCCEEDED),
         (State.AWAITING_APPROVAL, State.RUNNING),
         (State.RUNNING, State.RUNNING),
+        (State.RUNNING, State.PENDING),
     ],
 )
 def test_invalid_transitions(previous, target) -> None:
     with pytest.raises(DomainError):
         validate_transition(previous, target)
+
+
+@pytest.mark.parametrize(
+    ("kind", "payload"),
+    [
+        ("echo", {"text": "x"}),
+        ("tool_call", {"tool": "system_info", "arguments": {}}),
+        ("agent_run", {"prompt": "x"}),
+        ("developer_run", {"instruction": "x", "validation_profile": "zelo_core"}),
+    ],
+)
+def test_retry_rejects_running_tasks_without_orphaning_attempts(
+    settings, database, kind, payload
+) -> None:
+    service = TaskService(database, settings)
+    with database.transaction() as session:
+        task = Task(
+            kind=kind,
+            payload=payload,
+            timeout_seconds=30,
+            status=State.RUNNING,
+            action_version=1,
+            action_hash=action_hash(kind, payload, 30, 1),
+            request_hash="a" * 64,
+        )
+        session.add(task)
+        session.flush()
+        session.add(TaskAttempt(task_id=task.id, number=1, outcome=State.RUNNING))
+        task_id = task.id
+    with pytest.raises(DomainError, match="Cannot retry task in state running"):
+        service.retry(task_id)
+    current = service.get(task_id)
+    assert current.status == State.RUNNING
+    assert [attempt.outcome for attempt in current.attempts] == [State.RUNNING]
 
 
 def test_idempotency_and_conflicts(client: TestClient) -> None:

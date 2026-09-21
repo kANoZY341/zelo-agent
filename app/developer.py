@@ -20,7 +20,7 @@ from app.config import ROOT, Settings
 from app.developer_contracts import DeveloperRequest, DeveloperWorker, Limits, ValidationResult
 from app.developer_process import DeveloperError, run_process, run_sync, uncancellable
 from app.developer_review import inventory
-from app.developer_sandbox import SANDBOX_VERSION, git_argv, sandbox
+from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_worker
 
@@ -94,13 +94,14 @@ class DeveloperRuntime:
         self.source_repository = source_repository.resolve()
         self._registry_explicit = registry is not None
         if registry is not None:
-            if worker is None:
-                raise DeveloperError("worker_registry_primary_required")
-            registered = [registry.get(descriptor.worker_id) for descriptor in registry.list()]
-            if not any(item is not None and item.worker is worker for item in registered):
-                raise DeveloperError("worker_registry_mismatch")
-            self._worker = worker
             self.registry = registry
+            self.supervisor = Supervisor(self.registry)
+            selected, _ = self.supervisor.select(
+                role="developer", capabilities=("zelo_core_development",)
+            )
+            if worker is not None and selected.worker is not worker:
+                raise DeveloperError("worker_registry_mismatch")
+            self._worker = selected.worker
         else:
             self._worker = worker or CodexCliWorker(settings)
             self.registry = WorkerRegistry(
@@ -118,7 +119,7 @@ class DeveloperRuntime:
                     )
                 ]
             )
-        self.supervisor = Supervisor(self.registry)
+            self.supervisor = Supervisor(self.registry)
 
     @property
     def worker(self) -> DeveloperWorker:
@@ -197,7 +198,7 @@ class DeveloperRuntime:
             base_sha=result.stdout.decode().strip(),
             worker=identity,
             worker_selection=selection,
-            sandbox_version=SANDBOX_VERSION,
+            sandbox_version=sandbox_policy_version(),
             limits=self.limits(timeout),
         )
 
@@ -208,7 +209,7 @@ class DeveloperRuntime:
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
-            and request.sandbox_version == SANDBOX_VERSION
+            and request.sandbox_version == sandbox_policy_version()
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
             and self.supervisor.matches(request.worker_selection)
@@ -325,16 +326,8 @@ class DeveloperRuntime:
         if await self.git(repo, request, "remote"):
             raise DeveloperError("checkout_remote_forbidden")
 
-    async def primary_snapshot(self, request: DeveloperRequest) -> str:
+    def _primary_snapshot_digest(self, outputs: list[bytes]) -> str:
         source = self.source_repository
-        outputs = []
-        for args in (
-            ("rev-parse", "HEAD"),
-            ("status", "--porcelain=v1", "-z"),
-            ("show-ref", "--head"),
-            ("ls-files", "-z"),
-        ):
-            outputs.append(await self.git(source, request, *args, trusted=True))
         digest = hashlib.sha256(b"".join(outputs))
         # Hash tracked contents and Git state. Never open unrelated untracked user files.
         total = 0
@@ -352,6 +345,18 @@ class DeveloperRuntime:
         digest.update(tree_digest(source / ".git").encode())
         return digest.hexdigest()
 
+    async def primary_snapshot(self, request: DeveloperRequest) -> str:
+        source = self.source_repository
+        outputs = []
+        for args in (
+            ("rev-parse", "HEAD"),
+            ("status", "--porcelain=v1", "-z"),
+            ("show-ref", "--head"),
+            ("ls-files", "-z"),
+        ):
+            outputs.append(await self.git(source, request, *args, trusted=True))
+        return await asyncio.to_thread(self._primary_snapshot_digest, outputs)
+
     async def validate(self, repo: Path, request: DeveloperRequest) -> list[ValidationResult]:
         commands = [
             ("ruff_check", python_command("-m", "ruff", "check", ".")),
@@ -366,7 +371,7 @@ class DeveloperRuntime:
         ]
         results = []
         for name, command in commands:
-            if self.validation_identity() != request.validation_identity:
+            if await asyncio.to_thread(self.validation_identity) != request.validation_identity:
                 raise DeveloperError("validation_environment_changed")
             self.verify_checkout_path(repo)
             started = time.monotonic()
@@ -394,7 +399,7 @@ class DeveloperRuntime:
             )
             if code:
                 break
-        if self.validation_identity() != request.validation_identity:
+        if await asyncio.to_thread(self.validation_identity) != request.validation_identity:
             raise DeveloperError("validation_environment_changed")
         return results
 
@@ -485,23 +490,53 @@ class DeveloperRuntime:
             "diff": diff.decode("utf-8", "replace"),
         }
 
-    def lock(self):
+    def _lock_root(self) -> Path:
         root = self.root()
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root()
-        # Shared across runtime databases and configured workspace roots.
         lock_root = no_symlinks(ROOT / "runtime")
         lock_root.mkdir(exist_ok=True, mode=0o700)
-        fd = os.open(
-            lock_root / "developer-execution.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
-        )
-        stream = os.fdopen(fd, "w")
+        return lock_root
+
+    @staticmethod
+    def _open_lock_stream(path: Path):
+        fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            return os.fdopen(fd, "w")
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def worker_lock(self, worker_id: str, max_concurrency: int):
+        """Acquire one cross-process capacity slot for the approved worker."""
+        lock_root = self._lock_root()
+        for slot in range(max_concurrency):
+            stream = self._open_lock_stream(lock_root / f"developer-worker-{worker_id}-{slot}.lock")
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                stream.close()
+                continue
+            return stream
+        raise DeveloperError("developer_worker_capacity_exhausted")
+
+    def maintenance_lock(self):
+        """Serialize operator cleanup without globally serializing worker execution."""
+        lock_root = self._lock_root()
+        stream = self._open_lock_stream(lock_root / "developer-maintenance.lock")
         try:
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             stream.close()
             raise DeveloperError("developer_runtime_busy") from None
         return stream
+
+    def lock(self):
+        """Compatibility alias for the maintenance lock.
+
+        Worker execution uses per-worker capacity slots and never this global lock.
+        """
+        return self.maintenance_lock()
 
     async def run(
         self,
@@ -543,11 +578,16 @@ class DeveloperRuntime:
             "original_error": None,
             "cancelled": False,
         }
-        lock = self.lock()
+        lock = None
         before = git_before = manifest = None
         artifacts = ExitStack()
-        emit("developer_started", {})
+        bound_worker_context = None
+        bound_worker = None
+        bound_worker_entered = False
+        lock_released = False
+        transient_error = None
         try:
+            emit("developer_started", {})
             async with asyncio.timeout(request.limits.overall_seconds):
                 if not self.compatible(request, request.limits.overall_seconds):
                     raise DeveloperError("developer_configuration_changed")
@@ -571,11 +611,27 @@ class DeveloperRuntime:
                 selected = self.registry.get(request.worker_selection.descriptor.worker_id)
                 if selected is None or not self.supervisor.matches(request.worker_selection):
                     raise DeveloperError("worker_configuration_changed")
-                bound_worker = artifacts.enter_context(selected.worker.bind(request.worker))
+                lock = self.worker_lock(
+                    selected.descriptor.worker_id, selected.descriptor.max_concurrency
+                )
+                emit(
+                    "worker_capacity_claimed",
+                    {
+                        "worker_id": selected.descriptor.worker_id,
+                        "max_concurrency": selected.descriptor.max_concurrency,
+                    },
+                )
+                bound_worker_context = selected.worker.bind(request.worker)
+                enter_task = asyncio.create_task(asyncio.to_thread(bound_worker_context.__enter__))
+                bound_worker, bind_cancelled = await uncancellable(enter_task)
+                bound_worker_entered = True
+                if bind_cancelled:
+                    raise asyncio.CancelledError
                 actual = await bound_worker.preflight()
                 if (
                     actual != request.worker
-                    or self.validation_identity() != request.validation_identity
+                    or await asyncio.to_thread(self.validation_identity)
+                    != request.validation_identity
                 ):
                     raise DeveloperError("worker_configuration_changed")
                 repo.parent.mkdir(mode=0o700)
@@ -585,7 +641,7 @@ class DeveloperRuntime:
                 )
                 await self.prepare(repo, request)
                 emit("developer_workspace_created", {"workspace": result["worktree"]})
-                git_before = tree_digest(repo / ".git")
+                git_before = await asyncio.to_thread(tree_digest, repo / ".git")
                 self.verify_checkout_path(repo)
                 emit("developer_worker_started", {})
                 result["worker_started_at"] = datetime.now(UTC).isoformat()
@@ -608,7 +664,7 @@ class DeveloperRuntime:
                 if worker.exit_code:
                     raise DeveloperError("worker_nonzero_exit")
                 self.verify_checkout_path(repo)
-                if tree_digest(repo / ".git") != git_before:
+                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                     raise DeveloperError("developer_boundary_violation")
                 emit("developer_validation_started", {})
                 validation = await self.validate(repo, request)
@@ -621,7 +677,7 @@ class DeveloperRuntime:
                     # check can report a distinct boundary failure.
                     result["error"] = "developer_validation_failed"
                 self.verify_checkout_path(repo)
-                if tree_digest(repo / ".git") != git_before:
+                if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                     raise DeveloperError("developer_boundary_violation")
                 result.update(await self.review(repo, request))
                 if result["head_changed"]:
@@ -632,6 +688,8 @@ class DeveloperRuntime:
         except TimeoutError:
             result["error"] = "developer_overall_timeout"
         except DeveloperError as error:
+            if str(error) == "developer_worker_capacity_exhausted":
+                transient_error = error
             result["error"] = str(error)
             result["protocol_diagnostic"] = error.diagnostic
             if error.exit_code is not None:
@@ -656,7 +714,10 @@ class DeveloperRuntime:
                                 raise DeveloperError("developer_boundary_violation")
                             if git_before is not None:
                                 self.verify_checkout_path(repo)
-                                if tree_digest(repo / ".git") != git_before:
+                                if (
+                                    await asyncio.to_thread(tree_digest, repo / ".git")
+                                    != git_before
+                                ):
                                     try:
                                         head = (
                                             (await self.git(repo, request, "rev-parse", "HEAD"))
@@ -718,8 +779,35 @@ class DeveloperRuntime:
                     if not result["error"]:
                         result["error"] = "developer_cancelled"
             finally:
-                artifacts.close()
-                lock.close()
+
+                async def cleanup():
+                    nonlocal lock_released
+                    release_failure = None
+                    if lock is not None and not lock_released:
+                        lock.close()
+                        lock_released = True
+                        try:
+                            emit(
+                                "worker_capacity_released",
+                                {
+                                    "worker_id": request.worker_selection.descriptor.worker_id,
+                                },
+                            )
+                        except Exception as error:  # pragma: no cover - exercised via runner tests
+                            release_failure = error
+                    try:
+                        if bound_worker_context is not None and bound_worker_entered:
+                            await asyncio.to_thread(bound_worker_context.__exit__, None, None, None)
+                    finally:
+                        artifacts.close()
+                    if release_failure is not None:
+                        raise release_failure
+
+                _, cancelled = await uncancellable(asyncio.create_task(cleanup()))
+                if cancelled:
+                    result["cancelled"] = True
+                    if not result["error"]:
+                        result["error"] = "developer_cancelled"
         if (
             time.monotonic() - monotonic_start > request.limits.overall_seconds
             and not result["error"]
@@ -729,11 +817,13 @@ class DeveloperRuntime:
             result["validation_passed"] = False
         result["completed_at"] = datetime.now(UTC).isoformat()
         result["duration_seconds"] = time.monotonic() - monotonic_start
+        if transient_error is not None and result["error"] == str(transient_error):
+            raise transient_error
         return result
 
     def cleanup(self, execution_id: str) -> None:
         """Internal operator service only. No API accepts deletion paths."""
-        with self.lock():
+        with self.maintenance_lock():
             repo = self.path(execution_id)
             owner = no_symlinks(repo.parent / "owner.json")
             if not owner.is_file() or owner.stat().st_size > 1024:

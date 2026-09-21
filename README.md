@@ -297,7 +297,10 @@ Each attempt owns a standalone repository at
 fetches the approved commit over local file transport, and checks it out detached.
 There are no shared object stores, hard links, linked worktrees or configured
 remotes. An ownership record lives outside the worker's writable directory.
-A process lock serializes developer executions across Zelo runtime databases.
+v0.9 replaces the old global developer-execution lock with approval-bound
+per-worker capacity slots. Different trusted workers may execute concurrently
+when their descriptors have capacity; each worker's `max_concurrency` remains
+a hard scheduler and cross-process filesystem-lock ceiling.
 
 ### Codex prerequisites and boundaries
 
@@ -316,9 +319,12 @@ and the CLI authentication file. It does **not** mount the primary repository,
 runtime database, secrets, other workspaces, host home directories or Docker socket.
 Only the isolated source directory is writable on the host; its `.git` is read-only.
 
-The Codex parent retains service networking. Generated commands use an explicit
-named permission profile with workspace writes, read-only Git metadata,
-`network.enabled=false`, and denied reads of the authentication directory.
+The Codex parent retains service networking. The selected worker's approval-bound
+authority resolves through Zelo's content-fingerprinted worker-authority policy.
+The current production profile, `workspace-write-no-network-v1`, gives generated commands
+workspace writes, read-only Git metadata, `network.enabled=false`, and denied
+reads of the authentication directory. Unsupported descriptor authority fails at
+registry construction instead of silently receiving a default permission set.
 Zelo tests that exact profile using `codex sandbox` before invoking the model,
 including direct and `/proc` authentication paths and network socket denial.
 This installed CLI uses `codex sandbox`, not `codex sandbox linux`.
@@ -569,3 +575,8 @@ specifications to the existing task table while preserving the established
 SQLite migration transaction and foreign-key safety rules:
 `0006_promotion_review`, `0007_merge_approval`, and
 `0008_release_approval`.
+
+v0.9 adds `0009_worker_concurrency`. It replaces the original global
+single-running-attempt index with a per-task running-attempt invariant and
+database triggers that permit concurrent developer attempts while keeping
+non-developer execution exclusive.

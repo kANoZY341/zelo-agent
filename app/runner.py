@@ -1,4 +1,4 @@
-"""One cooperative runner; SQLite is the bounded waiting list, not a replay engine."""
+"""One capacity-aware runner; SQLite is the bounded waiting list, not a replay engine."""
 
 import asyncio
 import logging
@@ -39,52 +39,115 @@ class Runner:
         self.promotion_merge_runtime = promotion_merge_runtime
         self.promotion_release_runtime = promotion_release_runtime
         self.stopping = False
+        self.failed = False
         self.wake = asyncio.Event()
         self.loop_task: asyncio.Task[None] | None = None
-        self.operation: asyncio.Task[dict[str, Any]] | None = None
-        self.active_id: str | None = None
+        self.operations: dict[str, asyncio.Task[None]] = {}
+
+    def _cancellation_outcome(self) -> tuple[State, str]:
+        if self.failed:
+            return State.INTERRUPTED, "runner_failed"
+        if self.stopping:
+            return State.INTERRUPTED, "service_shutdown"
+        return State.CANCELLED, "cancelled_by_operator"
+
+    def _finalize_unstarted_operation(
+        self, execution: Execution, operation: asyncio.Task[None]
+    ) -> None:
+        if not operation.cancelled():
+            return
+        current = self.operations.get(execution.task_id)
+        if current is not operation:
+            return
+        outcome, reason = self._cancellation_outcome()
+        try:
+            self.service.finish(execution, outcome, error=reason)
+            if execution.kind == "ai_prompt":
+                self.service.model_event(
+                    execution.task_id, "model_execution_failed", execution.attempt_id, reason=reason
+                )
+            if execution.kind == "tool_call":
+                self.service.model_event(
+                    execution.task_id,
+                    "tool_execution_failed",
+                    execution.attempt_id,
+                    tool=execution.tool_name,
+                    reason=reason,
+                )
+        finally:
+            logger.info("attempt_finished", extra={"task_id": execution.task_id})
+            self.operations.pop(execution.task_id, None)
+            self.wake.set()
 
     def start(self) -> None:
         self.loop_task = asyncio.create_task(self._loop(), name="zelo-runner")
 
     @property
     def ready(self) -> bool:
-        return self.loop_task is not None and not self.loop_task.done() and not self.stopping
+        return (
+            self.loop_task is not None
+            and not self.loop_task.done()
+            and not self.stopping
+            and not self.failed
+        )
 
     def cancel(self, task_id: str) -> None:
-        if self.active_id == task_id and self.operation:
-            self.operation.cancel()
+        operation = self.operations.get(task_id)
+        if operation is not None:
+            operation.cancel()
         self.wake.set()
 
     async def stop(self) -> None:
         self.stopping = True
-        if self.operation:
-            self.operation.cancel()
+        for operation in tuple(self.operations.values()):
+            operation.cancel()
         self.wake.set()
         if self.loop_task:
             await self.loop_task
+        remaining = tuple(self.operations.values())
+        if remaining:
+            await asyncio.gather(*remaining, return_exceptions=True)
 
     async def _loop(self) -> None:
         try:
             while not self.stopping:
                 self.wake.clear()
                 self.service.expire_approvals()
-                execution = self.service.claim()
-                if execution:
-                    await self._run(execution)
-                else:
-                    try:
-                        await asyncio.wait_for(
-                            self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
+                while not self.stopping:
+                    execution = self.service.claim()
+                    if execution is None:
+                        break
+                    if execution.task_id in self.operations:
+                        raise RuntimeError("duplicate_running_task")
+                    operation = asyncio.create_task(
+                        self._run(execution),
+                        name=f"zelo-runner-{execution.kind}-{execution.task_id}",
+                    )
+                    operation.add_done_callback(
+                        lambda task, execution=execution: self._finalize_unstarted_operation(
+                            execution, task
                         )
-                    except TimeoutError:
-                        pass
+                    )
+                    self.operations[execution.task_id] = operation
+                try:
+                    await asyncio.wait_for(
+                        self.wake.wait(), timeout=self.service.settings.runner_poll_seconds
+                    )
+                except TimeoutError:
+                    pass
         except Exception:
-            # Fail closed; readiness becomes false. Never log exception payloads/private input.
+            # Fail closed; readiness becomes false. Never leave already-launched
+            # operations running without the scheduler that owns them.
             logger.error("runner_failed")
+            self.failed = True
+            active = tuple(self.operations.values())
+            for operation in active:
+                operation.cancel()
+            if active:
+                await asyncio.gather(*active, return_exceptions=True)
 
     async def _run(self, execution: Execution) -> None:
-        self.active_id = execution.task_id
+        wake_scheduler = True
         if execution.kind == "ai_prompt":
             self.service.model_event(
                 execution.task_id,
@@ -101,27 +164,27 @@ class Runner:
                 tool=execution.tool_name,
             )
         if execution.kind == "ai_prompt":
-            self.operation = asyncio.create_task(self._model_worker(execution))
+            operation = asyncio.create_task(self._model_worker(execution))
         elif execution.kind == "tool_call":
-            self.operation = asyncio.create_task(self._tool_worker(execution))
+            operation = asyncio.create_task(self._tool_worker(execution))
         elif execution.kind == "agent_run":
-            self.operation = asyncio.create_task(self._agent_worker(execution))
+            operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "developer_run":
-            self.operation = asyncio.create_task(self._developer_worker(execution))
+            operation = asyncio.create_task(self._developer_worker(execution))
         elif execution.kind == "promotion_run":
-            self.operation = asyncio.create_task(self._promotion_worker(execution))
+            operation = asyncio.create_task(self._promotion_worker(execution))
         elif execution.kind == "merge_run":
-            self.operation = asyncio.create_task(self._merge_worker(execution))
+            operation = asyncio.create_task(self._merge_worker(execution))
         elif execution.kind == "release_run":
-            self.operation = asyncio.create_task(self._release_worker(execution))
+            operation = asyncio.create_task(self._release_worker(execution))
         else:
-            self.operation = asyncio.create_task(self.worker(execution))
+            operation = asyncio.create_task(self.worker(execution))
         try:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
-                await self.operation
+                await operation
                 if execution.kind in {"agent_run", "developer_run"}
-                else await asyncio.wait_for(self.operation, timeout=execution.timeout_seconds)
+                else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
                 raw
@@ -173,7 +236,11 @@ class Runner:
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DeveloperRuntimeError as error:
-            self.service.finish(execution, State.FAILED, error=error.args[0])
+            if error.args and error.args[0] == "developer_worker_capacity_exhausted":
+                self.service.defer(execution, error=error.args[0])
+                wake_scheduler = False
+            else:
+                self.service.finish(execution, State.FAILED, error=error.args[0])
         except ModelGatewayError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
             if execution.kind == "ai_prompt":
@@ -202,8 +269,7 @@ class Runner:
                     reason=error.args[0],
                 )
         except asyncio.CancelledError:
-            outcome = State.INTERRUPTED if self.stopping else State.CANCELLED
-            reason = "service_shutdown" if self.stopping else "cancelled_by_operator"
+            outcome, reason = self._cancellation_outcome()
             self.service.finish(execution, outcome, error=reason)
             if execution.kind == "ai_prompt":
                 self.service.model_event(
@@ -236,8 +302,9 @@ class Runner:
                 )
         finally:
             logger.info("attempt_finished", extra={"task_id": execution.task_id})
-            self.operation = None
-            self.active_id = None
+            self.operations.pop(execution.task_id, None)
+            if wake_scheduler:
+                self.wake.set()
 
     async def _model_worker(self, execution: Execution) -> dict[str, Any]:
         if self.gateway is None or execution.profile is None:

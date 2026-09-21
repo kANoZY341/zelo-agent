@@ -6,9 +6,16 @@ from pydantic import ValidationError
 
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
+from app.developer_sandbox import CODEX, sandbox
 from app.policy import DomainError, State
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
+from app.worker_authority import (
+    AUTHORITY_POLICY_VERSION,
+    WorkerAuthorityProfile,
+    authority_policy_fingerprint,
+    authority_profile,
+)
 from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
 
 
@@ -98,6 +105,8 @@ def test_supervisor_uses_priority_then_stable_worker_id():
     assert selected.descriptor.worker_id == "high"
     assert snapshot.descriptor == selected.descriptor
     assert snapshot.registry_version == registry.version
+    assert snapshot.authority_profile == "workspace-write-no-network-v1"
+    assert snapshot.authority_policy_version == AUTHORITY_POLICY_VERSION
 
     registry = WorkerRegistry(
         [
@@ -128,7 +137,10 @@ def test_descriptors_and_selection_snapshots_are_immutable():
     with pytest.raises(AttributeError):
         registry.routing_policy = "changed"
     with pytest.raises(TypeError):
-        registry._workers["other"] = RegisteredWorker(descriptor("other"), worker)
+        other = descriptor("other")
+        registry._workers["other"] = RegisteredWorker(
+            other, worker, authority_profile(other.authority)
+        )
 
 
 def test_descriptor_set_fields_must_be_canonical():
@@ -175,6 +187,103 @@ def test_registry_revalidates_descriptor_instances():
     )
     with pytest.raises(ValidationError, match="not_canonical"):
         WorkerRegistry([(malformed, StubWorker())])
+
+
+def test_registry_rejects_unsupported_authority():
+    unsupported = descriptor("worker").model_copy(update={"authority": ("network-write",)})
+    with pytest.raises(ValueError, match="worker_authority_unsupported"):
+        WorkerRegistry([(unsupported, StubWorker())])
+
+
+def test_authority_policy_fingerprint_binds_permission_semantics():
+    denied = WorkerAuthorityProfile(
+        name="profile",
+        authority=("workspace-write",),
+        workspace_write=True,
+        network=False,
+    )
+    allowed = WorkerAuthorityProfile(
+        name="profile",
+        authority=("workspace-write",),
+        workspace_write=True,
+        network=True,
+    )
+    assert authority_policy_fingerprint((denied,)) != authority_policy_fingerprint((allowed,))
+
+
+def test_authority_policy_matches_realized_permission_semantics(monkeypatch):
+    registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
+    _, snapshot = Supervisor(registry).select(
+        role="developer", capabilities=("zelo_core_development",)
+    )
+    assert Supervisor(registry).matches(snapshot)
+    from app import worker_authority
+
+    original = worker_authority.codex_permission_semantics
+
+    def widened(profile):
+        semantics = dict(original(profile))
+        filesystem = dict(semantics["filesystem"])
+        filesystem["/tmp/zelo-codex-engine"] = "read"
+        semantics["filesystem"] = filesystem
+        return semantics
+
+    monkeypatch.setattr(worker_authority, "codex_permission_semantics", widened)
+    assert not Supervisor(registry).matches(snapshot)
+
+
+def test_authority_policy_matches_real_sandbox_semantics(monkeypatch, tmp_path):
+    from app import developer_sandbox
+
+    profile = authority_profile(("workspace-write",))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    auth = tmp_path / "auth.json"
+    auth.write_text("fixture-auth")
+    baseline_argv = sandbox(
+        repo,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    baseline = authority_policy_fingerprint((profile,))
+    extra_bind = tmp_path / "extra-bind"
+    extra_bind.mkdir()
+    monkeypatch.setattr(
+        developer_sandbox,
+        "SYSTEM_READONLY_BINDS",
+        (*developer_sandbox.SYSTEM_READONLY_BINDS, str(extra_bind)),
+    )
+    changed_argv = sandbox(
+        repo,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    assert str(extra_bind) not in baseline_argv
+    assert str(extra_bind) in changed_argv
+    assert authority_policy_fingerprint((profile,)) != baseline
+
+
+def test_authority_policy_is_approval_bound():
+    registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
+    _, snapshot = Supervisor(registry).select(
+        role="developer", capabilities=("zelo_core_development",)
+    )
+    assert Supervisor(registry).matches(snapshot)
+    assert not Supervisor(registry).matches(
+        snapshot.model_copy(update={"authority_policy_version": "changed"})
+    )
+    assert not Supervisor(registry).matches(
+        snapshot.model_copy(update={"authority_profile": "changed"})
+    )
 
 
 def test_developer_api_cannot_select_worker_or_authority():
@@ -234,6 +343,31 @@ def test_explicit_registry_rejects_unregistered_primary_worker(developer_case):
             developer_case.source_repository,
             registry,
         )
+
+
+def test_explicit_registry_derives_supervisor_winner(developer_case):
+    worker_a = StubWorker("worker_a")
+    worker_b = StubWorker("worker_b")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("worker_a", priority=1).model_copy(
+                    update={"implementation": "worker_a"}
+                ),
+                worker_a,
+            ),
+            (
+                descriptor("worker_b", priority=2).model_copy(
+                    update={"implementation": "worker_b"}
+                ),
+                worker_b,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, None, developer_case.source_repository, registry
+    )
+    assert runtime.worker is worker_b
 
 
 def test_explicit_registry_rejects_worker_reassignment(developer_case):
@@ -324,7 +458,7 @@ def test_selected_worker_identity_and_execution_are_bound_to_registry(developer_
         ]
     )
     runtime = developer_case.__class__(
-        developer_case.settings, worker_a, developer_case.source_repository, registry
+        developer_case.settings, worker_b, developer_case.source_repository, registry
     )
     request = runtime.request("test", "zelo_core", 30)
     assert request.worker == worker_b.identity()

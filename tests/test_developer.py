@@ -3,6 +3,8 @@
 import asyncio
 import copy
 import json
+import threading
+import time
 from uuid import uuid4
 
 import pytest
@@ -16,11 +18,17 @@ from app.codex_worker import (
 )
 from app.developer import DeveloperError
 from app.developer_process import ProcessResult, environment
+from app.developer_sandbox import CODEX, ENGINE, git_argv, sandbox, sandbox_policy_version
 from app.models import Approval, Task
 from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
+from app.worker_authority import (
+    WorkerAuthorityProfile,
+    authority_policy_version,
+    authority_profile,
+)
 from tests.developer_helpers import fixture_commit
 
 
@@ -50,6 +58,37 @@ def request(runtime):
 
 def stream(*events):
     return b"".join(json.dumps(event, ensure_ascii=False).encode() + b"\n" for event in events)
+
+
+def _mount_mode(argv: list[str], dest: str) -> str | None:
+    for index in range(2, len(argv)):
+        if argv[index] == dest and argv[index - 2] in {"--bind", "--ro-bind"}:
+            return argv[index - 2]
+    return None
+
+
+def _has_arg(argv: list[str], flag: str) -> bool:
+    return flag in argv
+
+
+def _chdir_target(argv: list[str]) -> str | None:
+    for index in range(len(argv) - 1):
+        if argv[index] == "--chdir":
+            return argv[index + 1]
+    return None
+
+
+def _patch_sandbox_plan(monkeypatch, mutate):
+    from app import developer_sandbox
+
+    original = developer_sandbox.sandbox_plan
+
+    def wrapped(**kwargs):
+        plan = copy.deepcopy(original(**kwargs))
+        mutate(plan, kwargs)
+        return plan
+
+    monkeypatch.setattr(developer_sandbox, "sandbox_plan", wrapped)
 
 
 FINAL = {
@@ -312,6 +351,19 @@ def test_api_cannot_select_execution_inputs(field):
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x", field: "unsafe"})
 
 
+def test_codex_command_config_derives_filesystem_and_network_from_authority():
+    read_only = WorkerAuthorityProfile(
+        name="test-read-only",
+        authority=("test-read-only",),
+        workspace_write=False,
+        network=False,
+    )
+    config = command_config(read_only)
+    joined = " ".join(config)
+    assert '"/workspace"="read"' in joined
+    assert "permissions.zelo.network.enabled=false" in config
+
+
 def test_validation_profile_closed():
     with pytest.raises(ValueError):
         DeveloperRunInput(
@@ -347,6 +399,217 @@ def test_environment_allowlist(monkeypatch, variable):
     assert environment()["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
 
 
+def test_authority_fingerprint_changes_when_auth_bind_widens(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    profile = authority_profile(("workspace-write",))
+    auth = runtime.settings.workspace_root / "auth.json"
+    auth.write_text("fixture-auth")
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    baseline_version = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        for operation in plan["operations"]:
+            if operation.get("dest") == ENGINE + "/auth.json":
+                operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    assert _mount_mode(baseline_argv, ENGINE + "/auth.json") == "--ro-bind"
+    assert _mount_mode(changed_argv, ENGINE + "/auth.json") == "--bind"
+    assert authority_policy_version() != baseline_version
+    assert not runtime.supervisor.matches(approved.worker_selection)
+
+
+def test_sandbox_version_changes_when_validation_venv_bind_widens(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, _kwargs):
+        for operation in plan["operations"]:
+            if operation.get("source") == "$VENV":
+                operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _mount_mode(baseline_argv, "/opt/zelo-venv") == "--ro-bind"
+    assert _mount_mode(changed_argv, "/opt/zelo-venv") == "--bind"
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_git_inspection_workspace_widens(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, kwargs):
+        if kwargs["git_inspection"]:
+            for operation in plan["operations"]:
+                if operation.get("dest") == "/workspace" and operation.get("source") == "$REPO":
+                    operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    assert _mount_mode(baseline_argv, "/workspace") == "--ro-bind"
+    assert _mount_mode(changed_argv, "/workspace") == "--bind"
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_extra_host_bind_is_added(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, kwargs):
+        if kwargs["git_inspection"]:
+            operations = list(plan["operations"])
+            operations.append({"op": "--ro-bind", "source": "/", "dest": "/hostroot"})
+            plan["operations"] = tuple(operations)
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    assert "/hostroot" not in baseline_argv
+    assert "/hostroot" in changed_argv
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_isolated_network_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-network"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, kwargs):
+        if not kwargs["service_network"]:
+            plan["namespaces"]["network"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert "--unshare-net" in baseline_argv
+    assert "--unshare-net" not in changed_argv
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_unshare_pid_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-pid"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["namespaces"]["pid"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _has_arg(baseline_argv, "--unshare-pid")
+    assert not _has_arg(changed_argv, "--unshare-pid")
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_die_with_parent_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-lifecycle"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["lifecycle"]["die_with_parent"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _has_arg(baseline_argv, "--die-with-parent")
+    assert not _has_arg(changed_argv, "--die-with-parent")
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-cwd"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["cwd"] = "/tmp/alternate-workspace"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _chdir_target(baseline_argv) == "/workspace"
+    assert _chdir_target(changed_argv) == "/tmp/alternate-workspace"
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -364,6 +627,8 @@ def test_environment_allowlist(monkeypatch, variable):
         "worker.executable",
         "worker.executable_sha256",
         "worker.auth_location",
+        "worker_selection.authority_profile",
+        "worker_selection.authority_policy_version",
         "limits.overall_seconds",
         "limits.worker_seconds",
         "limits.validation_seconds",
@@ -396,6 +661,8 @@ def test_approval_binds_specification(developer_case, database, field):
         target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":
             target[keys[-1]] = "f" * 40
+        if field == "worker_selection.authority_policy_version":
+            target[keys[-1]] = "0" * 64
         stored.developer_spec = spec
         assert not service._valid_action(stored, approval)
     assert service.claim() is None
@@ -537,9 +804,10 @@ def test_codex_invocation_is_explicit(developer_case, fake_codex):
     repo = developer_case.settings.workspace_root
     auth = repo / "fake-auth.json"
     auth.write_text("sentinel")
+    profile = authority_profile(("workspace-write",))
     worker.settings.developer_codex_auth_file = auth
     with worker.bind() as bound:
-        argv = bound.argv(repo)
+        argv = bound.argv(repo, profile)
     for flag in (
         "--ignore-user-config",
         "--ignore-rules",
@@ -553,7 +821,22 @@ def test_codex_invocation_is_explicit(developer_case, fake_codex):
     assert "--unshare-net" not in argv  # Parent service connectivity; inner commands are denied.
     assert "danger-full-access" not in str(argv)
     assert "sandbox" not in argv[argv.index("exec") + 1 :]
-    assert 'inherit="none"' in str(command_config())
+    assert 'inherit="none"' in str(command_config(profile))
+
+
+def test_codex_entry_points_require_explicit_profile(developer_case, fake_codex):
+    repo = developer_case.settings.workspace_root
+    auth = repo / "fake-auth.json"
+    auth.write_text("sentinel")
+    with pytest.raises(TypeError):
+        command_config()
+    with fake_codex.bind() as bound:
+        with pytest.raises(TypeError):
+            bound.argv(repo)
+        with pytest.raises(TypeError):
+            asyncio.run(bound.probe(repo, auth))
+        with pytest.raises(TypeError):
+            asyncio.run(bound.local_command_probe(repo, auth))
 
 
 def test_runtime_worker_change_fails_before_execution(developer_case):
@@ -591,6 +874,193 @@ def test_runtime_persists_only_nonfatal_error_item_count(developer_case):
     )
     assert result["nonfatal_error_items"] == 1
     assert "message" not in result
+
+
+def test_runtime_offloads_worker_binding_from_event_loop(developer_case, monkeypatch):
+    entered = threading.Event()
+    ticker_progress = threading.Event()
+    request_spec = request(developer_case)
+
+    async def snapshot(_request):
+        return {"snapshot": "ok"}
+
+    async def stop(*args):
+        raise DeveloperError("fixture_stop")
+
+    monkeypatch.setattr(developer_case, "primary_snapshot", snapshot)
+    monkeypatch.setattr(developer_case, "prepare", stop)
+
+    class SlowBind:
+        def __enter__(self):
+            entered.set()
+            time.sleep(0.1)
+            assert ticker_progress.wait(0.2)
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowBind())
+
+    async def exercise():
+        async def ticker():
+            await asyncio.to_thread(entered.wait, 1)
+            await asyncio.sleep(0)
+            ticker_progress.set()
+
+        run_task = asyncio.create_task(
+            developer_case.run(str(uuid4()), str(uuid4()), request_spec, lambda *_: None)
+        )
+        await asyncio.gather(run_task, ticker())
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["error"] == "fixture_stop"
+
+
+def test_runtime_cleans_up_bind_cancelled_during_threaded_enter(developer_case, monkeypatch):
+    entered = threading.Event()
+    release_enter = threading.Event()
+    exited = []
+    request_spec = request(developer_case)
+
+    class SlowBind:
+        def __enter__(self):
+            entered.set()
+            assert release_enter.wait(1)
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exited.append((exc_type, exc, tb))
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowBind())
+
+    async def exercise():
+        run_task = asyncio.create_task(
+            developer_case.run(str(uuid4()), str(uuid4()), request_spec, lambda *_: None)
+        )
+        await asyncio.to_thread(entered.wait, 1)
+        run_task.cancel()
+        release_enter.set()
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["error"] == "developer_cancelled"
+    assert result["cancelled"] is True
+    assert len(exited) == 1
+
+
+def test_runtime_releases_slot_before_uncancellable_unbind(developer_case, monkeypatch):
+    request_spec = request(developer_case)
+    worker_id = request_spec.worker_selection.descriptor.worker_id
+    run_started = threading.Event()
+    exit_started = threading.Event()
+    release_exit = threading.Event()
+    exited = []
+    events = []
+
+    async def block(request, repo):
+        run_started.set()
+        await asyncio.sleep(30)
+
+    developer_case.worker.action = block
+    monkeypatch.setattr(
+        developer_case,
+        "primary_snapshot",
+        lambda _request: asyncio.sleep(0, result="ok"),
+    )
+
+    class SlowExit:
+        def __enter__(self):
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exited.append((exc_type, exc, tb))
+            exit_started.set()
+            assert release_exit.wait(1)
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowExit())
+
+    async def exercise():
+        run_task = asyncio.create_task(
+            developer_case.run(
+                str(uuid4()),
+                str(uuid4()),
+                request_spec,
+                lambda event, details: events.append(event),
+            )
+        )
+        await asyncio.to_thread(run_started.wait, 1)
+        run_task.cancel()
+        await asyncio.to_thread(exit_started.wait, 1)
+        lock = developer_case.worker_lock(worker_id, 1)
+        lock.close()
+        run_task.cancel()
+        release_exit.set()
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["cancelled"] is True
+    assert events.count("worker_capacity_claimed") == 1
+    assert events.count("worker_capacity_released") == 1
+    assert len(exited) == 1
+
+
+def test_release_emit_failure_still_unbinds_and_closes_artifacts(
+    developer_case, database, monkeypatch
+):
+    runtime = developer_case
+    service = TaskService(database, runtime.settings, developer_runtime=runtime)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None and execution.developer_request is not None
+    exits = []
+    artifacts_closed = []
+    worker_id = execution.developer_request.worker_selection.descriptor.worker_id
+
+    class TrackingBind:
+        def __enter__(self):
+            return runtime.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exits.append((exc_type, exc, tb))
+            return False
+
+    class TrackingExitStack:
+        def __init__(self):
+            self._closed = False
+
+        def close(self):
+            assert not self._closed
+            self._closed = True
+            artifacts_closed.append("closed")
+
+    original_model_event = service.model_event
+
+    def fail_release_event(task_id, event, attempt_id, **details):
+        if event == "worker_capacity_released":
+            raise RuntimeError("audit backend down")
+        return original_model_event(task_id, event, attempt_id, **details)
+
+    monkeypatch.setattr(runtime.worker, "bind", lambda approved: TrackingBind())
+    monkeypatch.setattr("app.developer.ExitStack", TrackingExitStack)
+    monkeypatch.setattr(service, "model_event", fail_release_event)
+
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.FAILED
+    assert current.error == "worker_error"
+    assert current.attempts[0].outcome == State.FAILED
+    assert len(exits) == 1
+    assert artifacts_closed == ["closed"]
+    lock = runtime.worker_lock(worker_id, 1)
+    lock.close()
 
 
 def test_jsonl_current_exec_rejects_collab_tool_call(developer_case):
@@ -670,6 +1140,7 @@ def test_unsafe_codex_boundary_fails_closed(fake_codex, developer_case, monkeypa
             fake_codex.probe(
                 developer_case.settings.workspace_root,
                 fake_codex.settings.developer_codex_auth_file,
+                authority_profile(("workspace-write",)),
             )
         )
 
