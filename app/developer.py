@@ -511,9 +511,7 @@ class DeveloperRuntime:
         """Acquire one cross-process capacity slot for the approved worker."""
         lock_root = self._lock_root()
         for slot in range(max_concurrency):
-            stream = self._open_lock_stream(
-                lock_root / f"developer-worker-{worker_id}-{slot}.lock"
-            )
+            stream = self._open_lock_stream(lock_root / f"developer-worker-{worker_id}-{slot}.lock")
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:

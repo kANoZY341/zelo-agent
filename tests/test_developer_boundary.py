@@ -172,9 +172,7 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
     assert capacity == ["worker_capacity_claimed", "worker_capacity_released"]
 
 
-def test_interrupted_developer_recovery_does_not_invent_capacity_release(
-    developer_case, database
-):
+def test_interrupted_developer_recovery_does_not_invent_capacity_release(developer_case, database):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
     task, _ = service.submit(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None

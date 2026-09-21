@@ -378,9 +378,7 @@ def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
     assert retry is not None and retry.task_id == task.id
 
 
-def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(
-    developer_case, database
-):
+def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(developer_case, database):
     if not Path("/usr/bin/bwrap").is_file():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
     settings = developer_case.settings.model_copy(update={"runner_poll_seconds": 0.2})
@@ -389,7 +387,9 @@ def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
     )
     service.decide(task.approvals[0].id, "approve")
-    worker_id = developer_case.request("test", "zelo_core", 30).worker_selection.descriptor.worker_id
+    worker_id = developer_case.request(
+        "test", "zelo_core", 30
+    ).worker_selection.descriptor.worker_id
     lock = developer_case.worker_lock(worker_id, 1)
 
     async def exercise():
