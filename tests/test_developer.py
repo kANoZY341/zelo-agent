@@ -448,9 +448,7 @@ def test_sandbox_version_changes_when_validation_venv_bind_widens(developer_case
     assert not runtime.compatible(approved, 60)
 
 
-def test_sandbox_version_changes_when_git_inspection_workspace_widens(
-    developer_case, monkeypatch
-):
+def test_sandbox_version_changes_when_git_inspection_workspace_widens(developer_case, monkeypatch):
     runtime = developer_case
     approved = request(runtime)
     baseline_argv = sandbox(
