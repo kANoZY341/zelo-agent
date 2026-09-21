@@ -59,10 +59,11 @@ Reproduction (probe, passed):
 
 ```python
 before = authority_policy_version()
-monkeypatch.setattr(developer_sandbox, "sandbox",
-                    lambda repo, cmd, **kw: [argv[0], "--bind", "/", "/", *argv[1:]])
+monkeypatch.setattr(
+    developer_sandbox, "sandbox", lambda repo, cmd, **kw: [argv[0], "--bind", "/", "/", *argv[1:]]
+)
 after = authority_policy_version()
-assert before == after      # PASSES -> host root bind does not invalidate any approval
+assert before == after  # PASSES -> host root bind does not invalidate any approval
 ```
 
 Removing `--unshare-net`, `--unshare-pid`, changing `--ro-bind` of `REPO/.git` to `--bind`, or binding

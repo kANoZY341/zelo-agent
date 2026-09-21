@@ -16,7 +16,7 @@ import pytest
 from app.codex_worker import CodexCliWorker
 from app.config import ROOT
 from app.developer import DeveloperError, DeveloperRuntime, tree_digest
-from app.developer_process import run_process
+from app.developer_process import environment, run_process
 from app.developer_sandbox import VENV, sandbox
 from app.developer_validation import python_command
 from app.policy import State
@@ -370,6 +370,9 @@ def test_concurrent_primary_snapshots_do_not_mutate_source_index(developer_case)
     request = spec(runtime)
     index = runtime.source_repository / ".git" / "index"
     before = index.read_bytes()
+    before_digest = tree_digest(index)
+    before_mtime = index.stat().st_mtime_ns
+    assert environment()["GIT_OPTIONAL_LOCKS"] == "0"
 
     async def exercise():
         first, second = await asyncio.gather(
@@ -380,6 +383,8 @@ def test_concurrent_primary_snapshots_do_not_mutate_source_index(developer_case)
 
     asyncio.run(exercise())
     assert index.read_bytes() == before
+    assert tree_digest(index) == before_digest
+    assert index.stat().st_mtime_ns == before_mtime
 
 
 @pytest.mark.parametrize("failure", ["exception", "timeout", "cancel", "success"])

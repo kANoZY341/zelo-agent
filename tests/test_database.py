@@ -168,7 +168,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0009_worker_concurrency"
+                == "0010_capacity_backoff"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -205,6 +205,8 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert "promotion_spec" in columns
             assert "merge_spec" in columns
             assert "release_spec" in columns
+            assert "capacity_backoff_attempts" in columns
+            assert "capacity_backoff_until" in columns
             assert not any(
                 table.startswith("_alembic_tmp_")
                 for table in inspect(database.engine).get_table_names()
@@ -226,6 +228,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             "0008_release_approval",
             "0009_worker_concurrency",
             "CREATE UNIQUE INDEX uq_running_attempt_per_task",
+        ),
+        (
+            "0009_worker_concurrency",
+            "0010_capacity_backoff",
+            "ADD COLUMN capacity_backoff_attempts",
         ),
     ],
 )
@@ -341,7 +348,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0009_worker_concurrency"
+                "0010_capacity_backoff"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1

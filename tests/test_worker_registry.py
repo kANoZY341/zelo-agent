@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
+from app.developer_sandbox import CODEX, sandbox
 from app.policy import DomainError, State
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
@@ -229,6 +230,46 @@ def test_authority_policy_matches_realized_permission_semantics(monkeypatch):
 
     monkeypatch.setattr(worker_authority, "codex_permission_semantics", widened)
     assert not Supervisor(registry).matches(snapshot)
+
+
+def test_authority_policy_matches_real_sandbox_semantics(monkeypatch, tmp_path):
+    from app import developer_sandbox
+
+    profile = authority_profile(("workspace-write",))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    auth = tmp_path / "auth.json"
+    auth.write_text("fixture-auth")
+    baseline_argv = sandbox(
+        repo,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    baseline = authority_policy_fingerprint((profile,))
+    extra_bind = tmp_path / "extra-bind"
+    extra_bind.mkdir()
+    monkeypatch.setattr(
+        developer_sandbox,
+        "SYSTEM_READONLY_BINDS",
+        (*developer_sandbox.SYSTEM_READONLY_BINDS, str(extra_bind)),
+    )
+    changed_argv = sandbox(
+        repo,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    assert str(extra_bind) not in baseline_argv
+    assert str(extra_bind) in changed_argv
+    assert authority_policy_fingerprint((profile,)) != baseline
 
 
 def test_authority_policy_is_approval_bound():

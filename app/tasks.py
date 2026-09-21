@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -36,6 +36,8 @@ from app.schemas import (
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
+CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
+CAPACITY_BACKOFF_MAX_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,15 @@ def transition(session: Session, task: Task, target: State) -> None:
     task.status = target
     task.updated_at = utcnow()
     audit(session, task, "state_transition", previous=previous, target=target)
+
+
+def defer_transition(session: Session, task: Task) -> None:
+    if task.status != State.RUNNING:
+        raise DomainError(f"Cannot transition from {task.status} to {State.PENDING}")
+    previous = task.status
+    task.status = State.PENDING
+    task.updated_at = utcnow()
+    audit(session, task, "state_transition", previous=previous, target=State.PENDING)
 
 
 def require_task(session: Session, task_id: str) -> Task:
@@ -1034,6 +1045,8 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            if task.status == State.RUNNING:
+                raise DomainError(f"Cannot retry task in state {task.status}")
             approval_kinds = {
                 "approval_demo",
                 "ai_prompt",
@@ -1046,6 +1059,8 @@ class TaskService:
             validate_transition(task.status, target)
             self._check_capacity(session)
             audit(session, task, "retry_requested")
+            task.capacity_backoff_attempts = 0
+            task.capacity_backoff_until = None
             for approval in session.scalars(
                 select(Approval).where(
                     Approval.task_id == task.id,
@@ -1166,7 +1181,14 @@ class TaskService:
         pending = list(
             session.scalars(
                 select(Task)
-                .where(Task.status == State.PENDING)
+                .where(
+                    Task.status == State.PENDING,
+                    Task.cancel_requested.is_(False),
+                    or_(
+                        Task.capacity_backoff_until.is_(None),
+                        Task.capacity_backoff_until <= utcnow(),
+                    ),
+                )
                 .order_by(Task.created_at, Task.id)
                 .limit(self.settings.max_waiting_tasks)
             )
@@ -1397,6 +1419,7 @@ class TaskService:
             attempt = TaskAttempt(task_id=task.id, number=number + 1, outcome=State.RUNNING)
             session.add(attempt)
             session.flush()
+            task.capacity_backoff_until = None
             audit(session, task, "attempt_created", attempt_id=attempt.id, number=attempt.number)
             transition(session, task, State.RUNNING)
             audit(session, task, "execution_started", attempt_id=attempt.id)
@@ -1433,6 +1456,8 @@ class TaskService:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
                 if task.kind != "developer_run":
                     result = None
+            task.capacity_backoff_attempts = 0
+            task.capacity_backoff_until = None
             transition(session, task, outcome)
             task.result, task.error = result, error
             attempt.outcome = outcome
@@ -1527,14 +1552,50 @@ class TaskService:
             attempt = session.get(TaskAttempt, execution.attempt_id)
             if attempt is None or attempt.outcome != State.RUNNING:
                 raise DomainError("Attempt is not running")
-            transition(session, task, State.PENDING)
+            if task.cancel_requested:
+                task.capacity_backoff_attempts = 0
+                task.capacity_backoff_until = None
+                transition(session, task, State.CANCELLED)
+                task.error = "cancelled_by_operator"
+                task.result = None
+                attempt.outcome = State.CANCELLED
+                attempt.result = None
+                attempt.error = "cancelled_by_operator"
+                attempt.ended_at = utcnow()
+                audit(session, task, "cancellation_completed", attempt_id=attempt.id)
+                if task.kind == "developer_run":
+                    audit(
+                        session,
+                        task,
+                        "developer_failed",
+                        attempt_id=attempt.id,
+                        reason="cancelled_by_operator",
+                    )
+                return
+            task.capacity_backoff_attempts += 1
+            delay_seconds = min(
+                CAPACITY_BACKOFF_INITIAL_SECONDS * (2 ** (task.capacity_backoff_attempts - 1)),
+                CAPACITY_BACKOFF_MAX_SECONDS,
+            )
+            eligible_at = utcnow() + timedelta(seconds=delay_seconds)
+            task.capacity_backoff_until = eligible_at
+            defer_transition(session, task)
             task.error = None
             task.result = None
             attempt.outcome = State.INTERRUPTED
             attempt.result = None
             attempt.error = error
             attempt.ended_at = utcnow()
-            audit(session, task, "execution_deferred", attempt_id=attempt.id, reason=error)
+            audit(
+                session,
+                task,
+                "execution_deferred",
+                attempt_id=attempt.id,
+                reason=error,
+                retry_after_seconds=delay_seconds,
+                eligible_at=eligible_at.isoformat(),
+                consecutive_deferrals=task.capacity_backoff_attempts,
+            )
             if task.kind == "developer_run":
                 audit(
                     session,
@@ -1542,6 +1603,8 @@ class TaskService:
                     "developer_deferred",
                     attempt_id=attempt.id,
                     reason=error,
+                    retry_after_seconds=delay_seconds,
+                    consecutive_deferrals=task.capacity_backoff_attempts,
                 )
 
     @staticmethod

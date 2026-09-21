@@ -19,9 +19,7 @@ class State(StrEnum):
 TRANSITIONS: dict[State, frozenset[State]] = {
     State.PENDING: frozenset({State.RUNNING, State.CANCELLED}),
     State.AWAITING_APPROVAL: frozenset({State.PENDING, State.CANCELLED}),
-    State.RUNNING: frozenset(
-        {State.PENDING, State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED}
-    ),
+    State.RUNNING: frozenset({State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED}),
     State.SUCCEEDED: frozenset(),
     State.FAILED: frozenset({State.PENDING, State.AWAITING_APPROVAL}),
     State.CANCELLED: frozenset({State.PENDING, State.AWAITING_APPROVAL}),

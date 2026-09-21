@@ -374,14 +374,35 @@ def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
     assert current.error is None
     assert current.approvals[0].status == "approved"
     assert current.attempts[0].outcome == State.INTERRUPTED
+    assert service.claim() is None
+    asyncio.run(asyncio.sleep(0.3))
     retry = service.claim()
     assert retry is not None and retry.task_id == task.id
 
 
-def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(developer_case, database):
+def test_capacity_deferral_honors_pending_cancellation(settings, database):
+    runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
+    service = TaskService(database, settings, developer_runtime=runtime)
+    task = _approved(service, "alpha-one")
+    execution = service.claim()
+    assert execution is not None
+    assert service.cancel(task.id).status == State.RUNNING
+
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.CANCELLED
+    assert current.error == "cancelled_by_operator"
+    assert current.attempts[0].outcome == State.CANCELLED
+    assert service.claim() is None
+
+
+def test_real_runtime_slot_contention_defers_with_bounded_backoff_and_retries(
+    developer_case, database
+):
     if not Path("/usr/bin/bwrap").is_file():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
-    settings = developer_case.settings.model_copy(update={"runner_poll_seconds": 0.2})
+    settings = developer_case.settings.model_copy(update={"runner_poll_seconds": 0.05})
     service = TaskService(database, settings, developer_runtime=developer_case)
     task, _ = service.submit(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
@@ -411,21 +432,22 @@ def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(develo
             assert current.approvals[0].status == "approved"
             assert len(current.attempts) == 1
             assert current.attempts[0].error == "developer_worker_capacity_exhausted"
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.2)
             assert len(service.get(task.id).attempts) == 1
+            await asyncio.sleep(0.45)
+            assert len(service.get(task.id).attempts) <= 2
 
             lock.close()
             for _ in range(200):
                 current = service.get(task.id)
-                if current.status == State.SUCCEEDED and len(current.attempts) == 2:
+                if current.status == State.SUCCEEDED and len(current.attempts) >= 2:
                     break
                 await asyncio.sleep(0.05)
             current = service.get(task.id)
             assert current.status == State.SUCCEEDED
-            assert [attempt.outcome for attempt in current.attempts] == [
-                State.INTERRUPTED,
-                State.SUCCEEDED,
-            ]
+            assert current.attempts[0].outcome == State.INTERRUPTED
+            assert current.attempts[-1].outcome == State.SUCCEEDED
+            assert len(current.attempts) <= 3
         finally:
             if not lock.closed:
                 lock.close()

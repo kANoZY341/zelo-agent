@@ -11,6 +11,62 @@ VENV = "/opt/zelo-venv"
 ENGINE = "/tmp/zelo-codex-engine"
 CODEX = "/opt/zelo-codex/codex"
 CODE_MODE_HOST = "/opt/zelo-codex/codex-code-mode-host"
+SYSTEM_READONLY_BINDS = ("/usr", "/bin", "/lib", "/lib64")
+HOST_READONLY_BINDS = ("/etc/ld.so.cache", "/etc/ssl/certs", "/etc/resolv.conf", "/etc/hosts")
+
+
+def sandbox_plan(
+    *,
+    repo_present: bool,
+    workspace_write: bool,
+    git_metadata_present: bool,
+    include_venv: bool,
+    include_codex: bool,
+    include_code_mode_host: bool,
+    include_auth: bool,
+    service_network: bool,
+    git_inspection: bool,
+) -> dict[str, object]:
+    return {
+        "argv_prefix": ("--unshare-user", "--unshare-pid", "--unshare-ipc", "--die-with-parent"),
+        "unshare_network": not service_network,
+        "system_readonly_binds": SYSTEM_READONLY_BINDS,
+        "host_readonly_binds": HOST_READONLY_BINDS,
+        "tmpfs": ("/tmp",),
+        "directories": ("/tmp/zelo-home",),
+        "proc": "/proc",
+        "dev": "/dev",
+        "workspace": {
+            "path": REPO,
+            "mode": "--bind" if workspace_write else "--ro-bind",
+            "present": repo_present,
+        },
+        "git_metadata": {
+            "path": REPO + "/.git",
+            "mode": "--ro-bind",
+            "present": git_metadata_present,
+            "git_inspection": git_inspection,
+        },
+        "venv": {
+            "present": include_venv,
+            "paths": (VENV, REPO + "/.venv"),
+            "mode": "--ro-bind",
+        },
+        "codex": {
+            "present": include_codex,
+            "path": "/opt/zelo-codex",
+            "sealed": True,
+            "mode": "tmpfs-file-remount-ro",
+            "code_mode_host": include_code_mode_host,
+            "engine_dir": ENGINE,
+        },
+        "auth": {
+            "present": include_auth,
+            "path": ENGINE + "/auth.json",
+            "mode": "--ro-bind",
+        },
+        "cwd": REPO,
+    }
 
 
 def sandbox(
@@ -29,28 +85,50 @@ def sandbox(
         raise DeveloperError("bubblewrap_unavailable")
     if repo is not None and (repo.is_symlink() or not repo.is_dir()):
         raise DeveloperError("workspace_escape")
-    args = [str(BWRAP), "--unshare-user", "--unshare-pid", "--unshare-ipc", "--die-with-parent"]
-    if not service_network:
+    git = repo / ".git" if repo is not None else None
+    plan = sandbox_plan(
+        repo_present=repo is not None,
+        workspace_write=writable,
+        git_metadata_present=git is not None and git.exists(),
+        include_venv=venv is not None,
+        include_codex=codex_fd is not None,
+        include_code_mode_host=code_mode_host_fd is not None,
+        include_auth=auth is not None,
+        service_network=service_network,
+        git_inspection=git_inspection,
+    )
+    args = [str(BWRAP), *plan["argv_prefix"]]
+    if plan["unshare_network"]:
         args.append("--unshare-net")
-    for path in ("/usr", "/bin", "/lib", "/lib64"):
+    for path in plan["system_readonly_binds"]:
         if Path(path).exists():
             args.extend(["--ro-bind", path, path])
     # No /etc tree, host /home, /run, source checkout or sibling workspaces.
-    for path in ("/etc/ld.so.cache", "/etc/ssl/certs", "/etc/resolv.conf", "/etc/hosts"):
+    for path in plan["host_readonly_binds"]:
         if Path(path).exists():
             args.extend(["--ro-bind", path, path])
-    args.extend(["--tmpfs", "/tmp", "--dir", "/tmp/zelo-home", "--proc", "/proc", "--dev", "/dev"])
+    args.extend(
+        [
+            "--tmpfs",
+            *plan["tmpfs"],
+            "--dir",
+            *plan["directories"],
+            "--proc",
+            plan["proc"],
+            "--dev",
+            plan["dev"],
+        ]
+    )
     if repo is None:
         args.extend(["--dir", REPO])
     else:
-        args.extend(["--bind" if writable else "--ro-bind", str(repo), REPO])
-    git = repo / ".git" if repo is not None else None
+        args.extend([plan["workspace"]["mode"], str(repo), REPO])
     if git is not None and git.exists():
         if git.is_symlink() or not git.is_dir():
             raise DeveloperError("git_metadata_invalid")
         # Commands may edit source, but cannot replace config, refs, hooks or objects.
-        args.extend(["--ro-bind", str(git), REPO + "/.git"])
-        if git_inspection:
+        args.extend([plan["git_metadata"]["mode"], str(git), REPO + "/.git"])
+        if plan["git_metadata"]["git_inspection"]:
             if (git / "config").is_symlink():
                 raise DeveloperError("git_metadata_invalid")
             args.extend(
@@ -67,7 +145,7 @@ def sandbox(
         for name in (".codex", ".agents"):
             if repo is not None and (repo / name).exists():
                 raise DeveloperError("project_worker_configuration_forbidden")
-    if venv is not None:
+    if plan["venv"]["present"]:
         if repo is None:
             raise DeveloperError("validation_environment_invalid")
         # Project tests may resolve ROOT/.venv (including nested boundary tests).
@@ -76,7 +154,7 @@ def sandbox(
         if local_venv.is_symlink() or (local_venv.exists() and not local_venv.is_dir()):
             raise DeveloperError("validation_environment_invalid")
         args.extend(["--ro-bind", str(venv), VENV, "--ro-bind", str(venv), REPO + "/.venv"])
-    if codex_fd is not None:
+    if plan["codex"]["present"]:
         if command and command[0] == CODEX and code_mode_host_fd is None:
             raise DeveloperError("code_mode_host_unavailable")
         # Materialize the sealed bytes into a private named tmpfs executable.
@@ -102,7 +180,7 @@ def sandbox(
                 ENGINE,
             ]
         )
-    if auth is not None:
+    if plan["auth"]["present"]:
         if auth.is_symlink() or not auth.is_file():
             raise DeveloperError("codex_auth_unavailable")
         args.extend(["--ro-bind", str(auth), ENGINE + "/auth.json"])

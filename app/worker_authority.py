@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.developer_process import environment
-from app.developer_sandbox import ENGINE, REPO
+from app.developer_sandbox import ENGINE, REPO, sandbox_plan
 
 AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v2"
 
@@ -124,13 +124,17 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
-    return {
-        "repo": {"path": REPO, "writable": profile.workspace_write, "git_metadata": "read-only"},
-        "codex_mount": {"path": "/opt/zelo-codex", "sealed": True},
-        "engine": {"path": ENGINE, "auth": "read-only"},
-        "service_network": True,
-        "host_network_unshared": False,
-    }
+    return sandbox_plan(
+        repo_present=True,
+        workspace_write=profile.workspace_write,
+        git_metadata_present=True,
+        include_venv=False,
+        include_codex=True,
+        include_code_mode_host=True,
+        include_auth=True,
+        service_network=True,
+        git_inspection=False,
+    )
 
 
 def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, object]:

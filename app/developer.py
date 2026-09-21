@@ -584,6 +584,7 @@ class DeveloperRuntime:
         bound_worker_context = None
         bound_worker = None
         bound_worker_entered = False
+        lock_released = False
         transient_error = None
         try:
             emit("developer_started", {})
@@ -621,8 +622,11 @@ class DeveloperRuntime:
                     },
                 )
                 bound_worker_context = selected.worker.bind(request.worker)
-                bound_worker = await asyncio.to_thread(bound_worker_context.__enter__)
+                enter_task = asyncio.create_task(asyncio.to_thread(bound_worker_context.__enter__))
+                bound_worker, bind_cancelled = await uncancellable(enter_task)
                 bound_worker_entered = True
+                if bind_cancelled:
+                    raise asyncio.CancelledError
                 actual = await bound_worker.preflight()
                 if (
                     actual != request.worker
@@ -775,17 +779,29 @@ class DeveloperRuntime:
                     if not result["error"]:
                         result["error"] = "developer_cancelled"
             finally:
-                if bound_worker_context is not None and bound_worker_entered:
-                    await asyncio.to_thread(bound_worker_context.__exit__, None, None, None)
-                artifacts.close()
-                if lock is not None:
-                    lock.close()
-                    emit(
-                        "worker_capacity_released",
-                        {
-                            "worker_id": request.worker_selection.descriptor.worker_id,
-                        },
-                    )
+
+                async def cleanup():
+                    nonlocal lock_released
+                    if lock is not None and not lock_released:
+                        lock.close()
+                        lock_released = True
+                        emit(
+                            "worker_capacity_released",
+                            {
+                                "worker_id": request.worker_selection.descriptor.worker_id,
+                            },
+                        )
+                    try:
+                        if bound_worker_context is not None and bound_worker_entered:
+                            await asyncio.to_thread(bound_worker_context.__exit__, None, None, None)
+                    finally:
+                        artifacts.close()
+
+                _, cancelled = await uncancellable(asyncio.create_task(cleanup()))
+                if cancelled:
+                    result["cancelled"] = True
+                    if not result["error"]:
+                        result["error"] = "developer_cancelled"
         if (
             time.monotonic() - monotonic_start > request.limits.overall_seconds
             and not result["error"]

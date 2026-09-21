@@ -634,6 +634,15 @@ def test_runtime_offloads_worker_binding_from_event_loop(developer_case, monkeyp
     ticker_progress = threading.Event()
     request_spec = request(developer_case)
 
+    async def snapshot(_request):
+        return {"snapshot": "ok"}
+
+    async def stop(*args):
+        raise DeveloperError("fixture_stop")
+
+    monkeypatch.setattr(developer_case, "primary_snapshot", snapshot)
+    monkeypatch.setattr(developer_case, "prepare", stop)
+
     class SlowBind:
         def __enter__(self):
             entered.set()
@@ -659,7 +668,97 @@ def test_runtime_offloads_worker_binding_from_event_loop(developer_case, monkeyp
         return await run_task
 
     result = asyncio.run(exercise())
-    assert result["error"] is None
+    assert result["error"] == "fixture_stop"
+
+
+def test_runtime_cleans_up_bind_cancelled_during_threaded_enter(developer_case, monkeypatch):
+    entered = threading.Event()
+    release_enter = threading.Event()
+    exited = []
+    request_spec = request(developer_case)
+
+    class SlowBind:
+        def __enter__(self):
+            entered.set()
+            assert release_enter.wait(1)
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exited.append((exc_type, exc, tb))
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowBind())
+
+    async def exercise():
+        run_task = asyncio.create_task(
+            developer_case.run(str(uuid4()), str(uuid4()), request_spec, lambda *_: None)
+        )
+        await asyncio.to_thread(entered.wait, 1)
+        run_task.cancel()
+        release_enter.set()
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["error"] == "developer_cancelled"
+    assert result["cancelled"] is True
+    assert len(exited) == 1
+
+
+def test_runtime_releases_slot_before_uncancellable_unbind(developer_case, monkeypatch):
+    request_spec = request(developer_case)
+    worker_id = request_spec.worker_selection.descriptor.worker_id
+    run_started = threading.Event()
+    exit_started = threading.Event()
+    release_exit = threading.Event()
+    exited = []
+    events = []
+
+    async def block(request, repo):
+        run_started.set()
+        await asyncio.sleep(30)
+
+    developer_case.worker.action = block
+    monkeypatch.setattr(
+        developer_case,
+        "primary_snapshot",
+        lambda _request: asyncio.sleep(0, result="ok"),
+    )
+
+    class SlowExit:
+        def __enter__(self):
+            return developer_case.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exited.append((exc_type, exc, tb))
+            exit_started.set()
+            assert release_exit.wait(1)
+            return False
+
+    monkeypatch.setattr(developer_case.worker, "bind", lambda approved: SlowExit())
+
+    async def exercise():
+        run_task = asyncio.create_task(
+            developer_case.run(
+                str(uuid4()),
+                str(uuid4()),
+                request_spec,
+                lambda event, details: events.append(event),
+            )
+        )
+        await asyncio.to_thread(run_started.wait, 1)
+        run_task.cancel()
+        await asyncio.to_thread(exit_started.wait, 1)
+        lock = developer_case.worker_lock(worker_id, 1)
+        lock.close()
+        run_task.cancel()
+        release_exit.set()
+        return await run_task
+
+    result = asyncio.run(exercise())
+    assert result["cancelled"] is True
+    assert events.count("worker_capacity_claimed") == 1
+    assert events.count("worker_capacity_released") == 1
+    assert len(exited) == 1
 
 
 def test_jsonl_current_exec_rejects_collab_tool_call(developer_case):

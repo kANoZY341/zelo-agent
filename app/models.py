@@ -58,6 +58,8 @@ class Task(Base):
     selected_alias: Mapped[str | None] = mapped_column(String(64))
     selected_model: Mapped[str | None] = mapped_column(String(128))
     config_version: Mapped[str | None] = mapped_column(String(64))
+    capacity_backoff_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    capacity_backoff_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
     developer_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     promotion_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     merge_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
