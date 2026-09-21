@@ -67,6 +67,17 @@ def _mount_mode(argv: list[str], dest: str) -> str | None:
     return None
 
 
+def _has_arg(argv: list[str], flag: str) -> bool:
+    return flag in argv
+
+
+def _chdir_target(argv: list[str]) -> str | None:
+    for index in range(len(argv) - 1):
+        if argv[index] == "--chdir":
+            return argv[index + 1]
+    return None
+
+
 def _patch_sandbox_plan(monkeypatch, mutate):
     from app import developer_sandbox
 
@@ -527,6 +538,72 @@ def test_sandbox_version_changes_when_isolated_network_is_dropped(developer_case
     changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     assert "--unshare-net" in baseline_argv
     assert "--unshare-net" not in changed_argv
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_unshare_pid_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-pid"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["namespaces"]["pid"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _has_arg(baseline_argv, "--unshare-pid")
+    assert not _has_arg(changed_argv, "--unshare-pid")
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_die_with_parent_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-lifecycle"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["lifecycle"]["die_with_parent"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _has_arg(baseline_argv, "--die-with-parent")
+    assert not _has_arg(changed_argv, "--die-with-parent")
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-cwd"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        plan["cwd"] = "/tmp/alternate-workspace"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _chdir_target(baseline_argv) == "/workspace"
+    assert _chdir_target(changed_argv) == "/tmp/alternate-workspace"
     assert sandbox_policy_version() != baseline_version
     assert authority_policy_version() != baseline_authority
     assert not runtime.supervisor.matches(approved.worker_selection)

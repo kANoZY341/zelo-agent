@@ -186,6 +186,22 @@ def _render_operation(
     return [str(op), str(operation["dest"])]
 
 
+def _render_switches(plan: dict[str, object]) -> list[str]:
+    args = [str(BWRAP)]
+    namespace_flags = {
+        "user": "--unshare-user",
+        "pid": "--unshare-pid",
+        "ipc": "--unshare-ipc",
+        "network": "--unshare-net",
+    }
+    for name, flag in namespace_flags.items():
+        if plan["namespaces"][name]:
+            args.append(flag)
+    if plan["lifecycle"]["die_with_parent"]:
+        args.append("--die-with-parent")
+    return args
+
+
 def worker_sandbox_plans(workspace_write: bool) -> dict[str, dict[str, object]]:
     return {
         "worker_preflight": sandbox_plan(
@@ -288,9 +304,7 @@ def sandbox(
         service_network=service_network,
         git_inspection=git_inspection,
     )
-    args = [str(BWRAP), "--unshare-user", "--unshare-pid", "--unshare-ipc", "--die-with-parent"]
-    if plan["namespaces"]["network"]:
-        args.append("--unshare-net")
+    args = _render_switches(plan)
     if git is not None and git.exists():
         if git.is_symlink() or not git.is_dir():
             raise DeveloperError("git_metadata_invalid")
@@ -329,7 +343,7 @@ def sandbox(
                 code_mode_host_fd=code_mode_host_fd,
             )
         )
-    return [*args, "--chdir", REPO, *command]
+    return [*args, "--chdir", str(plan["cwd"]), *command]
 
 
 def git_argv(*arguments: str) -> list[str]:
