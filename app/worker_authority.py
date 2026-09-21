@@ -5,8 +5,8 @@ import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from app import developer_sandbox
 from app.developer_process import environment
-from app.developer_sandbox import ENGINE, REPO, sandbox_plan
 
 AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v2"
 
@@ -75,9 +75,9 @@ def codex_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, obj
     filesystem = {
         ":minimal": "read",
         "/opt/zelo-codex": "read",
-        REPO: "write" if profile.workspace_write else "read",
-        REPO + "/.git": "read",
-        ENGINE: "deny",
+        developer_sandbox.REPO: "write" if profile.workspace_write else "read",
+        developer_sandbox.REPO + "/.git": "read",
+        developer_sandbox.ENGINE: "deny",
     }
     return {
         "default_permissions": "zelo",
@@ -93,7 +93,7 @@ def codex_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, obj
             "set": environment(),
             "experimental_use_profile": False,
         },
-        "projects": {REPO: {"trust_level": "untrusted"}},
+        "projects": {developer_sandbox.REPO: {"trust_level": "untrusted"}},
         "features": {
             **{feature: False for feature in _CODEX_DISABLED_FEATURES},
             "skip_host_skill_discovery": True,
@@ -115,7 +115,7 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
         'shell_environment_policy.inherit="none"',
         "shell_environment_policy.set=" + _toml_table(semantics["shell_environment_policy"]["set"]),
         "shell_environment_policy.experimental_use_profile=false",
-        f'projects.{json.dumps(REPO)}.trust_level="untrusted"',
+        f'projects.{json.dumps(developer_sandbox.REPO)}.trust_level="untrusted"',
     ]
     for feature in _CODEX_DISABLED_FEATURES:
         overrides.append(f"features.{feature}=false")
@@ -124,17 +124,7 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
-    return sandbox_plan(
-        repo_present=True,
-        workspace_write=profile.workspace_write,
-        git_metadata_present=True,
-        include_venv=False,
-        include_codex=True,
-        include_code_mode_host=True,
-        include_auth=True,
-        service_network=True,
-        git_inspection=False,
-    )
+    return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
 
 def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, object]:

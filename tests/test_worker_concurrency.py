@@ -20,10 +20,11 @@ from app.developer_contracts import (
     WorkerSelectionSnapshot,
 )
 from app.developer_process import DeveloperError
+from app.models import Task, utcnow
 from app.policy import State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput, EchoInput
-from app.tasks import TaskService
+from app.tasks import CAPACITY_BACKOFF_MAX_SECONDS, TaskService
 from app.worker_authority import AUTHORITY_POLICY_VERSION
 from tests.developer_helpers import FakeWorker
 
@@ -454,6 +455,66 @@ def test_real_runtime_slot_contention_defers_with_bounded_backoff_and_retries(
             await runner.stop()
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("preset", [1025, 1_000_000])
+def test_capacity_backoff_clamps_large_persisted_counters(settings, database, preset):
+    runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
+    service = TaskService(database, settings, developer_runtime=runtime)
+    task = _approved(service, "alpha-one")
+    execution = service.claim()
+    assert execution is not None
+    with database.transaction() as session:
+        session.get(Task, task.id).capacity_backoff_attempts = preset
+
+    service.defer(execution, error="developer_worker_capacity_exhausted")
+
+    current = service.get(task.id)
+    assert current.status == State.PENDING
+    assert current.error is None
+    assert current.approvals[0].status == "approved"
+    assert current.attempts[0].outcome == State.INTERRUPTED
+    with database.read() as session:
+        stored = session.get(Task, task.id)
+        assert stored.capacity_backoff_attempts == preset + 1
+        assert stored.capacity_backoff_until is not None
+        delay = (stored.capacity_backoff_until - utcnow()).total_seconds()
+        assert 0 < delay <= CAPACITY_BACKOFF_MAX_SECONDS + 0.5
+
+
+def test_runner_capacity_deferral_clamps_large_backoff_counter(settings, database):
+    runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
+    service = TaskService(database, settings, developer_runtime=runtime)
+    task = _approved(service, "alpha-one")
+    execution = service.claim()
+    assert execution is not None
+    with database.transaction() as session:
+        session.get(Task, task.id).capacity_backoff_attempts = 1_000_000
+
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.PENDING
+    assert current.error is None
+    assert current.approvals[0].status == "approved"
+    assert current.attempts[0].outcome == State.INTERRUPTED
+
+
+def test_later_runnable_work_can_overtake_deferred_developer_task(settings, database):
+    runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
+    service = TaskService(database, settings, developer_runtime=runtime)
+    developer = _approved(service, "alpha-one")
+    deferred = service.claim()
+    assert deferred is not None
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(deferred))
+    echo, _ = service.submit(EchoInput(kind="echo", payload={"text": "later"}), None)
+
+    claim = service.claim()
+    assert claim is not None and claim.task_id == echo.id and claim.kind == "echo"
+    service.finish(claim, State.SUCCEEDED, result={"text": "later"})
+    asyncio.run(asyncio.sleep(0.3))
+    next_claim = service.claim()
+    assert next_claim is not None and next_claim.task_id == developer.id
 
 
 def test_runtime_worker_slots_enforce_trusted_ceiling(developer_case):

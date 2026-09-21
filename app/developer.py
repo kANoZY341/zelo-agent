@@ -20,7 +20,7 @@ from app.config import ROOT, Settings
 from app.developer_contracts import DeveloperRequest, DeveloperWorker, Limits, ValidationResult
 from app.developer_process import DeveloperError, run_process, run_sync, uncancellable
 from app.developer_review import inventory
-from app.developer_sandbox import SANDBOX_VERSION, git_argv, sandbox
+from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_worker
 
@@ -198,7 +198,7 @@ class DeveloperRuntime:
             base_sha=result.stdout.decode().strip(),
             worker=identity,
             worker_selection=selection,
-            sandbox_version=SANDBOX_VERSION,
+            sandbox_version=sandbox_policy_version(),
             limits=self.limits(timeout),
         )
 
@@ -209,7 +209,7 @@ class DeveloperRuntime:
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
-            and request.sandbox_version == SANDBOX_VERSION
+            and request.sandbox_version == sandbox_policy_version()
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
             and self.supervisor.matches(request.worker_selection)
@@ -782,20 +782,26 @@ class DeveloperRuntime:
 
                 async def cleanup():
                     nonlocal lock_released
+                    release_failure = None
                     if lock is not None and not lock_released:
                         lock.close()
                         lock_released = True
-                        emit(
-                            "worker_capacity_released",
-                            {
-                                "worker_id": request.worker_selection.descriptor.worker_id,
-                            },
-                        )
+                        try:
+                            emit(
+                                "worker_capacity_released",
+                                {
+                                    "worker_id": request.worker_selection.descriptor.worker_id,
+                                },
+                            )
+                        except Exception as error:  # pragma: no cover - exercised via runner tests
+                            release_failure = error
                     try:
                         if bound_worker_context is not None and bound_worker_entered:
                             await asyncio.to_thread(bound_worker_context.__exit__, None, None, None)
                     finally:
                         artifacts.close()
+                    if release_failure is not None:
+                        raise release_failure
 
                 _, cancelled = await uncancellable(asyncio.create_task(cleanup()))
                 if cancelled:

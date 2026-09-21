@@ -18,12 +18,17 @@ from app.codex_worker import (
 )
 from app.developer import DeveloperError
 from app.developer_process import ProcessResult, environment
+from app.developer_sandbox import CODEX, ENGINE, git_argv, sandbox, sandbox_policy_version
 from app.models import Approval, Task
 from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput
 from app.tasks import TaskService
-from app.worker_authority import WorkerAuthorityProfile, authority_profile
+from app.worker_authority import (
+    WorkerAuthorityProfile,
+    authority_policy_version,
+    authority_profile,
+)
 from tests.developer_helpers import fixture_commit
 
 
@@ -53,6 +58,26 @@ def request(runtime):
 
 def stream(*events):
     return b"".join(json.dumps(event, ensure_ascii=False).encode() + b"\n" for event in events)
+
+
+def _mount_mode(argv: list[str], dest: str) -> str | None:
+    for index in range(2, len(argv)):
+        if argv[index] == dest and argv[index - 2] in {"--bind", "--ro-bind"}:
+            return argv[index - 2]
+    return None
+
+
+def _patch_sandbox_plan(monkeypatch, mutate):
+    from app import developer_sandbox
+
+    original = developer_sandbox.sandbox_plan
+
+    def wrapped(**kwargs):
+        plan = copy.deepcopy(original(**kwargs))
+        mutate(plan, kwargs)
+        return plan
+
+    monkeypatch.setattr(developer_sandbox, "sandbox_plan", wrapped)
 
 
 FINAL = {
@@ -361,6 +386,153 @@ def test_environment_allowlist(monkeypatch, variable):
     monkeypatch.setenv(variable, "harmless-sentinel")
     assert variable not in environment()
     assert environment()["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+
+
+def test_authority_fingerprint_changes_when_auth_bind_widens(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    profile = authority_profile(("workspace-write",))
+    auth = runtime.settings.workspace_root / "auth.json"
+    auth.write_text("fixture-auth")
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    baseline_version = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, _kwargs):
+        for operation in plan["operations"]:
+            if operation.get("dest") == ENGINE + "/auth.json":
+                operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        [CODEX],
+        writable=profile.workspace_write,
+        codex_fd=11,
+        code_mode_host_fd=12,
+        auth=auth,
+        service_network=True,
+    )
+    assert _mount_mode(baseline_argv, ENGINE + "/auth.json") == "--ro-bind"
+    assert _mount_mode(changed_argv, ENGINE + "/auth.json") == "--bind"
+    assert authority_policy_version() != baseline_version
+    assert not runtime.supervisor.matches(approved.worker_selection)
+
+
+def test_sandbox_version_changes_when_validation_venv_bind_widens(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, _kwargs):
+        for operation in plan["operations"]:
+            if operation.get("source") == "$VENV":
+                operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert _mount_mode(baseline_argv, "/opt/zelo-venv") == "--ro-bind"
+    assert _mount_mode(changed_argv, "/opt/zelo-venv") == "--bind"
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_git_inspection_workspace_widens(
+    developer_case, monkeypatch
+):
+    runtime = developer_case
+    approved = request(runtime)
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, kwargs):
+        if kwargs["git_inspection"]:
+            for operation in plan["operations"]:
+                if operation.get("dest") == "/workspace" and operation.get("source") == "$REPO":
+                    operation["op"] = "--bind"
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    assert _mount_mode(baseline_argv, "/workspace") == "--ro-bind"
+    assert _mount_mode(changed_argv, "/workspace") == "--bind"
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_extra_host_bind_is_added(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    baseline_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    baseline_version = approved.sandbox_version
+
+    def mutate(plan, kwargs):
+        if kwargs["git_inspection"]:
+            operations = list(plan["operations"])
+            operations.append({"op": "--ro-bind", "source": "/", "dest": "/hostroot"})
+            plan["operations"] = tuple(operations)
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(
+        runtime.source_repository,
+        git_argv("status"),
+        writable=False,
+        git_inspection=True,
+    )
+    assert "/hostroot" not in baseline_argv
+    assert "/hostroot" in changed_argv
+    assert sandbox_policy_version() != baseline_version
+    assert runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
+
+
+def test_sandbox_version_changes_when_isolated_network_is_dropped(developer_case, monkeypatch):
+    runtime = developer_case
+    approved = request(runtime)
+    venv = runtime.settings.workspace_root / "trusted-venv-network"
+    venv.mkdir()
+    baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    baseline_version = approved.sandbox_version
+    baseline_authority = approved.worker_selection.authority_policy_version
+
+    def mutate(plan, kwargs):
+        if not kwargs["service_network"]:
+            plan["namespaces"]["network"] = False
+
+    _patch_sandbox_plan(monkeypatch, mutate)
+    changed_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
+    assert "--unshare-net" in baseline_argv
+    assert "--unshare-net" not in changed_argv
+    assert sandbox_policy_version() != baseline_version
+    assert authority_policy_version() != baseline_authority
+    assert not runtime.supervisor.matches(approved.worker_selection)
+    assert not runtime.compatible(approved, 60)
 
 
 @pytest.mark.parametrize(
@@ -759,6 +931,61 @@ def test_runtime_releases_slot_before_uncancellable_unbind(developer_case, monke
     assert events.count("worker_capacity_claimed") == 1
     assert events.count("worker_capacity_released") == 1
     assert len(exited) == 1
+
+
+def test_release_emit_failure_still_unbinds_and_closes_artifacts(
+    developer_case, database, monkeypatch
+):
+    runtime = developer_case
+    service = TaskService(database, runtime.settings, developer_runtime=runtime)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None and execution.developer_request is not None
+    exits = []
+    artifacts_closed = []
+    worker_id = execution.developer_request.worker_selection.descriptor.worker_id
+
+    class TrackingBind:
+        def __enter__(self):
+            return runtime.worker
+
+        def __exit__(self, exc_type, exc, tb):
+            exits.append((exc_type, exc, tb))
+            return False
+
+    class TrackingExitStack:
+        def __init__(self):
+            self._closed = False
+
+        def close(self):
+            assert not self._closed
+            self._closed = True
+            artifacts_closed.append("closed")
+
+    original_model_event = service.model_event
+
+    def fail_release_event(task_id, event, attempt_id, **details):
+        if event == "worker_capacity_released":
+            raise RuntimeError("audit backend down")
+        return original_model_event(task_id, event, attempt_id, **details)
+
+    monkeypatch.setattr(runtime.worker, "bind", lambda approved: TrackingBind())
+    monkeypatch.setattr("app.developer.ExitStack", TrackingExitStack)
+    monkeypatch.setattr(service, "model_event", fail_release_event)
+
+    asyncio.run(Runner(service, developer_runtime=runtime)._run(execution))
+
+    current = service.get(task.id)
+    assert current.status == State.FAILED
+    assert current.error == "worker_error"
+    assert current.attempts[0].outcome == State.FAILED
+    assert len(exits) == 1
+    assert artifacts_closed == ["closed"]
+    lock = runtime.worker_lock(worker_id, 1)
+    lock.close()
 
 
 def test_jsonl_current_exec_rejects_collab_tool_call(developer_case):

@@ -40,6 +40,18 @@ CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
 CAPACITY_BACKOFF_MAX_SECONDS = 5.0
 
 
+def _max_capacity_backoff_exponent() -> int:
+    exponent = 0
+    delay = CAPACITY_BACKOFF_INITIAL_SECONDS
+    while delay < CAPACITY_BACKOFF_MAX_SECONDS:
+        delay *= 2
+        exponent += 1
+    return exponent
+
+
+CAPACITY_BACKOFF_MAX_EXPONENT = _max_capacity_backoff_exponent()
+
+
 @dataclass(frozen=True)
 class Execution:
     task_id: str
@@ -93,6 +105,14 @@ def defer_transition(session: Session, task: Task) -> None:
     task.status = State.PENDING
     task.updated_at = utcnow()
     audit(session, task, "state_transition", previous=previous, target=State.PENDING)
+
+
+def capacity_backoff_seconds(consecutive_deferrals: int) -> float:
+    exponent = min(max(consecutive_deferrals - 1, 0), CAPACITY_BACKOFF_MAX_EXPONENT)
+    return min(
+        CAPACITY_BACKOFF_INITIAL_SECONDS * (2**exponent),
+        CAPACITY_BACKOFF_MAX_SECONDS,
+    )
 
 
 def require_task(session: Session, task_id: str) -> Task:
@@ -1215,8 +1235,9 @@ class TaskService:
 
         for candidate in pending:
             if candidate.kind != "developer_run":
-                # Preserve FIFO semantics: a non-developer task is an exclusivity
-                # barrier and later developer work cannot jump ahead of it.
+                # Backed-off tasks are temporarily invisible here, so later runnable
+                # work may overtake them. Among currently claimable tasks, a
+                # non-developer entry remains an exclusivity barrier.
                 return None
             try:
                 request = DeveloperRequest.model_validate(candidate.developer_spec)
@@ -1573,10 +1594,7 @@ class TaskService:
                     )
                 return
             task.capacity_backoff_attempts += 1
-            delay_seconds = min(
-                CAPACITY_BACKOFF_INITIAL_SECONDS * (2 ** (task.capacity_backoff_attempts - 1)),
-                CAPACITY_BACKOFF_MAX_SECONDS,
-            )
+            delay_seconds = capacity_backoff_seconds(task.capacity_backoff_attempts)
             eligible_at = utcnow() + timedelta(seconds=delay_seconds)
             task.capacity_backoff_until = eligible_at
             defer_transition(session, task)
