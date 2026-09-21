@@ -1544,6 +1544,28 @@ class TaskService:
                     reason=error,
                 )
 
+    @staticmethod
+    def _attempt_has_unreleased_capacity(session: Session, attempt_id: str) -> bool:
+        claimed = session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                AuditEvent.attempt_id == attempt_id,
+                AuditEvent.event == "worker_capacity_claimed",
+            )
+        )
+        if not claimed:
+            return False
+        released = session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                AuditEvent.attempt_id == attempt_id,
+                AuditEvent.event == "worker_capacity_released",
+            )
+        )
+        return claimed > (released or 0)
+
     def recover(self) -> None:
         with self.database.transaction() as session:
             for task in session.scalars(select(Task).where(Task.status == State.RUNNING)):
@@ -1565,7 +1587,11 @@ class TaskService:
                     "startup_interruption_recovery",
                     attempt_id=attempt.id if attempt else None,
                 )
-                if task.kind == "developer_run":
+                if (
+                    task.kind == "developer_run"
+                    and attempt is not None
+                    and self._attempt_has_unreleased_capacity(session, attempt.id)
+                ):
                     descriptor = None
                     if task.developer_spec is not None:
                         try:

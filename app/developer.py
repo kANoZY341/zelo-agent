@@ -498,16 +498,22 @@ class DeveloperRuntime:
         lock_root.mkdir(exist_ok=True, mode=0o700)
         return lock_root
 
+    @staticmethod
+    def _open_lock_stream(path: Path):
+        fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            return os.fdopen(fd, "w")
+        except BaseException:
+            os.close(fd)
+            raise
+
     def worker_lock(self, worker_id: str, max_concurrency: int):
         """Acquire one cross-process capacity slot for the approved worker."""
         lock_root = self._lock_root()
         for slot in range(max_concurrency):
-            fd = os.open(
-                lock_root / f"developer-worker-{worker_id}-{slot}.lock",
-                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
-                0o600,
+            stream = self._open_lock_stream(
+                lock_root / f"developer-worker-{worker_id}-{slot}.lock"
             )
-            stream = os.fdopen(fd, "w")
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
@@ -519,12 +525,7 @@ class DeveloperRuntime:
     def maintenance_lock(self):
         """Serialize operator cleanup without globally serializing worker execution."""
         lock_root = self._lock_root()
-        fd = os.open(
-            lock_root / "developer-maintenance.lock",
-            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
-            0o600,
-        )
-        stream = os.fdopen(fd, "w")
+        stream = self._open_lock_stream(lock_root / "developer-maintenance.lock")
         try:
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
@@ -585,6 +586,7 @@ class DeveloperRuntime:
         bound_worker_context = None
         bound_worker = None
         bound_worker_entered = False
+        transient_error = None
         try:
             emit("developer_started", {})
             async with asyncio.timeout(request.limits.overall_seconds):
@@ -684,6 +686,8 @@ class DeveloperRuntime:
         except TimeoutError:
             result["error"] = "developer_overall_timeout"
         except DeveloperError as error:
+            if str(error) == "developer_worker_capacity_exhausted":
+                transient_error = error
             result["error"] = str(error)
             result["protocol_diagnostic"] = error.diagnostic
             if error.exit_code is not None:
@@ -793,6 +797,8 @@ class DeveloperRuntime:
             result["validation_passed"] = False
         result["completed_at"] = datetime.now(UTC).isoformat()
         result["duration_seconds"] = time.monotonic() - monotonic_start
+        if transient_error is not None and result["error"] == str(transient_error):
+            raise transient_error
         return result
 
     def cleanup(self, execution_id: str) -> None:

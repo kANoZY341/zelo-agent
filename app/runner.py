@@ -147,6 +147,7 @@ class Runner:
                 await asyncio.gather(*active, return_exceptions=True)
 
     async def _run(self, execution: Execution) -> None:
+        wake_scheduler = True
         if execution.kind == "ai_prompt":
             self.service.model_event(
                 execution.task_id,
@@ -237,6 +238,7 @@ class Runner:
         except DeveloperRuntimeError as error:
             if error.args and error.args[0] == "developer_worker_capacity_exhausted":
                 self.service.defer(execution, error=error.args[0])
+                wake_scheduler = False
             else:
                 self.service.finish(execution, State.FAILED, error=error.args[0])
         except ModelGatewayError as error:
@@ -301,7 +303,8 @@ class Runner:
         finally:
             logger.info("attempt_finished", extra={"task_id": execution.task_id})
             self.operations.pop(execution.task_id, None)
-            self.wake.set()
+            if wake_scheduler:
+                self.wake.set()
 
     async def _model_worker(self, execution: Execution) -> dict[str, Any]:
         if self.gateway is None or execution.profile is None:

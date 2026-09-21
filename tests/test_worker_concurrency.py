@@ -2,6 +2,7 @@
 
 import asyncio
 import multiprocessing
+import os
 from datetime import UTC, datetime
 from multiprocessing import get_context
 from pathlib import Path
@@ -377,6 +378,62 @@ def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
     assert retry is not None and retry.task_id == task.id
 
 
+def test_real_runtime_slot_contention_defers_and_retries_without_hot_loop(
+    developer_case, database
+):
+    if not Path("/usr/bin/bwrap").is_file():
+        pytest.skip("Linux Bubblewrap prerequisite not installed")
+    settings = developer_case.settings.model_copy(update={"runner_poll_seconds": 0.2})
+    service = TaskService(database, settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    worker_id = developer_case.request("test", "zelo_core", 30).worker_selection.descriptor.worker_id
+    lock = developer_case.worker_lock(worker_id, 1)
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=developer_case)
+        runner.start()
+        try:
+            for _ in range(50):
+                current = service.get(task.id)
+                if (
+                    current.status == State.PENDING
+                    and len(current.attempts) == 1
+                    and current.attempts[0].outcome == State.INTERRUPTED
+                ):
+                    break
+                await asyncio.sleep(0.01)
+            current = service.get(task.id)
+            assert current.status == State.PENDING
+            assert current.error is None
+            assert current.approvals[0].status == "approved"
+            assert len(current.attempts) == 1
+            assert current.attempts[0].error == "developer_worker_capacity_exhausted"
+            await asyncio.sleep(0.05)
+            assert len(service.get(task.id).attempts) == 1
+
+            lock.close()
+            for _ in range(200):
+                current = service.get(task.id)
+                if current.status == State.SUCCEEDED and len(current.attempts) == 2:
+                    break
+                await asyncio.sleep(0.05)
+            current = service.get(task.id)
+            assert current.status == State.SUCCEEDED
+            assert [attempt.outcome for attempt in current.attempts] == [
+                State.INTERRUPTED,
+                State.SUCCEEDED,
+            ]
+        finally:
+            if not lock.closed:
+                lock.close()
+            await runner.stop()
+
+    asyncio.run(exercise())
+
+
 def test_runtime_worker_slots_enforce_trusted_ceiling(developer_case):
     request = developer_case.request("test", "zelo_core", 30)
     worker_id = request.worker_selection.descriptor.worker_id
@@ -407,10 +464,10 @@ def test_persisted_descriptor_cannot_override_registry_ceiling(developer_case):
     worker_id = trusted.worker_selection.descriptor.worker_id
     lock = developer_case.worker_lock(worker_id, 1)
     try:
-        second = asyncio.run(developer_case.run(str(uuid4()), str(uuid4()), stale, lambda *_: None))
+        with pytest.raises(DeveloperError, match="developer_worker_capacity_exhausted"):
+            asyncio.run(developer_case.run(str(uuid4()), str(uuid4()), stale, lambda *_: None))
     finally:
         lock.close()
-    assert second["error"] == "developer_worker_capacity_exhausted"
 
 
 def test_cross_process_worker_slots_enforce_same_trusted_ceiling(developer_case):
@@ -453,3 +510,22 @@ def test_cross_process_worker_slots_enforce_same_trusted_ceiling(developer_case)
         second.join(5)
     assert first.exitcode == 0
     assert second.exitcode == 0
+
+
+@pytest.mark.parametrize("method,args", [("worker_lock", ("worker", 1)), ("maintenance_lock", ())])
+def test_lock_helpers_close_fd_when_fdopen_fails(developer_case, monkeypatch, method, args):
+    closed = []
+    original_close = os.close
+
+    def fail_fdopen(fd, mode):
+        raise OSError("fdopen_failed")
+
+    def record_close(fd):
+        closed.append(fd)
+        return original_close(fd)
+
+    monkeypatch.setattr("app.developer.os.fdopen", fail_fdopen)
+    monkeypatch.setattr("app.developer.os.close", record_close)
+    with pytest.raises(OSError, match="fdopen_failed"):
+        getattr(developer_case, method)(*args)
+    assert len(closed) == 1

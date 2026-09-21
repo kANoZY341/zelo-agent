@@ -172,7 +172,9 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
     assert capacity == ["worker_capacity_claimed", "worker_capacity_released"]
 
 
-def test_interrupted_developer_recovery_balances_capacity_audit(developer_case, database):
+def test_interrupted_developer_recovery_does_not_invent_capacity_release(
+    developer_case, database
+):
     service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
     task, _ = service.submit(
         DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
@@ -182,6 +184,28 @@ def test_interrupted_developer_recovery_balances_capacity_audit(developer_case, 
     service.recover()
     events = [event.event for event in service.events(task.id, 100, 0)]
     assert "worker_capacity_claimed" not in events
+    assert "worker_capacity_released" not in events
+
+
+def test_interrupted_developer_recovery_releases_only_claimed_capacity(developer_case, database):
+    service = TaskService(database, developer_case.settings, developer_runtime=developer_case)
+    task, _ = service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "x"}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None and execution.developer_request is not None
+    descriptor = execution.developer_request.worker_selection.descriptor
+    service.model_event(
+        task.id,
+        "worker_capacity_claimed",
+        execution.attempt_id,
+        worker_id=descriptor.worker_id,
+        max_concurrency=descriptor.max_concurrency,
+    )
+    service.recover()
+    events = [event.event for event in service.events(task.id, 100, 0)]
+    assert events.count("worker_capacity_claimed") == 1
     assert events.count("worker_capacity_released") == 1
 
 
