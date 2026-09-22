@@ -1139,7 +1139,7 @@ def test_fake_executable_preflight_detects_version(fake_codex):
     identity = fake_codex.identity()
     assert identity.cli_version in SUPPORTED_CLI_VERSIONS
     assert identity.config_version != identity.cli_version
-    assert len(identity.executable_sha256) == 64
+    assert len(identity.artifact("executable").sha256) == 64
 
 
 @pytest.mark.parametrize("version", sorted(SUPPORTED_CLI_VERSIONS))
