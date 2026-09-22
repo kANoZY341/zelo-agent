@@ -354,8 +354,7 @@ class DeveloperRuntime:
                 and review_selection.descriptor.role == "reviewer"
                 and "code_review" in review_selection.requested_capabilities
                 and review_selection.authority_profile == "workspace-read-no-network-v1"
-                and reviewer.worker.implementation
-                == review_selection.descriptor.implementation
+                and reviewer.worker.implementation == review_selection.descriptor.implementation
                 and review_selection.descriptor.worker_id != producer_id
                 and producer_id in review_selection.excluded_worker_ids
                 and self.supervisor.matches(review_selection)
