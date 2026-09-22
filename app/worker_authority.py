@@ -170,6 +170,47 @@ def claude_code_permission_semantics(profile: WorkerAuthorityProfile) -> dict[st
     }
 
 
+def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    permissions = [
+        {"action": "read", "resource": "*", "effect": "allow"},
+        {"action": "glob", "resource": "*", "effect": "allow"},
+        {"action": "grep", "resource": "*", "effect": "allow"},
+        {
+            "action": "edit",
+            "resource": "*",
+            "effect": "allow" if profile.workspace_write else "deny",
+        },
+        {"action": "external_directory", "resource": "*", "effect": "deny"},
+        {"action": "shell", "resource": "*", "effect": "deny"},
+        {"action": "webfetch", "resource": "*", "effect": "deny"},
+        {"action": "websearch", "resource": "*", "effect": "deny"},
+        {"action": "subagent", "resource": "*", "effect": "deny"},
+        {"action": "skill", "resource": "*", "effect": "deny"},
+        {"action": "question", "resource": "*", "effect": "deny"},
+        {"action": "execute", "resource": "*", "effect": "deny"},
+    ]
+    policies = [
+        {"action": "provider.use", "resource": "*", "effect": "deny"},
+        {"action": "provider.use", "resource": "ollama", "effect": "allow"},
+        {"action": "permission", "resource": "shell:*", "effect": "deny"},
+        {"action": "permission", "resource": "webfetch:*", "effect": "deny"},
+        {"action": "permission", "resource": "websearch:*", "effect": "deny"},
+        {"action": "permission", "resource": "external_directory:*", "effect": "deny"},
+        {"action": "permission", "resource": "subagent:*", "effect": "deny"},
+        {"action": "permission", "resource": "skill:*", "effect": "deny"},
+        {"action": "permission", "resource": "execute:*", "effect": "deny"},
+    ]
+    if not profile.workspace_write:
+        policies.append({"action": "permission", "resource": "edit:*", "effect": "deny"})
+    return {
+        "provider": "ollama",
+        "standalone": True,
+        "pure": True,
+        "permissions": tuple(permissions),
+        "policies": tuple(policies),
+    }
+
+
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
     return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
@@ -181,6 +222,7 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "codex": codex_permission_semantics(profile),
         "codex_cli_overrides": codex_cli_overrides(profile),
         "claude_code": claude_code_permission_semantics(profile),
+        "opencode": opencode_permission_semantics(profile),
         "sandbox": sandbox_permission_semantics(profile),
         "external_worker_sandbox": developer_sandbox.external_worker_sandbox_plans(
             profile.workspace_write
