@@ -620,13 +620,13 @@ def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
         "validation_identity",
         "sandbox_version",
         "validation_version",
+        "worker.schema_version",
         "worker.config_version",
         "worker.implementation",
         "worker.cli_version",
         "worker.capability_profile",
-        "worker.executable",
-        "worker.executable_sha256",
-        "worker.auth_location",
+        "worker.artifacts",
+        "worker.credential_locations",
         "worker_selection.authority_profile",
         "worker_selection.authority_policy_version",
         "limits.overall_seconds",
@@ -658,7 +658,18 @@ def test_approval_binds_specification(developer_case, database, field):
         keys = field.split(".")
         target = spec if len(keys) == 1 else spec[keys[0]]
         value = target[keys[-1]]
-        target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
+        if field == "worker.artifacts":
+            changed = copy.deepcopy(value)
+            changed[0]["sha256"] = "f" * 64
+            target[keys[-1]] = changed
+        elif field == "worker.credential_locations":
+            changed = copy.deepcopy(value)
+            changed[0]["path"] += "-changed"
+            target[keys[-1]] = changed
+        else:
+            target[keys[-1]] = (
+                value + 1 if isinstance(value, (int, float)) else value + "changed"
+            )
         if field == "base_sha":
             target[keys[-1]] = "f" * 40
         if field == "worker_selection.authority_policy_version":
