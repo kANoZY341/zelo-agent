@@ -134,9 +134,7 @@ def test_opencode_inline_config_hard_denies_worker_network_and_shell(settings):
 def test_opencode_reviewer_policy_is_read_only():
     semantics = opencode_permission_semantics(authority_profile(("workspace-read",)))
     assert {"action": "edit", "resource": "*", "effect": "deny"} in semantics["permissions"]
-    assert {"action": "permission", "resource": "edit:*", "effect": "deny"} in semantics[
-        "policies"
-    ]
+    assert {"action": "permission", "resource": "edit:*", "effect": "deny"} in semantics["policies"]
 
 
 @pytest.mark.parametrize("name", ["opencode.json", "opencode.jsonc", ".opencode"])
