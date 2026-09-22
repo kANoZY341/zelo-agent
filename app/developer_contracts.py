@@ -232,6 +232,28 @@ class DeveloperRequest(Contract):
         return self
 
 
+class ReviewerExecutionRequest(Contract):
+    instruction: str = Field(min_length=1, max_length=65536)
+    source_repository: str
+    workspace_root: str
+    base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    worker: WorkerIdentity
+    worker_selection: WorkerSelectionSnapshot
+    sandbox_version: str
+    limits: Limits
+
+    @model_validator(mode="after")
+    def _validate_reviewer_execution(self):
+        if (
+            self.worker_selection.requested_role != "reviewer"
+            or self.worker_selection.descriptor.role != "reviewer"
+            or self.worker_selection.authority_profile != "workspace-read-no-network-v1"
+            or self.worker.implementation != self.worker_selection.descriptor.implementation
+        ):
+            raise ValueError("reviewer_execution_invalid")
+        return self
+
+
 class WorkerResult(Contract):
     exit_code: int
     summary: str = Field(max_length=4096)
@@ -259,4 +281,6 @@ class DeveloperWorker(Protocol):
 
     async def preflight(self) -> WorkerIdentity: ...
 
-    async def run(self, request: DeveloperRequest, repo: Path) -> WorkerResult: ...
+    async def run(
+        self, request: DeveloperRequest | ReviewerExecutionRequest, repo: Path
+    ) -> WorkerResult: ...
