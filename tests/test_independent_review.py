@@ -87,6 +87,85 @@ def review_runtime(developer_case, *, mutate: bool = False):
     return runtime, producer, reviewer
 
 
+def named_review_runtime(developer_case, producer_implementation: str, reviewer_implementation: str):
+    producer = FakeWorker()
+    producer.worker_identity = producer.worker_identity.model_copy(
+        update={"implementation": producer_implementation}
+    )
+    reviewer = ReviewWorker(reviewer_implementation)
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor_for_worker(
+                    producer,
+                    implementation=producer_implementation,
+                    worker_id=f"{producer_implementation}_core",
+                    priority=100,
+                ),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    reviewer,
+                    implementation=reviewer_implementation,
+                    worker_id=f"{reviewer_implementation}_reviewer",
+                ),
+                reviewer,
+            ),
+        ]
+    )
+    return DeveloperRuntime(
+        developer_case.settings,
+        producer,
+        developer_case.source_repository,
+        registry,
+    )
+
+
+@pytest.mark.parametrize(
+    ("producer_implementation", "reviewer_implementation"),
+    [
+        ("codex", "claude_code"),
+        ("claude_code", "codex"),
+        ("opencode", "claude_code"),
+    ],
+)
+def test_cross_implementation_worker_review_runs_end_to_end(
+    developer_case,
+    producer_implementation,
+    reviewer_implementation,
+):
+    runtime = named_review_runtime(
+        developer_case,
+        producer_implementation,
+        reviewer_implementation,
+    )
+    request = runtime.request("Make the normal harmless fixture change", "zelo_core", 60)
+    assert request.reviewer is not None
+    assert request.worker.implementation == producer_implementation
+    assert request.reviewer.worker.implementation == reviewer_implementation
+    assert (
+        request.worker_selection.descriptor.worker_id
+        != request.reviewer.worker_selection.descriptor.worker_id
+    )
+
+    result = asyncio.run(
+        runtime.run(
+            str(uuid4()),
+            str(uuid4()),
+            request,
+            lambda *_: None,
+        )
+    )
+
+    assert result["error"] is None
+    assert result["validation_passed"] is True
+    assert result["worker"] == producer_implementation
+    assert result["independent_review"] is not None
+    assert result["independent_review"]["implementation"] == reviewer_implementation
+    assert result["independent_review"]["report"]["summary"] == "Independent review complete"
+
+
 def test_developer_request_binds_independent_reviewer_and_audits_selection(
     developer_case, database
 ):
