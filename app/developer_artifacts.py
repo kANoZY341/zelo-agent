@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.developer_contracts import WorkerIdentity
+from app.developer_contracts import WorkerArtifactIdentity
 from app.developer_process import DeveloperError
 
 SEALS = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
@@ -100,12 +100,12 @@ def pin_artifact(
 
 
 @contextmanager
-def pin_executable(configured: Path, approved: WorkerIdentity | None = None):
-    """Pin the configured Codex CLI using its approval-bound identity."""
+def pin_executable(configured: Path, approved: WorkerArtifactIdentity | None = None):
+    """Pin an executable using its approval-bound generic artifact identity."""
     with pin_artifact(
         configured,
-        approved_path=approved.executable if approved else None,
-        approved_digest=approved.executable_sha256 if approved else None,
-        name="zelo-approved-codex",
+        approved_path=approved.path if approved else None,
+        approved_digest=approved.sha256 if approved else None,
+        name="zelo-approved-worker-executable",
     ) as artifact:
         yield artifact
