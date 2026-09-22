@@ -10,6 +10,7 @@ from app.developer_process import ProcessResult
 from app.developer_sandbox import external_worker_sandbox_plan
 from app.opencode_worker import (
     CAPABILITY_PROFILE,
+    MAX_STEPS,
     OpenCodeWorker,
     assert_project_config_absent,
     configuration_version,
@@ -213,6 +214,17 @@ def test_opencode_text_output_is_strict_and_bounded():
         parse_text_output(b"x" * 4097)
     with pytest.raises(DeveloperError, match="output_invalid"):
         parse_text_output(b"\xff")
+
+
+def test_opencode_auxiliary_execution_is_disabled_and_steps_are_bounded(settings):
+    payload = inline_config(settings, authority_profile(("workspace-write",)))
+    assert payload["formatter"] is False
+    assert payload["snapshots"] is False
+    assert payload["mcp"] == {"servers": {}}
+    assert payload["plugins"] == []
+    assert payload["skills"] == []
+    assert payload["commands"] == {}
+    assert payload["agents"]["build"]["steps"] == MAX_STEPS
 
 
 def test_inline_config_is_json_serializable(settings):
