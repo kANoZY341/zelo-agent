@@ -218,7 +218,9 @@ class ClaudeCodeWorker:
                 approved_auth = approved.credential_location("oauth_token")
             except ValueError:
                 raise DeveloperError("worker_configuration_changed") from None
-            if approved_auth.path != str(configuration.developer_claude_oauth_token_file.absolute()):
+            if approved_auth.path != str(
+                configuration.developer_claude_oauth_token_file.absolute()
+            ):
                 raise DeveloperError("worker_configuration_changed")
         with pin_executable(
             configuration.developer_claude_executable, approved_executable
