@@ -213,7 +213,7 @@ class DeveloperRunResult(StrictModel):
     head_changed: bool
     validation: list[ValidationResult] = Field(max_length=4)
     validation_passed: bool
-    independent_review: IndependentReviewResult | None
+    independent_review: IndependentReviewResult | None = None
     started_at: datetime
     worker_started_at: datetime | None
     worker_completed_at: datetime | None
