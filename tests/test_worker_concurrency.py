@@ -193,6 +193,38 @@ class CapacityRuntime:
         return _result(request)
 
 
+class ThreeWorkerRuntime(CapacityRuntime):
+    def __init__(self, settings):
+        super().__init__(
+            settings,
+            capacities={"codex_core": 1, "claude_core": 1, "opencode_core": 1},
+        )
+        self.all_started = asyncio.Event()
+
+    def request(
+        self,
+        instruction: str,
+        profile: str,
+        timeout: float,
+        *,
+        running_counts: dict[str, int] | None = None,
+    ) -> DeveloperRequest:
+        assert profile == "zelo_core"
+        self.last_running_counts = dict(running_counts or {})
+        worker_id = instruction.split("-", 1)[0]
+        if worker_id not in {"codex_core", "claude_core", "opencode_core"}:
+            raise AssertionError("unexpected worker instruction")
+        return _request(worker_id, instruction, timeout)
+
+    async def run(self, task_id, execution_id, request, emit):
+        self.started.add(request.worker_selection.descriptor.worker_id)
+        self.started_count += 1
+        if self.started_count >= 3:
+            self.all_started.set()
+        await self.release.wait()
+        return _result(request)
+
+
 def _approved(service: TaskService, instruction: str):
     task, _ = service.submit(
         DeveloperRunInput(kind="developer_run", payload={"instruction": instruction}), None
@@ -273,6 +305,34 @@ def test_runner_overlaps_different_workers(settings, database):
             await asyncio.sleep(0.01)
         assert service.get(alpha.id).status == State.SUCCEEDED
         assert service.get(beta.id).status == State.SUCCEEDED
+        await runner.stop()
+
+    asyncio.run(exercise())
+
+
+def test_runner_overlaps_codex_claude_and_opencode_workers(settings, database):
+    runtime = ThreeWorkerRuntime(settings)
+    service = TaskService(database, settings, developer_runtime=runtime)
+    tasks = [
+        _approved(service, "codex_core-task"),
+        _approved(service, "claude_core-task"),
+        _approved(service, "opencode_core-task"),
+    ]
+
+    async def exercise():
+        runner = Runner(service, developer_runtime=runtime)
+        runner.start()
+        await asyncio.wait_for(runtime.all_started.wait(), timeout=2)
+        assert runtime.started == {"codex_core", "claude_core", "opencode_core"}
+        assert all(service.get(task.id).status == State.RUNNING for task in tasks)
+        assert set(runner.operations) == {task.id for task in tasks}
+
+        runtime.release.set()
+        for _ in range(100):
+            if all(service.get(task.id).status == State.SUCCEEDED for task in tasks):
+                break
+            await asyncio.sleep(0.01)
+        assert all(service.get(task.id).status == State.SUCCEEDED for task in tasks)
         await runner.stop()
 
     asyncio.run(exercise())
