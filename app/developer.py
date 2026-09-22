@@ -23,6 +23,7 @@ from app.developer_contracts import (
     DeveloperWorker,
     Limits,
     ReviewerBinding,
+    ReviewerExecutionRequest,
     ReviewerReport,
     ValidationResult,
 )
@@ -65,6 +66,22 @@ def review_name(value: bytes) -> str:
         return value.decode("utf-8", "strict")
     except UnicodeError:
         raise DeveloperError("review_filename_encoding") from None
+
+
+def parse_reviewer_report(value: str) -> ReviewerReport:
+    def pairs(items):
+        result = {}
+        for key, item in items:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = item
+        return result
+
+    try:
+        payload = json.loads(value, object_pairs_hook=pairs)
+        return ReviewerReport.model_validate(payload)
+    except (ValueError, TypeError, RecursionError):
+        raise DeveloperError("reviewer_report_invalid") from None
 
 
 def tree_digest(root: Path) -> str:
@@ -631,6 +648,110 @@ class DeveloperRuntime:
             "diff": diff.decode("utf-8", "replace"),
         }
 
+    async def run_independent_review(
+        self,
+        repo: Path,
+        request: DeveloperRequest,
+        emit: Emit,
+    ) -> dict[str, Any] | None:
+        binding = request.reviewer
+        if binding is None:
+            return None
+        selection = binding.worker_selection
+        registration = self.registry.get(selection.descriptor.worker_id)
+        if registration is None or not self.supervisor.matches(selection):
+            raise DeveloperError("reviewer_configuration_changed")
+
+        review_request = ReviewerExecutionRequest(
+            instruction=(
+                "Review the current checkout independently for correctness, security, regressions, "
+                "and compliance with the requested task. Do not modify anything. Return exactly one "
+                "JSON object with no markdown using this shape: "
+                '{"summary":"bounded summary","findings":[{"severity":"low|medium|high|critical",'
+                '"message":"bounded finding","path":"relative/path/or null"}]}. '
+                "Use an empty findings array when no concrete issue is found."
+            ),
+            source_repository=request.source_repository,
+            workspace_root=request.workspace_root,
+            base_sha=request.base_sha,
+            worker=binding.worker,
+            worker_selection=selection,
+            sandbox_version=request.sandbox_version,
+            limits=request.limits,
+        )
+        before = await asyncio.to_thread(tree_digest, repo)
+        lock = self.worker_lock(
+            registration.descriptor.worker_id,
+            registration.descriptor.max_concurrency,
+        )
+        context = registration.worker.bind(binding.worker)
+        entered = False
+        emit(
+            "review_started",
+            {
+                "worker_id": registration.descriptor.worker_id,
+                "implementation": registration.descriptor.implementation,
+            },
+        )
+        try:
+            enter_task = asyncio.create_task(asyncio.to_thread(context.__enter__))
+            bound, cancelled = await uncancellable(enter_task)
+            entered = True
+            if cancelled:
+                raise asyncio.CancelledError
+            actual = await bound.preflight()
+            if actual != binding.worker:
+                raise DeveloperError("reviewer_configuration_changed")
+            result = await bound.run(review_request, repo)
+            if result.exit_code:
+                raise DeveloperError("reviewer_nonzero_exit", exit_code=result.exit_code)
+            if await asyncio.to_thread(tree_digest, repo) != before:
+                raise DeveloperError("reviewer_boundary_violation")
+            report = parse_reviewer_report(result.summary)
+            payload = {
+                "worker_id": registration.descriptor.worker_id,
+                "implementation": registration.descriptor.implementation,
+                "worker_version": binding.worker.cli_version,
+                "report": report.model_dump(mode="json"),
+                "usage": result.usage,
+                "event_count": result.event_count,
+                "started_at": result.started_at.isoformat(),
+                "completed_at": result.completed_at.isoformat(),
+                "duration_seconds": result.duration_seconds,
+            }
+            emit(
+                "review_completed",
+                {
+                    "worker_id": registration.descriptor.worker_id,
+                    "finding_count": len(report.findings),
+                },
+            )
+            return payload
+        except BaseException as error:
+            try:
+                emit(
+                    "review_failed",
+                    {
+                        "worker_id": registration.descriptor.worker_id,
+                        "reason": (
+                            str(error)
+                            if isinstance(error, DeveloperError)
+                            else "reviewer_interrupted_or_failed"
+                        ),
+                    },
+                )
+            finally:
+                raise
+        finally:
+            lock.close()
+            emit(
+                "reviewer_capacity_released",
+                {"worker_id": registration.descriptor.worker_id},
+            )
+            if entered:
+                exit_task = asyncio.create_task(asyncio.to_thread(context.__exit__, None, None, None))
+                await uncancellable(exit_task)
+
     def _lock_root(self) -> Path:
         root = self.root()
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -709,6 +830,7 @@ class DeveloperRuntime:
             "head_changed": False,
             "validation": [],
             "validation_passed": False,
+            "independent_review": None,
             "started_at": started.isoformat(),
             "worker_started_at": None,
             "worker_completed_at": None,
@@ -823,6 +945,10 @@ class DeveloperRuntime:
                 result.update(await self.review(repo, request))
                 if result["head_changed"]:
                     raise DeveloperError("developer_boundary_violation")
+                if passed and request.reviewer is not None:
+                    result["independent_review"] = await self.run_independent_review(
+                        repo, request, emit
+                    )
                 result["validation_passed"] = passed
         except asyncio.CancelledError:
             result.update(error="developer_cancelled", cancelled=True)
