@@ -337,9 +337,8 @@ class DeveloperRuntime:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
-        reviewer_compatible = (
-            request.reviewer is None
-            or self.supervisor.matches(request.reviewer.worker_selection)
+        reviewer_compatible = request.reviewer is None or self.supervisor.matches(
+            request.reviewer.worker_selection
         )
         return (
             request.source_repository == str(self.source_repository)
@@ -398,9 +397,7 @@ class DeveloperRuntime:
                 identity = asyncio.run(bound_worker.preflight())
             reviewer_identity = None
             if request.reviewer is not None and reviewer_registration is not None:
-                with reviewer_registration.worker.bind(
-                    request.reviewer.worker
-                ) as bound_reviewer:
+                with reviewer_registration.worker.bind(request.reviewer.worker) as bound_reviewer:
                     reviewer_identity = asyncio.run(bound_reviewer.preflight())
         except DeveloperError as error:
             if str(error) in {
@@ -417,13 +414,10 @@ class DeveloperRuntime:
             raise DeveloperError("approval_revalidation_unavailable") from None
         except (OSError, ValueError, RuntimeError):
             raise DeveloperError("approval_revalidation_unavailable") from None
-        reviewer_matches = (
-            request.reviewer is None
-            or (
-                reviewer_identity == request.reviewer.worker
-                and reviewer_identity.implementation
-                == request.reviewer.worker_selection.descriptor.implementation
-            )
+        reviewer_matches = request.reviewer is None or (
+            reviewer_identity == request.reviewer.worker
+            and reviewer_identity.implementation
+            == request.reviewer.worker_selection.descriptor.implementation
         )
         return (
             identity == request.worker
