@@ -262,9 +262,17 @@ def external_worker_sandbox_plan(
         include_code_mode_host=False,
         include_auth=False,
         service_network=service_network,
-        git_inspection=repo_present,
+        git_inspection=False,
     )
     operations = list(plan["operations"])
+    if repo_present:
+        operations.append(
+            _bind(
+                _GITCONFIG_SOURCE,
+                REPO + "/.git/config",
+                mode="--ro-bind",
+            )
+        )
     operations.extend(
         (
             {"op": "--tmpfs", "dest": WORKER_ROOT},
@@ -275,6 +283,10 @@ def external_worker_sandbox_plan(
     )
     return {
         **plan,
+        "git_metadata": {
+            **plan["git_metadata"],
+            "trusted_config": repo_present,
+        },
         "external_worker": {
             "present": True,
             "path": WORKER_EXECUTABLE,
