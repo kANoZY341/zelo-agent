@@ -12,6 +12,7 @@ from app.developer_artifacts import PinnedExecutable, pin_artifact, pin_executab
 from app.developer_contracts import (
     DeveloperRequest,
     Limits,
+    ReviewerExecutionRequest,
     WorkerArtifactIdentity,
     WorkerCredentialLocation,
     WorkerIdentity,
@@ -531,7 +532,9 @@ class CodexCliWorker:
             writable=profile.workspace_write,
         )
 
-    async def run(self, request: DeveloperRequest, repo: Path) -> WorkerResult:
+    async def run(
+        self, request: DeveloperRequest | ReviewerExecutionRequest, repo: Path
+    ) -> WorkerResult:
         if self.pinned is None:
             with self.bind(request.worker) as bound:
                 return await bound.run(request, repo)
@@ -547,13 +550,25 @@ class CodexCliWorker:
             raise DeveloperError("worker_configuration_changed")
         profile = request_authority(request)
         await self.probe(repo, self.settings.developer_codex_auth_file, profile)
-        prompt = (
-            "You are Zelo's subordinate coding worker in a standalone isolated checkout. "
-            "Read AGENTS.md; all work is confined to this checkout. Make only requested edits. "
-            "Run useful tests when allowed. Do not commit, push, merge, rebase, tag, deploy, "
-            "publish, enable network, access unrelated files, or modify worker configuration. "
-            "Return a concise completion summary.\nExact instruction:\n" + request.instruction
-        )
+        role = request.worker_selection.descriptor.role
+        if role == "developer":
+            prompt = (
+                "You are Zelo's subordinate coding worker in a standalone isolated checkout. "
+                "Read AGENTS.md; all work is confined to this checkout. Make only requested edits. "
+                "Run useful tests when allowed. Do not commit, push, merge, rebase, tag, deploy, "
+                "publish, enable network, access unrelated files, or modify worker configuration. "
+                "Return a concise completion summary.\nExact instruction:\n" + request.instruction
+            )
+        elif role == "reviewer":
+            prompt = (
+                "You are Zelo's independent read-only code reviewer. Inspect only the isolated "
+                "checkout. Do not modify files, commit, push, merge, tag, publish, or access the "
+                "network. Follow the exact review instruction and return only the requested "
+                "structured review payload in your final message.\nExact instruction:\n"
+                + request.instruction
+            )
+        else:
+            raise DeveloperError("worker_role_mismatch")
         started = datetime.now(UTC)
         limits = request.limits
         result = await run_process(
