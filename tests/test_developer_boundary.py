@@ -16,8 +16,9 @@ import pytest
 from app.codex_worker import CodexCliWorker
 from app.config import ROOT
 from app.developer import DeveloperError, DeveloperRuntime, tree_digest
+from app.developer_artifacts import pin_executable
 from app.developer_process import environment, run_process
-from app.developer_sandbox import VENV, sandbox
+from app.developer_sandbox import VENV, WORKER_EXECUTABLE, external_worker_sandbox, sandbox
 from app.developer_validation import python_command
 from app.policy import State
 from app.runner import Runner
@@ -312,6 +313,32 @@ def test_validation_uses_source_not_excluded_cached_bytecode(developer_case):
         )
     )
     assert result.exit_code == 0, result.stderr
+
+
+def test_external_worker_git_inspection_ignores_repository_program_config(developer_case):
+    repo, _ = prepared(developer_case)
+    marker = repo / "EXTERNAL_GIT_CONFIG_EXECUTED"
+    callback = f"/usr/bin/touch {marker}"
+    git(repo, "config", "core.fsmonitor", callback)
+
+    with pin_executable(Path("/usr/bin/git")) as artifact:
+        result = asyncio.run(
+            run_process(
+                external_worker_sandbox(
+                    repo,
+                    [WORKER_EXECUTABLE, "status", "--short"],
+                    worker_fd=artifact.fd,
+                    writable=True,
+                    service_network=False,
+                ),
+                cwd=repo,
+                timeout=5,
+                pass_fds=(artifact.fd,),
+            )
+        )
+
+    assert result.exit_code == 0, result.stderr
+    assert not marker.exists()
 
 
 def test_git_config_programs_cannot_execute(developer_case):
