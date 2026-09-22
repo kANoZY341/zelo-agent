@@ -333,11 +333,11 @@ class ClaudeCodeWorker:
             approved_auth = request.worker.credential_location("oauth_token")
         except ValueError:
             raise DeveloperError("worker_configuration_changed") from None
+        expected_auth_path = str(self.settings.developer_claude_oauth_token_file.absolute())
         if (
             str(binary.source) != approved_executable.path
             or binary.digest != approved_executable.sha256
-            or approved_auth.path
-            != str(self.settings.developer_claude_oauth_token_file.absolute())
+            or approved_auth.path != expected_auth_path
             or request.worker.config_version != configuration_version(self.settings)
         ):
             raise DeveloperError("worker_configuration_changed")
