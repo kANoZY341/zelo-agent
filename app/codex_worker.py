@@ -9,7 +9,14 @@ from pathlib import Path
 
 from app.config import ROOT, Settings
 from app.developer_artifacts import PinnedExecutable, pin_artifact, pin_executable
-from app.developer_contracts import DeveloperRequest, Limits, WorkerIdentity, WorkerResult
+from app.developer_contracts import (
+    DeveloperRequest,
+    Limits,
+    WorkerArtifactIdentity,
+    WorkerCredentialLocation,
+    WorkerIdentity,
+    WorkerResult,
+)
 from app.developer_process import DeveloperError, environment, run_process
 from app.developer_sandbox import CODE_MODE_HOST, CODEX, ENGINE, REPO, sandbox
 from app.worker_authority import (
@@ -274,16 +281,26 @@ class CodexCliWorker:
     @contextmanager
     def bind(self, approved: WorkerIdentity | None = None):
         configuration = self.settings.model_copy(deep=True)
+        approved_executable = approved_host = None
+        if approved is not None:
+            try:
+                approved_executable = approved.artifact("executable")
+                approved_host = approved.artifact("code_mode_host")
+                approved_auth = approved.credential_location("auth")
+            except ValueError:
+                raise DeveloperError("worker_configuration_changed") from None
+            if approved_auth.path != str(configuration.developer_codex_auth_file.absolute()):
+                raise DeveloperError("worker_configuration_changed")
         with ExitStack() as artifacts:
             artifact = artifacts.enter_context(
-                pin_executable(configuration.developer_codex_executable, approved)
+                pin_executable(configuration.developer_codex_executable, approved_executable)
             )
             host_path = artifact.source.parent / "codex-code-mode-host"
             host = artifacts.enter_context(
                 pin_artifact(
                     host_path,
-                    approved_path=approved.code_mode_host if approved else None,
-                    approved_digest=approved.code_mode_host_sha256 if approved else None,
+                    approved_path=approved_host.path if approved_host else None,
+                    approved_digest=approved_host.sha256 if approved_host else None,
                     name="zelo-approved-codex-code-mode-host",
                 )
             )
@@ -362,11 +379,24 @@ class CodexCliWorker:
             config_version=CONFIG_VERSION,
             cli_version=version,
             capability_profile=CAPABILITIES,
-            executable=str(binary.source),
-            executable_sha256=binary.digest,
-            code_mode_host=str(self.host_artifact().source),
-            code_mode_host_sha256=self.host_artifact().digest,
-            auth_location=str(self.settings.developer_codex_auth_file.absolute()),
+            artifacts=(
+                WorkerArtifactIdentity(
+                    name="code_mode_host",
+                    path=str(self.host_artifact().source),
+                    sha256=self.host_artifact().digest,
+                ),
+                WorkerArtifactIdentity(
+                    name="executable",
+                    path=str(binary.source),
+                    sha256=binary.digest,
+                ),
+            ),
+            credential_locations=(
+                WorkerCredentialLocation(
+                    name="auth",
+                    path=str(self.settings.developer_codex_auth_file.absolute()),
+                ),
+            ),
         )
         return identity
 
@@ -506,9 +536,13 @@ class CodexCliWorker:
             with self.bind(request.worker) as bound:
                 return await bound.run(request, repo)
         binary = self.artifact()
+        try:
+            approved_executable = request.worker.artifact("executable")
+        except ValueError:
+            raise DeveloperError("worker_configuration_changed") from None
         if (
-            str(binary.source) != request.worker.executable
-            or binary.digest != request.worker.executable_sha256
+            str(binary.source) != approved_executable.path
+            or binary.digest != approved_executable.sha256
         ):
             raise DeveloperError("worker_configuration_changed")
         profile = request_authority(request)
