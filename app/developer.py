@@ -16,7 +16,6 @@ from typing import Any
 from uuid import UUID
 
 from app.claude_worker import ClaudeCodeWorker
-from app.opencode_worker import OpenCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
 from app.config import ROOT, Settings
 from app.developer_contracts import (
@@ -32,6 +31,7 @@ from app.developer_process import DeveloperError, run_process, run_sync, uncance
 from app.developer_review import inventory
 from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
+from app.opencode_worker import OpenCodeWorker
 from app.worker_registry import (
     Supervisor,
     WorkerRegistry,
