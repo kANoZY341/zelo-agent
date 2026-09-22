@@ -15,6 +15,7 @@ from app.developer_artifacts import PinnedExecutable, pin_executable
 from app.developer_contracts import (
     DeveloperRequest,
     Limits,
+    ReviewerExecutionRequest,
     WorkerArtifactIdentity,
     WorkerCredentialLocation,
     WorkerIdentity,
@@ -323,7 +324,9 @@ class ClaudeCodeWorker:
             service_network=True,
         )
 
-    async def run(self, request: DeveloperRequest, repo: Path) -> WorkerResult:
+    async def run(
+        self, request: DeveloperRequest | ReviewerExecutionRequest, repo: Path
+    ) -> WorkerResult:
         if self.pinned is None:
             with self.bind(request.worker) as bound:
                 return await bound.run(request, repo)
@@ -341,18 +344,28 @@ class ClaudeCodeWorker:
             or request.worker.config_version != configuration_version(self.settings)
         ):
             raise DeveloperError("worker_configuration_changed")
-        if request.worker_selection.descriptor.role != "developer":
+        role = request.worker_selection.descriptor.role
+        if role not in {"developer", "reviewer"}:
             raise DeveloperError("worker_role_mismatch")
 
         profile = request_authority(request)
         token = read_oauth_token(self.settings.developer_claude_oauth_token_file)
-        prompt = (
-            "You are Zelo's subordinate coding worker in an isolated checkout. "
-            "Read only the files available inside this checkout. Make only the requested edits. "
-            "Run useful local tests when allowed. Do not commit, push, merge, rebase, tag, deploy, "
-            "publish, access unrelated host files, or attempt network access from commands. "
-            "Exact instruction:\n" + request.instruction
-        )
+        if role == "developer":
+            prompt = (
+                "You are Zelo's subordinate coding worker in an isolated checkout. "
+                "Read only the files available inside this checkout. Make only the requested edits. "
+                "Run useful local tests when allowed. Do not commit, push, merge, rebase, tag, deploy, "
+                "publish, access unrelated host files, or attempt network access from commands. "
+                "Exact instruction:\n" + request.instruction
+            )
+        else:
+            prompt = (
+                "You are Zelo's independent read-only code reviewer. Inspect the isolated "
+                "checkout without modifying it. Do not commit, push, merge, tag, publish, access "
+                "unrelated host files, or attempt network access from commands. Follow the exact "
+                "review instruction and place only the requested structured review payload inside "
+                "the completion summary.\nExact instruction:\n" + request.instruction
+            )
         started = datetime.now(UTC)
         result = await run_process(
             self.argv(repo, profile),
