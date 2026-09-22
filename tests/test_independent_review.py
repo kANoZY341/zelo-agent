@@ -87,7 +87,11 @@ def review_runtime(developer_case, *, mutate: bool = False):
     return runtime, producer, reviewer
 
 
-def named_review_runtime(developer_case, producer_implementation: str, reviewer_implementation: str):
+def named_review_runtime(
+    developer_case,
+    producer_implementation: str,
+    reviewer_implementation: str,
+):
     producer = FakeWorker()
     producer.worker_identity = producer.worker_identity.model_copy(
         update={"implementation": producer_implementation}
