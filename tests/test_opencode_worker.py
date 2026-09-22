@@ -163,7 +163,8 @@ def test_external_worker_plan_replaces_repository_git_config():
         workspace_write=True,
         service_network=True,
     )
-    assert plan["git_metadata"]["git_inspection"] is True
+    assert plan["git_metadata"]["git_inspection"] is False
+    assert plan["git_metadata"]["trusted_config"] is True
     assert {
         "op": "--ro-bind",
         "source": "$DEVELOPER_GITCONFIG",
