@@ -256,8 +256,7 @@ class OpenCodeWorker:
                 "isolated checkout. Editing, shell commands, web access, subagents, skills, and "
                 "external-directory access are blocked by trusted policy. Return exactly the JSON "
                 "review object requested by the instruction, with no markdown.\nExact "
-                "instruction:\n"
-                + request.instruction
+                "instruction:\n" + request.instruction
             )
 
         started = datetime.now(UTC)
