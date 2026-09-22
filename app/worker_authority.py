@@ -170,6 +170,18 @@ def claude_code_permission_semantics(profile: WorkerAuthorityProfile) -> dict[st
     }
 
 
+OPENCODE_SAFE_SHELL_RESOURCES = (
+    "git status --short",
+    "git status --short *",
+    "git diff --no-ext-diff --no-textconv",
+    "git diff --no-ext-diff --no-textconv *",
+    "git diff --cached --no-ext-diff --no-textconv",
+    "git diff --cached --no-ext-diff --no-textconv *",
+    "git rev-parse *",
+    "git ls-files *",
+)
+
+
 def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
     permissions = [
         {"action": "read", "resource": "*", "effect": "allow"},
@@ -182,6 +194,10 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
         },
         {"action": "external_directory", "resource": "*", "effect": "deny"},
         {"action": "shell", "resource": "*", "effect": "deny"},
+        *(
+            {"action": "shell", "resource": resource, "effect": "allow"}
+            for resource in OPENCODE_SAFE_SHELL_RESOURCES
+        ),
         {"action": "webfetch", "resource": "*", "effect": "deny"},
         {"action": "websearch", "resource": "*", "effect": "deny"},
         {"action": "subagent", "resource": "*", "effect": "deny"},
@@ -193,6 +209,14 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
         {"action": "provider.use", "resource": "*", "effect": "deny"},
         {"action": "provider.use", "resource": "ollama", "effect": "allow"},
         {"action": "permission", "resource": "shell:*", "effect": "deny"},
+        *(
+            {
+                "action": "permission",
+                "resource": f"shell:{resource}",
+                "effect": "allow",
+            }
+            for resource in OPENCODE_SAFE_SHELL_RESOURCES
+        ),
         {"action": "permission", "resource": "webfetch:*", "effect": "deny"},
         {"action": "permission", "resource": "websearch:*", "effect": "deny"},
         {"action": "permission", "resource": "external_directory:*", "effect": "deny"},
