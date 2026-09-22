@@ -770,6 +770,19 @@ class TaskService:
                     running_count=running_count,
                     available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
                 )
+                developer_spec = DeveloperRequest.model_validate(task.developer_spec)
+                if developer_spec.reviewer is not None:
+                    reviewer_selection = developer_spec.reviewer.worker_selection
+                    audit(
+                        session,
+                        task,
+                        "reviewer_selected",
+                        worker_id=reviewer_selection.descriptor.worker_id,
+                        implementation=reviewer_selection.descriptor.implementation,
+                        registry_version=reviewer_selection.registry_version,
+                        authority_profile=reviewer_selection.authority_profile,
+                        excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
+                    )
             if task.kind in {"ai_prompt", "agent_run"}:
                 audit(
                     session,
