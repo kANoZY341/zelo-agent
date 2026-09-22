@@ -60,6 +60,14 @@ class Settings(BaseSettings):
         max_length=128,
         pattern=r"^[A-Za-z0-9._:-]+$",
     )
+    developer_opencode_enabled: bool = False
+    developer_opencode_executable: Path = Path.home() / ".local/bin/opencode"
+    developer_opencode_model: str = Field(
+        default="ollama/qwen3:4b-instruct",
+        min_length=3,
+        max_length=192,
+        pattern=r"^[A-Za-z0-9._:/-]+$",
+    )
     promotion_repository: str | None = None
     promotion_git_author_name: str = Field(default="Zelo Agent", min_length=1, max_length=128)
     promotion_git_author_email: str = Field(
