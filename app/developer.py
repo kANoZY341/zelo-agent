@@ -337,16 +337,36 @@ class DeveloperRuntime:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
-        reviewer_compatible = request.reviewer is None or self.supervisor.matches(
-            request.reviewer.worker_selection
+        selection = request.worker_selection
+        developer_binding_valid = (
+            selection.requested_role == "developer"
+            and selection.descriptor.role == "developer"
+            and request.worker.implementation == selection.descriptor.implementation
+            and self.supervisor.matches(selection)
         )
+        reviewer_compatible = True
+        if request.reviewer is not None:
+            reviewer = request.reviewer
+            review_selection = reviewer.worker_selection
+            producer_id = selection.descriptor.worker_id
+            reviewer_compatible = (
+                review_selection.requested_role == "reviewer"
+                and review_selection.descriptor.role == "reviewer"
+                and "code_review" in review_selection.requested_capabilities
+                and review_selection.authority_profile == "workspace-read-no-network-v1"
+                and reviewer.worker.implementation
+                == review_selection.descriptor.implementation
+                and review_selection.descriptor.worker_id != producer_id
+                and producer_id in review_selection.excluded_worker_ids
+                and self.supervisor.matches(review_selection)
+            )
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
             and request.sandbox_version == sandbox_policy_version()
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
-            and self.supervisor.matches(request.worker_selection)
+            and developer_binding_valid
             and reviewer_compatible
         )
 
