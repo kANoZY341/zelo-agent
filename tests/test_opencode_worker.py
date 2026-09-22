@@ -7,6 +7,7 @@ import pytest
 
 from app.developer import DeveloperError
 from app.developer_process import ProcessResult
+from app.developer_sandbox import external_worker_sandbox_plan
 from app.opencode_worker import (
     CAPABILITY_PROFILE,
     OpenCodeWorker,
@@ -16,7 +17,11 @@ from app.opencode_worker import (
     parse_cli_version,
     parse_text_output,
 )
-from app.worker_authority import authority_profile, opencode_permission_semantics
+from app.worker_authority import (
+    OPENCODE_SAFE_SHELL_RESOURCES,
+    authority_profile,
+    opencode_permission_semantics,
+)
 
 
 def configured_worker(settings, monkeypatch):
@@ -115,7 +120,7 @@ def test_opencode_argv_uses_private_standalone_pure_session(settings, monkeypatc
     assert argv[-1] == "test prompt"
 
 
-def test_opencode_inline_config_hard_denies_worker_network_and_shell(settings):
+def test_opencode_inline_config_allows_only_trusted_inspection_shell(settings):
     profile = authority_profile(("workspace-write",))
     config = inline_config(settings, profile)
     semantics = opencode_permission_semantics(profile)
@@ -123,12 +128,47 @@ def test_opencode_inline_config_hard_denies_worker_network_and_shell(settings):
     assert config["experimental"]["policies"] == semantics["policies"]
     assert config["providers"]["ollama"]["settings"]["baseURL"] == "http://127.0.0.1:11434/v1"
 
-    policies = semantics["policies"]
-    assert {"action": "permission", "resource": "shell:*", "effect": "deny"} in policies
+    permissions = list(semantics["permissions"])
+    policies = list(semantics["policies"])
+    permission_deny = {"action": "shell", "resource": "*", "effect": "deny"}
+    policy_deny = {"action": "permission", "resource": "shell:*", "effect": "deny"}
+    assert permission_deny in permissions
+    assert policy_deny in policies
+
+    for resource in OPENCODE_SAFE_SHELL_RESOURCES:
+        permission_allow = {"action": "shell", "resource": resource, "effect": "allow"}
+        policy_allow = {
+            "action": "permission",
+            "resource": f"shell:{resource}",
+            "effect": "allow",
+        }
+        assert permission_allow in permissions
+        assert policy_allow in policies
+        assert permissions.index(permission_deny) < permissions.index(permission_allow)
+        assert policies.index(policy_deny) < policies.index(policy_allow)
+
+    allowed = " ".join(OPENCODE_SAFE_SHELL_RESOURCES)
+    for forbidden in ("git push", "gh ", "curl", "wget", "ssh", "sudo", "pytest", "ruff", "python"):
+        assert forbidden not in allowed
+
     assert {"action": "permission", "resource": "webfetch:*", "effect": "deny"} in policies
     assert {"action": "permission", "resource": "websearch:*", "effect": "deny"} in policies
     assert {"action": "provider.use", "resource": "*", "effect": "deny"} in policies
     assert {"action": "provider.use", "resource": "ollama", "effect": "allow"} in policies
+
+
+def test_external_worker_plan_replaces_repository_git_config():
+    plan = external_worker_sandbox_plan(
+        repo_present=True,
+        workspace_write=True,
+        service_network=True,
+    )
+    assert plan["git_metadata"]["git_inspection"] is True
+    assert {
+        "op": "--ro-bind",
+        "source": "$DEVELOPER_GITCONFIG",
+        "dest": "/workspace/.git/config",
+    } in plan["operations"]
 
 
 def test_opencode_reviewer_policy_is_read_only():
