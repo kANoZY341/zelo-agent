@@ -404,6 +404,43 @@ def test_default_registry_registers_optional_claude_and_independent_reviewers(
     }
 
 
+def test_default_registry_registers_opencode_as_third_worker(developer_case):
+    settings = developer_case.settings.model_copy(
+        update={
+            "developer_claude_enabled": True,
+            "developer_opencode_enabled": True,
+        }
+    )
+    runtime = DeveloperRuntime(
+        settings,
+        source_repository=developer_case.source_repository,
+    )
+    descriptors = {item.worker_id: item for item in runtime.registry.list()}
+    assert set(descriptors) == {
+        "codex_core",
+        "codex_reviewer",
+        "claude_core",
+        "claude_reviewer",
+        "opencode_core",
+        "opencode_reviewer",
+    }
+    assert descriptors["codex_core"].priority > descriptors["claude_core"].priority
+    assert descriptors["claude_core"].priority > descriptors["opencode_core"].priority
+    assert descriptors["opencode_core"].role == "developer"
+    assert descriptors["opencode_reviewer"].role == "reviewer"
+
+    selected, _ = runtime.supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"codex_core": 1, "claude_core": 1},
+    )
+    assert selected.descriptor.worker_id == "opencode_core"
+
+    reviewer, snapshot = runtime.select_reviewer("codex_core")
+    assert reviewer.descriptor.worker_id == "claude_reviewer"
+    assert "codex_reviewer" in snapshot.excluded_worker_ids
+
+
 def test_default_registry_keeps_claude_disabled_until_configured(developer_case):
     runtime = DeveloperRuntime(
         developer_case.settings,
