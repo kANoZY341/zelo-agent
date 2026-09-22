@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from app.claude_worker import ClaudeCodeWorker
+from app.opencode_worker import OpenCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
 from app.config import ROOT, Settings
 from app.developer_contracts import (
@@ -174,6 +175,29 @@ class DeveloperRuntime:
                                     worker_id="claude_reviewer",
                                 ),
                                 claude,
+                            ),
+                        ]
+                    )
+                if settings.developer_opencode_enabled:
+                    opencode = OpenCodeWorker(settings)
+                    registrations.extend(
+                        [
+                            (
+                                descriptor_for_worker(
+                                    opencode,
+                                    implementation="opencode",
+                                    worker_id="opencode_core",
+                                    priority=80,
+                                ),
+                                opencode,
+                            ),
+                            (
+                                descriptor_for_reviewer(
+                                    opencode,
+                                    implementation="opencode",
+                                    worker_id="opencode_reviewer",
+                                ),
+                                opencode,
                             ),
                         ]
                     )
