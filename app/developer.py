@@ -754,15 +754,13 @@ class DeveloperRuntime:
                 )
             except Exception as error:
                 release_failure = error
-            try:
-                if entered:
-                    exit_task = asyncio.create_task(
-                        asyncio.to_thread(context.__exit__, None, None, None)
-                    )
-                    await uncancellable(exit_task)
-            finally:
-                if release_failure is not None:
-                    raise release_failure
+            if entered:
+                exit_task = asyncio.create_task(
+                    asyncio.to_thread(context.__exit__, None, None, None)
+                )
+                await uncancellable(exit_task)
+            if release_failure is not None:
+                raise release_failure
 
     def _lock_root(self) -> Path:
         root = self.root()
