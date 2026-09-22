@@ -18,7 +18,14 @@ from uuid import UUID
 from app.claude_worker import ClaudeCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
 from app.config import ROOT, Settings
-from app.developer_contracts import DeveloperRequest, DeveloperWorker, Limits, ValidationResult
+from app.developer_contracts import (
+    DeveloperRequest,
+    DeveloperWorker,
+    Limits,
+    ReviewerBinding,
+    ReviewerReport,
+    ValidationResult,
+)
 from app.developer_process import DeveloperError, run_process, run_sync, uncancellable
 from app.developer_review import inventory
 from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
@@ -252,6 +259,27 @@ class DeveloperRuntime:
             raise DeveloperError("worker_identity_unavailable") from None
         if identity.implementation != selected.descriptor.implementation:
             raise DeveloperError("worker_descriptor_mismatch")
+
+        reviewer = None
+        try:
+            review_registration, review_selection = self.select_reviewer(
+                selected.descriptor.worker_id
+            )
+        except DeveloperError as error:
+            if str(error) != "no_eligible_worker":
+                raise
+        else:
+            try:
+                review_identity = review_registration.worker.identity()
+            except (DeveloperError, OSError, ValueError, RuntimeError):
+                raise DeveloperError("reviewer_identity_unavailable") from None
+            if review_identity.implementation != review_registration.descriptor.implementation:
+                raise DeveloperError("reviewer_descriptor_mismatch")
+            reviewer = ReviewerBinding(
+                worker=review_identity,
+                worker_selection=review_selection,
+            )
+
         return DeveloperRequest(
             instruction=instruction,
             source_repository=str(self.source_repository),
@@ -261,6 +289,7 @@ class DeveloperRuntime:
             base_sha=result.stdout.decode().strip(),
             worker=identity,
             worker_selection=selection,
+            reviewer=reviewer,
             sandbox_version=sandbox_policy_version(),
             limits=self.limits(timeout),
         )
@@ -291,6 +320,10 @@ class DeveloperRuntime:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
+        reviewer_compatible = (
+            request.reviewer is None
+            or self.supervisor.matches(request.reviewer.worker_selection)
+        )
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
@@ -298,6 +331,7 @@ class DeveloperRuntime:
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
             and self.supervisor.matches(request.worker_selection)
+            and reviewer_compatible
         )
 
     def approval_compatible(self, request: DeveloperRequest, timeout: float) -> bool:
@@ -319,6 +353,13 @@ class DeveloperRuntime:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
+        reviewer_registration = None
+        if request.reviewer is not None:
+            reviewer_registration = self.registry.get(
+                request.reviewer.worker_selection.descriptor.worker_id
+            )
+            if reviewer_registration is None:
+                return False
         try:
             head = run_sync(git_argv("rev-parse", "HEAD"), cwd=self.source_repository)
             if head.exit_code:
@@ -338,6 +379,12 @@ class DeveloperRuntime:
                 return False
             with selected.worker.bind(request.worker) as bound_worker:
                 identity = asyncio.run(bound_worker.preflight())
+            reviewer_identity = None
+            if request.reviewer is not None and reviewer_registration is not None:
+                with reviewer_registration.worker.bind(
+                    request.reviewer.worker
+                ) as bound_reviewer:
+                    reviewer_identity = asyncio.run(bound_reviewer.preflight())
         except DeveloperError as error:
             if str(error) in {
                 "worker_configuration_changed",
@@ -353,9 +400,18 @@ class DeveloperRuntime:
             raise DeveloperError("approval_revalidation_unavailable") from None
         except (OSError, ValueError, RuntimeError):
             raise DeveloperError("approval_revalidation_unavailable") from None
+        reviewer_matches = (
+            request.reviewer is None
+            or (
+                reviewer_identity == request.reviewer.worker
+                and reviewer_identity.implementation
+                == request.reviewer.worker_selection.descriptor.implementation
+            )
+        )
         return (
             identity == request.worker
             and identity.implementation == request.worker_selection.descriptor.implementation
+            and reviewer_matches
         )
 
     async def git(self, repo: Path, request: DeveloperRequest, *args: str, trusted=False) -> bytes:
