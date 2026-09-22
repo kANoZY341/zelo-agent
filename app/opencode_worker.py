@@ -29,7 +29,7 @@ from app.worker_authority import (
 ADAPTER_SCHEMA = "opencode-zelo-v1"
 MIN_CLI_VERSION = (2, 0, 0)
 MAX_CLI_VERSION_EXCLUSIVE = (3, 0, 0)
-CAPABILITY_PROFILE = "opencode-v2-standalone-ollama-inline-policy-v1"
+CAPABILITY_PROFILE = "opencode-v2-standalone-ollama-inline-policy-v2"
 _VERSION = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:\s|$)")
 PROJECT_CONFIG_NAMES = ("opencode.json", "opencode.jsonc", ".opencode")
 
