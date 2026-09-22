@@ -184,48 +184,36 @@ OPENCODE_SAFE_SHELL_RESOURCES = (
 
 def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
     permissions = [
+        {"action": "*", "resource": "*", "effect": "deny"},
         {"action": "read", "resource": "*", "effect": "allow"},
         {"action": "glob", "resource": "*", "effect": "allow"},
         {"action": "grep", "resource": "*", "effect": "allow"},
-        {
-            "action": "edit",
-            "resource": "*",
-            "effect": "allow" if profile.workspace_write else "deny",
-        },
-        {"action": "external_directory", "resource": "*", "effect": "deny"},
-        {"action": "shell", "resource": "*", "effect": "deny"},
-        *(
-            {"action": "shell", "resource": resource, "effect": "allow"}
-            for resource in OPENCODE_SAFE_SHELL_RESOURCES
-        ),
-        {"action": "webfetch", "resource": "*", "effect": "deny"},
-        {"action": "websearch", "resource": "*", "effect": "deny"},
-        {"action": "subagent", "resource": "*", "effect": "deny"},
-        {"action": "skill", "resource": "*", "effect": "deny"},
-        {"action": "question", "resource": "*", "effect": "deny"},
-        {"action": "execute", "resource": "*", "effect": "deny"},
     ]
+    if profile.workspace_write:
+        permissions.append({"action": "edit", "resource": "*", "effect": "allow"})
+    permissions.extend(
+        {"action": "shell", "resource": resource, "effect": "allow"}
+        for resource in OPENCODE_SAFE_SHELL_RESOURCES
+    )
+
     policies = [
         {"action": "provider.use", "resource": "*", "effect": "deny"},
         {"action": "provider.use", "resource": "ollama", "effect": "allow"},
-        {"action": "permission", "resource": "shell:*", "effect": "deny"},
-        *(
-            {
-                "action": "permission",
-                "resource": f"shell:{resource}",
-                "effect": "allow",
-            }
-            for resource in OPENCODE_SAFE_SHELL_RESOURCES
-        ),
-        {"action": "permission", "resource": "webfetch:*", "effect": "deny"},
-        {"action": "permission", "resource": "websearch:*", "effect": "deny"},
-        {"action": "permission", "resource": "external_directory:*", "effect": "deny"},
-        {"action": "permission", "resource": "subagent:*", "effect": "deny"},
-        {"action": "permission", "resource": "skill:*", "effect": "deny"},
-        {"action": "permission", "resource": "execute:*", "effect": "deny"},
+        {"action": "permission", "resource": "*", "effect": "deny"},
+        {"action": "permission", "resource": "read:*", "effect": "allow"},
+        {"action": "permission", "resource": "glob:*", "effect": "allow"},
+        {"action": "permission", "resource": "grep:*", "effect": "allow"},
     ]
-    if not profile.workspace_write:
-        policies.append({"action": "permission", "resource": "edit:*", "effect": "deny"})
+    if profile.workspace_write:
+        policies.append({"action": "permission", "resource": "edit:*", "effect": "allow"})
+    policies.extend(
+        {
+            "action": "permission",
+            "resource": f"shell:{resource}",
+            "effect": "allow",
+        }
+        for resource in OPENCODE_SAFE_SHELL_RESOURCES
+    )
     return {
         "provider": "ollama",
         "standalone": True,
