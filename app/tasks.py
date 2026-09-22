@@ -768,9 +768,7 @@ class TaskService:
                     registry_version=selection.registry_version,
                     priority=selection.descriptor.priority,
                     running_count=running_count,
-                    available_capacity=max(
-                        0, selection.descriptor.max_concurrency - running_count
-                    ),
+                    available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
                 )
             if task.kind in {"ai_prompt", "agent_run"}:
                 audit(

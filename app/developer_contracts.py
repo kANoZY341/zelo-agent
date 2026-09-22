@@ -148,7 +148,7 @@ class WorkerSelectionSnapshot(Contract):
     registry_version: str = Field(min_length=1, max_length=64)
     routing_policy: str = Field(min_length=1, max_length=64)
     requested_role: WorkerName = "developer"
-    requested_capabilities: tuple[WorkerName, ...] = ("zelo_core_development",)
+    requested_capabilities: tuple[WorkerName, ...] = Field(\n        default=("zelo_core_development",), min_length=1, max_length=32\n    )
     authority_profile: str = Field(min_length=1, max_length=64)
     authority_policy_version: str = Field(min_length=1, max_length=64)
 
@@ -157,9 +157,8 @@ class WorkerSelectionSnapshot(Contract):
         capabilities = self.requested_capabilities
         if capabilities != tuple(sorted(set(capabilities))):
             raise ValueError("worker_selection_capabilities_not_canonical")
-        if (
-            self.descriptor.role != self.requested_role
-            or not set(capabilities).issubset(self.descriptor.capabilities)
+        if self.descriptor.role != self.requested_role or not set(capabilities).issubset(
+            self.descriptor.capabilities
         ):
             raise ValueError("worker_selection_request_mismatch")
         return self
