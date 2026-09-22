@@ -646,6 +646,9 @@ def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
         "worker.capability_profile",
         "worker.artifacts",
         "worker.credential_locations",
+        "worker_selection.requested_role",
+        "worker_selection.requested_capabilities",
+        "worker_selection.excluded_worker_ids",
         "worker_selection.authority_profile",
         "worker_selection.authority_policy_version",
         "limits.overall_seconds",
@@ -685,6 +688,10 @@ def test_approval_binds_specification(developer_case, database, field):
             changed = copy.deepcopy(value)
             changed[0]["path"] += "-changed"
             target[keys[-1]] = changed
+        elif field == "worker_selection.requested_capabilities":
+            target[keys[-1]] = ["testing"]
+        elif field == "worker_selection.excluded_worker_ids":
+            target[keys[-1]] = ["other_worker"]
         else:
             target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":

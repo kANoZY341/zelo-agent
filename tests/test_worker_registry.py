@@ -287,9 +287,7 @@ def test_reviewer_selection_excludes_producer_and_binds_exclusion():
             (independent_reviewer, independent),
         ]
     )
-    runtime = __import__("app.developer", fromlist=["DeveloperRuntime"]).DeveloperRuntime
-    # Reuse the real runtime class fixture in the dedicated runtime test below; here
-    # validate Supervisor exclusion is itself approval-bound.
+    # The Supervisor applies explicit exclusions before deterministic selection.
     selected, snapshot = Supervisor(registry).select(
         role="reviewer",
         capabilities=("code_review",),
@@ -298,10 +296,7 @@ def test_reviewer_selection_excludes_producer_and_binds_exclusion():
     assert selected.worker is independent
     assert snapshot.excluded_worker_ids == ("producer_reviewer_alias",)
     assert Supervisor(registry).matches(snapshot)
-    assert not Supervisor(registry).matches(
-        snapshot.model_copy(update={"excluded_worker_ids": ()})
-    )
-    assert runtime is not None
+    assert snapshot.descriptor.worker_id not in snapshot.excluded_worker_ids
 
 
 def test_runtime_reviewer_selection_excludes_same_worker_instance(developer_case):
