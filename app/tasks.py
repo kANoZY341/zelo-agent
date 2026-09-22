@@ -187,6 +187,21 @@ class TaskService:
         if count is not None and count >= self.settings.max_waiting_tasks:
             raise DomainError("Waiting task capacity reached; try again later", 503)
 
+    @staticmethod
+    def _developer_running_counts(session: Session) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        running = session.scalars(
+            select(Task).where(Task.kind == "developer_run", Task.status == State.RUNNING)
+        )
+        for task in running:
+            try:
+                request = DeveloperRequest.model_validate(task.developer_spec)
+            except ValueError:
+                raise DomainError("Developer routing state unavailable", 503) from None
+            worker_id = request.worker_selection.descriptor.worker_id
+            counts[worker_id] = counts.get(worker_id, 0) + 1
+        return counts
+
     def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
             task_id=task.id,
@@ -708,14 +723,17 @@ class TaskService:
                     self.tool_gateway.validate(payload["tool"], payload["arguments"])
                 except ToolRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
+            developer_running_counts: dict[str, int] = {}
             if request.kind == "developer_run":
                 if self.developer_runtime is None:
                     raise DomainError("Developer runtime unavailable", 503)
+                developer_running_counts = self._developer_running_counts(session)
                 try:
                     developer_request = self.developer_runtime.request(
                         payload["instruction"],
                         payload["validation_profile"],
                         request.timeout_seconds,
+                        running_counts=developer_running_counts,
                     )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
@@ -736,10 +754,11 @@ class TaskService:
                     session,
                     task,
                     "supervisor_routing_requested",
-                    role=selection.descriptor.role,
-                    capabilities=list(selection.descriptor.capabilities),
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
                     routing_policy=selection.routing_policy,
                 )
+                running_count = developer_running_counts.get(selection.descriptor.worker_id, 0)
                 audit(
                     session,
                     task,
@@ -748,6 +767,10 @@ class TaskService:
                     implementation=selection.descriptor.implementation,
                     registry_version=selection.registry_version,
                     priority=selection.descriptor.priority,
+                    running_count=running_count,
+                    available_capacity=max(
+                        0, selection.descriptor.max_concurrency - running_count
+                    ),
                 )
             if task.kind in {"ai_prompt", "agent_run"}:
                 audit(

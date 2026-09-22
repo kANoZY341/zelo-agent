@@ -8,7 +8,7 @@ import os
 import shutil
 import stat
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
@@ -168,7 +168,15 @@ class DeveloperRuntime:
     def validation_identity(self) -> str:
         return validation_manifest(ROOT / ".venv", self.source_repository)
 
-    def request(self, instruction: str, profile: str, timeout: float) -> DeveloperRequest:
+    def request(
+        self,
+        instruction: str,
+        profile: str,
+        timeout: float,
+        *,
+        capabilities: Iterable[str] = ("zelo_core_development",),
+        running_counts: Mapping[str, int] | None = None,
+    ) -> DeveloperRequest:
         if profile != "zelo_core" or not instruction.strip():
             raise DeveloperError("developer_request_invalid")
         self.root()
@@ -181,7 +189,9 @@ class DeveloperRuntime:
         if result.exit_code:
             raise DeveloperError("source_repository_unavailable")
         selected, selection = self.supervisor.select(
-            role="developer", capabilities=("zelo_core_development",)
+            role="developer",
+            capabilities=capabilities,
+            running_counts=running_counts,
         )
         try:
             identity = selected.worker.identity()

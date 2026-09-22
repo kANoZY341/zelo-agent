@@ -158,8 +158,16 @@ class CapacityRuntime:
         self.both_started = asyncio.Event()
         self.release = asyncio.Event()
 
-    def request(self, instruction: str, profile: str, timeout: float) -> DeveloperRequest:
+    def request(
+        self,
+        instruction: str,
+        profile: str,
+        timeout: float,
+        *,
+        running_counts: dict[str, int] | None = None,
+    ) -> DeveloperRequest:
         assert profile == "zelo_core"
+        self.last_running_counts = dict(running_counts or {})
         worker_id = "alpha" if instruction.startswith("alpha") else "beta"
         return _request(
             worker_id,
@@ -210,6 +218,19 @@ def test_scheduler_enforces_worker_capacity_and_can_skip_to_another_worker(setti
     service.finish(first, State.SUCCEEDED, _result(first.developer_request))
     third = service.claim()
     assert third is not None and third.task_id == alpha_two.id
+
+
+def test_submission_routes_with_current_running_worker_counts(settings, database):
+    runtime = CapacityRuntime(settings)
+    service = TaskService(database, settings, developer_runtime=runtime)
+    first = _approved(service, "alpha-one")
+    execution = service.claim()
+    assert execution is not None and execution.task_id == first.id
+
+    service.submit(
+        DeveloperRunInput(kind="developer_run", payload={"instruction": "beta-one"}), None
+    )
+    assert runtime.last_running_counts == {"alpha": 1}
 
 
 def test_non_developer_task_is_exclusive_barrier(settings, database):

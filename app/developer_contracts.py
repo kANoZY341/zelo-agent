@@ -147,8 +147,22 @@ class WorkerSelectionSnapshot(Contract):
     descriptor: WorkerDescriptor
     registry_version: str = Field(min_length=1, max_length=64)
     routing_policy: str = Field(min_length=1, max_length=64)
+    requested_role: WorkerName = "developer"
+    requested_capabilities: tuple[WorkerName, ...] = ("zelo_core_development",)
     authority_profile: str = Field(min_length=1, max_length=64)
     authority_policy_version: str = Field(min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def _validate_request_binding(self):
+        capabilities = self.requested_capabilities
+        if capabilities != tuple(sorted(set(capabilities))):
+            raise ValueError("worker_selection_capabilities_not_canonical")
+        if (
+            self.descriptor.role != self.requested_role
+            or not set(capabilities).issubset(self.descriptor.capabilities)
+        ):
+            raise ValueError("worker_selection_request_mismatch")
+        return self
 
 
 class DeveloperRequest(Contract):

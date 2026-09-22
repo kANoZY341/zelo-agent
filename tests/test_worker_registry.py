@@ -43,16 +43,23 @@ class StubWorker:
         return self._identity
 
 
-def descriptor(worker_id: str, *, priority: int = 1, enabled: bool = True):
+def descriptor(
+    worker_id: str,
+    *,
+    priority: int = 1,
+    enabled: bool = True,
+    capabilities: tuple[str, ...] = ("zelo_core_development",),
+    max_concurrency: int = 1,
+):
     return WorkerDescriptor(
         worker_id=worker_id,
         role="developer",
-        capabilities=("zelo_core_development",),
+        capabilities=capabilities,
         authority=("workspace-write",),
         implementation="stub",
         enabled=enabled,
         priority=priority,
-        max_concurrency=1,
+        max_concurrency=max_concurrency,
     )
 
 
@@ -120,6 +127,105 @@ def test_supervisor_uses_priority_then_stable_worker_id():
         .descriptor.worker_id
         == "alpha"
     )
+
+
+def test_supervisor_binds_requested_capabilities_and_skips_full_worker():
+    high = StubWorker()
+    low = StubWorker()
+    registry = WorkerRegistry(
+        [
+            (descriptor("high", priority=20), high),
+            (descriptor("low", priority=10), low),
+        ]
+    )
+    supervisor = Supervisor(registry)
+
+    selected, snapshot = supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"high": 1},
+    )
+    assert selected.worker is low
+    assert snapshot.descriptor.worker_id == "low"
+    assert snapshot.requested_role == "developer"
+    assert snapshot.requested_capabilities == ("zelo_core_development",)
+    assert snapshot.routing_policy == "available-capacity-priority-worker-id-v2"
+    assert supervisor.matches(snapshot)
+
+
+def test_supervisor_uses_deterministic_winner_when_all_eligible_workers_are_full():
+    registry = WorkerRegistry(
+        [
+            (descriptor("high", priority=20), StubWorker()),
+            (descriptor("low", priority=10), StubWorker()),
+        ]
+    )
+    selected, _ = Supervisor(registry).select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"high": 1, "low": 1},
+    )
+    assert selected.descriptor.worker_id == "high"
+
+
+def test_supervisor_capability_filter_and_request_binding_are_enforced():
+    registry = WorkerRegistry(
+        [
+            (descriptor("general", priority=20), StubWorker()),
+            (
+                descriptor(
+                    "testing",
+                    priority=10,
+                    capabilities=("testing", "zelo_core_development"),
+                ),
+                StubWorker(),
+            ),
+        ]
+    )
+    supervisor = Supervisor(registry)
+    selected, snapshot = supervisor.select(role="developer", capabilities=("testing",))
+    assert selected.descriptor.worker_id == "testing"
+    assert snapshot.requested_capabilities == ("testing",)
+    tampered = snapshot.model_copy(update={"requested_capabilities": ("missing",)})
+    assert not supervisor.matches(tampered)
+
+
+def test_supervisor_rejects_invalid_capacity_snapshot():
+    registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
+    with pytest.raises(DeveloperError, match="worker_capacity_invalid"):
+        Supervisor(registry).select(
+            role="developer",
+            capabilities=("zelo_core_development",),
+            running_counts={"worker": -1},
+        )
+
+
+def test_runtime_preapproval_selection_uses_live_worker_capacity(developer_case):
+    high = StubWorker("high")
+    low = StubWorker("low")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("high", priority=20).model_copy(update={"implementation": "high"}),
+                high,
+            ),
+            (
+                descriptor("low", priority=10).model_copy(update={"implementation": "low"}),
+                low,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, None, developer_case.source_repository, registry
+    )
+    request = runtime.request(
+        "test",
+        "zelo_core",
+        30,
+        running_counts={"high": 1},
+    )
+    assert request.worker_selection.descriptor.worker_id == "low"
+    assert request.worker == low.identity()
 
 
 def test_descriptors_and_selection_snapshots_are_immutable():
