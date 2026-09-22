@@ -262,7 +262,7 @@ def external_worker_sandbox_plan(
         include_code_mode_host=False,
         include_auth=False,
         service_network=service_network,
-        git_inspection=False,
+        git_inspection=repo_present,
     )
     operations = list(plan["operations"])
     operations.extend(
@@ -430,8 +430,9 @@ def external_worker_sandbox(
     if repo is not None and (repo.is_symlink() or not repo.is_dir()):
         raise DeveloperError("workspace_escape")
     git = repo / ".git" if repo is not None else None
-    if git is not None and git.exists() and (git.is_symlink() or not git.is_dir()):
-        raise DeveloperError("git_metadata_invalid")
+    if git is not None and git.exists():
+        if git.is_symlink() or not git.is_dir() or (git / "config").is_symlink():
+            raise DeveloperError("git_metadata_invalid")
     plan = external_worker_sandbox_plan(
         repo_present=repo is not None,
         workspace_write=writable,
