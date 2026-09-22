@@ -15,6 +15,7 @@ from app.worker_authority import (
     WorkerAuthorityProfile,
     authority_policy_fingerprint,
     authority_profile,
+    codex_permission_semantics,
 )
 from app.worker_registry import (
     RegisteredWorker,
@@ -246,7 +247,7 @@ def test_read_only_reviewer_authority_is_fail_closed_and_fingerprinted():
     plans = developer_sandbox.worker_sandbox_plans(read.workspace_write)
     execution = plans["worker_execution"]
     assert execution["workspace"]["writable"] is False
-    assert execution["namespaces"]["network"] is False
+    assert codex_permission_semantics(read)["network_enabled"] is False
     repo_mount = next(
         operation
         for operation in execution["operations"]
@@ -261,9 +262,7 @@ def test_reviewer_descriptor_uses_read_only_authority():
         worker, implementation="reviewer_impl", worker_id="reviewer"
     )
     registry = WorkerRegistry([(descriptor_value, worker)])
-    selected, snapshot = Supervisor(registry).select(
-        role="reviewer", capabilities=("code_review",)
-    )
+    selected, snapshot = Supervisor(registry).select(role="reviewer", capabilities=("code_review",))
     assert selected.descriptor.role == "reviewer"
     assert selected.authority_profile.name == "workspace-read-no-network-v1"
     assert snapshot.requested_role == "reviewer"
