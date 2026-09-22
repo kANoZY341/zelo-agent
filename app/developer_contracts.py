@@ -148,7 +148,9 @@ class WorkerSelectionSnapshot(Contract):
     registry_version: str = Field(min_length=1, max_length=64)
     routing_policy: str = Field(min_length=1, max_length=64)
     requested_role: WorkerName = "developer"
-    requested_capabilities: tuple[WorkerName, ...] = Field(\n        default=("zelo_core_development",), min_length=1, max_length=32\n    )
+    requested_capabilities: tuple[WorkerName, ...] = Field(
+        default=("zelo_core_development",), min_length=1, max_length=32
+    )
     authority_profile: str = Field(min_length=1, max_length=64)
     authority_policy_version: str = Field(min_length=1, max_length=64)
 
