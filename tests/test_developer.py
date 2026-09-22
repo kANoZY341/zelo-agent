@@ -688,7 +688,11 @@ def test_approval_binds_specification(developer_case, database, field):
             changed = copy.deepcopy(value)
             changed[0]["path"] += "-changed"
             target[keys[-1]] = changed
+        elif field == "worker_selection.requested_role":
+            target["descriptor"]["role"] = "reviewer"
+            target[keys[-1]] = "reviewer"
         elif field == "worker_selection.requested_capabilities":
+            target["descriptor"]["capabilities"] = ["testing", "zelo_core_development"]
             target[keys[-1]] = ["testing"]
         elif field == "worker_selection.excluded_worker_ids":
             target[keys[-1]] = ["other_worker"]
