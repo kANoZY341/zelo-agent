@@ -20,9 +20,7 @@ def canonical_identity() -> WorkerIdentity:
             WorkerArtifactIdentity(name="binary", path="/trusted/example", sha256="a" * 64),
             WorkerArtifactIdentity(name="support", path="/trusted/support", sha256="b" * 64),
         ),
-        credential_locations=(
-            WorkerCredentialLocation(name="auth", path="/trusted/auth.json"),
-        ),
+        credential_locations=(WorkerCredentialLocation(name="auth", path="/trusted/auth.json"),),
     )
 
 
@@ -68,9 +66,7 @@ def test_worker_identity_artifacts_and_credentials_must_be_canonical():
             config_version="config-v1",
             cli_version="runtime-v1",
             capability_profile="capabilities-v1",
-            artifacts=(
-                WorkerArtifactIdentity(name="binary", path="/one", sha256="a" * 64),
-            ),
+            artifacts=(WorkerArtifactIdentity(name="binary", path="/one", sha256="a" * 64),),
             credential_locations=(
                 WorkerCredentialLocation(name="zeta", path="/zeta"),
                 WorkerCredentialLocation(name="alpha", path="/alpha"),
@@ -143,9 +139,7 @@ def test_non_codex_worker_identity_needs_no_codex_fields():
         cli_version="opencode-runtime-v1",
         capability_profile="local-model-v1",
         artifacts=(
-            WorkerArtifactIdentity(
-                name="binary", path="/trusted/opencode", sha256="c" * 64
-            ),
+            WorkerArtifactIdentity(name="binary", path="/trusted/opencode", sha256="c" * 64),
         ),
     )
     assert identity.implementation == "opencode"
@@ -180,9 +174,7 @@ def test_worker_artifact_and_auth_changes_invalidate_runtime_compatibility(devel
     auth_index = next(index for index, item in enumerate(locations) if item.name == "auth")
     auth = locations[auth_index]
     locations[auth_index] = auth.model_copy(update={"path": auth.path + "-changed"})
-    changed_worker = approved.worker.model_copy(
-        update={"credential_locations": tuple(locations)}
-    )
+    changed_worker = approved.worker.model_copy(update={"credential_locations": tuple(locations)})
     changed_request = approved.model_copy(update={"worker": changed_worker})
     assert not developer_case.approval_compatible(changed_request, 30)
 
