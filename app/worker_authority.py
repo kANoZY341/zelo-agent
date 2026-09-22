@@ -28,7 +28,15 @@ _WORKSPACE_WRITE = WorkerAuthorityProfile(
     network=False,
 )
 
+_WORKSPACE_READ = WorkerAuthorityProfile(
+    name="workspace-read-no-network-v1",
+    authority=("workspace-read",),
+    workspace_write=False,
+    network=False,
+)
+
 _PROFILES = {
+    _WORKSPACE_READ.authority: _WORKSPACE_READ,
     _WORKSPACE_WRITE.authority: _WORKSPACE_WRITE,
 }
 

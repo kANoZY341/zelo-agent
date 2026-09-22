@@ -212,6 +212,28 @@ class DeveloperRuntime:
             limits=self.limits(timeout),
         )
 
+    def select_reviewer(
+        self,
+        producer_worker_id: str,
+        *,
+        running_counts: Mapping[str, int] | None = None,
+    ):
+        producer = self.registry.get(producer_worker_id)
+        if producer is None:
+            raise DeveloperError("producer_worker_unknown")
+        excluded = tuple(
+            descriptor.worker_id
+            for descriptor in self.registry.list()
+            if (registration := self.registry.get(descriptor.worker_id)) is not None
+            and registration.worker is producer.worker
+        )
+        return self.supervisor.select(
+            role="reviewer",
+            capabilities=("code_review",),
+            running_counts=running_counts,
+            exclude_worker_ids=excluded,
+        )
+
     def compatible(self, request: DeveloperRequest, timeout: float) -> bool:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:

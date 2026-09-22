@@ -119,11 +119,17 @@ class Supervisor:
         role: str,
         capabilities: Iterable[str],
         running_counts: Mapping[str, int] | None = None,
+        exclude_worker_ids: Iterable[str] = (),
     ) -> tuple[RegisteredWorker, WorkerSelectionSnapshot]:
         requested_capabilities = tuple(sorted(set(capabilities)))
+        excluded_worker_ids = tuple(sorted(set(exclude_worker_ids)))
         if not requested_capabilities:
             raise DeveloperError("no_eligible_worker")
-        eligible = self.registry.eligible(role, requested_capabilities)
+        eligible = tuple(
+            item
+            for item in self.registry.eligible(role, requested_capabilities)
+            if item.descriptor.worker_id not in excluded_worker_ids
+        )
         if not eligible:
             raise DeveloperError("no_eligible_worker")
         if running_counts is not None:
@@ -147,6 +153,7 @@ class Supervisor:
             routing_policy=self.registry.routing_policy,
             requested_role=role,
             requested_capabilities=requested_capabilities,
+            excluded_worker_ids=excluded_worker_ids,
             authority_profile=selected.authority_profile.name,
             authority_policy_version=authority_policy_version(),
         )
@@ -159,6 +166,7 @@ class Supervisor:
             and snapshot.routing_policy == self.registry.routing_policy
             and current.descriptor == snapshot.descriptor
             and current.descriptor.enabled
+            and current.descriptor.worker_id not in snapshot.excluded_worker_ids
             and current.descriptor.role == snapshot.requested_role
             and set(snapshot.requested_capabilities).issubset(current.descriptor.capabilities)
             and current.authority_profile.name == snapshot.authority_profile
@@ -178,6 +186,20 @@ def descriptor_for_worker(
         role="developer",
         capabilities=("zelo_core_development",),
         authority=("workspace-write",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )
+
+
+def descriptor_for_reviewer(
+    worker: DeveloperWorker, implementation: str, worker_id: str = "reviewer_core"
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="reviewer",
+        capabilities=("code_review",),
+        authority=("workspace-read",),
         implementation=implementation,
         priority=100,
         max_concurrency=1,

@@ -16,7 +16,12 @@ from app.worker_authority import (
     authority_policy_fingerprint,
     authority_profile,
 )
-from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
+from app.worker_registry import (
+    RegisteredWorker,
+    Supervisor,
+    WorkerRegistry,
+    descriptor_for_reviewer,
+)
 
 
 class StubWorker:
@@ -226,6 +231,142 @@ def test_runtime_preapproval_selection_uses_live_worker_capacity(developer_case)
     )
     assert request.worker_selection.descriptor.worker_id == "low"
     assert request.worker == low.identity()
+
+
+def test_read_only_reviewer_authority_is_fail_closed_and_fingerprinted():
+    read = authority_profile(("workspace-read",))
+    write = authority_profile(("workspace-write",))
+    assert read.name == "workspace-read-no-network-v1"
+    assert read.workspace_write is False
+    assert read.network is False
+    assert authority_policy_fingerprint((read,)) != authority_policy_fingerprint((write,))
+
+    from app import developer_sandbox
+
+    plans = developer_sandbox.worker_sandbox_plans(read.workspace_write)
+    execution = plans["worker_execution"]
+    assert execution["workspace"]["writable"] is False
+    assert execution["namespaces"]["network"] is False
+    repo_mount = next(
+        operation
+        for operation in execution["operations"]
+        if operation.get("dest") == developer_sandbox.REPO
+    )
+    assert repo_mount["op"] == "--ro-bind"
+
+
+def test_reviewer_descriptor_uses_read_only_authority():
+    worker = StubWorker("reviewer_impl")
+    descriptor_value = descriptor_for_reviewer(
+        worker, implementation="reviewer_impl", worker_id="reviewer"
+    )
+    registry = WorkerRegistry([(descriptor_value, worker)])
+    selected, snapshot = Supervisor(registry).select(
+        role="reviewer", capabilities=("code_review",)
+    )
+    assert selected.descriptor.role == "reviewer"
+    assert selected.authority_profile.name == "workspace-read-no-network-v1"
+    assert snapshot.requested_role == "reviewer"
+    assert snapshot.requested_capabilities == ("code_review",)
+
+
+def test_reviewer_selection_excludes_producer_and_binds_exclusion():
+    producer = StubWorker("shared")
+    independent = StubWorker("independent")
+    developer_descriptor = descriptor("producer").model_copy(update={"implementation": "shared"})
+    aliased_reviewer = descriptor_for_reviewer(
+        producer, implementation="shared", worker_id="producer_reviewer_alias"
+    ).model_copy(update={"priority": 20})
+    independent_reviewer = descriptor_for_reviewer(
+        independent, implementation="independent", worker_id="independent_reviewer"
+    ).model_copy(update={"priority": 10})
+    registry = WorkerRegistry(
+        [
+            (developer_descriptor, producer),
+            (aliased_reviewer, producer),
+            (independent_reviewer, independent),
+        ]
+    )
+    runtime = __import__("app.developer", fromlist=["DeveloperRuntime"]).DeveloperRuntime
+    # Reuse the real runtime class fixture in the dedicated runtime test below; here
+    # validate Supervisor exclusion is itself approval-bound.
+    selected, snapshot = Supervisor(registry).select(
+        role="reviewer",
+        capabilities=("code_review",),
+        exclude_worker_ids=("producer_reviewer_alias",),
+    )
+    assert selected.worker is independent
+    assert snapshot.excluded_worker_ids == ("producer_reviewer_alias",)
+    assert Supervisor(registry).matches(snapshot)
+    assert not Supervisor(registry).matches(
+        snapshot.model_copy(update={"excluded_worker_ids": ()})
+    )
+    assert runtime is not None
+
+
+def test_runtime_reviewer_selection_excludes_same_worker_instance(developer_case):
+    producer = StubWorker("shared")
+    independent = StubWorker("independent")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("producer", priority=100).model_copy(
+                    update={"implementation": "shared"}
+                ),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    producer,
+                    implementation="shared",
+                    worker_id="producer_reviewer_alias",
+                ).model_copy(update={"priority": 100}),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    independent,
+                    implementation="independent",
+                    worker_id="independent_reviewer",
+                ).model_copy(update={"priority": 10}),
+                independent,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, producer, developer_case.source_repository, registry
+    )
+    selected, snapshot = runtime.select_reviewer("producer")
+    assert selected.worker is independent
+    assert selected.descriptor.worker_id == "independent_reviewer"
+    assert snapshot.authority_profile == "workspace-read-no-network-v1"
+    assert "producer" in snapshot.excluded_worker_ids
+    assert "producer_reviewer_alias" in snapshot.excluded_worker_ids
+
+
+def test_runtime_reviewer_selection_fails_without_independent_reviewer(developer_case):
+    producer = StubWorker("shared")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("producer").model_copy(update={"implementation": "shared"}),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    producer,
+                    implementation="shared",
+                    worker_id="producer_reviewer_alias",
+                ),
+                producer,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, producer, developer_case.source_repository, registry
+    )
+    with pytest.raises(DeveloperError, match="no_eligible_worker"):
+        runtime.select_reviewer("producer")
 
 
 def test_descriptors_and_selection_snapshots_are_immutable():
