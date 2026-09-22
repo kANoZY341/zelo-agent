@@ -441,6 +441,50 @@ def test_default_registry_registers_opencode_as_third_worker(developer_case):
     assert "codex_reviewer" in snapshot.excluded_worker_ids
 
 
+def test_fourth_worker_can_join_common_runtime_without_vendor_routing_changes(
+    developer_case,
+):
+    registrations = []
+    priorities = {
+        "codex": 100,
+        "claude_code": 90,
+        "opencode": 80,
+        "ox": 70,
+    }
+    for implementation, priority in priorities.items():
+        worker = StubWorker(implementation)
+        registrations.append(
+            (
+                descriptor(f"{implementation}_core", priority=priority).model_copy(
+                    update={"implementation": implementation}
+                ),
+                worker,
+            )
+        )
+
+    registry = WorkerRegistry(registrations)
+    runtime = DeveloperRuntime(
+        developer_case.settings,
+        None,
+        developer_case.source_repository,
+        registry,
+    )
+    request = runtime.request(
+        "test fourth worker conformance",
+        "zelo_core",
+        30,
+        running_counts={
+            "codex_core": 1,
+            "claude_code_core": 1,
+            "opencode_core": 1,
+        },
+    )
+
+    assert request.worker_selection.descriptor.worker_id == "ox_core"
+    assert request.worker.implementation == "ox"
+    assert request.worker_selection.routing_policy == "available-capacity-priority-worker-id-v2"
+
+
 def test_default_registry_keeps_claude_disabled_until_configured(developer_case):
     runtime = DeveloperRuntime(
         developer_case.settings,
