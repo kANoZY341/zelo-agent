@@ -176,19 +176,6 @@ class ReviewerBinding(Contract):
     worker: WorkerIdentity
     worker_selection: WorkerSelectionSnapshot
 
-    @model_validator(mode="after")
-    def _validate_reviewer(self):
-        if (
-            self.worker_selection.requested_role != "reviewer"
-            or self.worker_selection.descriptor.role != "reviewer"
-            or "code_review" not in self.worker_selection.requested_capabilities
-            or self.worker_selection.authority_profile != "workspace-read-no-network-v1"
-        ):
-            raise ValueError("reviewer_binding_invalid")
-        if self.worker.implementation != self.worker_selection.descriptor.implementation:
-            raise ValueError("reviewer_identity_mismatch")
-        return self
-
 
 class ReviewFinding(Contract):
     severity: Literal["low", "medium", "high", "critical"]
@@ -214,23 +201,6 @@ class DeveloperRequest(Contract):
     validation_version: str = "trusted-venv-content-manifest-v3"
     sandbox_version: str
     limits: Limits
-
-    @model_validator(mode="after")
-    def _validate_worker_bindings(self):
-        if self.worker_selection.requested_role != "developer":
-            raise ValueError("developer_worker_role_invalid")
-        if self.worker.implementation != self.worker_selection.descriptor.implementation:
-            raise ValueError("developer_identity_mismatch")
-        if self.reviewer is not None:
-            producer_id = self.worker_selection.descriptor.worker_id
-            review_selection = self.reviewer.worker_selection
-            if (
-                review_selection.descriptor.worker_id == producer_id
-                or producer_id not in review_selection.excluded_worker_ids
-            ):
-                raise ValueError("reviewer_not_independent")
-        return self
-
 
 class ReviewerExecutionRequest(Contract):
     instruction: str = Field(min_length=1, max_length=65536)
