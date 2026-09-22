@@ -14,6 +14,7 @@ from app.codex_worker import (
     SUPPORTED_CLI_VERSIONS,
     CodexCliWorker,
     command_config,
+    file_digest,
     parse_jsonl,
 )
 from app.developer import DeveloperError
@@ -50,6 +51,25 @@ def fake_codex(settings):
     auth.write_text("harmless-sentinel")
     settings.developer_codex_auth_file = auth
     return CodexCliWorker(settings)
+
+
+def test_codex_identity_uses_generic_artifacts_and_auth(fake_codex):
+    identity = asyncio.run(fake_codex.preflight())
+    executable = fake_codex.settings.developer_codex_executable.resolve()
+    host = executable.with_name("codex-code-mode-host").resolve()
+
+    assert identity.artifact("executable").path == str(executable)
+    assert identity.artifact("executable").sha256 == file_digest(executable)
+    assert identity.artifact("code_mode_host").path == str(host)
+    assert identity.artifact("code_mode_host").sha256 == file_digest(host)
+    assert identity.credential_location("auth").path == str(
+        fake_codex.settings.developer_codex_auth_file.absolute()
+    )
+
+    persisted = identity.model_dump(mode="json")
+    assert "executable" not in persisted
+    assert "code_mode_host" not in persisted
+    assert "auth_location" not in persisted
 
 
 def request(runtime):
