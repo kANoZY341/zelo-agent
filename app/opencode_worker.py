@@ -29,7 +29,8 @@ from app.worker_authority import (
 ADAPTER_SCHEMA = "opencode-zelo-v1"
 MIN_CLI_VERSION = (2, 0, 0)
 MAX_CLI_VERSION_EXCLUSIVE = (3, 0, 0)
-CAPABILITY_PROFILE = "opencode-v2-standalone-ollama-inline-policy-v2"
+CAPABILITY_PROFILE = "opencode-v2-standalone-ollama-inline-policy-v3"
+MAX_STEPS = 12
 _VERSION = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:\s|$)")
 PROJECT_CONFIG_NAMES = ("opencode.json", "opencode.jsonc", ".opencode")
 
@@ -52,6 +53,10 @@ def configuration_version(settings: Settings) -> str:
         "standalone": True,
         "pure": True,
         "format": "default",
+        "max_steps": MAX_STEPS,
+        "formatter": False,
+        "snapshots": False,
+        "mcp_servers": "none",
     }
     return hashlib.sha256(_canonical_json(payload).encode("ascii")).hexdigest()
 
@@ -110,6 +115,10 @@ def inline_config(settings: Settings, profile: WorkerAuthorityProfile) -> dict[s
         "plugins": [],
         "skills": [],
         "commands": {},
+        "formatter": False,
+        "snapshots": False,
+        "mcp": {"servers": {}},
+        "agents": {"build": {"steps": MAX_STEPS}},
     }
 
 
