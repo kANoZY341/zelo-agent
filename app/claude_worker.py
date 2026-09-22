@@ -353,8 +353,9 @@ class ClaudeCodeWorker:
         if role == "developer":
             prompt = (
                 "You are Zelo's subordinate coding worker in an isolated checkout. "
-                "Read only the files available inside this checkout. Make only the requested edits. "
-                "Run useful local tests when allowed. Do not commit, push, merge, rebase, tag, deploy, "
+                "Read only the files available inside this checkout. Make only the requested "
+                "edits. Run useful local tests when allowed. Do not commit, push, merge, rebase, "
+                "tag, deploy, "
                 "publish, access unrelated host files, or attempt network access from commands. "
                 "Exact instruction:\n" + request.instruction
             )
