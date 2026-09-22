@@ -640,7 +640,6 @@ def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
         "validation_identity",
         "sandbox_version",
         "validation_version",
-        "worker.schema_version",
         "worker.config_version",
         "worker.implementation",
         "worker.cli_version",
