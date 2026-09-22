@@ -665,7 +665,8 @@ class DeveloperRuntime:
         review_request = ReviewerExecutionRequest(
             instruction=(
                 "Review the current checkout independently for correctness, security, regressions, "
-                "and compliance with the requested task. Do not modify anything. Return exactly one "
+                "and compliance with the requested task. Do not modify anything. Return exactly "
+                "one "
                 "JSON object with no markdown using this shape: "
                 '{"summary":"bounded summary","findings":[{"severity":"low|medium|high|critical",'
                 '"message":"bounded finding","path":"relative/path/or null"}]}. '
@@ -686,6 +687,13 @@ class DeveloperRuntime:
         )
         context = registration.worker.bind(binding.worker)
         entered = False
+        emit(
+            "reviewer_capacity_claimed",
+            {
+                "worker_id": registration.descriptor.worker_id,
+                "max_concurrency": registration.descriptor.max_concurrency,
+            },
+        )
         emit(
             "review_started",
             {
@@ -743,14 +751,24 @@ class DeveloperRuntime:
             finally:
                 raise
         finally:
+            release_failure = None
             lock.close()
-            emit(
-                "reviewer_capacity_released",
-                {"worker_id": registration.descriptor.worker_id},
-            )
-            if entered:
-                exit_task = asyncio.create_task(asyncio.to_thread(context.__exit__, None, None, None))
-                await uncancellable(exit_task)
+            try:
+                emit(
+                    "reviewer_capacity_released",
+                    {"worker_id": registration.descriptor.worker_id},
+                )
+            except Exception as error:
+                release_failure = error
+            try:
+                if entered:
+                    exit_task = asyncio.create_task(
+                        asyncio.to_thread(context.__exit__, None, None, None)
+                    )
+                    await uncancellable(exit_task)
+            finally:
+                if release_failure is not None:
+                    raise release_failure
 
     def _lock_root(self) -> Path:
         root = self.root()
