@@ -202,6 +202,7 @@ class DeveloperRequest(Contract):
     sandbox_version: str
     limits: Limits
 
+
 class ReviewerExecutionRequest(Contract):
     instruction: str = Field(min_length=1, max_length=65536)
     source_repository: str
