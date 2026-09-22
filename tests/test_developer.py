@@ -667,9 +667,7 @@ def test_approval_binds_specification(developer_case, database, field):
             changed[0]["path"] += "-changed"
             target[keys[-1]] = changed
         else:
-            target[keys[-1]] = (
-                value + 1 if isinstance(value, (int, float)) else value + "changed"
-            )
+            target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":
             target[keys[-1]] = "f" * 40
         if field == "worker_selection.authority_policy_version":
