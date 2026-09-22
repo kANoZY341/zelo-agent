@@ -179,7 +179,12 @@ class Supervisor:
 
 
 def descriptor_for_worker(
-    worker: DeveloperWorker, implementation: str, worker_id: str = "codex_core"
+    worker: DeveloperWorker,
+    implementation: str,
+    worker_id: str = "codex_core",
+    *,
+    priority: int = 100,
+    max_concurrency: int = 1,
 ) -> WorkerDescriptor:
     return WorkerDescriptor(
         worker_id=worker_id,
@@ -187,8 +192,8 @@ def descriptor_for_worker(
         capabilities=("zelo_core_development",),
         authority=("workspace-write",),
         implementation=implementation,
-        priority=100,
-        max_concurrency=1,
+        priority=priority,
+        max_concurrency=max_concurrency,
     )
 
 

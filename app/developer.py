@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from app.claude_worker import ClaudeCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
 from app.config import ROOT, Settings
 from app.developer_contracts import DeveloperRequest, DeveloperWorker, Limits, ValidationResult
@@ -22,7 +23,12 @@ from app.developer_process import DeveloperError, run_process, run_sync, uncance
 from app.developer_review import inventory
 from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
-from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_worker
+from app.worker_registry import (
+    Supervisor,
+    WorkerRegistry,
+    descriptor_for_reviewer,
+    descriptor_for_worker,
+)
 
 DeveloperRuntimeError = DeveloperError
 Emit = Callable[[str, dict[str, Any]], None]
@@ -103,23 +109,70 @@ class DeveloperRuntime:
                 raise DeveloperError("worker_registry_mismatch")
             self._worker = selected.worker
         else:
-            self._worker = worker or CodexCliWorker(settings)
-            self.registry = WorkerRegistry(
-                [
+            if worker is None:
+                codex = CodexCliWorker(settings)
+                registrations = [
                     (
                         descriptor_for_worker(
-                            self._worker,
-                            implementation=(
-                                "codex"
-                                if worker is None
-                                else self._worker.identity().implementation
-                            ),
+                            codex,
+                            implementation="codex",
+                            worker_id="codex_core",
+                            priority=100,
                         ),
-                        self._worker,
-                    )
+                        codex,
+                    ),
+                    (
+                        descriptor_for_reviewer(
+                            codex,
+                            implementation="codex",
+                            worker_id="codex_reviewer",
+                        ),
+                        codex,
+                    ),
                 ]
-            )
-            self.supervisor = Supervisor(self.registry)
+                if settings.developer_claude_enabled:
+                    claude = ClaudeCodeWorker(settings)
+                    registrations.extend(
+                        [
+                            (
+                                descriptor_for_worker(
+                                    claude,
+                                    implementation="claude_code",
+                                    worker_id="claude_core",
+                                    priority=90,
+                                ),
+                                claude,
+                            ),
+                            (
+                                descriptor_for_reviewer(
+                                    claude,
+                                    implementation="claude_code",
+                                    worker_id="claude_reviewer",
+                                ),
+                                claude,
+                            ),
+                        ]
+                    )
+                self.registry = WorkerRegistry(registrations)
+                self.supervisor = Supervisor(self.registry)
+                selected, _ = self.supervisor.select(
+                    role="developer", capabilities=("zelo_core_development",)
+                )
+                self._worker = selected.worker
+            else:
+                self._worker = worker
+                self.registry = WorkerRegistry(
+                    [
+                        (
+                            descriptor_for_worker(
+                                self._worker,
+                                implementation=self._worker.identity().implementation,
+                            ),
+                            self._worker,
+                        )
+                    ]
+                )
+                self.supervisor = Supervisor(self.registry)
 
     @property
     def worker(self) -> DeveloperWorker:

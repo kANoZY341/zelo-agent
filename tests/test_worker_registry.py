@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from app.developer import DeveloperRuntime
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
 from app.developer_sandbox import CODEX, sandbox
@@ -361,6 +362,57 @@ def test_runtime_reviewer_selection_fails_without_independent_reviewer(developer
     )
     with pytest.raises(DeveloperError, match="no_eligible_worker"):
         runtime.select_reviewer("producer")
+
+
+def test_default_registry_registers_optional_claude_and_independent_reviewers(
+    developer_case,
+):
+    settings = developer_case.settings.model_copy(update={"developer_claude_enabled": True})
+    runtime = DeveloperRuntime(
+        settings,
+        source_repository=developer_case.source_repository,
+    )
+    descriptors = {item.worker_id: item for item in runtime.registry.list()}
+    assert set(descriptors) == {
+        "codex_core",
+        "codex_reviewer",
+        "claude_core",
+        "claude_reviewer",
+    }
+    assert descriptors["codex_core"].role == "developer"
+    assert descriptors["claude_core"].role == "developer"
+    assert descriptors["codex_reviewer"].role == "reviewer"
+    assert descriptors["claude_reviewer"].role == "reviewer"
+    assert descriptors["codex_core"].priority > descriptors["claude_core"].priority
+
+    selected, _ = runtime.supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"codex_core": 1},
+    )
+    assert selected.descriptor.worker_id == "claude_core"
+
+    reviewer, snapshot = runtime.select_reviewer("codex_core")
+    assert reviewer.descriptor.worker_id == "claude_reviewer"
+    assert set(snapshot.excluded_worker_ids) == {"codex_core", "codex_reviewer"}
+
+    reverse, reverse_snapshot = runtime.select_reviewer("claude_core")
+    assert reverse.descriptor.worker_id == "codex_reviewer"
+    assert set(reverse_snapshot.excluded_worker_ids) == {
+        "claude_core",
+        "claude_reviewer",
+    }
+
+
+def test_default_registry_keeps_claude_disabled_until_configured(developer_case):
+    runtime = DeveloperRuntime(
+        developer_case.settings,
+        source_repository=developer_case.source_repository,
+    )
+    assert {item.worker_id for item in runtime.registry.list()} == {
+        "codex_core",
+        "codex_reviewer",
+    }
 
 
 def test_descriptors_and_selection_snapshots_are_immutable():
