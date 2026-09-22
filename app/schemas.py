@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.developer_contracts import DeveloperRequest, ValidationResult
+from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
 
@@ -182,6 +182,18 @@ class AgentRunResult(StrictModel):
     completed_at: datetime
 
 
+class IndependentReviewResult(StrictModel):
+    worker_id: str
+    implementation: str
+    worker_version: str
+    report: ReviewerReport
+    usage: dict[str, int]
+    event_count: int = Field(ge=0, le=4096)
+    started_at: datetime
+    completed_at: datetime
+    duration_seconds: float
+
+
 class DeveloperRunResult(StrictModel):
     worker: str
     worker_version: str
@@ -201,6 +213,7 @@ class DeveloperRunResult(StrictModel):
     head_changed: bool
     validation: list[ValidationResult] = Field(max_length=4)
     validation_passed: bool
+    independent_review: IndependentReviewResult | None
     started_at: datetime
     worker_started_at: datetime | None
     worker_completed_at: datetime | None
