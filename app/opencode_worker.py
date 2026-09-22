@@ -242,19 +242,20 @@ class OpenCodeWorker:
         if role == "developer":
             prompt = (
                 "You are Zelo's subordinate OpenCode coding worker. Work only inside the current "
-                "isolated checkout. Make only the requested file edits. Shell commands and web "
-                "access, "
-                "subagents, skills, and external-directory access are blocked by trusted policy. "
+                "isolated checkout. Make only the requested file edits. Shell access is limited "
+                "to Zelo-approved read-only Git inspection commands; all other shell commands, "
+                "web access, subagents, skills, and external-directory access are blocked. "
                 "Do not commit, push, merge, tag, publish, or modify worker configuration. "
-                "Trusted validation will run after you finish. Return a concise completion "
+                "Zelo runs tests through trusted validation after you finish. Return a concise "
                 "summary. "
                 "Exact instruction:\n" + request.instruction
             )
         else:
             prompt = (
                 "You are Zelo's independent read-only OpenCode reviewer. Inspect only the current "
-                "isolated checkout. Editing, shell commands, web access, subagents, skills, and "
-                "external-directory access are blocked by trusted policy. Return exactly the JSON "
+                "isolated checkout. Editing is blocked. Shell access is limited to Zelo-approved "
+                "read-only Git inspection commands; web access, subagents, skills, and external-"
+                "directory access are blocked. Return exactly the JSON "
                 "review object requested by the instruction, with no markdown.\nExact "
                 "instruction:\n" + request.instruction
             )
