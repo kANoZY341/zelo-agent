@@ -131,6 +131,45 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
     return tuple(overrides)
 
 
+def claude_code_tools(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
+    base = ("Bash", "Glob", "Grep", "Read")
+    return (*base, "Edit", "Write") if profile.workspace_write else base
+
+
+def claude_code_settings(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    """CLI-supplied settings; repository/user settings are excluded by restricted mode."""
+    return {
+        "sandbox": {
+            "enabled": True,
+            "failIfUnavailable": True,
+            "allowUnsandboxedCommands": False,
+            "network": {
+                "allowedDomains": [],
+                "strictAllowlist": True,
+            },
+        },
+        "permissions": {
+            "blockReadsOutsideWorkingDirectories": True,
+        },
+    }
+
+
+def claude_code_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    tools = claude_code_tools(profile)
+    return {
+        "bare": True,
+        "restricted": True,
+        "permission_mode": "dontAsk",
+        "permission_prompts": "none",
+        "session_persistence": False,
+        "tools": tools,
+        "allowed_tools": tools,
+        "disallowed_tools": ("WebFetch", "WebSearch", "mcp__*"),
+        "subprocess_env_scrub": True,
+        "settings": claude_code_settings(profile),
+    }
+
+
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
     return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
@@ -141,7 +180,11 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "authority": profile.authority,
         "codex": codex_permission_semantics(profile),
         "codex_cli_overrides": codex_cli_overrides(profile),
+        "claude_code": claude_code_permission_semantics(profile),
         "sandbox": sandbox_permission_semantics(profile),
+        "external_worker_sandbox": developer_sandbox.external_worker_sandbox_plans(
+            profile.workspace_write
+        ),
     }
 
 
