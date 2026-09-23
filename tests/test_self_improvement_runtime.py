@@ -6,7 +6,7 @@ import pytest
 
 from app.self_improvement import RepositoryInspector, SelfImprovementError
 from app.self_improvement_planner import SelfImprovementPlanner
-from app.self_improvement_runtime import SelfImprovementRuntime
+from app.self_improvement_runtime import SelfImprovementRuntime, developer_instruction
 from tests.developer_helpers import git
 from tests.test_self_improvement import make_repo
 from tests.test_self_improvement_planner import ScriptedProvider, gateway, valid_response
@@ -65,3 +65,40 @@ def test_runtime_rejects_noncanonical_goal(tmp_path, goal):
         asyncio.run(runtime.prepare(goal))
 
     assert provider.requests == []
+
+
+def test_runtime_rejects_repository_change_during_planning(tmp_path):
+    repo, _ = make_repo(tmp_path)
+
+    class MutatingProvider(ScriptedProvider):
+        async def generate(self, request):
+            (repo / "app" / "mid_plan.py").write_text("MUTATED = True\n", encoding="utf-8")
+            return await super().generate(request)
+
+    runtime = runtime_for(repo, MutatingProvider(valid_response()))
+
+    with pytest.raises(
+        SelfImprovementError,
+        match="inspection_repository_(dirty|changed)",
+    ):
+        asyncio.run(runtime.prepare("Improve Zelo safely."))
+
+
+def test_developer_instruction_is_bound_to_frozen_proposal(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    runtime = runtime_for(repo, ScriptedProvider(valid_response()))
+
+    preparation = asyncio.run(runtime.prepare("Improve Zelo safely."))
+    instruction = developer_instruction(preparation)
+
+    assert preparation.proposal.proposal_fingerprint in instruction
+    assert preparation.base_sha in instruction
+    assert preparation.goal in instruction
+    for path in preparation.proposal.draft.evidence:
+        assert f"- {path}" in instruction
+    for path in preparation.proposal.draft.scope_paths:
+        assert f"- {path}" in instruction
+    for criterion in preparation.proposal.draft.acceptance_criteria:
+        assert f"- {criterion}" in instruction
+    assert "Do not merge, tag, release, or deploy." in instruction
+    assert len(instruction) <= 65536
