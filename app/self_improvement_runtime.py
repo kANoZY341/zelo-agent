@@ -50,10 +50,22 @@ class SelfImprovementRuntime:
         self.inspector = inspector
         self.planner = planner
 
-    async def prepare(self, goal: str) -> SelfImprovementPreparation:
+    async def prepare(
+        self,
+        goal: str,
+        *,
+        selected_alias: str | None = None,
+        selected_model: str | None = None,
+    ) -> SelfImprovementPreparation:
         try:
+            if selected_alias is not None and selected_alias != "local_general":
+                raise SelfImprovementError("planner_model_selection_invalid")
             inspection = await asyncio.to_thread(self.inspector.inspect)
-            plan = await self.planner.plan(inspection, goal=goal)
+            plan = await self.planner.plan(
+                inspection,
+                goal=goal,
+                expected_model=selected_model,
+            )
             proposal = plan.proposal
             if (
                 proposal.goal != goal
