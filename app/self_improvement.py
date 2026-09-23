@@ -172,6 +172,7 @@ class ImprovementProposalDraft(Contract):
 
 class ImprovementProposal(Contract):
     schema_version: Literal["zelo-improvement-proposal-v1"] = PROPOSAL_SCHEMA
+    goal: str = Field(min_length=1, max_length=1024)
     draft: ImprovementProposalDraft
     base_sha: Sha1
     inspection_fingerprint: Sha256
@@ -191,10 +192,14 @@ class ImprovementProposal(Contract):
         draft: ImprovementProposalDraft,
         inspection: RepositoryInspection,
         *,
+        goal: str,
         planner_config_version: str,
     ) -> "ImprovementProposal":
+        if not goal or goal.strip() != goal or len(goal) > 1024:
+            raise ValueError("improvement_goal_invalid")
         payload = {
             "schema_version": PROPOSAL_SCHEMA,
+            "goal": goal,
             "draft": draft.model_dump(mode="json"),
             "base_sha": inspection.base_sha,
             "inspection_fingerprint": inspection.fingerprint,
