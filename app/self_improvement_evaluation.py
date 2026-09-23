@@ -28,7 +28,10 @@ def evaluate_improvement_candidate(
         result.worker_exit_code == 0
         and not result.cancelled
         and result.error is None
+        and result.protocol_diagnostic is None
         and result.boundary_error is None
+        and result.original_error is None
+        and result.head == proposal.base_sha
         and not result.head_changed
     )
 
