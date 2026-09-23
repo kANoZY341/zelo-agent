@@ -134,9 +134,8 @@ def _parse_draft(text: str) -> ImprovementProposalDraft:
 
 
 def _scope_allowed(path: str) -> bool:
-    return (
-        not path.startswith(_DENIED_SCOPE_PREFIXES)
-        and (path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES))
+    return not path.startswith(_DENIED_SCOPE_PREFIXES) and (
+        path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES)
     )
 
 
@@ -166,10 +165,7 @@ class SelfImprovementPolicy:
             raise SelfImprovementError("proposal_scope_denied")
 
         tracked_paths = set(inspection.tracked_paths)
-        if any(
-            path in tracked_paths and path not in inspected_paths
-            for path in draft.scope_paths
-        ):
+        if any(path in tracked_paths and path not in inspected_paths for path in draft.scope_paths):
             raise SelfImprovementError("proposal_scope_uninspected")
 
         if any(_high_risk_scope(path) for path in draft.scope_paths):

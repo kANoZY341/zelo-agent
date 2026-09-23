@@ -187,7 +187,11 @@ def test_accepted_evaluation_requires_validation_and_clean_review():
         "developer_task_id": "task",
         "developer_attempt_id": "attempt",
         "validation_passed": True,
+        "scope_valid": True,
+        "execution_clean": True,
+        "independent_review_present": True,
         "reviewer_high_or_critical": False,
+        "changed_file_count": 1,
         "status": "accepted_candidate",
     }
 
@@ -196,7 +200,11 @@ def test_accepted_evaluation_requires_validation_and_clean_review():
 
     for change in (
         {"validation_passed": False},
+        {"scope_valid": False},
+        {"execution_clean": False},
+        {"independent_review_present": False},
         {"reviewer_high_or_critical": True},
+        {"changed_file_count": 0},
     ):
         invalid = copy.deepcopy(base)
         invalid.update(change)

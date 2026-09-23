@@ -29,7 +29,7 @@ class PlannerProvider:
             "schema_version": "zelo-improvement-proposal-v1",
             "title": "Clarify the self-improvement documentation",
             "problem": "The roadmap can be made easier to verify during future milestones.",
-            "evidence": ["README.md"],
+            "evidence": ["app/__init__.py"],
             "expected_benefit": "Make the active milestone easier to inspect and maintain.",
             "implementation_instruction": (
                 "Add a concise documentation note without changing runtime authority."

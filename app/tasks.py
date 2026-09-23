@@ -224,13 +224,21 @@ class TaskService:
             raise DomainError("Developer runtime unavailable", 503)
         running_counts = self._developer_running_counts(session)
         try:
-            request = self.developer_runtime.request(
-                payload["instruction"],
-                payload["validation_profile"],
-                timeout_seconds,
-                capabilities=capabilities,
-                running_counts=running_counts,
-            )
+            if capabilities == ("zelo_core_development",):
+                request = self.developer_runtime.request(
+                    payload["instruction"],
+                    payload["validation_profile"],
+                    timeout_seconds,
+                    running_counts=running_counts,
+                )
+            else:
+                request = self.developer_runtime.request(
+                    payload["instruction"],
+                    payload["validation_profile"],
+                    timeout_seconds,
+                    capabilities=capabilities,
+                    running_counts=running_counts,
+                )
         except DeveloperRuntimeError as error:
             raise DomainError(error.args[0], 422) from None
         return request, running_counts
