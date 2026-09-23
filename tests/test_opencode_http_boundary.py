@@ -8,7 +8,7 @@ from app.developer_sandbox import BWRAP
 from app.opencode_worker import OpenCodeWorker
 from app.worker_authority import authority_profile
 
-FAKE_OPENCODE = r'''#!/usr/bin/python3
+FAKE_OPENCODE = r"""#!/usr/bin/python3
 import base64
 import json
 import os
@@ -155,7 +155,7 @@ port = int(option("--port", "0"))
 server = ThreadingHTTPServer((host, port), Handler)
 print(f"server listening on http://{host}:{server.server_address[1]}", flush=True)
 server.serve_forever()
-'''
+"""
 
 
 @pytest.mark.developer_boundary
