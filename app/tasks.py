@@ -29,9 +29,15 @@ from app.schemas import (
     ApprovalResponse,
     AttemptResponse,
     AuditResponse,
+    DeveloperPayload,
+    DeveloperRunInput,
     TaskCreate,
     TaskPage,
     TaskResponse,
+)
+from app.self_improvement_runtime import (
+    SelfImprovementPreparation,
+    SelfImprovementRunResult,
 )
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
