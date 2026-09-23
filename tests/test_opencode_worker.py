@@ -23,7 +23,7 @@ from app.opencode_worker import (
     parse_text_output,
 )
 from app.worker_authority import (
-    OPENCODE_SAFE_SHELL_RESOURCES,
+    OPENCODE_SAFE_BASH_RESOURCES,
     authority_profile,
     opencode_permission_semantics,
 )
@@ -148,35 +148,19 @@ def test_opencode_inline_config_allows_only_trusted_inspection_shell(settings):
     permissions = list(semantics["permissions"])
     policies = list(semantics["policies"])
     permission_deny = {"action": "*", "resource": "*", "effect": "deny"}
-    policy_deny = {"action": "permission", "resource": "*", "effect": "deny"}
     assert permission_deny in permissions
-    assert policy_deny in policies
 
     for action in ("read", "glob", "grep", "edit"):
         permission_allow = {"action": action, "resource": "*", "effect": "allow"}
-        policy_allow = {
-            "action": "permission",
-            "resource": f"{action}:*",
-            "effect": "allow",
-        }
         assert permission_allow in permissions
-        assert policy_allow in policies
         assert permissions.index(permission_deny) < permissions.index(permission_allow)
-        assert policies.index(policy_deny) < policies.index(policy_allow)
 
-    for resource in OPENCODE_SAFE_SHELL_RESOURCES:
-        permission_allow = {"action": "shell", "resource": resource, "effect": "allow"}
-        policy_allow = {
-            "action": "permission",
-            "resource": f"shell:{resource}",
-            "effect": "allow",
-        }
+    for resource in OPENCODE_SAFE_BASH_RESOURCES:
+        permission_allow = {"action": "bash", "resource": resource, "effect": "allow"}
         assert permission_allow in permissions
-        assert policy_allow in policies
         assert permissions.index(permission_deny) < permissions.index(permission_allow)
-        assert policies.index(policy_deny) < policies.index(policy_allow)
 
-    allowed = " ".join(OPENCODE_SAFE_SHELL_RESOURCES)
+    allowed = " ".join(OPENCODE_SAFE_BASH_RESOURCES)
     for forbidden in ("git push", "gh ", "curl", "wget", "ssh", "sudo", "pytest", "ruff", "python"):
         assert forbidden not in allowed
 
@@ -278,8 +262,7 @@ def test_opencode_reviewer_policy_is_read_only():
     policies = list(semantics["policies"])
     assert {"action": "*", "resource": "*", "effect": "deny"} in permissions
     assert {"action": "edit", "resource": "*", "effect": "allow"} not in permissions
-    assert {"action": "permission", "resource": "*", "effect": "deny"} in policies
-    assert {"action": "permission", "resource": "edit:*", "effect": "allow"} not in policies
+    assert all(policy["action"] == "provider.use" for policy in policies)
 
 
 @pytest.mark.parametrize("name", ["opencode.json", "opencode.jsonc", ".opencode"])
