@@ -69,10 +69,7 @@ def test_self_improvement_task_persists_frozen_proposal_without_approval(setting
         assert result["goal"] == "Improve Zelo safely."
         assert result["proposal"]["goal"] == "Improve Zelo safely."
         assert result["proposal"]["base_sha"] == result["base_sha"]
-        assert (
-            result["proposal"]["inspection_fingerprint"]
-            == result["inspection_fingerprint"]
-        )
+        assert result["proposal"]["inspection_fingerprint"] == result["inspection_fingerprint"]
         assert result["proposal"]["draft"]["risk"] == "low"
         assert result["planner_alias"] == "local_general"
         assert result["planner_model"] == "qwen3:4b-instruct"
