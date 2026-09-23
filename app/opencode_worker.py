@@ -64,6 +64,11 @@ def configuration_version(settings: Settings) -> str:
         "ollama_url": settings.ollama_url,
         "transport": "authenticated-local-http",
         "server_hostname": "127.0.0.1",
+        "server_auth": "basic-random-per-run",
+        "server_username": SERVER_USERNAME,
+        "server_start_seconds": SERVER_START_SECONDS,
+        "api_call_seconds": API_CALL_SECONDS,
+        "api_response_bytes": API_RESPONSE_BYTES,
         "project_config": "disabled",
         "max_steps": MAX_STEPS,
         "compaction": {
