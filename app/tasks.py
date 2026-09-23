@@ -202,6 +202,70 @@ class TaskService:
             counts[worker_id] = counts.get(worker_id, 0) + 1
         return counts
 
+    def _prepare_developer_request(
+        self,
+        session: Session,
+        *,
+        payload: dict[str, Any],
+        timeout_seconds: float,
+        capabilities: tuple[str, ...] = ("zelo_core_development",),
+    ) -> tuple[DeveloperRequest, dict[str, int]]:
+        if self.developer_runtime is None:
+            raise DomainError("Developer runtime unavailable", 503)
+        running_counts = self._developer_running_counts(session)
+        try:
+            request = self.developer_runtime.request(
+                payload["instruction"],
+                payload["validation_profile"],
+                timeout_seconds,
+                capabilities=capabilities,
+                running_counts=running_counts,
+            )
+        except DeveloperRuntimeError as error:
+            raise DomainError(error.args[0], 422) from None
+        return request, running_counts
+
+    @staticmethod
+    def _audit_developer_binding(
+        session: Session,
+        task: Task,
+        request: DeveloperRequest,
+        running_counts: dict[str, int],
+    ) -> None:
+        selection = request.worker_selection
+        audit(
+            session,
+            task,
+            "supervisor_routing_requested",
+            role=selection.requested_role,
+            capabilities=list(selection.requested_capabilities),
+            routing_policy=selection.routing_policy,
+        )
+        running_count = running_counts.get(selection.descriptor.worker_id, 0)
+        audit(
+            session,
+            task,
+            "supervisor_worker_selected",
+            worker_id=selection.descriptor.worker_id,
+            implementation=selection.descriptor.implementation,
+            registry_version=selection.registry_version,
+            priority=selection.descriptor.priority,
+            running_count=running_count,
+            available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
+        )
+        if request.reviewer is not None:
+            reviewer_selection = request.reviewer.worker_selection
+            audit(
+                session,
+                task,
+                "reviewer_selected",
+                worker_id=reviewer_selection.descriptor.worker_id,
+                implementation=reviewer_selection.descriptor.implementation,
+                registry_version=reviewer_selection.registry_version,
+                authority_profile=reviewer_selection.authority_profile,
+                excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
+            )
+
     def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
             task_id=task.id,
@@ -726,20 +790,14 @@ class TaskService:
                     self.tool_gateway.validate(payload["tool"], payload["arguments"])
                 except ToolRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
+            developer_request = None
             developer_running_counts: dict[str, int] = {}
             if request.kind == "developer_run":
-                if self.developer_runtime is None:
-                    raise DomainError("Developer runtime unavailable", 503)
-                developer_running_counts = self._developer_running_counts(session)
-                try:
-                    developer_request = self.developer_runtime.request(
-                        payload["instruction"],
-                        payload["validation_profile"],
-                        request.timeout_seconds,
-                        running_counts=developer_running_counts,
-                    )
-                except DeveloperRuntimeError as error:
-                    raise DomainError(error.args[0], 422) from None
+                developer_request, developer_running_counts = self._prepare_developer_request(
+                    session,
+                    payload=payload,
+                    timeout_seconds=request.timeout_seconds,
+                )
                 task.developer_spec = developer_request.model_dump(mode="json")
                 task.action_hash = action_hash(
                     request.kind,
@@ -752,40 +810,14 @@ class TaskService:
             session.flush()
             audit(session, task, "task_submitted")
             if task.kind == "developer_run":
-                selection = DeveloperRequest.model_validate(task.developer_spec).worker_selection
-                audit(
+                if developer_request is None:
+                    raise DomainError("Developer routing state unavailable", 503)
+                self._audit_developer_binding(
                     session,
                     task,
-                    "supervisor_routing_requested",
-                    role=selection.requested_role,
-                    capabilities=list(selection.requested_capabilities),
-                    routing_policy=selection.routing_policy,
+                    developer_request,
+                    developer_running_counts,
                 )
-                running_count = developer_running_counts.get(selection.descriptor.worker_id, 0)
-                audit(
-                    session,
-                    task,
-                    "supervisor_worker_selected",
-                    worker_id=selection.descriptor.worker_id,
-                    implementation=selection.descriptor.implementation,
-                    registry_version=selection.registry_version,
-                    priority=selection.descriptor.priority,
-                    running_count=running_count,
-                    available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
-                )
-                developer_spec = DeveloperRequest.model_validate(task.developer_spec)
-                if developer_spec.reviewer is not None:
-                    reviewer_selection = developer_spec.reviewer.worker_selection
-                    audit(
-                        session,
-                        task,
-                        "reviewer_selected",
-                        worker_id=reviewer_selection.descriptor.worker_id,
-                        implementation=reviewer_selection.descriptor.implementation,
-                        registry_version=reviewer_selection.registry_version,
-                        authority_profile=reviewer_selection.authority_profile,
-                        excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
-                    )
             if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 audit(
                     session,
