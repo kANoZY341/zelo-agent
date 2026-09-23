@@ -855,6 +855,153 @@ class TaskService:
                 self._new_approval(session, task)
             return snapshot(session, task), True
 
+    def finish_self_improvement(
+        self,
+        execution: Execution,
+        preparation: SelfImprovementPreparation,
+        instruction: str,
+    ) -> SelfImprovementRunResult | None:
+        if execution.kind != "self_improvement_run":
+            raise DomainError("Self-improvement execution kind mismatch")
+        child_request = DeveloperRunInput(
+            kind="developer_run",
+            payload=DeveloperPayload(
+                instruction=instruction,
+                validation_profile="zelo_core",
+            ),
+            timeout_seconds=self.settings.developer_timeout_seconds,
+        )
+        child_payload = child_request.payload.model_dump(mode="json")
+        child_request_hash = fingerprint(child_request.model_dump(mode="json"))
+        child_key = (
+            f"self-improvement:{execution.task_id}:"
+            f"{preparation.proposal.proposal_fingerprint[:32]}"
+        )
+
+        with self.database.transaction() as session:
+            parent = require_task(session, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if attempt is None or attempt.outcome != State.RUNNING:
+                raise DomainError("Attempt is not running")
+            if parent.kind != "self_improvement_run":
+                raise DomainError("Self-improvement parent kind mismatch")
+            if parent.payload.get("goal") != preparation.goal:
+                raise DomainError("Self-improvement goal changed")
+            if (
+                parent.selected_alias != preparation.planner_alias
+                or parent.selected_model != preparation.planner_model
+            ):
+                raise DomainError("Self-improvement planner binding changed")
+
+            if parent.cancel_requested:
+                parent.capacity_backoff_attempts = 0
+                parent.capacity_backoff_until = None
+                transition(session, parent, State.CANCELLED)
+                parent.result = None
+                parent.error = "cancelled_by_operator"
+                attempt.outcome = State.CANCELLED
+                attempt.result = None
+                attempt.error = "cancelled_by_operator"
+                attempt.ended_at = utcnow()
+                audit(
+                    session,
+                    parent,
+                    "cancellation_completed",
+                    attempt_id=attempt.id,
+                )
+                audit(
+                    session,
+                    parent,
+                    "self_improvement_failed",
+                    attempt_id=attempt.id,
+                    reason="cancelled_by_operator",
+                )
+                return None
+
+            if session.scalar(select(Task).where(Task.idempotency_key == child_key)) is not None:
+                raise DomainError("Self-improvement developer child already exists")
+
+            self._check_capacity(session)
+            developer_request, running_counts = self._prepare_developer_request(
+                session,
+                payload=child_payload,
+                timeout_seconds=child_request.timeout_seconds,
+                capabilities=tuple(preparation.proposal.draft.required_capabilities),
+            )
+            if developer_request.base_sha != preparation.base_sha:
+                raise DomainError("self_improvement_source_changed")
+
+            developer_spec = developer_request.model_dump(mode="json")
+            child = Task(
+                kind="developer_run",
+                payload=child_payload,
+                timeout_seconds=child_request.timeout_seconds,
+                status=State.AWAITING_APPROVAL,
+                action_version=1,
+                action_hash=action_hash(
+                    "developer_run",
+                    child_payload,
+                    child_request.timeout_seconds,
+                    1,
+                    developer_spec,
+                ),
+                idempotency_key=child_key,
+                request_hash=child_request_hash,
+                developer_spec=developer_spec,
+            )
+            session.add(child)
+            session.flush()
+            audit(session, child, "task_submitted")
+            self._audit_developer_binding(session, child, developer_request, running_counts)
+            audit(
+                session,
+                child,
+                "state_transition",
+                previous=None,
+                target=State.AWAITING_APPROVAL,
+            )
+            approval = self._new_approval(session, child)
+
+            result = SelfImprovementRunResult(
+                **preparation.model_dump(mode="python"),
+                developer_task_id=child.id,
+                developer_approval_id=approval.id,
+                developer_action_hash=child.action_hash,
+            )
+            result_json = result.model_dump(mode="json")
+
+            parent.capacity_backoff_attempts = 0
+            parent.capacity_backoff_until = None
+            transition(session, parent, State.SUCCEEDED)
+            parent.result = result_json
+            parent.error = None
+            attempt.outcome = State.SUCCEEDED
+            attempt.result = result_json
+            attempt.error = None
+            attempt.ended_at = utcnow()
+            audit(session, parent, "execution_completed", attempt_id=attempt.id)
+            audit(
+                session,
+                parent,
+                "self_improvement_proposal_created",
+                attempt_id=attempt.id,
+                base_sha=preparation.base_sha,
+                inspection_fingerprint=preparation.inspection_fingerprint,
+                proposal_fingerprint=preparation.proposal.proposal_fingerprint,
+                risk=preparation.proposal.draft.risk,
+            )
+            audit(
+                session,
+                parent,
+                "self_improvement_developer_prepared",
+                attempt_id=attempt.id,
+                developer_task_id=child.id,
+                developer_approval_id=approval.id,
+                developer_action_hash=child.action_hash,
+                worker_id=developer_request.worker_selection.descriptor.worker_id,
+            )
+            return result
+
     def model_event(self, task_id: str, event: str, attempt_id: str, **details: Any) -> None:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
