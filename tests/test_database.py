@@ -212,6 +212,19 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert "release_spec" in columns
             assert "capacity_backoff_attempts" in columns
             assert "capacity_backoff_until" in columns
+            trigger_names = {
+                row[0]
+                for row in session.execute(
+                    text(
+                        "SELECT name FROM sqlite_master "
+                        "WHERE type = 'trigger' AND name LIKE 'running_attempt_%_exclusive'"
+                    )
+                )
+            }
+            assert trigger_names == {
+                "running_attempt_insert_exclusive",
+                "running_attempt_update_exclusive",
+            }
             assert not any(
                 table.startswith("_alembic_tmp_")
                 for table in inspect(database.engine).get_table_names()
