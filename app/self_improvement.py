@@ -165,7 +165,7 @@ class ImprovementProposalDraft(Contract):
             value = getattr(self, name)
             if value != tuple(sorted(set(value))):
                 raise ValueError(f"{name}_not_canonical")
-        for path in self.scope_paths:
+        for path in (*self.evidence, *self.scope_paths):
             _repo_path(path)
         return self
 
