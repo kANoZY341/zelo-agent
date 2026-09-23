@@ -58,6 +58,20 @@ def test_repository_inspector_builds_deterministic_bounded_snapshot(tmp_path):
     assert first.total_content_bytes == sum(len(item.text.encode("utf-8")) for item in first.files)
 
 
+def test_repository_inspector_ignores_untracked_private_review_evidence(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    review = repo / "docs" / "reviews" / "untracked-adversarial-review.md"
+    review.write_text("private review evidence\n", encoding="utf-8")
+
+    snapshot = RepositoryInspector(repo).inspect()
+
+    assert snapshot.base_sha == sha
+    assert "docs/reviews/untracked-adversarial-review.md" not in snapshot.tracked_paths
+    assert "docs/reviews/untracked-adversarial-review.md" not in {
+        item.path for item in snapshot.files
+    }
+
+
 def test_repository_inspector_refuses_dirty_checkout(tmp_path):
     repo, _ = make_repo(tmp_path)
     (repo / "UNTRACKED.txt").write_text("dirty\n", encoding="utf-8")
