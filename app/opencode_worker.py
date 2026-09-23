@@ -352,6 +352,9 @@ class OpenCodeWorker:
             raise DeveloperError("opencode_preflight_failed")
         version = parse_cli_version(version_result.stdout)
 
+        # Bubblewrap --file may consume the shared memfd offset; re-verify and rewind
+        # the sealed executable before every independent sandbox launch.
+        binary.verify()
         serve_help = await run_process(
             external_worker_sandbox(
                 None,
