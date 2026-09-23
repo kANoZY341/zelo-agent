@@ -31,10 +31,13 @@ from app.schemas import (
     AuditResponse,
     DeveloperPayload,
     DeveloperRunInput,
+    DeveloperRunResult,
     TaskCreate,
     TaskPage,
     TaskResponse,
 )
+from app.self_improvement import ImprovementProposal
+from app.self_improvement_evaluation import evaluate_improvement_candidate
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
     SelfImprovementRunResult,
@@ -271,6 +274,85 @@ class TaskService:
                 authority_profile=reviewer_selection.authority_profile,
                 excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
             )
+
+    @staticmethod
+    def _self_improvement_parent(
+        session: Session,
+        developer_task: Task,
+    ) -> tuple[Task, ImprovementProposal] | None:
+        key = developer_task.idempotency_key
+        if not key or not key.startswith("self-improvement:"):
+            return None
+        parts = key.split(":")
+        if len(parts) != 3 or len(parts[1]) != 36 or len(parts[2]) != 32:
+            return None
+
+        parent = session.get(Task, parts[1])
+        if (
+            parent is None
+            or parent.kind != "self_improvement_run"
+            or parent.status != State.SUCCEEDED
+            or not isinstance(parent.result, dict)
+            or parent.result.get("developer_task_id") != developer_task.id
+            or parent.result.get("developer_action_hash") != developer_task.action_hash
+        ):
+            return None
+        try:
+            proposal = ImprovementProposal.model_validate(parent.result["proposal"])
+        except (KeyError, ValueError):
+            return None
+        if proposal.proposal_fingerprint[:32] != parts[2]:
+            return None
+        return parent, proposal
+
+    def _evaluate_self_improvement_child(
+        self,
+        session: Session,
+        task: Task,
+        attempt: TaskAttempt,
+        result: dict[str, Any] | None,
+    ) -> None:
+        linked = self._self_improvement_parent(session, task)
+        if linked is None:
+            return
+        parent, proposal = linked
+        if result is None:
+            audit(
+                session,
+                parent,
+                "self_improvement_evaluation_completed",
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                status="inconclusive",
+                reason="developer_result_unavailable",
+            )
+            return
+        try:
+            developer_result = DeveloperRunResult.model_validate(result)
+            evaluation = evaluate_improvement_candidate(
+                proposal,
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                result=developer_result,
+            )
+        except (ValueError, SelfImprovementError):
+            audit(
+                session,
+                parent,
+                "self_improvement_evaluation_completed",
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                status="inconclusive",
+                reason="evaluation_evidence_invalid",
+            )
+            return
+
+        audit(
+            session,
+            parent,
+            "self_improvement_evaluation_completed",
+            **evaluation.model_dump(mode="json"),
+        )
 
     def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
@@ -1748,6 +1830,12 @@ class TaskService:
                     attempt_id=attempt.id,
                     reason=error,
                     workspace=result.get("worktree") if result else None,
+                )
+                self._evaluate_self_improvement_child(
+                    session,
+                    task,
+                    attempt,
+                    result,
                 )
             if task.kind == "promotion_run":
                 details = (
