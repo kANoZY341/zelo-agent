@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.agent import AgentRuntime
+from app.agent_factory import AgentFactory, default_agent_registry
 from app.api import router
 from app.config import Settings
 from app.database import Database
@@ -59,6 +60,10 @@ def create_app(
                 configuration.model_config_version,
             )
             tool_gateway = ToolGateway(configuration)
+            agent_registry = default_agent_registry(
+                coding_enabled=configuration.agent_coding_enabled
+            )
+            agent_factory = AgentFactory(agent_registry)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
             promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
@@ -108,6 +113,8 @@ def create_app(
             application.state.database = database
             application.state.tasks = tasks
             application.state.tool_gateway = tool_gateway
+            application.state.agent_registry = agent_registry
+            application.state.agent_factory = agent_factory
             application.state.runner = runner
             runner.start()
             yield
