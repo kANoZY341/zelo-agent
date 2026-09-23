@@ -131,8 +131,8 @@ class SelfImprovementPolicy:
         if not set(draft.required_capabilities).issubset(_ALLOWED_CAPABILITIES):
             raise SelfImprovementError("proposal_capability_denied")
 
-        tracked = set(inspection.tracked_paths)
-        if any(path not in tracked for path in draft.evidence):
+        inspected_paths = {item.path for item in inspection.files}
+        if any(path not in inspected_paths for path in draft.evidence):
             raise SelfImprovementError("proposal_evidence_unavailable")
 
         if any(not _scope_allowed(path) for path in draft.scope_paths):
