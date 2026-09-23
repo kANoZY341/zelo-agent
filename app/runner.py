@@ -7,12 +7,16 @@ from typing import Any
 from app.agent import AgentRuntime, AgentRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
-from app.policy import State
+from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.self_improvement import SelfImprovementError
-from app.self_improvement_runtime import SelfImprovementRuntime
+from app.self_improvement_runtime import (
+    SelfImprovementPreparation,
+    SelfImprovementRuntime,
+    developer_instruction,
+)
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -197,6 +201,17 @@ class Runner:
                 if execution.kind == "tool_call"
                 else RESULT_MODELS[execution.kind].model_validate(raw).model_dump(mode="json")
             )
+            if execution.kind == "self_improvement_run":
+                preparation = SelfImprovementPreparation.model_validate(result)
+                instruction = developer_instruction(preparation)
+                await asyncio.to_thread(
+                    self.service.finish_self_improvement,
+                    execution,
+                    preparation,
+                    instruction,
+                )
+                return
+
             outcome = (
                 State.FAILED
                 if execution.kind == "developer_run" and not result["validation_passed"]
@@ -241,6 +256,13 @@ class Runner:
                 )
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
+        except DomainError as error:
+            reason = (
+                error.message[:256]
+                if execution.kind == "self_improvement_run"
+                else "worker_error"
+            )
+            self.service.finish(execution, State.FAILED, error=reason)
         except SelfImprovementError as error:
             self.service.finish(execution, State.FAILED, error=error.args[0])
         except DeveloperRuntimeError as error:
