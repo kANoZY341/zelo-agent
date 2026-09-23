@@ -39,6 +39,48 @@ class SelfImprovementPreparation(Contract):
         return self
 
 
+def developer_instruction(preparation: SelfImprovementPreparation) -> str:
+    """Render the exact frozen proposal into a bounded worker instruction."""
+
+    draft = preparation.proposal.draft
+    evidence = "\n".join(f"- {path}" for path in draft.evidence)
+    scope = "\n".join(f"- {path}" for path in draft.scope_paths)
+    criteria = "\n".join(f"- {item}" for item in draft.acceptance_criteria)
+    instruction = f"""Zelo self-improvement candidate.
+
+Frozen proposal fingerprint: {preparation.proposal.proposal_fingerprint}
+Frozen base SHA: {preparation.base_sha}
+Goal: {preparation.goal}
+Risk: {draft.risk}
+
+Problem:
+{draft.problem}
+
+Expected benefit:
+{draft.expected_benefit}
+
+Evidence paths:
+{evidence}
+
+Allowed proposal scope:
+{scope}
+
+Implementation instruction:
+{draft.implementation_instruction}
+
+Acceptance criteria:
+{criteria}
+
+Implement only this frozen proposal. Do not widen authority, change release/merge
+policy, add credentials, or intentionally modify files outside the proposal scope.
+Trusted validation and independent review will decide whether the candidate is
+acceptable. Do not merge, tag, release, or deploy.
+"""
+    if len(instruction) > 65536:
+        raise SelfImprovementError("developer_instruction_limit")
+    return instruction
+
+
 class SelfImprovementRuntime:
     """Inspect and plan exactly one improvement; never modify the repository."""
 
@@ -73,6 +115,14 @@ class SelfImprovementRuntime:
                 or proposal.inspection_fingerprint != inspection.fingerprint
             ):
                 raise SelfImprovementError("self_improvement_preparation_binding_invalid")
+
+            current = await asyncio.to_thread(self.inspector.inspect)
+            if (
+                current.base_sha != inspection.base_sha
+                or current.fingerprint != inspection.fingerprint
+            ):
+                raise SelfImprovementError("inspection_repository_changed")
+
             return SelfImprovementPreparation(
                 goal=goal,
                 base_sha=inspection.base_sha,
