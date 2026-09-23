@@ -168,7 +168,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0010_capacity_backoff"
+                == "0011_self_improvement"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -196,6 +196,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 if constraint["name"] == "ck_task_kind"
             )
             assert "release_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            assert "self_improvement_run" in next(
                 constraint["sqltext"]
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
@@ -233,6 +238,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             "0009_worker_concurrency",
             "0010_capacity_backoff",
             "ADD COLUMN capacity_backoff_attempts",
+        ),
+        (
+            "0010_capacity_backoff",
+            "0011_self_improvement",
+            "DROP TABLE tasks",
         ),
     ],
 )
