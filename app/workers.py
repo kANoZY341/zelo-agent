@@ -15,6 +15,7 @@ from app.schemas import (
     TextPayload,
     TextStatsResult,
 )
+from app.self_improvement_runtime import SelfImprovementPreparation
 from app.tasks import Execution
 
 Worker = Callable[[Execution], Awaitable[dict[str, Any]]]
@@ -24,6 +25,7 @@ RESULT_MODELS = {
     "approval_demo": ApprovalDemoResult,
     "ai_prompt": AIPromptResult,
     "agent_run": AgentRunResult,
+    "self_improvement_run": SelfImprovementPreparation,
     "developer_run": DeveloperRunResult,
     "promotion_run": PromotionRunResult,
     "merge_run": MergeRunResult,
