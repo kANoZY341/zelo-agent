@@ -6,11 +6,17 @@ from fastapi.testclient import TestClient
 
 from app.gateway import ModelGateway, ModelRequest, ModelResult
 from app.main import create_app
+from app.policy import State
 from app.schemas import SelfImprovementRunInput
+from app.self_improvement import ImprovementProposal, RepositoryInspector
+from app.self_improvement_planner import planner_configuration_version
+from app.self_improvement_runtime import SelfImprovementPreparation, developer_instruction
 from app.tasks import TaskService
 from tests.conftest import AUTH
 from tests.developer_helpers import FakeWorker
 from tests.test_api import wait_for
+from tests.test_self_improvement import proposal_draft
+from tests.test_self_improvement_evaluation import developer_result
 
 
 class PlannerProvider:
@@ -129,3 +135,89 @@ def test_self_improvement_claim_fails_closed_when_planner_config_changes(setting
     assert cancelled.status == "cancelled"
     assert cancelled.error == "planner_selection_changed"
     assert cancelled.attempts == []
+
+
+def test_developer_completion_records_inconclusive_without_independent_review(
+    developer_case, database
+):
+    provider = PlannerProvider()
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "config-a")
+    service = TaskService(
+        database,
+        developer_case.settings,
+        gateway=gateway,
+        developer_runtime=developer_case,
+    )
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        "self-improvement-evaluation",
+    )
+    assert created is True
+    parent_execution = service.claim()
+    assert parent_execution is not None
+    assert parent_execution.task_id == parent.id
+
+    inspection = RepositoryInspector(developer_case.source_repository).inspect()
+    proposal = ImprovementProposal.freeze(
+        proposal_draft(
+            risk="medium",
+            evidence=("test_example.py",),
+            scope_paths=("test_example.py",),
+        ),
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version=planner_configuration_version(
+            model_config_version=gateway.config_version,
+            alias="local_general",
+            model="qwen3:4b-instruct",
+        ),
+    )
+    preparation = SelfImprovementPreparation(
+        goal="Improve Zelo safely.",
+        base_sha=inspection.base_sha,
+        inspection_fingerprint=inspection.fingerprint,
+        tracked_path_count=len(inspection.tracked_paths),
+        inspected_content_file_count=len(inspection.files),
+        content_truncated=inspection.content_truncated,
+        proposal=proposal,
+        planner_alias="local_general",
+        planner_model="qwen3:4b-instruct",
+    )
+    linked = service.finish_self_improvement(
+        parent_execution,
+        preparation,
+        developer_instruction(preparation),
+    )
+    assert linked is not None
+
+    child = service.get(linked.developer_task_id)
+    service.decide(child.approvals[0].id, "approve")
+    child_execution = service.claim()
+    assert child_execution is not None
+    assert child_execution.task_id == child.id
+
+    result = developer_result(
+        proposal,
+        changed_files=["test_example.py"],
+        independent_review=None,
+    )
+    service.finish(
+        child_execution,
+        State.SUCCEEDED,
+        result=result.model_dump(mode="json"),
+    )
+
+    evaluations = [
+        event
+        for event in service.events(parent.id, 100, 0)
+        if event.event == "self_improvement_evaluation_completed"
+    ]
+    assert len(evaluations) == 1
+    assert evaluations[0].details["status"] == "inconclusive"
+    assert evaluations[0].details["validation_passed"] is True
+    assert evaluations[0].details["scope_valid"] is True
+    assert evaluations[0].details["independent_review_present"] is False
