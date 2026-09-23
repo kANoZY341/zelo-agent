@@ -203,6 +203,9 @@ def parse_assistant_summary(payload: object) -> str:
         error = assistant.get("error")
         if error is not None:
             raise DeveloperError("opencode_model_error")
+        direct_text = assistant.get("text")
+        if isinstance(direct_text, str) and direct_text.strip():
+            return parse_text_output(direct_text.encode("utf-8"))
         parts = assistant.get("content", [])
     else:
         info = assistant.get("info")
@@ -250,7 +253,9 @@ def _api_json(
             data = response.read(API_RESPONSE_BYTES + 1)
     except HTTPError as exc:
         raise DeveloperError("opencode_api_error", exit_code=exc.code) from None
-    except (URLError, TimeoutError, OSError):
+    except TimeoutError:
+        raise DeveloperError("opencode_api_timeout") from None
+    except (URLError, OSError):
         raise DeveloperError("opencode_api_unavailable") from None
     if len(data) > API_RESPONSE_BYTES:
         raise DeveloperError("opencode_api_response_limit")
@@ -523,25 +528,32 @@ class OpenCodeWorker:
         prompt: str,
         timeout: float,
     ) -> tuple[str, int]:
+        deadline = time.monotonic() + timeout
+
+        def remaining(*, cap: float | None = None) -> float:
+            value = deadline - time.monotonic()
+            if value <= 0:
+                raise DeveloperError("opencode_timeout")
+            return max(0.1, min(value, cap)) if cap is not None else max(0.1, value)
+
         await _api_json_async(
             base_url,
             password,
             "POST",
             f"/api/session/{session_id}/prompt",
             payload={"text": prompt},
+            timeout=remaining(cap=API_CALL_SECONDS),
         )
-        started = time.monotonic()
-        remaining = max(0.1, timeout - (time.monotonic() - started))
         try:
             await _api_json_async(
                 base_url,
                 password,
                 "POST",
                 f"/api/experimental/session/{session_id}/wait",
-                timeout=remaining,
+                timeout=remaining(),
             )
         except DeveloperError as exc:
-            if exc.args and exc.args[0] == "opencode_api_unavailable":
+            if exc.args and exc.args[0] == "opencode_api_timeout":
                 raise DeveloperError("opencode_timeout") from None
             raise
 
@@ -551,6 +563,7 @@ class OpenCodeWorker:
                 password,
                 "GET",
                 f"/api/session/{session_id}",
+                timeout=remaining(cap=API_CALL_SECONDS),
             )
         )
         if not isinstance(session, dict):
@@ -563,6 +576,7 @@ class OpenCodeWorker:
             password,
             "GET",
             f"/api/session/{session_id}/message",
+            timeout=remaining(cap=API_CALL_SECONDS),
         )
         message_data = _unwrap_data(messages)
         if not isinstance(message_data, list):
