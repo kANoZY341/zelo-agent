@@ -32,6 +32,12 @@ if os.environ.get("OPENCODE_DISABLE_PROJECT_CONFIG") != "1":
     raise SystemExit(3)
 if config.get("compaction", {}).get("auto") is not False:
     raise SystemExit(4)
+policies = config.get("experimental", {}).get("policies", [])
+if not policies or any(item.get("action") != "provider.use" for item in policies):
+    raise SystemExit(6)
+permissions = config.get("permissions", [])
+if not any(item.get("action") == "bash" and item.get("effect") == "allow" for item in permissions):
+    raise SystemExit(7)
 
 username = os.environ.get("OPENCODE_SERVER_USERNAME")
 password = os.environ.get("OPENCODE_SERVER_PASSWORD")
