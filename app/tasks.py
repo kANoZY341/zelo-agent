@@ -695,11 +695,12 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
-            if request.kind in {"ai_prompt", "agent_run"}:
+            if request.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
+                profile = payload["profile"] if request.kind != "self_improvement_run" else "general"
                 try:
-                    alias, model = self.gateway.select(payload["profile"])
+                    alias, model = self.gateway.select(profile)
                 except Exception:
                     raise DomainError("Invalid model profile", 422) from None
                 task.selected_alias, task.selected_model = alias, model
@@ -710,7 +711,7 @@ class TaskService:
                     request.timeout_seconds,
                     1,
                     {
-                        "profile": payload["profile"],
+                        "profile": profile,
                         "alias": alias,
                         "model": model,
                         "config_version": task.config_version,
@@ -783,7 +784,7 @@ class TaskService:
                         authority_profile=reviewer_selection.authority_profile,
                         excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
                     )
-            if task.kind in {"ai_prompt", "agent_run"}:
+            if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 audit(
                     session,
                     task,
@@ -862,7 +863,7 @@ class TaskService:
 
     def _valid_action(self, task: Task, approval: Approval, *, live: bool = True) -> bool:
         selection = None
-        if task.kind in {"ai_prompt", "agent_run"}:
+        if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
             selection = {
                 "alias": task.selected_alias,
                 "model": task.selected_model,
@@ -1167,12 +1168,16 @@ class TaskService:
                 task.timeout_seconds,
                 task.action_version,
                 {
-                    "profile": task.payload.get("profile"),
+                    "profile": (
+                        "general"
+                        if task.kind == "self_improvement_run"
+                        else task.payload.get("profile")
+                    ),
                     "alias": task.selected_alias,
                     "model": task.selected_model,
                     "config_version": task.config_version,
                 }
-                if task.kind in {"ai_prompt", "agent_run"}
+                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -1338,9 +1343,13 @@ class TaskService:
                     "alias": task.selected_alias,
                     "model": task.selected_model,
                     "config_version": task.config_version,
-                    "profile": task.payload.get("profile"),
+                    "profile": (
+                        "general"
+                        if task.kind == "self_improvement_run"
+                        else task.payload.get("profile")
+                    ),
                 }
-                if task.kind in {"ai_prompt", "agent_run"}
+                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -1597,6 +1606,28 @@ class TaskService:
                     session,
                     task,
                     "agent_completed" if outcome == State.SUCCEEDED else "agent_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+            if task.kind == "self_improvement_run":
+                details = (
+                    {
+                        "base_sha": result["base_sha"],
+                        "inspection_fingerprint": result["inspection_fingerprint"],
+                        "proposal_fingerprint": result["proposal"]["proposal_fingerprint"],
+                        "risk": result["proposal"]["draft"]["risk"],
+                    }
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                audit(
+                    session,
+                    task,
+                    (
+                        "self_improvement_proposal_created"
+                        if outcome == State.SUCCEEDED
+                        else "self_improvement_failed"
+                    ),
                     attempt_id=attempt.id,
                     **details,
                 )
