@@ -28,9 +28,7 @@ def test_coding_agent_can_be_enabled_only_by_trusted_configuration(settings, dat
 
     with TestClient(create_app(configured), headers=AUTH) as client:
         binding = client.app.state.agent_factory.bind("coding")
-        tool_names = {
-            item["name"] for item in client.app.state.tool_gateway.registry.metadata()
-        }
+        tool_names = {item["name"] for item in client.app.state.tool_gateway.registry.metadata()}
 
         assert binding.descriptor.enabled is True
         assert binding.descriptor.role == "coding"
