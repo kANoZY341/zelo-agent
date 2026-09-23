@@ -13,6 +13,9 @@ def evaluate_improvement_candidate(
     *,
     developer_task_id: str,
     developer_attempt_id: str,
+    worker_id: str,
+    worker_implementation: str,
+    review_context_bound: bool,
     result: DeveloperRunResult,
 ) -> ImprovementEvaluation:
     """Evaluate only trusted developer/reviewer evidence; never ask a model to self-grade."""
@@ -37,9 +40,12 @@ def evaluate_improvement_candidate(
 
     review = result.independent_review
     review_present = review is not None
-    reviewer_high_or_critical = bool(
-        review
-        and any(finding.severity in {"high", "critical"} for finding in review.report.findings)
+    findings = review.report.findings if review is not None else ()
+    reviewer_high_or_critical = any(
+        finding.severity in {"high", "critical"} for finding in findings
+    )
+    acceptance_criteria_proven = (
+        review_present and review_context_bound and len(findings) == 0
     )
 
     if (
@@ -49,7 +55,7 @@ def evaluate_improvement_candidate(
         or reviewer_high_or_critical
     ):
         status = "rejected_candidate"
-    elif not review_present:
+    elif not acceptance_criteria_proven:
         status = "inconclusive"
     else:
         status = "accepted_candidate"
@@ -58,10 +64,15 @@ def evaluate_improvement_candidate(
         proposal_fingerprint=proposal.proposal_fingerprint,
         developer_task_id=developer_task_id,
         developer_attempt_id=developer_attempt_id,
+        worker_id=worker_id,
+        worker_implementation=worker_implementation,
+        changed_files=tuple(sorted(changed_files)),
         validation_passed=result.validation_passed,
         scope_valid=scope_valid,
         execution_clean=execution_clean,
         independent_review_present=review_present,
+        acceptance_criteria_proven=acceptance_criteria_proven,
+        reviewer_finding_count=len(findings),
         reviewer_high_or_critical=reviewer_high_or_critical,
         changed_file_count=len(changed_files),
         status=status,

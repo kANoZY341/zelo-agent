@@ -190,6 +190,7 @@ class ReviewerReport(Contract):
 
 class DeveloperRequest(Contract):
     instruction: str = Field(min_length=1, max_length=65536)
+    review_instruction: str | None = Field(default=None, max_length=16384)
     source_repository: str
     workspace_root: str
     validation_identity: str

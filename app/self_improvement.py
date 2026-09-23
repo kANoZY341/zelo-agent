@@ -214,21 +214,32 @@ class ImprovementEvaluation(Contract):
     proposal_fingerprint: Sha256
     developer_task_id: str = Field(min_length=1, max_length=64)
     developer_attempt_id: str = Field(min_length=1, max_length=64)
+    worker_id: CapabilityName
+    worker_implementation: str = Field(min_length=1, max_length=64)
+    changed_files: tuple[str, ...] = Field(max_length=1000)
     validation_passed: bool
     scope_valid: bool
     execution_clean: bool
     independent_review_present: bool
+    acceptance_criteria_proven: bool
+    reviewer_finding_count: int = Field(ge=0, le=64)
     reviewer_high_or_critical: bool
     changed_file_count: int = Field(ge=0, le=1000)
     status: Literal["accepted_candidate", "rejected_candidate", "inconclusive"]
 
     @model_validator(mode="after")
     def _fail_closed(self):
+        if self.changed_files != tuple(sorted(set(self.changed_files))):
+            raise ValueError("improvement_evaluation_changed_files_not_canonical")
+        if self.changed_file_count != len(self.changed_files):
+            raise ValueError("improvement_evaluation_changed_file_count_mismatch")
         if self.status == "accepted_candidate" and (
             not self.validation_passed
             or not self.scope_valid
             or not self.execution_clean
             or not self.independent_review_present
+            or not self.acceptance_criteria_proven
+            or self.reviewer_finding_count != 0
             or self.reviewer_high_or_critical
             or self.changed_file_count == 0
         ):

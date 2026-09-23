@@ -91,6 +91,38 @@ acceptable. Do not merge, tag, release, or deploy.
     return instruction
 
 
+def developer_review_instruction(preparation: SelfImprovementPreparation) -> str:
+    """Render a compact approval-bound context for the independent reviewer."""
+
+    draft = preparation.proposal.draft
+    scope = "\n".join(f"- {path}" for path in draft.scope_paths)
+    criteria = "\n".join(f"- {item}" for item in draft.acceptance_criteria)
+    instruction = f"""Zelo self-improvement independent-review context.
+
+Frozen proposal fingerprint: {preparation.proposal.proposal_fingerprint}
+Frozen base SHA: {preparation.base_sha}
+Goal: {preparation.goal}
+Risk: {draft.risk}
+
+Allowed proposal scope:
+{scope}
+
+Implementation instruction:
+{draft.implementation_instruction}
+
+Acceptance criteria:
+{criteria}
+
+Judge the resulting checkout against this exact frozen proposal. Report a finding
+for any unmet criterion, out-of-scope change, regression, security issue, or
+authority expansion. An empty findings array means the reviewer found no concrete
+issue against this approved context.
+"""
+    if len(instruction) > 16384:
+        raise SelfImprovementError("review_instruction_limit")
+    return instruction
+
+
 class SelfImprovementRuntime:
     """Inspect and plan exactly one improvement; never modify the repository."""
 

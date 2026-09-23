@@ -80,6 +80,9 @@ def evaluate(proposal, result):
         proposal,
         developer_task_id="developer-task",
         developer_attempt_id="developer-attempt",
+        worker_id="developer_worker",
+        worker_implementation="fake",
+        review_context_bound=True,
         result=result,
     )
 
@@ -90,10 +93,15 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
     evaluation = evaluate(proposal, developer_result(proposal))
 
     assert evaluation.status == "accepted_candidate"
+    assert evaluation.worker_id == "developer_worker"
+    assert evaluation.worker_implementation == "fake"
+    assert evaluation.changed_files == ("app/core.py",)
     assert evaluation.validation_passed is True
     assert evaluation.scope_valid is True
     assert evaluation.execution_clean is True
     assert evaluation.independent_review_present is True
+    assert evaluation.acceptance_criteria_proven is True
+    assert evaluation.reviewer_finding_count == 0
     assert evaluation.reviewer_high_or_critical is False
     assert evaluation.changed_file_count == 1
 
@@ -142,3 +150,22 @@ def test_evaluator_rejects_candidate_bound_to_different_base(tmp_path):
 
     with pytest.raises(SelfImprovementError, match="improvement_evaluation_binding_invalid"):
         evaluate(proposal, result)
+
+
+@pytest.mark.parametrize("severity", ["low", "medium"])
+def test_low_or_medium_review_finding_is_inconclusive(tmp_path, severity):
+    proposal = frozen_proposal(tmp_path)
+    review = deepcopy(developer_result(proposal).model_dump(mode="json")["independent_review"])
+    review["report"]["findings"] = [
+        {
+            "severity": severity,
+            "message": "Candidate still needs follow-up.",
+            "path": "app/core.py",
+        }
+    ]
+
+    evaluation = evaluate(proposal, developer_result(proposal, independent_review=review))
+
+    assert evaluation.status == "inconclusive"
+    assert evaluation.acceptance_criteria_proven is False
+    assert evaluation.reviewer_finding_count == 1

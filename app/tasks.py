@@ -42,6 +42,7 @@ from app.self_improvement_planner import planner_configuration_version
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
     SelfImprovementRunResult,
+    developer_review_instruction,
 )
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
@@ -219,6 +220,7 @@ class TaskService:
         payload: dict[str, Any],
         timeout_seconds: float,
         capabilities: tuple[str, ...] = ("zelo_core_development",),
+        review_instruction: str | None = None,
     ) -> tuple[DeveloperRequest, dict[str, int]]:
         if self.developer_runtime is None:
             raise DomainError("Developer runtime unavailable", 503)
@@ -241,6 +243,8 @@ class TaskService:
                 )
         except DeveloperRuntimeError as error:
             raise DomainError(error.args[0], 422) from None
+        if review_instruction is not None:
+            request = request.model_copy(update={"review_instruction": review_instruction})
         return request, running_counts
 
     @staticmethod
@@ -351,10 +355,20 @@ class TaskService:
                     or review.worker_version != reviewer.worker.cli_version
                 ):
                     raise ValueError("independent_review_identity_mismatch")
+            if (
+                developer_result.worker != developer_request.worker.implementation
+                or developer_result.worker_version != developer_request.worker.cli_version
+                or developer_result.worker_config_version
+                != developer_request.worker.config_version
+            ):
+                raise ValueError("developer_worker_identity_mismatch")
             evaluation = evaluate_improvement_candidate(
                 proposal,
                 developer_task_id=task.id,
                 developer_attempt_id=attempt.id,
+                worker_id=developer_request.worker_selection.descriptor.worker_id,
+                worker_implementation=developer_request.worker.implementation,
+                review_context_bound=developer_request.review_instruction is not None,
                 result=developer_result,
             )
         except (ValueError, SelfImprovementError):
@@ -1037,6 +1051,7 @@ class TaskService:
                 payload=child_payload,
                 timeout_seconds=child_request.timeout_seconds,
                 capabilities=tuple(preparation.proposal.draft.required_capabilities),
+                review_instruction=developer_review_instruction(preparation),
             )
             if developer_request.base_sha != preparation.base_sha:
                 raise DomainError("self_improvement_source_changed")
