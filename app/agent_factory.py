@@ -116,6 +116,26 @@ class AgentRegistry:
         return self._agents.get(agent_id)
 
 
+def coding_agent_descriptor(*, enabled: bool = False) -> AgentDescriptor:
+    """Trusted initial specialist definition; execution remains separately gated."""
+
+    return AgentDescriptor(
+        agent_id="coding",
+        role="coding",
+        capabilities=("code_planning", "code_review", "repository_change"),
+        allowed_task_kinds=("agent_run", "developer_run"),
+        allowed_tools=("list_workspace_files", "read_workspace_file", "repo_status"),
+        memory_namespace="agent/coding",
+        delegation_role="developer",
+        delegation_capabilities=("zelo_core_development",),
+        enabled=enabled,
+    )
+
+
+def default_agent_registry(*, coding_enabled: bool = False) -> AgentRegistry:
+    return AgentRegistry((coding_agent_descriptor(enabled=coding_enabled),))
+
+
 class AgentFactory:
     """Resolve enabled trusted specialists without widening their authority."""
 
