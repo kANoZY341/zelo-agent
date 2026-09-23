@@ -98,7 +98,10 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         assert child["approvals"][0]["status"] == "pending"
         assert child["developer_spec"]["base_sha"] == result["base_sha"]
         assert result["proposal"]["proposal_fingerprint"] in child["payload"]["instruction"]
-        assert result["proposal"]["proposal_fingerprint"] in child["developer_spec"]["review_instruction"]
+        assert (
+            result["proposal"]["proposal_fingerprint"]
+            in child["developer_spec"]["review_instruction"]
+        )
         assert (
             "Documentation remains consistent with the canonical roadmap."
             in child["developer_spec"]["review_instruction"]
