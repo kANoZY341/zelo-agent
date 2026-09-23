@@ -36,10 +36,7 @@ def evaluate_improvement_candidate(
     review_present = review is not None
     reviewer_high_or_critical = bool(
         review
-        and any(
-            finding.severity in {"high", "critical"}
-            for finding in review.report.findings
-        )
+        and any(finding.severity in {"high", "critical"} for finding in review.report.findings)
     )
 
     if (
