@@ -39,6 +39,16 @@ class SelfImprovementPreparation(Contract):
         return self
 
 
+class SelfImprovementRunResult(SelfImprovementPreparation):
+    developer_task_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    developer_approval_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    developer_action_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 def developer_instruction(preparation: SelfImprovementPreparation) -> str:
     """Render the exact frozen proposal into a bounded worker instruction."""
 
