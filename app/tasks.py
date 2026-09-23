@@ -1326,6 +1326,22 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            if task.kind == "self_improvement_run":
+                try:
+                    if self.gateway is None:
+                        raise ValueError("gateway_unavailable")
+                    alias, model = self.gateway.select("general")
+                    if (
+                        alias != task.selected_alias
+                        or model != task.selected_model
+                        or self.gateway.config_version != task.config_version
+                    ):
+                        raise ValueError("planner_selection_changed")
+                except Exception:
+                    task.error = "planner_selection_changed"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
