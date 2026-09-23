@@ -9,6 +9,7 @@ from app.main import create_app
 from app.schemas import SelfImprovementRunInput
 from app.tasks import TaskService
 from tests.conftest import AUTH
+from tests.developer_helpers import FakeWorker
 from tests.test_api import wait_for
 
 
@@ -45,10 +46,14 @@ class PlannerProvider:
         return ["qwen3:4b-instruct"]
 
 
-def test_self_improvement_task_persists_frozen_proposal_without_approval(settings, database):
+def test_self_improvement_task_prepares_approval_gated_developer_child(settings, database):
     provider = PlannerProvider()
+    developer_worker = FakeWorker()
 
-    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+    with TestClient(
+        create_app(settings, provider=provider, developer_worker=developer_worker),
+        headers=AUTH,
+    ) as client:
         response = client.post(
             "/tasks",
             json={
@@ -74,16 +79,30 @@ def test_self_improvement_task_persists_frozen_proposal_without_approval(setting
         assert result["planner_alias"] == "local_general"
         assert result["planner_model"] == "qwen3:4b-instruct"
         assert result["total_tokens"] == 18
+        assert len(result["developer_action_hash"]) == 64
 
         serialized = json.dumps(result)
         assert "Zelo fixture" not in serialized
         assert "Canonical Architecture" not in serialized
+
+        child = client.get(f"/tasks/{result['developer_task_id']}").json()
+        assert child["kind"] == "developer_run"
+        assert child["status"] == "awaiting_approval"
+        assert child["approvals"][0]["id"] == result["developer_approval_id"]
+        assert child["approvals"][0]["status"] == "pending"
+        assert child["developer_spec"]["base_sha"] == result["base_sha"]
+        assert (
+            result["proposal"]["proposal_fingerprint"]
+            in child["payload"]["instruction"]
+        )
+        assert developer_worker.calls == []
 
         events = client.get(f"/tasks/{submitted['id']}/events").json()
         names = [event["event"] for event in events]
         assert "self_improvement_inspection_started" in names
         assert "self_improvement_inspection_completed" in names
         assert "self_improvement_proposal_created" in names
+        assert "self_improvement_developer_prepared" in names
         assert len(provider.requests) == 1
 
 
