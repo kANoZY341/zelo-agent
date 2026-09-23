@@ -165,7 +165,13 @@ class SelfImprovementPlanner:
         self.timeout_seconds = timeout_seconds
         self.max_input_chars = max_input_chars
 
-    async def plan(self, inspection: RepositoryInspection, *, goal: str) -> PlannerResult:
+    async def plan(
+        self,
+        inspection: RepositoryInspection,
+        *,
+        goal: str,
+        expected_model: str | None = None,
+    ) -> PlannerResult:
         if not goal or goal.strip() != goal or len(goal) > 1024:
             raise SelfImprovementError("improvement_goal_invalid")
         payload = json.dumps(
@@ -184,6 +190,8 @@ class SelfImprovementPlanner:
         alias, model = self.gateway.select("general")
         if alias != "local_general":
             raise SelfImprovementError("planner_model_selection_invalid")
+        if expected_model is not None and model != expected_model:
+            raise SelfImprovementError("planner_model_selection_changed")
 
         try:
             result = await self.gateway.generate_action(
