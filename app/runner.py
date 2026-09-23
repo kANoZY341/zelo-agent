@@ -258,9 +258,7 @@ class Runner:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DomainError as error:
             reason = (
-                error.message[:256]
-                if execution.kind == "self_improvement_run"
-                else "worker_error"
+                error.message[:256] if execution.kind == "self_improvement_run" else "worker_error"
             )
             self.service.finish(execution, State.FAILED, error=reason)
         except SelfImprovementError as error:
