@@ -868,7 +868,11 @@ class TaskService:
                 "alias": task.selected_alias,
                 "model": task.selected_model,
                 "config_version": task.config_version,
-                "profile": task.payload.get("profile"),
+                "profile": (
+                    "general"
+                    if task.kind == "self_improvement_run"
+                    else task.payload.get("profile")
+                ),
             }
         elif task.kind == "developer_run":
             selection = task.developer_spec
