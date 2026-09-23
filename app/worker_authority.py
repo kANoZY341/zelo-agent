@@ -216,8 +216,9 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
     )
     return {
         "provider": "ollama",
-        "standalone": True,
-        "pure": True,
+        "transport": "authenticated-local-http",
+        "server_hostname": "127.0.0.1",
+        "project_config": "disabled",
         "permissions": tuple(permissions),
         "policies": tuple(policies),
     }
