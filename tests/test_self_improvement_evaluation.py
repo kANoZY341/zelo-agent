@@ -5,9 +5,8 @@ from copy import deepcopy
 import pytest
 
 from app.schemas import DeveloperRunResult
-from app.self_improvement import ImprovementProposal, SelfImprovementError
+from app.self_improvement import ImprovementProposal, RepositoryInspector, SelfImprovementError
 from app.self_improvement_evaluation import evaluate_improvement_candidate
-from app.self_improvement import RepositoryInspector
 from tests.test_self_improvement import make_repo, proposal_draft
 
 NOW = "2026-01-01T00:00:00Z"
