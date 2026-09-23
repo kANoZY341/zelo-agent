@@ -874,8 +874,7 @@ class TaskService:
         child_payload = child_request.payload.model_dump(mode="json")
         child_request_hash = fingerprint(child_request.model_dump(mode="json"))
         child_key = (
-            f"self-improvement:{execution.task_id}:"
-            f"{preparation.proposal.proposal_fingerprint[:32]}"
+            f"self-improvement:{execution.task_id}:{preparation.proposal.proposal_fingerprint[:32]}"
         )
 
         with self.database.transaction() as session:
