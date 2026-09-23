@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.agent import AgentRuntime
 from app.api import router
-from app.config import Settings
+from app.config import ROOT, Settings
 from app.database import Database
 from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
@@ -24,6 +24,9 @@ from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
+from app.self_improvement import RepositoryInspector
+from app.self_improvement_planner import SelfImprovementPlanner
+from app.self_improvement_runtime import SelfImprovementRuntime
 from app.task_api import router as task_router
 from app.tasks import TaskService
 from app.tools import ToolGateway
@@ -59,6 +62,13 @@ def create_app(
                 configuration.model_config_version,
             )
             tool_gateway = ToolGateway(configuration)
+            self_improvement_runtime = SelfImprovementRuntime(
+                RepositoryInspector(ROOT),
+                SelfImprovementPlanner(
+                    gateway,
+                    timeout_seconds=configuration.model_timeout_seconds,
+                ),
+            )
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
             promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
@@ -104,6 +114,7 @@ def create_app(
                 promotion_runtime,
                 promotion_merge_runtime,
                 promotion_release_runtime,
+                self_improvement_runtime,
             )
             application.state.database = database
             application.state.tasks = tasks
