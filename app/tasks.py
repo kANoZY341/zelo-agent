@@ -698,7 +698,9 @@ class TaskService:
             if request.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
-                profile = payload["profile"] if request.kind != "self_improvement_run" else "general"
+                profile = (
+                    payload["profile"] if request.kind != "self_improvement_run" else "general"
+                )
                 try:
                     alias, model = self.gateway.select(profile)
                 except Exception:
