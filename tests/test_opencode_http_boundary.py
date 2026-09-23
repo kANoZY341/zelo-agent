@@ -61,7 +61,10 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def authorized(self):
-        return self.headers.get("Authorization") == expected_auth
+        return (
+            self.headers.get("Authorization") == expected_auth
+            and self.headers.get("x-opencode-directory") == "/workspace"
+        )
 
     def send_json(self, status, payload):
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
