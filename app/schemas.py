@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
-from app.self_improvement_runtime import SelfImprovementPreparation
 
 
 class StrictModel(BaseModel):
