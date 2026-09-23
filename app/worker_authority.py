@@ -170,7 +170,7 @@ def claude_code_permission_semantics(profile: WorkerAuthorityProfile) -> dict[st
     }
 
 
-OPENCODE_SAFE_SHELL_RESOURCES = (
+OPENCODE_SAFE_BASH_RESOURCES = (
     "git status --short",
     "git status --short *",
     "git diff --no-ext-diff --no-textconv",
@@ -192,28 +192,14 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
     if profile.workspace_write:
         permissions.append({"action": "edit", "resource": "*", "effect": "allow"})
     permissions.extend(
-        {"action": "shell", "resource": resource, "effect": "allow"}
-        for resource in OPENCODE_SAFE_SHELL_RESOURCES
+        {"action": "bash", "resource": resource, "effect": "allow"}
+        for resource in OPENCODE_SAFE_BASH_RESOURCES
     )
 
     policies = [
         {"action": "provider.use", "resource": "*", "effect": "deny"},
         {"action": "provider.use", "resource": "ollama", "effect": "allow"},
-        {"action": "permission", "resource": "*", "effect": "deny"},
-        {"action": "permission", "resource": "read:*", "effect": "allow"},
-        {"action": "permission", "resource": "glob:*", "effect": "allow"},
-        {"action": "permission", "resource": "grep:*", "effect": "allow"},
     ]
-    if profile.workspace_write:
-        policies.append({"action": "permission", "resource": "edit:*", "effect": "allow"})
-    policies.extend(
-        {
-            "action": "permission",
-            "resource": f"shell:{resource}",
-            "effect": "allow",
-        }
-        for resource in OPENCODE_SAFE_SHELL_RESOURCES
-    )
     return {
         "provider": "ollama",
         "transport": "authenticated-local-http",
