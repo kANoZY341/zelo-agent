@@ -86,10 +86,7 @@ def _canonical_json(value: object) -> bytes:
 def _registry_version(agents: Mapping[str, AgentDescriptor]) -> str:
     payload = {
         "schema": AGENT_REGISTRY_SCHEMA,
-        "agents": [
-            agents[agent_id].model_dump(mode="json")
-            for agent_id in sorted(agents)
-        ],
+        "agents": [agents[agent_id].model_dump(mode="json") for agent_id in sorted(agents)],
     }
     return hashlib.sha256(_canonical_json(payload)).hexdigest()
 
