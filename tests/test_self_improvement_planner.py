@@ -70,6 +70,7 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
     assert str(repo) not in request.messages[0].content
     assert inspection.fingerprint in request.messages[0].content
     assert "Improve Zelo safely." in request.messages[0].content
+    assert "docs/reviews/private-review.md" not in request.messages[0].content
     assert request.system_prompt == PLANNER_SYSTEM_PROMPT
 
 
@@ -83,6 +84,9 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         ),
         (valid_response(evidence=["missing.py"]), "proposal_evidence_unavailable"),
         (valid_response(scope_paths=["app/policy.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/tasks.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/self_improvement_new.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["docs/reviews/new.md"]), "proposal_scope_denied"),
         (valid_response(risk="low"), "proposal_risk_understated"),
         (valid_response(scope_paths=["pyproject.toml"]), "proposal_scope_denied"),
     ],
@@ -131,3 +135,23 @@ def test_policy_allows_low_risk_docs_only_proposal(tmp_path):
     )
 
     SelfImprovementPolicy().validate(draft, inspection)
+
+
+def test_policy_rejects_existing_tracked_scope_that_was_not_inspected(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    large = repo / "app" / "large.py"
+    large.write_text("x" * 5000, encoding="utf-8")
+    from tests.developer_helpers import fixture_commit
+
+    fixture_commit(repo)
+    inspection = RepositoryInspector(repo).inspect()
+    assert "app/large.py" in inspection.tracked_paths
+    assert "app/large.py" not in {item.path for item in inspection.files}
+
+    draft = proposal_draft(
+        risk="medium",
+        evidence=("app/core.py",),
+        scope_paths=("app/large.py",),
+    )
+    with pytest.raises(SelfImprovementError, match="proposal_scope_uninspected"):
+        SelfImprovementPolicy().validate(draft, inspection)

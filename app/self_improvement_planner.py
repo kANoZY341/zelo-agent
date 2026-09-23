@@ -32,17 +32,28 @@ Do not include hidden reasoning.
 _ALLOWED_CAPABILITIES = frozenset({"zelo_core_development"})
 _ALLOWED_SCOPE_PREFIXES = ("app/", "docs/", "scripts/", "tests/")
 _ALLOWED_SCOPE_ROOTS = frozenset({"AGENTS.md", "README.md"})
-_HIGH_RISK_PREFIXES = (".github/", "migrations/")
+_DENIED_SCOPE_PREFIXES = ("docs/reviews/",)
+_HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/self_improvement")
 _HIGH_RISK_EXACT = frozenset(
     {
+        "app/agent.py",
+        "app/api.py",
         "app/auth.py",
+        "app/claude_worker.py",
+        "app/codex_worker.py",
         "app/config.py",
         "app/database.py",
         "app/developer.py",
+        "app/developer_artifacts.py",
+        "app/developer_contracts.py",
+        "app/developer_review.py",
         "app/developer_process.py",
         "app/developer_sandbox.py",
+        "app/developer_validation.py",
         "app/gateway.py",
+        "app/main.py",
         "app/models.py",
+        "app/opencode_worker.py",
         "app/policy.py",
         "app/promotion.py",
         "app/promotion_ci.py",
@@ -52,7 +63,15 @@ _HIGH_RISK_EXACT = frozenset(
         "app/promotion_merge.py",
         "app/promotion_release.py",
         "app/promotion_review.py",
+        "app/promotion_validation.py",
+        "app/runner.py",
+        "app/schemas.py",
+        "app/task_api.py",
+        "app/tasks.py",
+        "app/tools.py",
         "app/worker_authority.py",
+        "app/worker_registry.py",
+        "app/workers.py",
     }
 )
 
@@ -115,7 +134,10 @@ def _parse_draft(text: str) -> ImprovementProposalDraft:
 
 
 def _scope_allowed(path: str) -> bool:
-    return path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES)
+    return (
+        not path.startswith(_DENIED_SCOPE_PREFIXES)
+        and (path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES))
+    )
 
 
 def _high_risk_scope(path: str) -> bool:
@@ -143,6 +165,13 @@ class SelfImprovementPolicy:
         if any(not _scope_allowed(path) for path in draft.scope_paths):
             raise SelfImprovementError("proposal_scope_denied")
 
+        tracked_paths = set(inspection.tracked_paths)
+        if any(
+            path in tracked_paths and path not in inspected_paths
+            for path in draft.scope_paths
+        ):
+            raise SelfImprovementError("proposal_scope_uninspected")
+
         if any(_high_risk_scope(path) for path in draft.scope_paths):
             raise SelfImprovementError("proposal_high_risk_scope")
 
@@ -161,7 +190,7 @@ class SelfImprovementPlanner:
         *,
         policy: SelfImprovementPolicy | None = None,
         timeout_seconds: float = 60.0,
-        max_input_chars: int = 20000,
+        max_input_chars: int = 12000,
     ) -> None:
         if not 0.01 <= timeout_seconds <= 600 or not 4096 <= max_input_chars <= 65536:
             raise ValueError("planner_limits_invalid")
@@ -182,7 +211,18 @@ class SelfImprovementPlanner:
         payload = json.dumps(
             {
                 "goal": goal,
-                "inspection": inspection.model_dump(mode="json"),
+                "inspection": {
+                    "schema_version": inspection.schema_version,
+                    "base_sha": inspection.base_sha,
+                    "branch": inspection.branch,
+                    "zelo_version": inspection.zelo_version,
+                    "clean": inspection.clean,
+                    "tracked_path_count": len(inspection.tracked_paths),
+                    "files": [item.model_dump(mode="json") for item in inspection.files],
+                    "content_truncated": inspection.content_truncated,
+                    "total_content_bytes": inspection.total_content_bytes,
+                    "fingerprint": inspection.fingerprint,
+                },
             },
             sort_keys=True,
             separators=(",", ":"),
