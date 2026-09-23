@@ -329,6 +329,19 @@ class TaskService:
             return
         try:
             developer_result = DeveloperRunResult.model_validate(result)
+            developer_request = DeveloperRequest.model_validate(task.developer_spec)
+            review = developer_result.independent_review
+            reviewer = developer_request.reviewer
+            if review is not None:
+                if reviewer is None:
+                    raise ValueError("unexpected_independent_review")
+                review_selection = reviewer.worker_selection
+                if (
+                    review.worker_id != review_selection.descriptor.worker_id
+                    or review.implementation != review_selection.descriptor.implementation
+                    or review.worker_version != reviewer.worker.cli_version
+                ):
+                    raise ValueError("independent_review_identity_mismatch")
             evaluation = evaluate_improvement_candidate(
                 proposal,
                 developer_task_id=task.id,
