@@ -158,7 +158,7 @@ class SelfImprovementPlanner:
         timeout_seconds: float = 60.0,
         max_input_chars: int = 20000,
     ) -> None:
-        if not 1 <= timeout_seconds <= 600 or not 4096 <= max_input_chars <= 65536:
+        if not 0.01 <= timeout_seconds <= 600 or not 4096 <= max_input_chars <= 65536:
             raise ValueError("planner_limits_invalid")
         self.gateway = gateway
         self.policy = policy or SelfImprovementPolicy()
