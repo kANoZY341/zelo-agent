@@ -66,10 +66,15 @@ class PlannerResult(Contract):
     total_tokens: int | None = None
 
 
-def _planner_fingerprint(*, gateway: ModelGateway, alias: str, model: str) -> str:
+def planner_configuration_version(
+    *,
+    model_config_version: str,
+    alias: str,
+    model: str,
+) -> str:
     payload = {
         "planner_version": PLANNER_VERSION,
-        "model_config_version": gateway.config_version,
+        "model_config_version": model_config_version,
         "alias": alias,
         "model": model,
     }
@@ -216,8 +221,8 @@ class SelfImprovementPlanner:
             raise SelfImprovementError("planner_output_invalid") from None
 
         self.policy.validate(draft, inspection)
-        planner_config_version = _planner_fingerprint(
-            gateway=self.gateway,
+        planner_config_version = planner_configuration_version(
+            model_config_version=self.gateway.config_version,
             alias=alias,
             model=model,
         )
