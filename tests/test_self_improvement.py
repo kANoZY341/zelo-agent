@@ -127,10 +127,12 @@ def test_proposal_freezes_exact_inspection_identity(tmp_path):
     proposal = ImprovementProposal.freeze(
         proposal_draft(),
         inspection,
+        goal="Improve Zelo safely.",
         planner_config_version="self-improvement-planner-v1",
     )
 
     assert proposal.base_sha == sha
+    assert proposal.goal == "Improve Zelo safely."
     assert proposal.inspection_fingerprint == inspection.fingerprint
     assert proposal.draft.required_capabilities == ("zelo_core_development",)
 
