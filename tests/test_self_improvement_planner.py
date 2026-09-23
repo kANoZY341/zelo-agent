@@ -53,12 +53,13 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
     provider = ScriptedProvider(valid_response())
     planner = SelfImprovementPlanner(gateway(provider))
 
-    result = asyncio.run(planner.plan(inspection))
+    result = asyncio.run(planner.plan(inspection, goal="Improve Zelo safely."))
 
     assert result.alias == "local_general"
     assert result.actual_model == "qwen3:4b-instruct"
     assert result.total_tokens == 18
     assert result.proposal.base_sha == sha
+    assert result.proposal.goal == "Improve Zelo safely."
     assert result.proposal.inspection_fingerprint == inspection.fingerprint
     assert len(result.proposal.planner_config_version) == 64
 
@@ -68,6 +69,7 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
     assert request.messages[0].role == "user"
     assert str(repo) not in request.messages[0].content
     assert inspection.fingerprint in request.messages[0].content
+    assert "Improve Zelo safely." in request.messages[0].content
     assert request.system_prompt == PLANNER_SYSTEM_PROMPT
 
 
@@ -91,7 +93,7 @@ def test_planner_policy_rejects_model_authored_authority_expansion(tmp_path, res
     planner = SelfImprovementPlanner(gateway(ScriptedProvider(response)))
 
     with pytest.raises(SelfImprovementError, match=error):
-        asyncio.run(planner.plan(inspection))
+        asyncio.run(planner.plan(inspection, goal="Improve Zelo safely."))
 
 
 def test_planner_rejects_vendor_or_worker_fields_not_in_schema(tmp_path):
@@ -103,7 +105,7 @@ def test_planner_rejects_vendor_or_worker_fields_not_in_schema(tmp_path):
     planner = SelfImprovementPlanner(gateway(ScriptedProvider(response)))
 
     with pytest.raises(SelfImprovementError, match="planner_output_invalid"):
-        asyncio.run(planner.plan(inspection))
+        asyncio.run(planner.plan(inspection, goal="Improve Zelo safely."))
 
 
 def test_planner_rejects_duplicate_json_keys(tmp_path):
@@ -116,7 +118,7 @@ def test_planner_rejects_duplicate_json_keys(tmp_path):
     planner = SelfImprovementPlanner(gateway(ScriptedProvider(duplicate)))
 
     with pytest.raises(SelfImprovementError, match="planner_output_invalid"):
-        asyncio.run(planner.plan(inspection))
+        asyncio.run(planner.plan(inspection, goal="Improve Zelo safely."))
 
 
 def test_policy_allows_low_risk_docs_only_proposal(tmp_path):
