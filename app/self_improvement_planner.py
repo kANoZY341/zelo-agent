@@ -165,9 +165,14 @@ class SelfImprovementPlanner:
         self.timeout_seconds = timeout_seconds
         self.max_input_chars = max_input_chars
 
-    async def plan(self, inspection: RepositoryInspection) -> PlannerResult:
+    async def plan(self, inspection: RepositoryInspection, *, goal: str) -> PlannerResult:
+        if not goal or goal.strip() != goal or len(goal) > 1024:
+            raise SelfImprovementError("improvement_goal_invalid")
         payload = json.dumps(
-            inspection.model_dump(mode="json"),
+            {
+                "goal": goal,
+                "inspection": inspection.model_dump(mode="json"),
+            },
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=True,
@@ -211,6 +216,7 @@ class SelfImprovementPlanner:
         proposal = ImprovementProposal.freeze(
             draft,
             inspection,
+            goal=goal,
             planner_config_version=planner_config_version,
         )
         return PlannerResult(
