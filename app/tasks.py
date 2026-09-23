@@ -38,6 +38,7 @@ from app.schemas import (
 )
 from app.self_improvement import ImprovementProposal, SelfImprovementError
 from app.self_improvement_evaluation import evaluate_improvement_candidate
+from app.self_improvement_planner import planner_configuration_version
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
     SelfImprovementRunResult,
@@ -984,6 +985,13 @@ class TaskService:
             if (
                 parent.selected_alias != preparation.planner_alias
                 or parent.selected_model != preparation.planner_model
+                or parent.config_version is None
+                or preparation.proposal.planner_config_version
+                != planner_configuration_version(
+                    model_config_version=parent.config_version,
+                    alias=preparation.planner_alias,
+                    model=preparation.planner_model,
+                )
             ):
                 raise DomainError("Self-improvement planner binding changed")
 
