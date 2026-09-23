@@ -66,6 +66,7 @@ def configuration_version(settings: Settings) -> str:
         "server_hostname": "127.0.0.1",
         "server_auth": "basic-random-per-run",
         "server_username": SERVER_USERNAME,
+        "request_directory": REPO,
         "server_start_seconds": SERVER_START_SECONDS,
         "api_call_seconds": API_CALL_SECONDS,
         "api_response_bytes": API_RESPONSE_BYTES,
@@ -247,6 +248,7 @@ def _api_json(
     headers = {
         "Accept": "application/json",
         "Authorization": _basic_auth(password),
+        "x-opencode-directory": REPO,
     }
     if payload is not None:
         body = _canonical_json(payload).encode("utf-8")
