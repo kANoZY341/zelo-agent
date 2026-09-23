@@ -248,6 +248,41 @@ def _decode_paths(data: bytes) -> tuple[str, ...]:
         raise SelfImprovementError("inspection_path_invalid") from None
 
 
+def _ignored_untracked_path(value: str) -> bool:
+    if (
+        not value
+        or len(value) > 4096
+        or "\\" in value
+        or "\x00" in value
+        or any(character in value for character in "\r\n")
+    ):
+        return False
+    path = PurePosixPath(value)
+    if path.is_absolute() or path.as_posix() != value or "." in path.parts or ".." in path.parts:
+        return False
+    return (
+        path.parts[:2] == ("docs", "reviews")
+        or (path.parts and path.parts[0] in {"runtime", "secrets", "workspaces", ".venv"})
+        or path.name in _FORBIDDEN_NAMES
+    )
+
+
+def _repository_status_clean(data: bytes) -> bool:
+    try:
+        entries = [item.decode("utf-8") for item in data.split(b"\x00") if item]
+    except UnicodeDecodeError:
+        raise SelfImprovementError("inspection_path_not_utf8") from None
+
+    for entry in entries:
+        if len(entry) < 4 or entry[2] != " ":
+            return False
+        status, path = entry[:2], entry[3:]
+        if status == "??" and _ignored_untracked_path(path):
+            continue
+        return False
+    return True
+
+
 def _content_candidate(relative: str) -> bool:
     path = PurePosixPath(relative)
     if path.name in _TEXT_TOP_LEVEL and len(path.parts) == 1:
@@ -338,7 +373,7 @@ class RepositoryInspector:
                 "-z",
                 "--untracked-files=all",
             )
-            if status_before:
+            if not _repository_status_clean(status_before):
                 raise SelfImprovementError("inspection_repository_dirty")
 
             base_sha = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
@@ -383,7 +418,7 @@ class RepositoryInspector:
                 "--untracked-files=all",
             )
             head_after = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
-            if status_after or head_after != base_sha:
+            if not _repository_status_clean(status_after) or head_after != base_sha:
                 raise SelfImprovementError("inspection_repository_changed")
 
             return RepositoryInspection.create(
