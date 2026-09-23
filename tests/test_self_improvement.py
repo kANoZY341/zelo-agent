@@ -55,9 +55,7 @@ def test_repository_inspector_builds_deterministic_bounded_snapshot(tmp_path):
     assert contents["README.md"] == "# Zelo fixture\n"
     assert contents["app/core.py"] == "VALUE = 1\n"
     assert "docs/reviews/private-review.md" not in contents
-    assert first.total_content_bytes == sum(
-        len(item.text.encode("utf-8")) for item in first.files
-    )
+    assert first.total_content_bytes == sum(len(item.text.encode("utf-8")) for item in first.files)
 
 
 def test_repository_inspector_refuses_dirty_checkout(tmp_path):
