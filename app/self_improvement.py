@@ -83,12 +83,7 @@ def _repo_path(value: str) -> str:
     ):
         raise ValueError("repository_path_invalid")
     path = PurePosixPath(value)
-    if (
-        path.is_absolute()
-        or path.as_posix() != value
-        or "." in path.parts
-        or ".." in path.parts
-    ):
+    if path.is_absolute() or path.as_posix() != value or "." in path.parts or ".." in path.parts:
         raise ValueError("repository_path_invalid")
     if any(part in _FORBIDDEN_PARTS for part in path.parts) or path.name in _FORBIDDEN_NAMES:
         raise ValueError("repository_path_forbidden")
