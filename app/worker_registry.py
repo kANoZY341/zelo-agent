@@ -64,7 +64,7 @@ class WorkerRegistry:
         self,
         registrations: Iterable[tuple[WorkerDescriptor, DeveloperWorker]] = (),
         *,
-        routing_policy: str = "priority-then-worker-id-v1",
+        routing_policy: str = "available-capacity-priority-worker-id-v2",
     ) -> None:
         workers: dict[str, RegisteredWorker] = {}
         for descriptor, worker in registrations:
@@ -114,11 +114,35 @@ class Supervisor:
         self.registry = registry
 
     def select(
-        self, *, role: str, capabilities: Iterable[str]
+        self,
+        *,
+        role: str,
+        capabilities: Iterable[str],
+        running_counts: Mapping[str, int] | None = None,
+        exclude_worker_ids: Iterable[str] = (),
     ) -> tuple[RegisteredWorker, WorkerSelectionSnapshot]:
-        eligible = self.registry.eligible(role, capabilities)
+        requested_capabilities = tuple(sorted(set(capabilities)))
+        excluded_worker_ids = tuple(sorted(set(exclude_worker_ids)))
+        if not requested_capabilities:
+            raise DeveloperError("no_eligible_worker")
+        eligible = tuple(
+            item
+            for item in self.registry.eligible(role, requested_capabilities)
+            if item.descriptor.worker_id not in excluded_worker_ids
+        )
         if not eligible:
             raise DeveloperError("no_eligible_worker")
+        if running_counts is not None:
+            if any(type(count) is not int or count < 0 for count in running_counts.values()):
+                raise DeveloperError("worker_capacity_invalid")
+            available = tuple(
+                item
+                for item in eligible
+                if running_counts.get(item.descriptor.worker_id, 0)
+                < item.descriptor.max_concurrency
+            )
+            if available:
+                eligible = available
         selected = min(
             eligible,
             key=lambda item: (-item.descriptor.priority, item.descriptor.worker_id),
@@ -127,6 +151,9 @@ class Supervisor:
             descriptor=selected.descriptor,
             registry_version=self.registry.version,
             routing_policy=self.registry.routing_policy,
+            requested_role=role,
+            requested_capabilities=requested_capabilities,
+            excluded_worker_ids=excluded_worker_ids,
             authority_profile=selected.authority_profile.name,
             authority_policy_version=authority_policy_version(),
         )
@@ -139,6 +166,9 @@ class Supervisor:
             and snapshot.routing_policy == self.registry.routing_policy
             and current.descriptor == snapshot.descriptor
             and current.descriptor.enabled
+            and current.descriptor.worker_id not in snapshot.excluded_worker_ids
+            and current.descriptor.role == snapshot.requested_role
+            and set(snapshot.requested_capabilities).issubset(current.descriptor.capabilities)
             and current.authority_profile.name == snapshot.authority_profile
             and authority_snapshot_matches(
                 current.descriptor.authority,
@@ -149,13 +179,32 @@ class Supervisor:
 
 
 def descriptor_for_worker(
-    worker: DeveloperWorker, implementation: str, worker_id: str = "codex_core"
+    worker: DeveloperWorker,
+    implementation: str,
+    worker_id: str = "codex_core",
+    *,
+    priority: int = 100,
+    max_concurrency: int = 1,
 ) -> WorkerDescriptor:
     return WorkerDescriptor(
         worker_id=worker_id,
         role="developer",
         capabilities=("zelo_core_development",),
         authority=("workspace-write",),
+        implementation=implementation,
+        priority=priority,
+        max_concurrency=max_concurrency,
+    )
+
+
+def descriptor_for_reviewer(
+    worker: DeveloperWorker, implementation: str, worker_id: str = "reviewer_core"
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="reviewer",
+        capabilities=("code_review",),
+        authority=("workspace-read",),
         implementation=implementation,
         priority=100,
         max_concurrency=1,

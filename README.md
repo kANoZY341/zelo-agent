@@ -1,4 +1,4 @@
-# Zelo Core v0.9.1 — Worker Authority & Multi-Worker Runtime
+# Zelo Core v0.10.0 — Worker Authority & Multi-Worker Runtime
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
@@ -37,7 +37,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.9.1","status":"online"}
+# {"name":"Zelo Agent","version":"0.10.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}

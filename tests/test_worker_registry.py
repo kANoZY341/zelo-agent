@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from app.developer import DeveloperRuntime
 from app.developer_contracts import ValidationResult, WorkerDescriptor, WorkerIdentity
 from app.developer_process import DeveloperError
 from app.developer_sandbox import CODEX, sandbox
@@ -15,8 +16,14 @@ from app.worker_authority import (
     WorkerAuthorityProfile,
     authority_policy_fingerprint,
     authority_profile,
+    codex_permission_semantics,
 )
-from app.worker_registry import RegisteredWorker, Supervisor, WorkerRegistry
+from app.worker_registry import (
+    RegisteredWorker,
+    Supervisor,
+    WorkerRegistry,
+    descriptor_for_reviewer,
+)
 
 
 class StubWorker:
@@ -43,16 +50,23 @@ class StubWorker:
         return self._identity
 
 
-def descriptor(worker_id: str, *, priority: int = 1, enabled: bool = True):
+def descriptor(
+    worker_id: str,
+    *,
+    priority: int = 1,
+    enabled: bool = True,
+    capabilities: tuple[str, ...] = ("zelo_core_development",),
+    max_concurrency: int = 1,
+):
     return WorkerDescriptor(
         worker_id=worker_id,
         role="developer",
-        capabilities=("zelo_core_development",),
+        capabilities=capabilities,
         authority=("workspace-write",),
         implementation="stub",
         enabled=enabled,
         priority=priority,
-        max_concurrency=1,
+        max_concurrency=max_concurrency,
     )
 
 
@@ -120,6 +134,366 @@ def test_supervisor_uses_priority_then_stable_worker_id():
         .descriptor.worker_id
         == "alpha"
     )
+
+
+def test_supervisor_binds_requested_capabilities_and_skips_full_worker():
+    high = StubWorker()
+    low = StubWorker()
+    registry = WorkerRegistry(
+        [
+            (descriptor("high", priority=20), high),
+            (descriptor("low", priority=10), low),
+        ]
+    )
+    supervisor = Supervisor(registry)
+
+    selected, snapshot = supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"high": 1},
+    )
+    assert selected.worker is low
+    assert snapshot.descriptor.worker_id == "low"
+    assert snapshot.requested_role == "developer"
+    assert snapshot.requested_capabilities == ("zelo_core_development",)
+    assert snapshot.routing_policy == "available-capacity-priority-worker-id-v2"
+    assert supervisor.matches(snapshot)
+
+
+def test_supervisor_uses_deterministic_winner_when_all_eligible_workers_are_full():
+    registry = WorkerRegistry(
+        [
+            (descriptor("high", priority=20), StubWorker()),
+            (descriptor("low", priority=10), StubWorker()),
+        ]
+    )
+    selected, _ = Supervisor(registry).select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"high": 1, "low": 1},
+    )
+    assert selected.descriptor.worker_id == "high"
+
+
+def test_supervisor_capability_filter_and_request_binding_are_enforced():
+    registry = WorkerRegistry(
+        [
+            (descriptor("general", priority=20), StubWorker()),
+            (
+                descriptor(
+                    "testing",
+                    priority=10,
+                    capabilities=("testing", "zelo_core_development"),
+                ),
+                StubWorker(),
+            ),
+        ]
+    )
+    supervisor = Supervisor(registry)
+    selected, snapshot = supervisor.select(role="developer", capabilities=("testing",))
+    assert selected.descriptor.worker_id == "testing"
+    assert snapshot.requested_capabilities == ("testing",)
+    tampered = snapshot.model_copy(update={"requested_capabilities": ("missing",)})
+    assert not supervisor.matches(tampered)
+
+
+def test_supervisor_rejects_invalid_capacity_snapshot():
+    registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
+    with pytest.raises(DeveloperError, match="worker_capacity_invalid"):
+        Supervisor(registry).select(
+            role="developer",
+            capabilities=("zelo_core_development",),
+            running_counts={"worker": -1},
+        )
+
+
+def test_runtime_preapproval_selection_uses_live_worker_capacity(developer_case):
+    high = StubWorker("high")
+    low = StubWorker("low")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("high", priority=20).model_copy(update={"implementation": "high"}),
+                high,
+            ),
+            (
+                descriptor("low", priority=10).model_copy(update={"implementation": "low"}),
+                low,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, None, developer_case.source_repository, registry
+    )
+    request = runtime.request(
+        "test",
+        "zelo_core",
+        30,
+        running_counts={"high": 1},
+    )
+    assert request.worker_selection.descriptor.worker_id == "low"
+    assert request.worker == low.identity()
+
+
+def test_read_only_reviewer_authority_is_fail_closed_and_fingerprinted():
+    read = authority_profile(("workspace-read",))
+    write = authority_profile(("workspace-write",))
+    assert read.name == "workspace-read-no-network-v1"
+    assert read.workspace_write is False
+    assert read.network is False
+    assert authority_policy_fingerprint((read,)) != authority_policy_fingerprint((write,))
+
+    from app import developer_sandbox
+
+    plans = developer_sandbox.worker_sandbox_plans(read.workspace_write)
+    execution = plans["worker_execution"]
+    assert execution["workspace"]["writable"] is False
+    assert codex_permission_semantics(read)["network_enabled"] is False
+    repo_mount = next(
+        operation
+        for operation in execution["operations"]
+        if operation.get("dest") == developer_sandbox.REPO
+    )
+    assert repo_mount["op"] == "--ro-bind"
+
+
+def test_reviewer_descriptor_uses_read_only_authority():
+    worker = StubWorker("reviewer_impl")
+    descriptor_value = descriptor_for_reviewer(
+        worker, implementation="reviewer_impl", worker_id="reviewer"
+    )
+    registry = WorkerRegistry([(descriptor_value, worker)])
+    selected, snapshot = Supervisor(registry).select(role="reviewer", capabilities=("code_review",))
+    assert selected.descriptor.role == "reviewer"
+    assert selected.authority_profile.name == "workspace-read-no-network-v1"
+    assert snapshot.requested_role == "reviewer"
+    assert snapshot.requested_capabilities == ("code_review",)
+
+
+def test_reviewer_selection_excludes_producer_and_binds_exclusion():
+    producer = StubWorker("shared")
+    independent = StubWorker("independent")
+    developer_descriptor = descriptor("producer").model_copy(update={"implementation": "shared"})
+    aliased_reviewer = descriptor_for_reviewer(
+        producer, implementation="shared", worker_id="producer_reviewer_alias"
+    ).model_copy(update={"priority": 20})
+    independent_reviewer = descriptor_for_reviewer(
+        independent, implementation="independent", worker_id="independent_reviewer"
+    ).model_copy(update={"priority": 10})
+    registry = WorkerRegistry(
+        [
+            (developer_descriptor, producer),
+            (aliased_reviewer, producer),
+            (independent_reviewer, independent),
+        ]
+    )
+    # The Supervisor applies explicit exclusions before deterministic selection.
+    selected, snapshot = Supervisor(registry).select(
+        role="reviewer",
+        capabilities=("code_review",),
+        exclude_worker_ids=("producer_reviewer_alias",),
+    )
+    assert selected.worker is independent
+    assert snapshot.excluded_worker_ids == ("producer_reviewer_alias",)
+    assert Supervisor(registry).matches(snapshot)
+    assert snapshot.descriptor.worker_id not in snapshot.excluded_worker_ids
+
+
+def test_runtime_reviewer_selection_excludes_same_worker_instance(developer_case):
+    producer = StubWorker("shared")
+    independent = StubWorker("independent")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("producer", priority=100).model_copy(
+                    update={"implementation": "shared"}
+                ),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    producer,
+                    implementation="shared",
+                    worker_id="producer_reviewer_alias",
+                ).model_copy(update={"priority": 100}),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    independent,
+                    implementation="independent",
+                    worker_id="independent_reviewer",
+                ).model_copy(update={"priority": 10}),
+                independent,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, producer, developer_case.source_repository, registry
+    )
+    selected, snapshot = runtime.select_reviewer("producer")
+    assert selected.worker is independent
+    assert selected.descriptor.worker_id == "independent_reviewer"
+    assert snapshot.authority_profile == "workspace-read-no-network-v1"
+    assert "producer" in snapshot.excluded_worker_ids
+    assert "producer_reviewer_alias" in snapshot.excluded_worker_ids
+
+
+def test_runtime_reviewer_selection_fails_without_independent_reviewer(developer_case):
+    producer = StubWorker("shared")
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor("producer").model_copy(update={"implementation": "shared"}),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    producer,
+                    implementation="shared",
+                    worker_id="producer_reviewer_alias",
+                ),
+                producer,
+            ),
+        ]
+    )
+    runtime = developer_case.__class__(
+        developer_case.settings, producer, developer_case.source_repository, registry
+    )
+    with pytest.raises(DeveloperError, match="no_eligible_worker"):
+        runtime.select_reviewer("producer")
+
+
+def test_default_registry_registers_optional_claude_and_independent_reviewers(
+    developer_case,
+):
+    settings = developer_case.settings.model_copy(update={"developer_claude_enabled": True})
+    runtime = DeveloperRuntime(
+        settings,
+        source_repository=developer_case.source_repository,
+    )
+    descriptors = {item.worker_id: item for item in runtime.registry.list()}
+    assert set(descriptors) == {
+        "codex_core",
+        "codex_reviewer",
+        "claude_core",
+        "claude_reviewer",
+    }
+    assert descriptors["codex_core"].role == "developer"
+    assert descriptors["claude_core"].role == "developer"
+    assert descriptors["codex_reviewer"].role == "reviewer"
+    assert descriptors["claude_reviewer"].role == "reviewer"
+    assert descriptors["codex_core"].priority > descriptors["claude_core"].priority
+
+    selected, _ = runtime.supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"codex_core": 1},
+    )
+    assert selected.descriptor.worker_id == "claude_core"
+
+    reviewer, snapshot = runtime.select_reviewer("codex_core")
+    assert reviewer.descriptor.worker_id == "claude_reviewer"
+    assert set(snapshot.excluded_worker_ids) == {"codex_core", "codex_reviewer"}
+
+    reverse, reverse_snapshot = runtime.select_reviewer("claude_core")
+    assert reverse.descriptor.worker_id == "codex_reviewer"
+    assert set(reverse_snapshot.excluded_worker_ids) == {
+        "claude_core",
+        "claude_reviewer",
+    }
+
+
+def test_default_registry_registers_opencode_as_third_worker(developer_case):
+    settings = developer_case.settings.model_copy(
+        update={
+            "developer_claude_enabled": True,
+            "developer_opencode_enabled": True,
+        }
+    )
+    runtime = DeveloperRuntime(
+        settings,
+        source_repository=developer_case.source_repository,
+    )
+    descriptors = {item.worker_id: item for item in runtime.registry.list()}
+    assert set(descriptors) == {
+        "codex_core",
+        "codex_reviewer",
+        "claude_core",
+        "claude_reviewer",
+        "opencode_core",
+        "opencode_reviewer",
+    }
+    assert descriptors["codex_core"].priority > descriptors["claude_core"].priority
+    assert descriptors["claude_core"].priority > descriptors["opencode_core"].priority
+    assert descriptors["opencode_core"].role == "developer"
+    assert descriptors["opencode_reviewer"].role == "reviewer"
+
+    selected, _ = runtime.supervisor.select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+        running_counts={"codex_core": 1, "claude_core": 1},
+    )
+    assert selected.descriptor.worker_id == "opencode_core"
+
+    reviewer, snapshot = runtime.select_reviewer("codex_core")
+    assert reviewer.descriptor.worker_id == "claude_reviewer"
+    assert "codex_reviewer" in snapshot.excluded_worker_ids
+
+
+def test_fourth_worker_can_join_common_runtime_without_vendor_routing_changes(
+    developer_case,
+):
+    registrations = []
+    priorities = {
+        "codex": 100,
+        "claude_code": 90,
+        "opencode": 80,
+        "ox": 70,
+    }
+    for implementation, priority in priorities.items():
+        worker = StubWorker(implementation)
+        registrations.append(
+            (
+                descriptor(f"{implementation}_core", priority=priority).model_copy(
+                    update={"implementation": implementation}
+                ),
+                worker,
+            )
+        )
+
+    registry = WorkerRegistry(registrations)
+    runtime = DeveloperRuntime(
+        developer_case.settings,
+        None,
+        developer_case.source_repository,
+        registry,
+    )
+    request = runtime.request(
+        "test fourth worker conformance",
+        "zelo_core",
+        30,
+        running_counts={
+            "codex_core": 1,
+            "claude_code_core": 1,
+            "opencode_core": 1,
+        },
+    )
+
+    assert request.worker_selection.descriptor.worker_id == "ox_core"
+    assert request.worker.implementation == "ox"
+    assert request.worker_selection.routing_policy == "available-capacity-priority-worker-id-v2"
+
+
+def test_default_registry_keeps_claude_disabled_until_configured(developer_case):
+    runtime = DeveloperRuntime(
+        developer_case.settings,
+        source_repository=developer_case.source_repository,
+    )
+    assert {item.worker_id for item in runtime.registry.list()} == {
+        "codex_core",
+        "codex_reviewer",
+    }
 
 
 def test_descriptors_and_selection_snapshots_are_immutable():

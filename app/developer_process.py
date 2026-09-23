@@ -58,7 +58,7 @@ async def uncancellable(task: asyncio.Task):
     return result, cancelled
 
 
-async def _stop(process: asyncio.subprocess.Process) -> None:
+async def stop_process(process: asyncio.subprocess.Process) -> None:
     def send(sig: signal.Signals) -> None:
         try:
             os.killpg(process.pid, sig)
@@ -172,7 +172,7 @@ async def run_process(
     finally:
 
         async def cleanup() -> None:
-            await _stop(process)
+            await stop_process(process)
             for reader in readers:
                 reader.cancel()
             await asyncio.gather(*readers, return_exceptions=True)

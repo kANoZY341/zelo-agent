@@ -8,21 +8,36 @@ import os
 import shutil
 import stat
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from app.claude_worker import ClaudeCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
 from app.config import ROOT, Settings
-from app.developer_contracts import DeveloperRequest, DeveloperWorker, Limits, ValidationResult
+from app.developer_contracts import (
+    DeveloperRequest,
+    DeveloperWorker,
+    Limits,
+    ReviewerBinding,
+    ReviewerExecutionRequest,
+    ReviewerReport,
+    ValidationResult,
+)
 from app.developer_process import DeveloperError, run_process, run_sync, uncancellable
 from app.developer_review import inventory
 from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
-from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_worker
+from app.opencode_worker import OpenCodeWorker
+from app.worker_registry import (
+    Supervisor,
+    WorkerRegistry,
+    descriptor_for_reviewer,
+    descriptor_for_worker,
+)
 
 DeveloperRuntimeError = DeveloperError
 Emit = Callable[[str, dict[str, Any]], None]
@@ -52,6 +67,22 @@ def review_name(value: bytes) -> str:
         return value.decode("utf-8", "strict")
     except UnicodeError:
         raise DeveloperError("review_filename_encoding") from None
+
+
+def parse_reviewer_report(value: str) -> ReviewerReport:
+    def pairs(items):
+        result = {}
+        for key, item in items:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = item
+        return result
+
+    try:
+        payload = json.loads(value, object_pairs_hook=pairs)
+        return ReviewerReport.model_validate(payload)
+    except (ValueError, TypeError, RecursionError):
+        raise DeveloperError("reviewer_report_invalid") from None
 
 
 def tree_digest(root: Path) -> str:
@@ -103,23 +134,93 @@ class DeveloperRuntime:
                 raise DeveloperError("worker_registry_mismatch")
             self._worker = selected.worker
         else:
-            self._worker = worker or CodexCliWorker(settings)
-            self.registry = WorkerRegistry(
-                [
+            if worker is None:
+                codex = CodexCliWorker(settings)
+                registrations = [
                     (
                         descriptor_for_worker(
-                            self._worker,
-                            implementation=(
-                                "codex"
-                                if worker is None
-                                else self._worker.identity().implementation
-                            ),
+                            codex,
+                            implementation="codex",
+                            worker_id="codex_core",
+                            priority=100,
                         ),
-                        self._worker,
-                    )
+                        codex,
+                    ),
+                    (
+                        descriptor_for_reviewer(
+                            codex,
+                            implementation="codex",
+                            worker_id="codex_reviewer",
+                        ),
+                        codex,
+                    ),
                 ]
-            )
-            self.supervisor = Supervisor(self.registry)
+                if settings.developer_claude_enabled:
+                    claude = ClaudeCodeWorker(settings)
+                    registrations.extend(
+                        [
+                            (
+                                descriptor_for_worker(
+                                    claude,
+                                    implementation="claude_code",
+                                    worker_id="claude_core",
+                                    priority=90,
+                                ),
+                                claude,
+                            ),
+                            (
+                                descriptor_for_reviewer(
+                                    claude,
+                                    implementation="claude_code",
+                                    worker_id="claude_reviewer",
+                                ),
+                                claude,
+                            ),
+                        ]
+                    )
+                if settings.developer_opencode_enabled:
+                    opencode = OpenCodeWorker(settings)
+                    registrations.extend(
+                        [
+                            (
+                                descriptor_for_worker(
+                                    opencode,
+                                    implementation="opencode",
+                                    worker_id="opencode_core",
+                                    priority=80,
+                                ),
+                                opencode,
+                            ),
+                            (
+                                descriptor_for_reviewer(
+                                    opencode,
+                                    implementation="opencode",
+                                    worker_id="opencode_reviewer",
+                                ),
+                                opencode,
+                            ),
+                        ]
+                    )
+                self.registry = WorkerRegistry(registrations)
+                self.supervisor = Supervisor(self.registry)
+                selected, _ = self.supervisor.select(
+                    role="developer", capabilities=("zelo_core_development",)
+                )
+                self._worker = selected.worker
+            else:
+                self._worker = worker
+                self.registry = WorkerRegistry(
+                    [
+                        (
+                            descriptor_for_worker(
+                                self._worker,
+                                implementation=self._worker.identity().implementation,
+                            ),
+                            self._worker,
+                        )
+                    ]
+                )
+                self.supervisor = Supervisor(self.registry)
 
     @property
     def worker(self) -> DeveloperWorker:
@@ -168,7 +269,15 @@ class DeveloperRuntime:
     def validation_identity(self) -> str:
         return validation_manifest(ROOT / ".venv", self.source_repository)
 
-    def request(self, instruction: str, profile: str, timeout: float) -> DeveloperRequest:
+    def request(
+        self,
+        instruction: str,
+        profile: str,
+        timeout: float,
+        *,
+        capabilities: Iterable[str] = ("zelo_core_development",),
+        running_counts: Mapping[str, int] | None = None,
+    ) -> DeveloperRequest:
         if profile != "zelo_core" or not instruction.strip():
             raise DeveloperError("developer_request_invalid")
         self.root()
@@ -181,7 +290,9 @@ class DeveloperRuntime:
         if result.exit_code:
             raise DeveloperError("source_repository_unavailable")
         selected, selection = self.supervisor.select(
-            role="developer", capabilities=("zelo_core_development",)
+            role="developer",
+            capabilities=capabilities,
+            running_counts=running_counts,
         )
         try:
             identity = selected.worker.identity()
@@ -189,6 +300,27 @@ class DeveloperRuntime:
             raise DeveloperError("worker_identity_unavailable") from None
         if identity.implementation != selected.descriptor.implementation:
             raise DeveloperError("worker_descriptor_mismatch")
+
+        reviewer = None
+        try:
+            review_registration, review_selection = self.select_reviewer(
+                selected.descriptor.worker_id
+            )
+        except DeveloperError as error:
+            if str(error) != "no_eligible_worker":
+                raise
+        else:
+            try:
+                review_identity = review_registration.worker.identity()
+            except (DeveloperError, OSError, ValueError, RuntimeError):
+                raise DeveloperError("reviewer_identity_unavailable") from None
+            if review_identity.implementation != review_registration.descriptor.implementation:
+                raise DeveloperError("reviewer_descriptor_mismatch")
+            reviewer = ReviewerBinding(
+                worker=review_identity,
+                worker_selection=review_selection,
+            )
+
         return DeveloperRequest(
             instruction=instruction,
             source_repository=str(self.source_repository),
@@ -198,21 +330,67 @@ class DeveloperRuntime:
             base_sha=result.stdout.decode().strip(),
             worker=identity,
             worker_selection=selection,
+            reviewer=reviewer,
             sandbox_version=sandbox_policy_version(),
             limits=self.limits(timeout),
+        )
+
+    def select_reviewer(
+        self,
+        producer_worker_id: str,
+        *,
+        running_counts: Mapping[str, int] | None = None,
+    ):
+        producer = self.registry.get(producer_worker_id)
+        if producer is None:
+            raise DeveloperError("producer_worker_unknown")
+        excluded = tuple(
+            descriptor.worker_id
+            for descriptor in self.registry.list()
+            if (registration := self.registry.get(descriptor.worker_id)) is not None
+            and registration.worker is producer.worker
+        )
+        return self.supervisor.select(
+            role="reviewer",
+            capabilities=("code_review",),
+            running_counts=running_counts,
+            exclude_worker_ids=excluded,
         )
 
     def compatible(self, request: DeveloperRequest, timeout: float) -> bool:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
+        selection = request.worker_selection
+        developer_binding_valid = (
+            selection.requested_role == "developer"
+            and selection.descriptor.role == "developer"
+            and request.worker.implementation == selection.descriptor.implementation
+            and self.supervisor.matches(selection)
+        )
+        reviewer_compatible = True
+        if request.reviewer is not None:
+            reviewer = request.reviewer
+            review_selection = reviewer.worker_selection
+            producer_id = selection.descriptor.worker_id
+            reviewer_compatible = (
+                review_selection.requested_role == "reviewer"
+                and review_selection.descriptor.role == "reviewer"
+                and "code_review" in review_selection.requested_capabilities
+                and review_selection.authority_profile == "workspace-read-no-network-v1"
+                and reviewer.worker.implementation == review_selection.descriptor.implementation
+                and review_selection.descriptor.worker_id != producer_id
+                and producer_id in review_selection.excluded_worker_ids
+                and self.supervisor.matches(review_selection)
+            )
         return (
             request.source_repository == str(self.source_repository)
             and request.workspace_root == str(self.root())
             and request.sandbox_version == sandbox_policy_version()
             and request.validation_version == VALIDATION_VERSION
             and request.limits == self.limits(timeout)
-            and self.supervisor.matches(request.worker_selection)
+            and developer_binding_valid
+            and reviewer_compatible
         )
 
     def approval_compatible(self, request: DeveloperRequest, timeout: float) -> bool:
@@ -234,6 +412,13 @@ class DeveloperRuntime:
         selected = self.registry.get(request.worker_selection.descriptor.worker_id)
         if selected is None:
             return False
+        reviewer_registration = None
+        if request.reviewer is not None:
+            reviewer_registration = self.registry.get(
+                request.reviewer.worker_selection.descriptor.worker_id
+            )
+            if reviewer_registration is None:
+                return False
         try:
             head = run_sync(git_argv("rev-parse", "HEAD"), cwd=self.source_repository)
             if head.exit_code:
@@ -253,6 +438,10 @@ class DeveloperRuntime:
                 return False
             with selected.worker.bind(request.worker) as bound_worker:
                 identity = asyncio.run(bound_worker.preflight())
+            reviewer_identity = None
+            if request.reviewer is not None and reviewer_registration is not None:
+                with reviewer_registration.worker.bind(request.reviewer.worker) as bound_reviewer:
+                    reviewer_identity = asyncio.run(bound_reviewer.preflight())
         except DeveloperError as error:
             if str(error) in {
                 "worker_configuration_changed",
@@ -268,9 +457,15 @@ class DeveloperRuntime:
             raise DeveloperError("approval_revalidation_unavailable") from None
         except (OSError, ValueError, RuntimeError):
             raise DeveloperError("approval_revalidation_unavailable") from None
+        reviewer_matches = request.reviewer is None or (
+            reviewer_identity == request.reviewer.worker
+            and reviewer_identity.implementation
+            == request.reviewer.worker_selection.descriptor.implementation
+        )
         return (
             identity == request.worker
             and identity.implementation == request.worker_selection.descriptor.implementation
+            and reviewer_matches
         )
 
     async def git(self, repo: Path, request: DeveloperRequest, *args: str, trusted=False) -> bytes:
@@ -490,6 +685,126 @@ class DeveloperRuntime:
             "diff": diff.decode("utf-8", "replace"),
         }
 
+    async def run_independent_review(
+        self,
+        repo: Path,
+        request: DeveloperRequest,
+        emit: Emit,
+    ) -> dict[str, Any] | None:
+        binding = request.reviewer
+        if binding is None:
+            return None
+        selection = binding.worker_selection
+        registration = self.registry.get(selection.descriptor.worker_id)
+        if registration is None or not self.supervisor.matches(selection):
+            raise DeveloperError("reviewer_configuration_changed")
+
+        review_request = ReviewerExecutionRequest(
+            instruction=(
+                "Review the current checkout independently for correctness, security, regressions, "
+                "and compliance with the requested task. Do not modify anything. Return exactly "
+                "one "
+                "JSON object with no markdown using this shape: "
+                '{"summary":"bounded summary","findings":[{"severity":"low|medium|high|critical",'
+                '"message":"bounded finding","path":"relative/path/or null"}]}. '
+                "Use an empty findings array when no concrete issue is found."
+            ),
+            source_repository=request.source_repository,
+            workspace_root=request.workspace_root,
+            base_sha=request.base_sha,
+            worker=binding.worker,
+            worker_selection=selection,
+            sandbox_version=request.sandbox_version,
+            limits=request.limits,
+        )
+        before = await asyncio.to_thread(tree_digest, repo)
+        lock = self.worker_lock(
+            registration.descriptor.worker_id,
+            registration.descriptor.max_concurrency,
+        )
+        context = registration.worker.bind(binding.worker)
+        entered = False
+        emit(
+            "reviewer_capacity_claimed",
+            {
+                "worker_id": registration.descriptor.worker_id,
+                "max_concurrency": registration.descriptor.max_concurrency,
+            },
+        )
+        emit(
+            "review_started",
+            {
+                "worker_id": registration.descriptor.worker_id,
+                "implementation": registration.descriptor.implementation,
+            },
+        )
+        try:
+            enter_task = asyncio.create_task(asyncio.to_thread(context.__enter__))
+            bound, cancelled = await uncancellable(enter_task)
+            entered = True
+            if cancelled:
+                raise asyncio.CancelledError
+            actual = await bound.preflight()
+            if actual != binding.worker:
+                raise DeveloperError("reviewer_configuration_changed")
+            result = await bound.run(review_request, repo)
+            if result.exit_code:
+                raise DeveloperError("reviewer_nonzero_exit", exit_code=result.exit_code)
+            if await asyncio.to_thread(tree_digest, repo) != before:
+                raise DeveloperError("reviewer_boundary_violation")
+            report = parse_reviewer_report(result.summary)
+            payload = {
+                "worker_id": registration.descriptor.worker_id,
+                "implementation": registration.descriptor.implementation,
+                "worker_version": binding.worker.cli_version,
+                "report": report.model_dump(mode="json"),
+                "usage": result.usage,
+                "event_count": result.event_count,
+                "started_at": result.started_at.isoformat(),
+                "completed_at": result.completed_at.isoformat(),
+                "duration_seconds": result.duration_seconds,
+            }
+            emit(
+                "review_completed",
+                {
+                    "worker_id": registration.descriptor.worker_id,
+                    "finding_count": len(report.findings),
+                },
+            )
+            return payload
+        except BaseException as error:
+            try:
+                emit(
+                    "review_failed",
+                    {
+                        "worker_id": registration.descriptor.worker_id,
+                        "reason": (
+                            str(error)
+                            if isinstance(error, DeveloperError)
+                            else "reviewer_interrupted_or_failed"
+                        ),
+                    },
+                )
+            finally:
+                raise
+        finally:
+            release_failure = None
+            lock.close()
+            try:
+                emit(
+                    "reviewer_capacity_released",
+                    {"worker_id": registration.descriptor.worker_id},
+                )
+            except Exception as error:
+                release_failure = error
+            if entered:
+                exit_task = asyncio.create_task(
+                    asyncio.to_thread(context.__exit__, None, None, None)
+                )
+                await uncancellable(exit_task)
+            if release_failure is not None:
+                raise release_failure
+
     def _lock_root(self) -> Path:
         root = self.root()
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -568,6 +883,7 @@ class DeveloperRuntime:
             "head_changed": False,
             "validation": [],
             "validation_passed": False,
+            "independent_review": None,
             "started_at": started.isoformat(),
             "worker_started_at": None,
             "worker_completed_at": None,
@@ -682,6 +998,10 @@ class DeveloperRuntime:
                 result.update(await self.review(repo, request))
                 if result["head_changed"]:
                     raise DeveloperError("developer_boundary_violation")
+                if passed and request.reviewer is not None:
+                    result["independent_review"] = await self.run_independent_review(
+                        repo, request, emit
+                    )
                 result["validation_passed"] = passed
         except asyncio.CancelledError:
             result.update(error="developer_cancelled", cancelled=True)

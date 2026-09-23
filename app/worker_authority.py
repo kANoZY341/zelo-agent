@@ -28,7 +28,15 @@ _WORKSPACE_WRITE = WorkerAuthorityProfile(
     network=False,
 )
 
+_WORKSPACE_READ = WorkerAuthorityProfile(
+    name="workspace-read-no-network-v1",
+    authority=("workspace-read",),
+    workspace_write=False,
+    network=False,
+)
+
 _PROFILES = {
+    _WORKSPACE_READ.authority: _WORKSPACE_READ,
     _WORKSPACE_WRITE.authority: _WORKSPACE_WRITE,
 }
 
@@ -123,6 +131,88 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
     return tuple(overrides)
 
 
+def claude_code_tools(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
+    base = ("Bash", "Glob", "Grep", "Read")
+    return (*base, "Edit", "Write") if profile.workspace_write else base
+
+
+def claude_code_settings(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    """CLI-supplied settings; repository/user settings are excluded by restricted mode."""
+    return {
+        "sandbox": {
+            "enabled": True,
+            "failIfUnavailable": True,
+            "allowUnsandboxedCommands": False,
+            "network": {
+                "allowedDomains": [],
+                "strictAllowlist": True,
+            },
+        },
+        "permissions": {
+            "blockReadsOutsideWorkingDirectories": True,
+        },
+    }
+
+
+def claude_code_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    tools = claude_code_tools(profile)
+    return {
+        "bare": True,
+        "restricted": True,
+        "permission_mode": "dontAsk",
+        "permission_prompts": "none",
+        "session_persistence": False,
+        "tools": tools,
+        "allowed_tools": tools,
+        "disallowed_tools": ("WebFetch", "WebSearch", "mcp__*"),
+        "subprocess_env_scrub": True,
+        "settings": claude_code_settings(profile),
+    }
+
+
+OPENCODE_SAFE_BASH_RESOURCES = (
+    "git status --short",
+    "git status --short *",
+    "git diff --no-ext-diff --no-textconv",
+    "git diff --no-ext-diff --no-textconv *",
+    "git diff --cached --no-ext-diff --no-textconv",
+    "git diff --cached --no-ext-diff --no-textconv *",
+    "git rev-parse *",
+    "git ls-files *",
+)
+
+
+def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    permissions = [
+        {"action": "*", "resource": "*", "effect": "deny"},
+        {"action": "read", "resource": "*", "effect": "allow"},
+        {"action": "read", "resource": "*.env", "effect": "deny"},
+        {"action": "read", "resource": "*.env.*", "effect": "deny"},
+        {"action": "read", "resource": "*.env.example", "effect": "allow"},
+        {"action": "glob", "resource": "*", "effect": "allow"},
+        {"action": "grep", "resource": "*", "effect": "allow"},
+    ]
+    if profile.workspace_write:
+        permissions.append({"action": "edit", "resource": "*", "effect": "allow"})
+    permissions.extend(
+        {"action": "bash", "resource": resource, "effect": "allow"}
+        for resource in OPENCODE_SAFE_BASH_RESOURCES
+    )
+
+    policies = [
+        {"action": "provider.use", "resource": "*", "effect": "deny"},
+        {"action": "provider.use", "resource": "ollama", "effect": "allow"},
+    ]
+    return {
+        "provider": "ollama",
+        "transport": "authenticated-local-http",
+        "server_hostname": "127.0.0.1",
+        "project_config": "disabled",
+        "permissions": tuple(permissions),
+        "policies": tuple(policies),
+    }
+
+
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
     return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
@@ -133,7 +223,12 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "authority": profile.authority,
         "codex": codex_permission_semantics(profile),
         "codex_cli_overrides": codex_cli_overrides(profile),
+        "claude_code": claude_code_permission_semantics(profile),
+        "opencode": opencode_permission_semantics(profile),
         "sandbox": sandbox_permission_semantics(profile),
+        "external_worker_sandbox": developer_sandbox.external_worker_sandbox_plans(
+            profile.workspace_write
+        ),
     }
 
 

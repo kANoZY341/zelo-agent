@@ -12,6 +12,8 @@ VENV = "/opt/zelo-venv"
 ENGINE = "/tmp/zelo-codex-engine"
 CODEX = "/opt/zelo-codex/codex"
 CODE_MODE_HOST = "/opt/zelo-codex/codex-code-mode-host"
+WORKER_ROOT = "/opt/zelo-worker"
+WORKER_EXECUTABLE = WORKER_ROOT + "/worker"
 SYSTEM_READONLY_BINDS = ("/usr", "/bin", "/lib", "/lib64")
 HOST_READONLY_BINDS = ("/etc/ld.so.cache", "/etc/ssl/certs", "/etc/resolv.conf", "/etc/hosts")
 SANDBOX_POLICY_SCHEMA = "zelo-linux-sandbox-v1"
@@ -22,6 +24,7 @@ _AUTH_SOURCE = "$AUTH"
 _GITCONFIG_SOURCE = "$DEVELOPER_GITCONFIG"
 _CODEX_FD = "$CODEX_FD"
 _CODE_MODE_HOST_FD = "$CODE_MODE_HOST_FD"
+_WORKER_FD = "$WORKER_FD"
 
 
 def _canonical_json(value: object) -> bytes:
@@ -151,6 +154,7 @@ def _render_operation(
     auth: Path | None,
     codex_fd: int | None,
     code_mode_host_fd: int | None,
+    worker_fd: int | None = None,
 ) -> list[str]:
     def resolve_source(source: str) -> str:
         if source == _REPO_SOURCE:
@@ -178,8 +182,16 @@ def _render_operation(
         return [str(op), source, str(operation["dest"])]
     if op == "--file":
         fd_ref = operation["fd_ref"]
-        fd = codex_fd if fd_ref == _CODEX_FD else code_mode_host_fd
-        assert fd is not None
+        if fd_ref == _CODEX_FD:
+            fd = codex_fd
+        elif fd_ref == _CODE_MODE_HOST_FD:
+            fd = code_mode_host_fd
+        elif fd_ref == _WORKER_FD:
+            fd = worker_fd
+        else:
+            raise DeveloperError("worker_sandbox_plan_invalid")
+        if fd is None:
+            raise DeveloperError("worker_artifact_not_pinned")
         return [str(op), str(fd), str(operation["dest"])]
     if op == "--perms":
         return [str(op), str(operation["value"])]
@@ -225,6 +237,76 @@ def worker_sandbox_plans(workspace_write: bool) -> dict[str, dict[str, object]]:
             include_auth=True,
             service_network=True,
             git_inspection=False,
+        ),
+    }
+
+
+def external_worker_sandbox_plan(
+    *,
+    repo_present: bool,
+    workspace_write: bool,
+    service_network: bool,
+) -> dict[str, object]:
+    """Canonical outer sandbox for non-Codex worker adapters.
+
+    The trusted worker parent may use service networking for its model API while
+    the adapter's own policy must separately confine model-invoked subprocesses.
+    No credential file is mounted into this namespace.
+    """
+    plan = sandbox_plan(
+        repo_present=repo_present,
+        workspace_write=workspace_write,
+        git_metadata_present=repo_present,
+        include_venv=False,
+        include_codex=False,
+        include_code_mode_host=False,
+        include_auth=False,
+        service_network=service_network,
+        git_inspection=False,
+    )
+    operations = list(plan["operations"])
+    if repo_present:
+        operations.append(
+            _bind(
+                _GITCONFIG_SOURCE,
+                REPO + "/.git/config",
+                mode="--ro-bind",
+            )
+        )
+    operations.extend(
+        (
+            {"op": "--tmpfs", "dest": WORKER_ROOT},
+            {"op": "--perms", "value": "0500"},
+            {"op": "--file", "fd_ref": _WORKER_FD, "dest": WORKER_EXECUTABLE},
+            {"op": "--remount-ro", "dest": WORKER_ROOT},
+        )
+    )
+    return {
+        **plan,
+        "git_metadata": {
+            **plan["git_metadata"],
+            "trusted_config": repo_present,
+        },
+        "external_worker": {
+            "present": True,
+            "path": WORKER_EXECUTABLE,
+            "sealed": True,
+        },
+        "operations": tuple(operations),
+    }
+
+
+def external_worker_sandbox_plans(workspace_write: bool) -> dict[str, dict[str, object]]:
+    return {
+        "worker_preflight": external_worker_sandbox_plan(
+            repo_present=False,
+            workspace_write=workspace_write,
+            service_network=False,
+        ),
+        "worker_execution": external_worker_sandbox_plan(
+            repo_present=True,
+            workspace_write=workspace_write,
+            service_network=True,
         ),
     }
 
@@ -341,6 +423,45 @@ def sandbox(
                 auth=auth,
                 codex_fd=codex_fd,
                 code_mode_host_fd=code_mode_host_fd,
+            )
+        )
+    return [*args, "--chdir", str(plan["cwd"]), *command]
+
+
+def external_worker_sandbox(
+    repo: Path | None,
+    command: list[str],
+    *,
+    worker_fd: int,
+    writable: bool,
+    service_network: bool,
+) -> list[str]:
+    """Render the canonical outer sandbox for a sealed external worker binary."""
+    if not BWRAP.is_file():
+        raise DeveloperError("bubblewrap_unavailable")
+    if repo is not None and (repo.is_symlink() or not repo.is_dir()):
+        raise DeveloperError("workspace_escape")
+    git = repo / ".git" if repo is not None else None
+    if git is not None and git.exists():
+        if git.is_symlink() or not git.is_dir() or (git / "config").is_symlink():
+            raise DeveloperError("git_metadata_invalid")
+    plan = external_worker_sandbox_plan(
+        repo_present=repo is not None,
+        workspace_write=writable,
+        service_network=service_network,
+    )
+    args = _render_switches(plan)
+    for operation in plan["operations"]:
+        args.extend(
+            _render_operation(
+                operation,
+                repo=repo,
+                git=git,
+                venv=None,
+                auth=None,
+                codex_fd=None,
+                code_mode_host_fd=None,
+                worker_fd=worker_fd,
             )
         )
     return [*args, "--chdir", str(plan["cwd"]), *command]

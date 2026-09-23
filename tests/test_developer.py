@@ -14,6 +14,7 @@ from app.codex_worker import (
     SUPPORTED_CLI_VERSIONS,
     CodexCliWorker,
     command_config,
+    file_digest,
     parse_jsonl,
 )
 from app.developer import DeveloperError
@@ -50,6 +51,25 @@ def fake_codex(settings):
     auth.write_text("harmless-sentinel")
     settings.developer_codex_auth_file = auth
     return CodexCliWorker(settings)
+
+
+def test_codex_identity_uses_generic_artifacts_and_auth(fake_codex):
+    identity = asyncio.run(fake_codex.preflight())
+    executable = fake_codex.settings.developer_codex_executable.resolve()
+    host = executable.with_name("codex-code-mode-host").resolve()
+
+    assert identity.artifact("executable").path == str(executable)
+    assert identity.artifact("executable").sha256 == file_digest(executable)
+    assert identity.artifact("code_mode_host").path == str(host)
+    assert identity.artifact("code_mode_host").sha256 == file_digest(host)
+    assert identity.credential_location("auth").path == str(
+        fake_codex.settings.developer_codex_auth_file.absolute()
+    )
+
+    persisted = identity.model_dump(mode="json")
+    assert "executable" not in persisted
+    assert "code_mode_host" not in persisted
+    assert "auth_location" not in persisted
 
 
 def request(runtime):
@@ -624,9 +644,11 @@ def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
         "worker.implementation",
         "worker.cli_version",
         "worker.capability_profile",
-        "worker.executable",
-        "worker.executable_sha256",
-        "worker.auth_location",
+        "worker.artifacts",
+        "worker.credential_locations",
+        "worker_selection.requested_role",
+        "worker_selection.requested_capabilities",
+        "worker_selection.excluded_worker_ids",
         "worker_selection.authority_profile",
         "worker_selection.authority_policy_version",
         "limits.overall_seconds",
@@ -658,7 +680,24 @@ def test_approval_binds_specification(developer_case, database, field):
         keys = field.split(".")
         target = spec if len(keys) == 1 else spec[keys[0]]
         value = target[keys[-1]]
-        target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
+        if field == "worker.artifacts":
+            changed = copy.deepcopy(value)
+            changed[0]["sha256"] = "f" * 64
+            target[keys[-1]] = changed
+        elif field == "worker.credential_locations":
+            changed = copy.deepcopy(value)
+            changed[0]["path"] += "-changed"
+            target[keys[-1]] = changed
+        elif field == "worker_selection.requested_role":
+            target["descriptor"]["role"] = "reviewer"
+            target[keys[-1]] = "reviewer"
+        elif field == "worker_selection.requested_capabilities":
+            target["descriptor"]["capabilities"] = ["testing", "zelo_core_development"]
+            target[keys[-1]] = ["testing"]
+        elif field == "worker_selection.excluded_worker_ids":
+            target[keys[-1]] = ["other_worker"]
+        else:
+            target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":
             target[keys[-1]] = "f" * 40
         if field == "worker_selection.authority_policy_version":
@@ -1110,7 +1149,7 @@ def test_fake_executable_preflight_detects_version(fake_codex):
     identity = fake_codex.identity()
     assert identity.cli_version in SUPPORTED_CLI_VERSIONS
     assert identity.config_version != identity.cli_version
-    assert len(identity.executable_sha256) == 64
+    assert len(identity.artifact("executable").sha256) == 64
 
 
 @pytest.mark.parametrize("version", sorted(SUPPORTED_CLI_VERSIONS))
