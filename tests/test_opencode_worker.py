@@ -132,7 +132,7 @@ def test_opencode_server_argv_uses_authenticated_local_http(settings, monkeypatc
     ]
 
 
-def test_opencode_inline_config_allows_only_trusted_inspection_shell(settings):
+def test_opencode_inline_config_allows_only_trusted_inspection_bash(settings):
     profile = authority_profile(("workspace-write",))
     config = inline_config(settings, profile)
     semantics = opencode_permission_semantics(profile)
@@ -154,6 +154,15 @@ def test_opencode_inline_config_allows_only_trusted_inspection_shell(settings):
         permission_allow = {"action": action, "resource": "*", "effect": "allow"}
         assert permission_allow in permissions
         assert permissions.index(permission_deny) < permissions.index(permission_allow)
+
+    read_allow = {"action": "read", "resource": "*", "effect": "allow"}
+    env_deny = {"action": "read", "resource": "*.env", "effect": "deny"}
+    env_variant_deny = {"action": "read", "resource": "*.env.*", "effect": "deny"}
+    env_example_allow = {"action": "read", "resource": "*.env.example", "effect": "allow"}
+    for rule in (env_deny, env_variant_deny, env_example_allow):
+        assert rule in permissions
+        assert permissions.index(read_allow) < permissions.index(rule)
+    assert permissions.index(env_variant_deny) < permissions.index(env_example_allow)
 
     for resource in OPENCODE_SAFE_BASH_RESOURCES:
         permission_allow = {"action": "bash", "resource": resource, "effect": "allow"}
