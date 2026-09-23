@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
+from app.self_improvement_runtime import SelfImprovementPreparation
 
 
 class StrictModel(BaseModel):
@@ -54,6 +55,16 @@ class AgentRunInput(TaskInput):
     kind: Literal["agent_run"]
     payload: AgentRunPayload
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
+
+
+class SelfImprovementPayload(StrictModel):
+    goal: str = Field(min_length=1, max_length=1024)
+
+
+class SelfImprovementRunInput(TaskInput):
+    kind: Literal["self_improvement_run"]
+    payload: SelfImprovementPayload
+    timeout_seconds: float = Field(default=120.0, ge=1.0, le=600.0, allow_inf_nan=False)
 
 
 class DeveloperPayload(StrictModel):
@@ -138,6 +149,7 @@ TaskCreate = Annotated[
     | AIPromptInput
     | ToolCallInput
     | AgentRunInput
+    | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
     | MergeRunInput
@@ -258,6 +270,7 @@ class TaskResponse(StrictModel):
         "ai_prompt",
         "tool_call",
         "agent_run",
+        "self_improvement_run",
         "developer_run",
         "promotion_run",
         "merge_run",
@@ -268,6 +281,7 @@ class TaskResponse(StrictModel):
         | AIPromptPayload
         | ToolCallPayload
         | AgentRunPayload
+        | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
         | MergePayload
