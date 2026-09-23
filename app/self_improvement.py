@@ -138,7 +138,12 @@ class RepositoryInspection(Contract):
     @classmethod
     def create(cls, **values) -> "RepositoryInspection":
         payload = dict(values)
-        payload["fingerprint"] = _fingerprint(payload)
+        canonical = dict(payload)
+        canonical["files"] = [
+            item.model_dump(mode="json") if isinstance(item, InspectedFile) else item
+            for item in payload.get("files", ())
+        ]
+        payload["fingerprint"] = _fingerprint(canonical)
         return cls.model_validate(payload)
 
 
