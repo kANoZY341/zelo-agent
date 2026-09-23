@@ -215,13 +215,22 @@ class ImprovementEvaluation(Contract):
     developer_task_id: str = Field(min_length=1, max_length=64)
     developer_attempt_id: str = Field(min_length=1, max_length=64)
     validation_passed: bool
+    scope_valid: bool
+    execution_clean: bool
+    independent_review_present: bool
     reviewer_high_or_critical: bool
+    changed_file_count: int = Field(ge=0, le=1000)
     status: Literal["accepted_candidate", "rejected_candidate", "inconclusive"]
 
     @model_validator(mode="after")
     def _fail_closed(self):
         if self.status == "accepted_candidate" and (
-            not self.validation_passed or self.reviewer_high_or_critical
+            not self.validation_passed
+            or not self.scope_valid
+            or not self.execution_clean
+            or not self.independent_review_present
+            or self.reviewer_high_or_critical
+            or self.changed_file_count == 0
         ):
             raise ValueError("improvement_evaluation_invalid")
         return self
