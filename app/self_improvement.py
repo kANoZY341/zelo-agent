@@ -304,9 +304,9 @@ class RepositoryInspector:
         repo: Path = ROOT,
         *,
         max_tracked_paths: int = 4096,
-        max_content_files: int = 128,
-        max_file_bytes: int = 65536,
-        max_total_bytes: int = 524288,
+        max_content_files: int = 24,
+        max_file_bytes: int = 4096,
+        max_total_bytes: int = 12288,
     ) -> None:
         if (
             not 1 <= max_tracked_paths <= 4096
