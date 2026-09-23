@@ -201,10 +201,7 @@ def test_opencode_server_environment_disables_project_config(settings, monkeypat
 
 
 def test_opencode_server_url_is_strictly_local():
-    assert (
-        parse_server_url(b"server listening on http://127.0.0.1:4097\n")
-        == "http://127.0.0.1:4097"
-    )
+    assert parse_server_url(b"server listening on http://127.0.0.1:4097\n") == "http://127.0.0.1:4097"
     with pytest.raises(DeveloperError, match="server_start_failed"):
         parse_server_url(b"server listening on http://0.0.0.0:4097\n")
     with pytest.raises(DeveloperError, match="server_start_failed"):
