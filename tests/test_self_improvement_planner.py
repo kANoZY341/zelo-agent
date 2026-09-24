@@ -91,6 +91,10 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         (valid_response(scope_paths=["app/logging_config.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["AGENTS.md"]), "proposal_scope_denied"),
         (
+            valid_response(scope_paths=["docs/v0.10-multi-worker-delegation-design.md"]),
+            "proposal_scope_denied",
+        ),
+        (
             valid_response(scope_paths=["docs/zelo-canonical-architecture-roadmap.md"]),
             "proposal_scope_denied",
         ),
