@@ -86,6 +86,7 @@ _HIGH_RISK_EXACT = frozenset(
         "app/worker_authority.py",
         "app/worker_registry.py",
         "app/workers.py",
+        "scripts/smoke_promotion.py",
     }
 )
 
