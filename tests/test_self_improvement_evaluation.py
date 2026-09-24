@@ -209,3 +209,30 @@ def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
     assert evaluation.status == "rejected_candidate"
     assert evaluation.scope_valid is False
     assert evaluation.changed_files == ("app/core.py", "hidden/worker-secret.txt")
+
+def test_evaluator_reapplies_protected_namespace_scope(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    inspection = RepositoryInspector(repo).inspect()
+    draft = proposal_draft(
+        risk="medium",
+        evidence=("app/core.py",),
+        scope_paths=("app/auth/__init__.py",),
+    )
+    proposal = ImprovementProposal.freeze(
+        draft,
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version="planner-test",
+    )
+    result = developer_result(
+        proposal,
+        changed_files=["app/auth/__init__.py"],
+        git_status="?? app/auth/__init__.py",
+        diff_stat="app/auth/__init__.py | 1 +",
+    )
+
+    evaluation = evaluate(proposal, result)
+
+    assert evaluation.status == "rejected_candidate"
+    assert evaluation.scope_valid is False
+
