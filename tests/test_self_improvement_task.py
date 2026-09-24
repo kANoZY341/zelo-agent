@@ -1,5 +1,6 @@
 """Persisted v0.11 self-improvement planning task tests."""
 
+import asyncio
 import json
 from datetime import UTC, datetime
 
@@ -368,7 +369,9 @@ def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(
         "affected_components": ["documentation"],
         "estimated_cost": "One local bounded developer attempt; no external spend.",
         "rollback_approach": "Discard the isolated candidate workspace.",
-        "implementation_instruction": "Create docs/self-improvement-smoke.md with a short proof note.",
+        "implementation_instruction": (
+            "Create docs/self-improvement-smoke.md with a short proof note."
+        ),
         "acceptance_criteria": [
             "The new documentation artifact exists and trusted validation remains green."
         ],
