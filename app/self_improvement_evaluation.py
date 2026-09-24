@@ -1,6 +1,7 @@
 """Deterministic trusted evaluation of one self-improvement developer candidate."""
 
 import hashlib
+from pathlib import PurePosixPath
 
 from app.schemas import DeveloperRunResult
 from app.self_improvement import (
@@ -8,6 +9,16 @@ from app.self_improvement import (
     ImprovementProposal,
     SelfImprovementError,
 )
+
+
+def _trusted_validation_artifact(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    return (
+        path.startswith(".pytest_cache/")
+        or path.startswith(".ruff_cache/")
+        or "__pycache__" in parts
+    )
+
 
 
 def evaluate_improvement_candidate(
@@ -25,7 +36,12 @@ def evaluate_improvement_candidate(
     if result.base_sha != proposal.base_sha:
         raise SelfImprovementError("improvement_evaluation_binding_invalid")
 
-    changed_files = tuple(result.changed_files)
+    ignored_paths = {item["path"] for item in result.ignored_generated_files}
+    changed_files = tuple(
+        path
+        for path in result.changed_files
+        if not (path in ignored_paths and _trusted_validation_artifact(path))
+    )
     scope = set(proposal.draft.scope_paths)
     scope_valid = bool(changed_files) and all(path in scope for path in changed_files)
 

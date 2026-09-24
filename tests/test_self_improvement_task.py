@@ -460,7 +460,8 @@ def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(develo
     assert completed_child.status == State.SUCCEEDED
     assert completed_child.result is not None
     assert completed_child.result["validation_passed"] is True
-    assert completed_child.result["changed_files"] == ["docs/self-improvement-smoke.md"]
+    assert "docs/self-improvement-smoke.md" in completed_child.result["changed_files"]
+    assert completed_child.result["ignored_generated_files"]
     assert completed_child.result["independent_review"]["report"]["findings"] == []
 
     evaluations = [

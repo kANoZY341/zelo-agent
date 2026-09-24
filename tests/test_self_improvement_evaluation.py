@@ -171,3 +171,44 @@ def test_low_or_medium_review_finding_is_inconclusive(tmp_path, severity):
     assert evaluation.status == "inconclusive"
     assert evaluation.acceptance_criteria_proven is False
     assert evaluation.reviewer_finding_count == 1
+
+
+
+def test_trusted_validator_caches_do_not_widen_candidate_scope(tmp_path):
+    proposal = frozen_proposal(tmp_path)
+    result = developer_result(
+        proposal,
+        changed_files=[
+            ".pytest_cache/CACHEDIR.TAG",
+            ".ruff_cache/CACHEDIR.TAG",
+            "app/core.py",
+        ],
+        ignored_generated_files=[
+            {"path": ".pytest_cache/CACHEDIR.TAG", "type": "file", "size": 10},
+            {"path": ".ruff_cache/CACHEDIR.TAG", "type": "file", "size": 10},
+        ],
+    )
+
+    evaluation = evaluate(proposal, result)
+
+    assert evaluation.status == "accepted_candidate"
+    assert evaluation.scope_valid is True
+    assert evaluation.changed_files == ("app/core.py",)
+    assert evaluation.changed_file_count == 1
+
+
+def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
+    proposal = frozen_proposal(tmp_path)
+    result = developer_result(
+        proposal,
+        changed_files=["app/core.py", "hidden/worker-secret.txt"],
+        ignored_generated_files=[
+            {"path": "hidden/worker-secret.txt", "type": "file", "size": 10}
+        ],
+    )
+
+    evaluation = evaluate(proposal, result)
+
+    assert evaluation.status == "rejected_candidate"
+    assert evaluation.scope_valid is False
+    assert evaluation.changed_files == ("app/core.py", "hidden/worker-secret.txt")
