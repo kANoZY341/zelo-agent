@@ -278,3 +278,33 @@ def test_independent_reviewer_receives_approval_bound_review_context(developer_c
     review_request = reviewer.review_requests[0]
     assert "Approved review context:" in review_request.instruction
     assert "Frozen acceptance criterion: tests stay green." in review_request.instruction
+
+def test_reviewer_capacity_contention_does_not_requeue_completed_implementation(
+    developer_case, monkeypatch
+):
+    runtime, producer, _ = review_runtime(developer_case)
+    request = runtime.request("Make the normal harmless fixture change", "zelo_core", 60)
+    assert request.reviewer is not None
+
+    original_worker_lock = runtime.worker_lock
+
+    def selective_worker_lock(worker_id, max_concurrency):
+        if worker_id == request.reviewer.worker_selection.descriptor.worker_id:
+            raise DeveloperError("developer_worker_capacity_exhausted")
+        return original_worker_lock(worker_id, max_concurrency)
+
+    monkeypatch.setattr(runtime, "worker_lock", selective_worker_lock)
+
+    result = asyncio.run(
+        runtime.run(
+            str(uuid4()),
+            str(uuid4()),
+            request,
+            lambda *_: None,
+        )
+    )
+
+    assert len(producer.calls) == 1
+    assert result["error"] == "reviewer_worker_capacity_exhausted"
+    assert result["validation_passed"] is False
+
