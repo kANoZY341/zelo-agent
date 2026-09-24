@@ -332,6 +332,13 @@ def test_self_improvement_startup_recovery_interrupts_running_parent(settings, d
     assert recovered.attempts[-1].outcome == State.INTERRUPTED
     assert recovered.attempts[-1].error == "process_interrupted"
     assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
+    failures = [
+        event
+        for event in service.events(parent.id, 100, 0)
+        if event.event == "self_improvement_failed"
+    ]
+    assert len(failures) == 1
+    assert failures[0].details["reason"] == "process_interrupted"
 
 
 def test_developer_completion_records_inconclusive_without_independent_review(
