@@ -802,4 +802,3 @@ def test_rejected_self_improvement_candidate_cannot_enter_promotion(
         match="Self-improvement candidate is not accepted for promotion",
     ):
         service._promotion_source(child.id, execution.attempt_id)
-
