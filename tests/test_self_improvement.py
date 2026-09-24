@@ -197,6 +197,22 @@ def test_proposal_rejects_noncanonical_or_escaping_authority_fields(field, value
         ImprovementProposalDraft.model_validate(values)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("implementation_instruction", "   ", "implementation_instruction_not_canonical"),
+        ("acceptance_criteria", ("",), "acceptance_criteria_not_canonical"),
+        ("affected_components", (" routing",), "affected_components_not_canonical"),
+    ],
+)
+def test_proposal_rejects_empty_or_padded_semantic_fields(field, value, error):
+    values = proposal_draft().model_dump(mode="python")
+    values[field] = value
+
+    with pytest.raises(ValidationError, match=error):
+        ImprovementProposalDraft.model_validate(values)
+
+
 def test_accepted_evaluation_requires_validation_and_clean_review():
     base = {
         "proposal_fingerprint": "a" * 64,
