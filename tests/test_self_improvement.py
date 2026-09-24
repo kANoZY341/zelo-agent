@@ -81,8 +81,8 @@ def test_repository_inspector_preserves_untracked_protected_d(tmp_path):
     snapshot = RepositoryInspector(repo).inspect()
 
     assert snapshot.base_sha == sha
-    assert all(not path.startswith("d") for path in snapshot.tracked_paths)
-    assert all(not item.path.startswith("d") for item in snapshot.files)
+    assert all(path != "d" and not path.startswith("d/") for path in snapshot.tracked_paths)
+    assert all(item.path != "d" and not item.path.startswith("d/") for item in snapshot.files)
 
 
 def test_repository_inspector_refuses_dirty_checkout(tmp_path):
