@@ -200,9 +200,7 @@ def test_self_improvement_claim_fails_closed_when_planner_config_changes(setting
 
 
 
-def test_self_improvement_cancellation_before_child_creation_stops_cycle(
-    developer_case, database
-):
+def test_self_improvement_cancellation_before_child_creation_stops_cycle(developer_case, database):
     provider = PlannerProvider()
     gateway = ModelGateway(
         provider,
