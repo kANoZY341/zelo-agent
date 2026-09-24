@@ -1,10 +1,11 @@
-# Zelo Core v0.10.0 — Worker Authority & Multi-Worker Runtime
+# Zelo Core v0.11.0 — Self-Improvement Seed
 
 A small, modular foundation for Zelo Agent. It currently provides a FastAPI
 application, durable task execution, approvals, a localhost-only Ollama model
 gateway, native read-only tools, a bounded Agent Runtime, an approved
 Developer Runtime, an approval-bound Review & Promotion Runtime, and a trusted
-worker registry with deterministic supervisor routing, enforceable worker authority, and bounded multi-worker developer execution.
+worker registry with deterministic supervisor routing, enforceable worker authority, bounded
+multi-worker developer execution, and a one-cycle approval-gated self-improvement runtime.
 
 ## Setup
 
@@ -37,7 +38,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.10.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.11.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
