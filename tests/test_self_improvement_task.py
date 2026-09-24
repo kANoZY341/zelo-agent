@@ -370,7 +370,7 @@ def test_developer_completion_records_inconclusive_without_independent_review(
         proposal_draft(
             risk="medium",
             evidence=("test_example.py",),
-            scope_paths=("test_example.py",),
+            scope_paths=("docs/self-improvement-note.md",),
         ),
         inspection,
         goal="Improve Zelo safely.",
@@ -408,7 +408,7 @@ def test_developer_completion_records_inconclusive_without_independent_review(
 
     result = developer_result(
         proposal,
-        changed_files=["test_example.py"],
+        changed_files=["docs/self-improvement-note.md"],
         independent_review=None,
     )
     service.finish(
