@@ -1,6 +1,7 @@
 """Transactional task operations. Routes and workers delegate state changes here."""
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -36,7 +37,7 @@ from app.schemas import (
     TaskPage,
     TaskResponse,
 )
-from app.self_improvement import SelfImprovementError
+from app.self_improvement import ImprovementEvaluation, SelfImprovementError
 from app.self_improvement_evaluation import evaluate_improvement_candidate
 from app.self_improvement_planner import planner_configuration_version
 from app.self_improvement_runtime import (
@@ -397,6 +398,50 @@ class TaskService:
             **evaluation.model_dump(mode="json"),
         )
 
+    def _accepted_self_improvement_evaluation(
+        self,
+        session: Session,
+        source: Task,
+        attempt: TaskAttempt,
+    ) -> ImprovementEvaluation | None:
+        linked = self._self_improvement_parent(session, source)
+        if linked is None:
+            return None
+        parent, run_result = linked
+        events = session.scalars(
+            select(AuditEvent)
+            .where(
+                AuditEvent.task_id == parent.id,
+                AuditEvent.event == "self_improvement_evaluation_completed",
+            )
+            .order_by(AuditEvent.created_at.desc())
+        )
+        for event in events:
+            details = event.details or {}
+            if (
+                details.get("developer_task_id") != source.id
+                or details.get("developer_attempt_id") != attempt.id
+            ):
+                continue
+            try:
+                evaluation = ImprovementEvaluation.model_validate(details)
+                developer_result = DeveloperRunResult.model_validate(attempt.result)
+            except ValueError:
+                raise DomainError("Self-improvement evaluation evidence is invalid") from None
+            if (
+                evaluation.proposal_fingerprint
+                != run_result.proposal.proposal_fingerprint
+                or evaluation.status != "accepted_candidate"
+            ):
+                raise DomainError("Self-improvement candidate is not accepted for promotion")
+            current_diff_sha256 = hashlib.sha256(
+                developer_result.diff.encode("utf-8")
+            ).hexdigest()
+            if current_diff_sha256 != evaluation.final_diff_sha256:
+                raise DomainError("Self-improvement evaluation does not match promotion source")
+            return evaluation
+        raise DomainError("Self-improvement candidate is not accepted for promotion")
+
     def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
             task_id=task.id,
@@ -412,7 +457,7 @@ class TaskService:
 
     def _promotion_source(
         self, developer_task_id: str, developer_attempt_id: str
-    ) -> tuple[DeveloperRequest, int, str]:
+    ) -> tuple[DeveloperRequest, int, str, str | None]:
         with self.database.read() as session:
             source = require_task(session, developer_task_id)
             attempt = session.get(TaskAttempt, developer_attempt_id)
@@ -442,7 +487,16 @@ class TaskService:
                 developer_request = DeveloperRequest.model_validate(source.developer_spec)
             except ValueError:
                 raise DomainError("Promotion source specification is invalid") from None
-            return developer_request, source.action_version, source.action_hash
+            evaluation = self._accepted_self_improvement_evaluation(session, source, attempt)
+            expected_diff_sha256 = (
+                evaluation.final_diff_sha256 if evaluation is not None else None
+            )
+            return (
+                developer_request,
+                source.action_version,
+                source.action_hash,
+                expected_diff_sha256,
+            )
 
     def _submit_promotion(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
         request_hash = fingerprint(request.model_dump(mode="json"))
@@ -460,7 +514,12 @@ class TaskService:
             raise DomainError("Promotion review unavailable", 503)
 
         payload = request.payload.model_dump(mode="json")
-        developer_request, source_version, source_hash = self._promotion_source(
+        (
+            developer_request,
+            source_version,
+            source_hash,
+            expected_diff_sha256,
+        ) = self._promotion_source(
             payload["developer_task_id"], payload["developer_attempt_id"]
         )
         try:
@@ -470,6 +529,7 @@ class TaskService:
                     payload["developer_attempt_id"],
                     developer_request,
                     validation_passed=True,
+                    expected_diff_sha256=expected_diff_sha256,
                 )
             )
             promotion = PromotionRequest(
