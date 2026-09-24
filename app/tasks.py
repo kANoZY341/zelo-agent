@@ -36,7 +36,7 @@ from app.schemas import (
     TaskPage,
     TaskResponse,
 )
-from app.self_improvement import ImprovementProposal, SelfImprovementError
+from app.self_improvement import SelfImprovementError
 from app.self_improvement_evaluation import evaluate_improvement_candidate
 from app.self_improvement_planner import planner_configuration_version
 from app.self_improvement_runtime import (

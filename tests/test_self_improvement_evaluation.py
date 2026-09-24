@@ -1,7 +1,7 @@
 """Trusted self-improvement candidate evaluation tests."""
 
-from copy import deepcopy
 import hashlib
+from copy import deepcopy
 
 import pytest
 
