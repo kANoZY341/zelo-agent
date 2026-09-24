@@ -49,7 +49,7 @@ _DENIED_SCOPE_EXACT = frozenset(
         "docs/zelo-workspace-decision.md",
     }
 )
-_HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/self_improvement")
+_HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/")
 _HIGH_RISK_EXACT = frozenset(
     {
         "app/__init__.py",
@@ -162,6 +162,11 @@ def _scope_allowed(path: str) -> bool:
 
 def _high_risk_scope(path: str) -> bool:
     return path in _HIGH_RISK_EXACT or path.startswith(_HIGH_RISK_PREFIXES)
+
+
+def candidate_scope_allowed(path: str) -> bool:
+    """Apply the trusted v0.11 scope boundary to a final candidate path."""
+    return _scope_allowed(path) and not _high_risk_scope(path)
 
 
 class SelfImprovementPolicy:
