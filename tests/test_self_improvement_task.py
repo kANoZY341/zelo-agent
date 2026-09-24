@@ -623,6 +623,8 @@ def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(develo
     assert evaluation["acceptance_criteria_proven"] is True
     promotion_source = service._promotion_source(child.id, completed_child.attempts[-1].id)
     assert promotion_source[3] == evaluation["final_diff_sha256"]
+    assert promotion_source[4] == evaluation["candidate_content_sha256"]
+    assert len(evaluation["candidate_content_sha256"]) == 64
     assert len(reviewer.review_requests) == 1
     assert proposal_payload["acceptance_criteria"][0] in reviewer.review_requests[0].instruction
 
