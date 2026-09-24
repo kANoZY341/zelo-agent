@@ -49,7 +49,7 @@ _DENIED_SCOPE_EXACT = frozenset(
         "docs/zelo-workspace-decision.md",
     }
 )
-_HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/")
+_HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/self_improvement")
 _HIGH_RISK_EXACT = frozenset(
     {
         "app/__init__.py",
@@ -92,6 +92,13 @@ _HIGH_RISK_EXACT = frozenset(
         "app/workers.py",
         "scripts/smoke_promotion.py",
     }
+)
+_HIGH_RISK_NAMESPACE_PREFIXES = tuple(
+    sorted(
+        path[:-3] + "/"
+        for path in _HIGH_RISK_EXACT
+        if path.startswith("app/") and path.endswith(".py")
+    )
 )
 
 
@@ -161,7 +168,11 @@ def _scope_allowed(path: str) -> bool:
 
 
 def _high_risk_scope(path: str) -> bool:
-    return path in _HIGH_RISK_EXACT or path.startswith(_HIGH_RISK_PREFIXES)
+    return (
+        path in _HIGH_RISK_EXACT
+        or path.startswith(_HIGH_RISK_PREFIXES)
+        or path.startswith(_HIGH_RISK_NAMESPACE_PREFIXES)
+    )
 
 
 def candidate_scope_allowed(path: str) -> bool:
