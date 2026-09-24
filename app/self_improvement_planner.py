@@ -93,9 +93,9 @@ _HIGH_RISK_EXACT = frozenset(
         "scripts/smoke_promotion.py",
     }
 )
-_HIGH_RISK_NAMESPACE_PREFIXES = tuple(
+_HIGH_RISK_NAMESPACE_STEMS = tuple(
     sorted(
-        path[:-3] + "/"
+        path[:-3]
         for path in _HIGH_RISK_EXACT
         if path.startswith("app/") and path.endswith(".py")
     )
@@ -171,7 +171,10 @@ def _high_risk_scope(path: str) -> bool:
     return (
         path in _HIGH_RISK_EXACT
         or path.startswith(_HIGH_RISK_PREFIXES)
-        or path.startswith(_HIGH_RISK_NAMESPACE_PREFIXES)
+        or any(
+            path.startswith(namespace + "/") or path.startswith(namespace + ".")
+            for namespace in _HIGH_RISK_NAMESPACE_STEMS
+        )
     )
 
 
