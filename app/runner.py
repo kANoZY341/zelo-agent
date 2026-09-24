@@ -257,10 +257,9 @@ class Runner:
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DomainError as error:
-            reason = (
-                error.message[:256] if execution.kind == "self_improvement_run" else "worker_error"
-            )
-            self.service.finish(execution, State.FAILED, error=reason)
+            if execution.kind != "self_improvement_run":
+                raise
+            self.service.finish(execution, State.FAILED, error=error.message[:256])
         except SelfImprovementError as error:
             self.service.finish(execution, State.FAILED, error=error.args[0])
         except DeveloperRuntimeError as error:
