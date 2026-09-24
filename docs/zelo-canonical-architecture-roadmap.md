@@ -51,7 +51,28 @@ Everything beneath those boundaries is replaceable.
 
 ### Zelo
 
-The permanent authority and orchestration layer.
+The overall persistent personal AI and product identity Ahmad interacts with.
+Zelo remains the same across model changes, worker replacements, workspaces and
+communication channels.
+
+### Zelo Mind
+
+The central reasoning and conversational AI. It understands requests, recalls
+permitted context, discusses ideas, plans, delegates and evaluates results. Mind
+uses replaceable models through Model Gateway; it does not own execution
+authority.
+
+### Zelo Core
+
+The trusted authority boundary. Core owns identity mapping, goals/projects,
+tasks, approvals, grants, policy, secrets references, budgets, audit and
+authoritative operational state.
+
+### Company runtime
+
+Managers, supervisors, producers and specialists that coordinate bounded work
+under Core authority. These are responsibilities and persistent role records,
+not necessarily separate always-running model processes.
 
 ### Model / brain
 
@@ -105,71 +126,62 @@ worker, validation, review, approval, and audit boundaries as other work.
 ## Canonical architecture
 
 ```text
-                         OPERATOR
-                            |
-                            v
-                 Channels / Interfaces
-                            |
-                            v
-+---------------------------------------------------------------+
-|                         ZELO CORE                             |
-|                                                               |
-| Identity / Goals / Projects / Tasks                           |
-| Permissions / Approvals / Secrets / Trust                     |
-| Audit / Security / Budgets / Resource limits                  |
-| Memory ownership / Events / Sessions                          |
-|                                                               |
-|                 ZELO IS THE AUTHORITY                         |
-+-----------------------------+---------------------------------+
+                            AHMAD
+                    goals / direction / decisions
                               |
                               v
-+---------------------------------------------------------------+
-|                    ZELO ORCHESTRATOR                          |
-|                                                               |
-| Planner / Supervisor / Agent Factory                          |
-| Capability Router / Brain Router / Context Engine             |
-| Scheduler / Verifier / Learning Engine                        |
-| Self-Improvement Engine / Recovery / Self-Healing             |
-| Budget Manager                                                |
-+-----------------------------+---------------------------------+
-                              |
-             +----------------+----------------+
-             |                                 |
-             v                                 v
-      Specialist Agents                  Core Runtimes
- Coding / Research / Business     Agent / Developer / Review /
- YouTube / Trading / future       Promotion / future campaign
-             |                                 |
-             +----------------+----------------+
-                              |
-                              v
-+---------------------------------------------------------------+
-|                 CAPABILITY / WORKER LAYER                     |
-|                                                               |
-| Codex / Claude Code / OpenCode / Ox / future workers          |
-| Browser / Computer / Shell / Python / API / Research / Media  |
-| Optional swarm backend such as Ruflo                          |
-| Skills and engineering procedures                             |
-+-----------------------------+---------------------------------+
-                              |
-                  +-----------+-----------+
-                  |                       |
-                  v                       v
-                Tools                   Models
-                  |                       |
-                  +-----------+-----------+
-                              |
-                              v
-+---------------------------------------------------------------+
-|                       DATA PLANE                              |
-|                                                               |
-| Personal / Project / Agent / Episodic memory                  |
-| Decisions / Outcomes / Skills / Knowledge                     |
-| Files / Artifacts / Metrics / Costs / Audit history           |
-|                                                               |
-| Storage interface owned by Zelo                               |
-| SQLite/files now -> Postgres/Supabase/vector stores later     |
-+---------------------------------------------------------------+
+        +---------------------------------------------+
+        |          INTERACTION / PRESENCE             |
+        | Talk to Zelo / workspace / voice / channels|
+        +----------------------+----------------------+
+                               |
+                               v
+        +---------------------------------------------+
+        |                 ZELO MIND                   |
+        | understand / recall / reason / plan         |
+        | discuss / delegate / evaluate / respond     |
+        +-----------+-------------------+-------------+
+                    |                   |
+                    v                   v
+             Model Gateway        Context services
+          replaceable models   memory / state / files
+                    \                   /
+                     \                 /
+                      v               v
+        +---------------------------------------------+
+        |                 ZELO CORE                   |
+        | trusted execution authority                |
+        | policy / grants / tasks / approvals        |
+        | budgets / secrets refs / events / audit    |
+        +----------------------+----------------------+
+                               |
+                               v
+        +---------------------------------------------+
+        |          COMPANY + AGENT RUNTIME            |
+        | managers / supervisors / producers          |
+        | specialists / Goal Manager / Planner        |
+        | Scheduler / Verifier / Agent Factory later |
+        +----------------------+----------------------+
+                               |
+                               v
+        +---------------------------------------------+
+        |        WORKERS + TOOL GATEWAYS              |
+        | Codex / Claude Code / OpenCode / Ox         |
+        | browser / research / computer / API / media |
+        | optional swarm backends under Supervisor    |
+        +----------------------+----------------------+
+                               |
+                               v
+        +---------------------------------------------+
+        |          VERIFICATION + RESULTS             |
+        | evidence / reviews / artifacts / learning   |
+        +----------------------+----------------------+
+                               |
+                               +----> Zelo Mind / workspace
+
+Shared data services provide authorized StateStore, MemoryStore, ArtifactStore,
+event/audit journal, cost records and operational metrics to the layers that
+need them. The UI, model and worker layers never become the authority boundary.
 ```
 
 ## Non-negotiable architecture rules
@@ -237,6 +249,8 @@ These projects are references or optional components, not Zelo itself.
 
 | Project / idea | Canonical place |
 | --- | --- |
+| Mission Control | Strong workspace/control-desk candidate and pattern library; not mandatory |
+| Agent Town | Company-world/visual-office reference or adaptation candidate |
 | Ruflo | Optional swarm / coordinated execution backend |
 | ECC | Engineering skills, hooks, verification and worker procedures |
 | Harness | Agent Factory / agent-team design reference |
@@ -247,6 +261,9 @@ These projects are references or optional components, not Zelo itself.
 | Archify | Architecture analysis capability |
 | God's Eye View | Operational visualization reference for tasks, agents and costs |
 | Supabase | Optional future data backend behind Zelo storage interfaces |
+| Skales / Omarchy | UX/channel reference / machine-environment reference |
+| FreeLLMAPI | Candidate model-provider source subject to provenance/privacy/reliability review |
+| HyperFrames | Later media/video capability candidate |
 | Ox | Replaceable coding worker |
 | Claude Code | Replaceable coding worker |
 | OpenCode | Provider-neutral coding worker/harness |
