@@ -2,7 +2,11 @@
 
 ## Status
 
-This document is the project north star.
+This document is the repository-facing roadmap summary.
+
+The current canonical product plan is Zelo Canonical Architecture revision 3.1,
+as amended by `docs/zelo-workspace-decision.md`. The workspace decision is later
+and therefore supersedes revision 3.1 wherever the two conflict.
 
 Feature design documents may refine an individual milestone, but they must not
 silently redefine Zelo's identity or reorder the roadmap. Material roadmap or
@@ -236,12 +240,12 @@ These projects are references or optional components, not Zelo itself.
 | Ruflo | Optional swarm / coordinated execution backend |
 | ECC | Engineering skills, hooks, verification and worker procedures |
 | Harness | Agent Factory / agent-team design reference |
-| OpenClaw | Channel/device/gateway reference or adapter |
+| OpenClaw | Persistence/autonomy reference; possible later channel/device gateway adapter |
 | OpenMAIC | Durable sessions, runtime and resumability reference |
 | Context Mode | Context Engine / memory handling reference |
 | Open Code Review | Coding Agent reviewer capability |
 | Archify | Architecture analysis capability |
-| God's Eye View | Observability / discovery / visualization capability |
+| God's Eye View | Operational visualization reference for tasks, agents and costs |
 | Supabase | Optional future data backend behind Zelo storage interfaces |
 | Ox | Replaceable coding worker |
 | Claude Code | Replaceable coding worker |
@@ -357,17 +361,16 @@ One self-improvement cycle becomes a bounded campaign. The scheduler may repeat
 the approved v0.11 pipeline inside a campaign grant, but merge and release remain
 separately authorized.
 
-### v0.13 — Memory, context and learning
+### v0.13 — Memory, context and evidence
 
 Add:
 
-- personal memory;
-- project memory;
-- decisions and outcomes;
-- experience/failure history;
-- worker/model performance history;
-- Context Engine;
-- bounded learning from outcomes;
+- scoped personal, project and agent memory;
+- provenance, expiry, correction and supersession;
+- decisions and experiences separated from operational state;
+- bounded context assembly;
+- baseline evaluation cases;
+- worker/model performance and cost evidence;
 - storage abstraction for later Postgres/Supabase/vector backends.
 
 ### v0.14 — Agent Factory

@@ -4,9 +4,9 @@ Confirmed by Ahmad on 24 September 2026.
 
 Zelo is the persistent personal AI Ahmad talks to: he reasons, remembers,
 discusses ideas, plans, delegates, verifies results and follows up. His expandable
-company includes managers, supervisors, producers, specialists and
-interchangeable workers. The workspace presents this system; it does not define
-or replace Zelo's intelligence.
+company includes managers, supervisors, producers, specialists and interchangeable
+workers. The workspace presents this system; it does not define or replace Zelo's
+intelligence.
 
 ## One workspace, three connected views
 
@@ -43,6 +43,7 @@ architecture.
   open the verified result. Use that proof to choose adaptation versus a custom
   workspace before expanding the visual world.
 
-References:
+## References
+
 - https://github.com/smolboon/mission-control
 - https://github.com/geezerrrr/agent-town
