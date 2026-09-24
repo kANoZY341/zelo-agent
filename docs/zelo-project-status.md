@@ -20,14 +20,16 @@ in `docs/zelo-workspace-decision.md`.
 
 - Milestone: v0.11 — Self-Improvement Seed.
 - Branch: `feat/v0.11-self-improvement`.
-- Verified branch head before this status update:
-  `e98e572cbb8075e1bd4a0b0e134a066b395682d3`.
+- Pull request: #14 — `v0.11 — Self-Improvement Seed`, targeting `main`.
 - Version metadata: `0.11.0`.
-- Final CI on that head: success.
+- Latest fully verified implementation/documentation head before the current
+  roadmap-sync update: `0f4848710c281534d3116da43b3316863fd74e44`.
+- CI on that head: success.
 - Verification: `git diff --check`, Ruff, Ruff format, and pytest all passed.
 - Test result: 637 passed, 2 skipped, 1 existing Starlette/httpx deprecation
   warning.
-- Pull request: not yet opened at the time this status entry was written.
+- The current PR head may advance through documentation/review fixes; use GitHub
+  CI on the exact PR head as the merge evidence.
 
 ## v0.11 implemented behavior
 
@@ -60,9 +62,8 @@ v0.14; do not merge the branch wholesale.
 
 1. Keep the canonical roadmap/workspace decision synchronized with the operator's
    latest explicit decisions.
-2. Open the v0.11 pull request to `main`.
-3. Perform independent/adversarial review of the exact PR head.
-4. Fix legitimate findings and rerun the full acceptance gate.
-5. Demonstrate one complete bounded v0.11 cycle and retain its evidence.
-6. Present merge/release evidence to Ahmad.
-7. Merge/tag/release only after the separately authorized decision.
+2. Perform independent/adversarial review of the exact PR #14 head.
+3. Fix legitimate findings and rerun the full acceptance gate.
+4. Demonstrate one complete bounded v0.11 cycle and retain its evidence.
+5. Present merge/release evidence to Ahmad.
+6. Merge/tag/release only after the separately authorized decision.
