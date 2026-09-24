@@ -347,11 +347,9 @@ class TaskService:
         try:
             developer_result = DeveloperRunResult.model_validate(result)
             developer_request = DeveloperRequest.model_validate(task.developer_spec)
-            if (
-                task.payload.get("instruction") != developer_instruction(run_result)
-                or developer_request.review_instruction
-                != developer_review_instruction(run_result)
-            ):
+            if task.payload.get("instruction") != developer_instruction(
+                run_result
+            ) or developer_request.review_instruction != developer_review_instruction(run_result):
                 raise ValueError("self_improvement_child_context_mismatch")
             review = developer_result.independent_review
             reviewer = developer_request.reviewer
