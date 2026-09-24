@@ -429,14 +429,11 @@ class TaskService:
             except ValueError:
                 raise DomainError("Self-improvement evaluation evidence is invalid") from None
             if (
-                evaluation.proposal_fingerprint
-                != run_result.proposal.proposal_fingerprint
+                evaluation.proposal_fingerprint != run_result.proposal.proposal_fingerprint
                 or evaluation.status != "accepted_candidate"
             ):
                 raise DomainError("Self-improvement candidate is not accepted for promotion")
-            current_diff_sha256 = hashlib.sha256(
-                developer_result.diff.encode("utf-8")
-            ).hexdigest()
+            current_diff_sha256 = hashlib.sha256(developer_result.diff.encode("utf-8")).hexdigest()
             if current_diff_sha256 != evaluation.final_diff_sha256:
                 raise DomainError("Self-improvement evaluation does not match promotion source")
             return evaluation
@@ -488,9 +485,7 @@ class TaskService:
             except ValueError:
                 raise DomainError("Promotion source specification is invalid") from None
             evaluation = self._accepted_self_improvement_evaluation(session, source, attempt)
-            expected_diff_sha256 = (
-                evaluation.final_diff_sha256 if evaluation is not None else None
-            )
+            expected_diff_sha256 = evaluation.final_diff_sha256 if evaluation is not None else None
             return (
                 developer_request,
                 source.action_version,
@@ -519,9 +514,7 @@ class TaskService:
             source_version,
             source_hash,
             expected_diff_sha256,
-        ) = self._promotion_source(
-            payload["developer_task_id"], payload["developer_attempt_id"]
-        )
+        ) = self._promotion_source(payload["developer_task_id"], payload["developer_attempt_id"])
         try:
             review = asyncio.run(
                 self.promotion_reviewer.create(
