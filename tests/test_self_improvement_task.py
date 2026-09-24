@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +11,7 @@ from app.developer import DeveloperRuntime
 from app.developer_contracts import WorkerResult
 from app.gateway import ModelGateway, ModelRequest, ModelResult
 from app.main import create_app
+from app.models import Approval, utcnow
 from app.policy import DomainError, State
 from app.runner import Runner
 from app.schemas import SelfImprovementRunInput
@@ -482,3 +483,103 @@ def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(develo
     tasks = service.list_tasks(10, 0).items
     assert {task.kind for task in tasks} == {"self_improvement_run", "developer_run"}
     assert not any(task.kind in {"promotion_run", "merge_run", "release_run"} for task in tasks)
+
+
+def _prepare_bound_self_improvement_child(developer_case, database, key):
+    provider = PlannerProvider()
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", key)
+    service = TaskService(
+        database,
+        developer_case.settings,
+        gateway=gateway,
+        developer_runtime=developer_case,
+    )
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        key,
+    )
+    assert created is True
+    parent_execution = service.claim()
+    assert parent_execution is not None
+
+    inspection = RepositoryInspector(developer_case.source_repository).inspect()
+    proposal = ImprovementProposal.freeze(
+        proposal_draft(
+            risk="medium",
+            evidence=("test_example.py",),
+            scope_paths=("test_example.py",),
+        ),
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version=planner_configuration_version(
+            model_config_version=gateway.config_version,
+            alias="local_general",
+            model="qwen3:4b-instruct",
+        ),
+    )
+    preparation = SelfImprovementPreparation(
+        goal="Improve Zelo safely.",
+        base_sha=inspection.base_sha,
+        inspection_fingerprint=inspection.fingerprint,
+        tracked_path_count=len(inspection.tracked_paths),
+        inspected_content_file_count=len(inspection.files),
+        content_truncated=inspection.content_truncated,
+        proposal=proposal,
+        planner_alias="local_general",
+        planner_model="qwen3:4b-instruct",
+    )
+    linked = service.finish_self_improvement(
+        parent_execution,
+        preparation,
+        developer_instruction(preparation),
+    )
+    assert linked is not None
+    child = service.get(linked.developer_task_id)
+    return service, parent, child, proposal
+
+
+def test_self_improvement_child_expired_approval_cannot_execute(developer_case, database):
+    service, _, child, _ = _prepare_bound_self_improvement_child(
+        developer_case,
+        database,
+        "self-improvement-expired-child",
+    )
+    approval_id = child.approvals[0].id
+    with database.transaction() as session:
+        approval = session.get(Approval, approval_id)
+        assert approval is not None
+        approval.expires_at = utcnow() - timedelta(seconds=1)
+
+    with pytest.raises(DomainError):
+        service.decide(approval_id, "approve")
+
+    cancelled = service.get(child.id)
+    assert cancelled.status == State.CANCELLED
+    assert cancelled.error == "approval_expired"
+    assert cancelled.attempts == []
+
+
+def test_self_improvement_child_worker_change_invalidates_approval(developer_case, database):
+    service, _, child, _ = _prepare_bound_self_improvement_child(
+        developer_case,
+        database,
+        "self-improvement-worker-change",
+    )
+    replacement = FakeWorker()
+    replacement.worker_identity = replacement.worker_identity.model_copy(
+        update={"config_version": "changed-after-preparation"}
+    )
+    developer_case.worker = replacement
+
+    with pytest.raises(DomainError):
+        service.decide(child.approvals[0].id, "approve")
+
+    cancelled = service.get(child.id)
+    assert cancelled.status == State.CANCELLED
+    assert cancelled.error == "approval_invalidated"
+    assert cancelled.approvals[0].status == "invalidated"
+    assert replacement.calls == []

@@ -112,11 +112,22 @@ def test_planner_policy_rejects_model_authored_authority_expansion(tmp_path, res
         asyncio.run(planner.plan(inspection, goal="Improve Zelo safely."))
 
 
-def test_planner_rejects_vendor_or_worker_fields_not_in_schema(tmp_path):
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("worker_id", "codex_core"),
+        ("provider", "openai"),
+        ("executable", "/usr/bin/tool"),
+        ("permission_profile", "unrestricted"),
+        ("merge_method", "squash"),
+        ("release_tag", "v0.11.0"),
+    ],
+)
+def test_planner_rejects_authority_fields_not_in_schema(tmp_path, field, value):
     repo, _ = make_repo(tmp_path)
     inspection = RepositoryInspector(repo).inspect()
     response = valid_response()
-    response["worker_id"] = "codex_core"
+    response[field] = value
 
     planner = SelfImprovementPlanner(gateway(ScriptedProvider(response)))
 
