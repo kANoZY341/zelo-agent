@@ -199,6 +199,79 @@ def test_self_improvement_claim_fails_closed_when_planner_config_changes(setting
     assert cancelled.attempts == []
 
 
+
+def test_self_improvement_cancellation_before_child_creation_stops_cycle(
+    developer_case, database
+):
+    provider = PlannerProvider()
+    gateway = ModelGateway(
+        provider,
+        "qwen3:4b-instruct",
+        "deepseek-r1:7b",
+        "cancel-config",
+    )
+    service = TaskService(
+        database,
+        developer_case.settings,
+        gateway=gateway,
+        developer_runtime=developer_case,
+    )
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        "self-improvement-cancel-before-child",
+    )
+    assert created is True
+    execution = service.claim()
+    assert execution is not None
+    assert execution.task_id == parent.id
+
+    inspection = RepositoryInspector(developer_case.source_repository).inspect()
+    proposal = ImprovementProposal.freeze(
+        proposal_draft(
+            risk="medium",
+            evidence=("test_example.py",),
+            scope_paths=("test_example.py",),
+        ),
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version=planner_configuration_version(
+            model_config_version=gateway.config_version,
+            alias="local_general",
+            model="qwen3:4b-instruct",
+        ),
+    )
+    preparation = SelfImprovementPreparation(
+        goal="Improve Zelo safely.",
+        base_sha=inspection.base_sha,
+        inspection_fingerprint=inspection.fingerprint,
+        tracked_path_count=len(inspection.tracked_paths),
+        inspected_content_file_count=len(inspection.files),
+        content_truncated=inspection.content_truncated,
+        proposal=proposal,
+        planner_alias="local_general",
+        planner_model="qwen3:4b-instruct",
+    )
+
+    service.cancel(parent.id)
+    linked = service.finish_self_improvement(
+        execution,
+        preparation,
+        developer_instruction(preparation),
+    )
+    assert linked is None
+
+    cancelled = service.get(parent.id)
+    assert cancelled.status == State.CANCELLED
+    assert cancelled.result is None
+    assert cancelled.error == "cancelled_by_operator"
+    assert cancelled.attempts[-1].outcome == State.CANCELLED
+    assert cancelled.attempts[-1].error == "cancelled_by_operator"
+    assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
+
 def test_developer_completion_records_inconclusive_without_independent_review(
     developer_case, database
 ):
