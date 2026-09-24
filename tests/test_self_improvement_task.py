@@ -763,9 +763,7 @@ def test_self_improvement_real_validation_failure_is_rejected(developer_case, da
     assert evaluations[0].details["validation_passed"] is False
 
 
-def test_rejected_self_improvement_candidate_cannot_enter_promotion(
-    developer_case, database
-):
+def test_rejected_self_improvement_candidate_cannot_enter_promotion(developer_case, database):
     service, parent, child, proposal = _prepare_bound_self_improvement_child(
         developer_case,
         database,
