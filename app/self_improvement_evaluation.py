@@ -20,7 +20,6 @@ def _trusted_validation_artifact(path: str) -> bool:
     )
 
 
-
 def evaluate_improvement_candidate(
     proposal: ImprovementProposal,
     *,

@@ -173,7 +173,6 @@ def test_low_or_medium_review_finding_is_inconclusive(tmp_path, severity):
     assert evaluation.reviewer_finding_count == 1
 
 
-
 def test_trusted_validator_caches_do_not_widen_candidate_scope(tmp_path):
     proposal = frozen_proposal(tmp_path)
     result = developer_result(
@@ -202,9 +201,7 @@ def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
     result = developer_result(
         proposal,
         changed_files=["app/core.py", "hidden/worker-secret.txt"],
-        ignored_generated_files=[
-            {"path": "hidden/worker-secret.txt", "type": "file", "size": 10}
-        ],
+        ignored_generated_files=[{"path": "hidden/worker-secret.txt", "type": "file", "size": 10}],
     )
 
     evaluation = evaluate(proposal, result)
