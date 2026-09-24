@@ -41,11 +41,13 @@
 
 ## Canonical roadmap
 
-- Treat `docs/zelo-canonical-architecture-roadmap.md` as the project north star.
+- Treat `docs/zelo-canonical-architecture-roadmap.md` as the project north star
+  and `docs/zelo-workspace-decision.md` as the current workspace decision.
   Feature designs may refine the active milestone but must not silently redefine
   Zelo's identity or reorder future milestones.
-- Zelo is the permanent control plane. Models think, agents specialize, workers
-  work, tools act, and Zelo decides.
+- Zelo is the persistent personal AI. Zelo Mind is the reasoning/conversation
+  identity; Zelo Core is the trusted authority and execution boundary. Models
+  think, agents specialize, workers work, tools act, and Zelo decides.
 - Map newly discovered frameworks/repositories to the canonical architecture
   before integrating them. Do not reshape Zelo around a third-party project.
 - Reuse before rebuild: inspect mature open-source implementations first, verify
@@ -70,6 +72,9 @@ v0.11 must not autonomously merge, tag, release, deploy, widen authority, or
 start repeated background self-modification cycles.
 
 Agent Factory work is intentionally deferred to the canonical v0.14 milestone.
+After v0.11, the roadmap calls for an early workspace increment proving one
+Talk-to-Zelo -> delegated work -> real progress -> verified result path. Mission
+Control and Agent Town are references/candidates, not mandatory dependencies.
 OpenClaw, Ruflo, ECC, Harness, OpenMAIC, Context Mode, Supabase and other
 reference projects may be studied now but integrated only when their canonical
 roadmap capability is active or an explicit operator decision changes scope.

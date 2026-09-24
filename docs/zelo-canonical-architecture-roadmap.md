@@ -8,12 +8,30 @@ Feature design documents may refine an individual milestone, but they must not
 silently redefine Zelo's identity or reorder the roadmap. Material roadmap or
 architecture changes require an explicit operator decision.
 
+This repository summary is governed by the 24 September 2026 Canonical
+Architecture revision 3.1 plus `docs/zelo-workspace-decision.md`. When they
+conflict with older shorthand in this repository, the later explicit decision
+wins.
+
+The product model is:
+
+> Zelo is Ahmad's persistent personal AI. Zelo Mind reasons, remembers, discusses,
+> plans, delegates, verifies and follows up. Zelo Core is the trusted authority and
+> execution boundary. The company of managers, supervisors, producers, specialists
+> and interchangeable workers operates underneath those two layers.
+
+The permanent rule remains:
+
+> Models think. Agents specialize. Workers work. Tools act. Zelo decides.
+
 ## Zelo's identity
 
-Zelo is the permanent personal AI control plane and chief-of-staff system.
+Zelo is the permanent personal AI and executive identity Ahmad interacts with.
+Zelo Mind is the central reasoning and conversational AI. Zelo Core owns trusted
+policy, approvals, task state, grants, budgets, audit and execution authority.
 
-Zelo is not a model, coding CLI, swarm framework, gateway, plugin ecosystem, or
-third-party repository.
+Zelo is not a model vendor, coding CLI, swarm framework, gateway, plugin
+ecosystem, workspace UI, or third-party repository.
 
 Permanent rule:
 
@@ -236,6 +254,38 @@ A newly discovered repository must first be mapped to a box in the canonical
 architecture. Zelo must not be reshaped around whichever repository was most
 recently discovered.
 
+## Workspace and conversational direction
+
+The workspace is one product with three connected views:
+
+1. **Talk to Zelo** — always-accessible text and voice conversation for ideas,
+   goals, decisions and updates. Linked channels use the same Zelo identity and
+   relevant conversation/project context.
+2. **Company world** — an optional visual office/town showing departments,
+   agents, assignments, progress, evidence and outputs. The visual layer reflects
+   real Core state and never invents work.
+3. **Control desk** — ordinary project, file, policy, procedure, approval,
+   budget and activity management.
+
+Mission Control is a strong candidate and reference, not a mandatory dependency.
+Agent Town is a reference or potential adaptation candidate. Build Zelo's own
+workspace if that produces the better experience. Reuse compatible components
+only after license, provenance, security and integration review.
+
+Every essential action must remain available through conversation or normal
+controls. The visual world is optional. All views share canonical Core state and
+authority.
+
+Before expanding the visual world, prove one complete flow:
+
+```text
+talk to Zelo
+  -> delegate bounded work
+  -> see real progress
+  -> inspect evidence
+  -> open the verified result
+```
+
 ## Canonical roadmap
 
 ### v0.10 — Multi-worker foundation — released
@@ -274,23 +324,38 @@ inspect
 
 v0.11 does not autonomously merge, tag, release or deploy itself.
 
-### v0.12 — Goals and autonomous campaigns
+### Early workspace increment — immediately after v0.11
+
+Adapt or prototype the workspace to show Core tasks, proposals, decisions and
+results. Add the first Zelo Mind text conversation that can answer directly,
+discuss a plan and request one typed Core action. Prove one
+conversation-to-result path before committing to Mission Control, Agent Town, a
+hybrid or a custom workspace.
+
+This is a prerequisite slice on the path to v0.12, not a separate release and
+not permission to create a parallel task/approval authority system.
+
+### v0.12 — Durable goals and first useful campaign
 
 Add:
 
-- Goal Manager;
-- planner;
-- campaign state;
-- milestone decomposition;
-- budgets;
-- stop conditions;
-- bounded retries;
-- priorities;
-- scheduler;
-- event triggers;
-- resumable long-running execution.
+- GoalSpec and project/campaign ownership;
+- campaign/task dependencies;
+- operational StateStore;
+- durable events;
+- leases and checkpoints;
+- shared budget accounting;
+- cancellation and recovery;
+- limited scheduling and bounded Mind wake cycles;
+- workspace project/progress views;
+- push-to-talk voice with spoken replies using the same conversation/action
+  contracts;
+- one fixed Research specialist with a narrow read-only retrieval capability;
+- reuse of the existing Coding runtime for approved implementation tasks.
 
-One self-improvement cycle becomes a bounded campaign.
+One self-improvement cycle becomes a bounded campaign. The scheduler may repeat
+the approved v0.11 pipeline inside a campaign grant, but merge and release remain
+separately authorized.
 
 ### v0.13 — Memory, context and learning
 
@@ -307,15 +372,16 @@ Add:
 
 ### v0.14 — Agent Factory
 
-Add persistent specialist-agent identities.
+Generalize the fixed Coding and Research specialists into versioned
+`AgentSpec` templates and `DepartmentSpec` records with manager/producer
+assignments, registry, activation tests and lifecycle controls.
 
-First production specialists:
-
-- Coding Agent;
-- Research Agent.
+Add bounded subagent creation, explicit parent-child contracts and
+project-scoped memory. Inspect the parked Agent Factory experiment and reuse only
+compatible parts; do not merge it wholesale.
 
 Agents bind roles, goals, memory namespaces, capabilities, tools, permissions,
-procedures, worker requirements and budgets.
+procedures, worker requirements, review requirements, budgets and lifecycle.
 
 ### v0.15 — Capability and skills ecosystem
 
@@ -338,19 +404,19 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
-Add communication surfaces:
+Deliver staged conversational presence through the shared Zelo conversation and
+authority contracts:
 
-- web/mobile;
-- voice/phone;
-- WhatsApp;
-- Telegram;
-- Discord;
-- Slack;
-- email;
-- future channels.
+- WhatsApp text and supported voice notes;
+- email with thread continuity and delivery state;
+- live browser voice with interruption/reconnect;
+- a separately qualified call transport;
+- additional channels such as Telegram, Slack or Discord when useful.
 
-OpenClaw may be used as a gateway/channel/device backend where useful. It does
-not replace Zelo Core.
+OpenClaw or another adapter may be evaluated only against the shared Zelo
+contract. Messaging support does not imply calling support. If continuous
+presence is required while the laptop is offline, choose and verify an always-on
+host deliberately.
 
 ### v0.17 — Real specialist agents
 
@@ -412,7 +478,10 @@ v1.0 means Zelo can practically:
 - continue bounded work over time;
 - remember outcomes;
 - recover from ordinary failures;
-- report progress through useful channels; and
+- report progress through useful channels;
+- preserve one Zelo identity across Mission Control/custom workspace, voice,
+  WhatsApp and email;
+- expose operator controls, budgets and recovery state; and
 - improve itself through controlled engineering loops.
 
 Example target:
@@ -454,15 +523,19 @@ Zelo
  -> next cycle occurs only within policy/budget
 ```
 
-## Active branch policy
+## Live project status
 
-At the time this roadmap was established:
+Live implementation status is maintained separately in
+`docs/zelo-project-status.md` so architecture and roadmap documents do not
+become stale.
 
-- released base: Zelo Core v0.10.0;
-- active milestone: v0.11 Self-Improvement Seed;
-- experimental Agent Factory work is parked until the v0.14 milestone.
+Current verified baseline as of 24 September 2026:
 
-Do not promote parked future work merely because code already exists.
+- v0.10.0 is released from main commit
+  `666a0a4d12d280187af02a621e1ab4b57ce604c6`;
+- active branch: `feat/v0.11-self-improvement`;
+- parked experiment: `feat/v1.0-agent-factory`, deferred to v0.14;
+- v0.11 implementation is at PR/review preparation stage.
 
 ## Decision rule for new ideas
 
