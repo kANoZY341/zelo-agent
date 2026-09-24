@@ -2139,6 +2139,14 @@ class TaskService:
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )
+                if task.kind == "self_improvement_run":
+                    audit(
+                        session,
+                        task,
+                        "self_improvement_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
                 if task.kind == "developer_run":
                     audit(
                         session,
