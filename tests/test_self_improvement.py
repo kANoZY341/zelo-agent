@@ -211,7 +211,7 @@ def test_accepted_evaluation_requires_validation_and_clean_review():
         {"acceptance_criteria_proven": False},
         {"reviewer_finding_count": 1},
         {"reviewer_high_or_critical": True},
-        {"changed_file_count": 0},
+        {"changed_files": (), "changed_file_count": 0},
     ):
         invalid = copy.deepcopy(base)
         invalid.update(change)
