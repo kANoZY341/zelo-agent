@@ -26,16 +26,28 @@ required_capabilities may contain only zelo_core_development.
 Do not choose Codex, Claude, OpenCode, Ox, a provider, executable, permission profile,
 promotion branch, merge method, release tag, credential, or external network authority.
 Do not propose high-risk changes. Prefer docs/tests for low risk; source changes are medium risk.
+affected_components, estimated_cost, and rollback_approach are descriptive planning fields only;
+they never grant authority or budget.
 Do not include hidden reasoning.
 """
 
 _ALLOWED_CAPABILITIES = frozenset({"zelo_core_development"})
 _ALLOWED_SCOPE_PREFIXES = ("app/", "docs/", "scripts/", "tests/")
-_ALLOWED_SCOPE_ROOTS = frozenset({"AGENTS.md", "README.md"})
+_ALLOWED_SCOPE_ROOTS = frozenset({"README.md"})
 _DENIED_SCOPE_PREFIXES = ("docs/reviews/",)
+_DENIED_SCOPE_EXACT = frozenset(
+    {
+        "AGENTS.md",
+        "docs/v0.11-self-improvement-design.md",
+        "docs/zelo-canonical-architecture-roadmap.md",
+        "docs/zelo-project-status.md",
+        "docs/zelo-workspace-decision.md",
+    }
+)
 _HIGH_RISK_PREFIXES = (".github/", "migrations/", "app/self_improvement")
 _HIGH_RISK_EXACT = frozenset(
     {
+        "app/__init__.py",
         "app/agent.py",
         "app/api.py",
         "app/auth.py",
@@ -51,6 +63,7 @@ _HIGH_RISK_EXACT = frozenset(
         "app/developer_sandbox.py",
         "app/developer_validation.py",
         "app/gateway.py",
+        "app/logging_config.py",
         "app/main.py",
         "app/models.py",
         "app/opencode_worker.py",
@@ -134,8 +147,10 @@ def _parse_draft(text: str) -> ImprovementProposalDraft:
 
 
 def _scope_allowed(path: str) -> bool:
-    return not path.startswith(_DENIED_SCOPE_PREFIXES) and (
-        path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES)
+    return (
+        path not in _DENIED_SCOPE_EXACT
+        and not path.startswith(_DENIED_SCOPE_PREFIXES)
+        and (path in _ALLOWED_SCOPE_ROOTS or path.startswith(_ALLOWED_SCOPE_PREFIXES))
     )
 
 

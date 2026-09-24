@@ -54,6 +54,7 @@ def developer_instruction(preparation: SelfImprovementPreparation) -> str:
 
     draft = preparation.proposal.draft
     evidence = "\n".join(f"- {path}" for path in draft.evidence)
+    components = "\n".join(f"- {item}" for item in draft.affected_components)
     scope = "\n".join(f"- {path}" for path in draft.scope_paths)
     criteria = "\n".join(f"- {item}" for item in draft.acceptance_criteria)
     instruction = f"""Zelo self-improvement candidate.
@@ -68,6 +69,15 @@ Problem:
 
 Expected benefit:
 {draft.expected_benefit}
+
+Affected components:
+{components}
+
+Estimated cost:
+{draft.estimated_cost}
+
+Rollback approach:
+{draft.rollback_approach}
 
 Evidence paths:
 {evidence}
@@ -95,6 +105,7 @@ def developer_review_instruction(preparation: SelfImprovementPreparation) -> str
     """Render a compact approval-bound context for the independent reviewer."""
 
     draft = preparation.proposal.draft
+    components = "\n".join(f"- {item}" for item in draft.affected_components)
     scope = "\n".join(f"- {path}" for path in draft.scope_paths)
     criteria = "\n".join(f"- {item}" for item in draft.acceptance_criteria)
     instruction = f"""Zelo self-improvement independent-review context.
@@ -103,6 +114,15 @@ Frozen proposal fingerprint: {preparation.proposal.proposal_fingerprint}
 Frozen base SHA: {preparation.base_sha}
 Goal: {preparation.goal}
 Risk: {draft.risk}
+
+Affected components:
+{components}
+
+Estimated cost:
+{draft.estimated_cost}
+
+Rollback approach:
+{draft.rollback_approach}
 
 Allowed proposal scope:
 {scope}

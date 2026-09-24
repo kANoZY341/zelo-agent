@@ -153,6 +153,9 @@ class ImprovementProposalDraft(Contract):
     problem: str = Field(min_length=1, max_length=4096)
     evidence: tuple[str, ...] = Field(min_length=1, max_length=16)
     expected_benefit: str = Field(min_length=1, max_length=4096)
+    affected_components: tuple[str, ...] = Field(min_length=1, max_length=16)
+    estimated_cost: str = Field(min_length=1, max_length=1024)
+    rollback_approach: str = Field(min_length=1, max_length=2048)
     implementation_instruction: str = Field(min_length=1, max_length=8192)
     acceptance_criteria: tuple[str, ...] = Field(min_length=1, max_length=16)
     risk: Literal["low", "medium", "high"]
@@ -161,7 +164,13 @@ class ImprovementProposalDraft(Contract):
 
     @model_validator(mode="after")
     def _validate_canonical_fields(self):
-        for name in ("evidence", "acceptance_criteria", "required_capabilities", "scope_paths"):
+        for name in (
+            "evidence",
+            "affected_components",
+            "acceptance_criteria",
+            "required_capabilities",
+            "scope_paths",
+        ):
             value = getattr(self, name)
             if value != tuple(sorted(set(value))):
                 raise ValueError(f"{name}_not_canonical")
@@ -217,6 +226,7 @@ class ImprovementEvaluation(Contract):
     worker_id: CapabilityName
     worker_implementation: str = Field(min_length=1, max_length=64)
     changed_files: tuple[str, ...] = Field(max_length=1000)
+    final_diff_sha256: Sha256
     validation_passed: bool
     scope_valid: bool
     execution_clean: bool

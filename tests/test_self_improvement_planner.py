@@ -66,6 +66,9 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
     request = provider.requests[0]
     assert request.output_schema
     assert "implementation_instruction" in request.output_schema["properties"]
+    assert "affected_components" in request.output_schema["properties"]
+    assert "estimated_cost" in request.output_schema["properties"]
+    assert "rollback_approach" in request.output_schema["properties"]
     assert request.messages[0].role == "user"
     assert str(repo) not in request.messages[0].content
     assert inspection.fingerprint in request.messages[0].content
@@ -84,6 +87,14 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         ),
         (valid_response(evidence=["missing.py"]), "proposal_evidence_unavailable"),
         (valid_response(scope_paths=["app/policy.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/__init__.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/logging_config.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["AGENTS.md"]), "proposal_scope_denied"),
+        (
+            valid_response(scope_paths=["docs/zelo-canonical-architecture-roadmap.md"]),
+            "proposal_scope_denied",
+        ),
+        (valid_response(scope_paths=["docs/zelo-workspace-decision.md"]), "proposal_scope_denied"),
         (valid_response(scope_paths=["app/tasks.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/self_improvement_new.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["docs/reviews/new.md"]), "proposal_scope_denied"),

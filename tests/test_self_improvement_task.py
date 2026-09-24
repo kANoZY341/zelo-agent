@@ -10,7 +10,12 @@ from app.policy import State
 from app.schemas import SelfImprovementRunInput
 from app.self_improvement import ImprovementProposal, RepositoryInspector
 from app.self_improvement_planner import planner_configuration_version
-from app.self_improvement_runtime import SelfImprovementPreparation, developer_instruction
+from app.self_improvement_runtime import (
+    SelfImprovementPreparation,
+    SelfImprovementRunResult,
+    developer_instruction,
+    developer_review_instruction,
+)
 from app.tasks import TaskService
 from tests.conftest import AUTH
 from tests.developer_helpers import FakeWorker
@@ -31,6 +36,9 @@ class PlannerProvider:
             "problem": "The roadmap can be made easier to verify during future milestones.",
             "evidence": ["app/__init__.py"],
             "expected_benefit": "Make the active milestone easier to inspect and maintain.",
+            "affected_components": ["documentation"],
+            "estimated_cost": "One bounded developer attempt; no external spend expected.",
+            "rollback_approach": "Discard the isolated documentation candidate.",
             "implementation_instruction": (
                 "Add a concise documentation note without changing runtime authority."
             ),
@@ -97,6 +105,9 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         assert child["approvals"][0]["id"] == result["developer_approval_id"]
         assert child["approvals"][0]["status"] == "pending"
         assert child["developer_spec"]["base_sha"] == result["base_sha"]
+        frozen = SelfImprovementRunResult.model_validate(result)
+        assert child["payload"]["instruction"] == developer_instruction(frozen)
+        assert child["developer_spec"]["review_instruction"] == developer_review_instruction(frozen)
         assert result["proposal"]["proposal_fingerprint"] in child["payload"]["instruction"]
         assert (
             result["proposal"]["proposal_fingerprint"]

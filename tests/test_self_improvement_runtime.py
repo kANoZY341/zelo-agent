@@ -96,6 +96,10 @@ def test_developer_instruction_is_bound_to_frozen_proposal(tmp_path):
     assert preparation.goal in instruction
     for path in preparation.proposal.draft.evidence:
         assert f"- {path}" in instruction
+    for component in preparation.proposal.draft.affected_components:
+        assert f"- {component}" in instruction
+    assert preparation.proposal.draft.estimated_cost in instruction
+    assert preparation.proposal.draft.rollback_approach in instruction
     for path in preparation.proposal.draft.scope_paths:
         assert f"- {path}" in instruction
     for criterion in preparation.proposal.draft.acceptance_criteria:

@@ -42,6 +42,7 @@ from app.self_improvement_planner import planner_configuration_version
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
     SelfImprovementRunResult,
+    developer_instruction,
     developer_review_instruction,
 )
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
@@ -292,12 +293,12 @@ class TaskService:
     def _self_improvement_parent(
         session: Session,
         developer_task: Task,
-    ) -> tuple[Task, ImprovementProposal] | None:
+    ) -> tuple[Task, SelfImprovementRunResult] | None:
         key = developer_task.idempotency_key
         if not key or not key.startswith("self-improvement:"):
             return None
         parts = key.split(":")
-        if len(parts) != 3 or len(parts[1]) != 36 or len(parts[2]) != 32:
+        if len(parts) != 3 or len(parts[1]) != 36 or len(parts[2]) != 64:
             return None
 
         parent = session.get(Task, parts[1])
@@ -306,17 +307,19 @@ class TaskService:
             or parent.kind != "self_improvement_run"
             or parent.status != State.SUCCEEDED
             or not isinstance(parent.result, dict)
-            or parent.result.get("developer_task_id") != developer_task.id
-            or parent.result.get("developer_action_hash") != developer_task.action_hash
         ):
             return None
         try:
-            proposal = ImprovementProposal.model_validate(parent.result["proposal"])
-        except (KeyError, ValueError):
+            run_result = SelfImprovementRunResult.model_validate(parent.result)
+        except ValueError:
             return None
-        if proposal.proposal_fingerprint[:32] != parts[2]:
+        if (
+            run_result.developer_task_id != developer_task.id
+            or run_result.developer_action_hash != developer_task.action_hash
+            or run_result.proposal.proposal_fingerprint != parts[2]
+        ):
             return None
-        return parent, proposal
+        return parent, run_result
 
     def _evaluate_self_improvement_child(
         self,
@@ -328,7 +331,8 @@ class TaskService:
         linked = self._self_improvement_parent(session, task)
         if linked is None:
             return
-        parent, proposal = linked
+        parent, run_result = linked
+        proposal = run_result.proposal
         if result is None:
             audit(
                 session,
@@ -343,6 +347,12 @@ class TaskService:
         try:
             developer_result = DeveloperRunResult.model_validate(result)
             developer_request = DeveloperRequest.model_validate(task.developer_spec)
+            if (
+                task.payload.get("instruction") != developer_instruction(run_result)
+                or developer_request.review_instruction
+                != developer_review_instruction(run_result)
+            ):
+                raise ValueError("self_improvement_child_context_mismatch")
             review = developer_result.independent_review
             reviewer = developer_request.reviewer
             if review is not None:
@@ -991,7 +1001,7 @@ class TaskService:
         child_payload = child_request.payload.model_dump(mode="json")
         child_request_hash = fingerprint(child_request.model_dump(mode="json"))
         child_key = (
-            f"self-improvement:{execution.task_id}:{preparation.proposal.proposal_fingerprint[:32]}"
+            f"self-improvement:{execution.task_id}:{preparation.proposal.proposal_fingerprint}"
         )
 
         with self.database.transaction() as session:

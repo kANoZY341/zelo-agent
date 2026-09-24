@@ -1,5 +1,7 @@
 """Deterministic trusted evaluation of one self-improvement developer candidate."""
 
+import hashlib
+
 from app.schemas import DeveloperRunResult
 from app.self_improvement import (
     ImprovementEvaluation,
@@ -65,6 +67,7 @@ def evaluate_improvement_candidate(
         worker_id=worker_id,
         worker_implementation=worker_implementation,
         changed_files=tuple(sorted(changed_files)),
+        final_diff_sha256=hashlib.sha256(result.diff.encode("utf-8")).hexdigest(),
         validation_passed=result.validation_passed,
         scope_valid=scope_valid,
         execution_clean=execution_clean,
