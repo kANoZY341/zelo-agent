@@ -103,6 +103,25 @@ def test_repository_inspector_refuses_tracked_forbidden_paths(tmp_path):
         RepositoryInspector(repo).inspect()
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        ".env.local",
+        "credentials.json",
+        "credentials/service-account.json",
+    ],
+)
+def test_repository_inspector_refuses_common_tracked_credential_paths(tmp_path, relative_path):
+    repo, _ = make_repo(tmp_path)
+    target = repo / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("private credential\n", encoding="utf-8")
+    fixture_commit(repo)
+
+    with pytest.raises(SelfImprovementError, match="inspection_path_invalid"):
+        RepositoryInspector(repo).inspect()
+
+
 def test_repository_inspector_bounds_content_without_losing_inventory(tmp_path):
     repo, _ = make_repo(tmp_path)
     (repo / "app" / "large.py").write_text("x" * 5000, encoding="utf-8")
