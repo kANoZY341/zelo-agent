@@ -257,6 +257,8 @@ def test_developer_completion_records_inconclusive_without_independent_review(
     assert linked is not None
 
     child = service.get(linked.developer_task_id)
+    assert child.developer_spec is not None
+    assert child.developer_spec["reviewer"] is None
     service.decide(child.approvals[0].id, "approve")
     child_execution = service.claim()
     assert child_execution is not None
@@ -583,40 +585,6 @@ def test_self_improvement_child_worker_change_invalidates_approval(developer_cas
     assert cancelled.error == "approval_invalidated"
     assert cancelled.approvals[0].status == "invalidated"
     assert replacement.calls == []
-
-
-def test_self_improvement_real_missing_reviewer_is_inconclusive(developer_case, database):
-    service, parent, child, _ = _prepare_bound_self_improvement_child(
-        developer_case,
-        database,
-        "self-improvement-no-reviewer",
-    )
-
-    async def implement(_request, repo):
-        target = repo / "test_example.py"
-        target.write_text("def test_example():\n    assert True\n\n# bounded improvement\n")
-
-    developer_case.worker.action = implement
-    service.decide(child.approvals[0].id, "approve")
-    execution = service.claim()
-    assert execution is not None
-    asyncio.run(Runner(service, developer_runtime=developer_case)._run(execution))
-
-    completed = service.get(child.id)
-    assert completed.status == State.SUCCEEDED
-    assert completed.result is not None
-    assert completed.result["validation_passed"] is True
-    assert completed.result["independent_review"] is None
-
-    evaluations = [
-        event
-        for event in service.events(parent.id, 100, 0)
-        if event.event == "self_improvement_evaluation_completed"
-    ]
-    assert len(evaluations) == 1
-    assert evaluations[0].details["status"] == "inconclusive"
-    assert evaluations[0].details["independent_review_present"] is False
-    assert evaluations[0].details["acceptance_criteria_proven"] is False
 
 
 def test_self_improvement_real_validation_failure_is_rejected(developer_case, database):
