@@ -210,6 +210,7 @@ def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
     assert evaluation.scope_valid is False
     assert evaluation.changed_files == ("app/core.py", "hidden/worker-secret.txt")
 
+
 def test_evaluator_reapplies_protected_namespace_scope(tmp_path):
     repo, _ = make_repo(tmp_path)
     inspection = RepositoryInspector(repo).inspect()
