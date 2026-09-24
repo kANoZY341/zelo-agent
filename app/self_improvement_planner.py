@@ -39,6 +39,10 @@ _DENIED_SCOPE_PREFIXES = ("docs/reviews/", "tests/")
 _DENIED_SCOPE_EXACT = frozenset(
     {
         "AGENTS.md",
+        "docs/v0.7-review-promotion-design.md",
+        "docs/v0.8-worker-registry-design.md",
+        "docs/v0.9-worker-authority-design.md",
+        "docs/v0.10-multi-worker-delegation-design.md",
         "docs/v0.11-self-improvement-design.md",
         "docs/zelo-canonical-architecture-roadmap.md",
         "docs/zelo-project-status.md",
