@@ -1425,6 +1425,14 @@ class TaskService:
             task = require_task(session, task_id)
             if task.status == State.RUNNING:
                 raise DomainError(f"Cannot retry task in state {task.status}")
+            if (
+                task.kind == "developer_run"
+                and task.idempotency_key
+                and task.idempotency_key.startswith("self-improvement:")
+            ):
+                raise DomainError(
+                    "Self-improvement developer child requires a fresh self-improvement run"
+                )
             approval_kinds = {
                 "approval_demo",
                 "ai_prompt",

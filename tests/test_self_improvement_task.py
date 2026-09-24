@@ -1,36 +1,47 @@
 """Persisted v0.11 self-improvement planning task tests."""
 
 import json
+from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app.developer import DeveloperRuntime
+from app.developer_contracts import WorkerResult
 from app.gateway import ModelGateway, ModelRequest, ModelResult
 from app.main import create_app
-from app.policy import State
+from app.policy import DomainError, State
+from app.runner import Runner
 from app.schemas import SelfImprovementRunInput
 from app.self_improvement import ImprovementProposal, RepositoryInspector
-from app.self_improvement_planner import planner_configuration_version
+from app.self_improvement_planner import (
+    SelfImprovementPlanner,
+    planner_configuration_version,
+)
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
     SelfImprovementRunResult,
+    SelfImprovementRuntime,
     developer_instruction,
     developer_review_instruction,
 )
 from app.tasks import TaskService
+from app.worker_registry import WorkerRegistry, descriptor_for_reviewer, descriptor_for_worker
 from tests.conftest import AUTH
-from tests.developer_helpers import FakeWorker
+from tests.developer_helpers import FakeWorker, fixture_commit
 from tests.test_api import wait_for
 from tests.test_self_improvement import proposal_draft
 from tests.test_self_improvement_evaluation import developer_result
 
 
 class PlannerProvider:
-    def __init__(self) -> None:
+    def __init__(self, payload: dict | None = None) -> None:
         self.requests: list[ModelRequest] = []
+        self.payload = payload
 
     async def generate(self, request: ModelRequest) -> ModelResult:
         self.requests.append(request)
-        payload = {
+        payload = self.payload or {
             "schema_version": "zelo-improvement-proposal-v1",
             "title": "Clarify the self-improvement documentation",
             "problem": "The roadmap can be made easier to verify during future milestones.",
@@ -58,6 +69,36 @@ class PlannerProvider:
 
     async def models(self) -> list[str]:
         return ["qwen3:4b-instruct"]
+
+
+class NoFindingReviewWorker(FakeWorker):
+    def __init__(self) -> None:
+        super().__init__()
+        self.review_requests = []
+        self.worker_identity = self.worker_identity.model_copy(
+            update={"implementation": "reviewer_fake"}
+        )
+
+    async def run(self, request, repo):
+        self.calls.append(repo)
+        self.review_requests.append(request)
+        started = datetime.now(UTC)
+        return WorkerResult(
+            exit_code=0,
+            summary=json.dumps(
+                {
+                    "summary": "Independent review found no concrete issue.",
+                    "findings": [],
+                },
+                separators=(",", ":"),
+            ),
+            event_count=2,
+            usage={"input_tokens": 5, "output_tokens": 3},
+            nonfatal_error_items=0,
+            started_at=started,
+            completed_at=datetime.now(UTC),
+            duration_seconds=0.01,
+        )
 
 
 def test_self_improvement_task_prepares_approval_gated_developer_child(settings, database):
@@ -240,3 +281,203 @@ def test_developer_completion_records_inconclusive_without_independent_review(
     assert evaluations[0].details["validation_passed"] is True
     assert evaluations[0].details["scope_valid"] is True
     assert evaluations[0].details["independent_review_present"] is False
+
+
+
+def test_self_improvement_child_retry_requires_fresh_parent_run(developer_case, database):
+    provider = PlannerProvider()
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "retry-config")
+    service = TaskService(
+        database,
+        developer_case.settings,
+        gateway=gateway,
+        developer_runtime=developer_case,
+    )
+    parent, _ = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        "self-improvement-retry-guard",
+    )
+    parent_execution = service.claim()
+    assert parent_execution is not None
+
+    inspection = RepositoryInspector(developer_case.source_repository).inspect()
+    proposal = ImprovementProposal.freeze(
+        proposal_draft(
+            risk="medium",
+            evidence=("test_example.py",),
+            scope_paths=("test_example.py",),
+        ),
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version=planner_configuration_version(
+            model_config_version=gateway.config_version,
+            alias="local_general",
+            model="qwen3:4b-instruct",
+        ),
+    )
+    preparation = SelfImprovementPreparation(
+        goal="Improve Zelo safely.",
+        base_sha=inspection.base_sha,
+        inspection_fingerprint=inspection.fingerprint,
+        tracked_path_count=len(inspection.tracked_paths),
+        inspected_content_file_count=len(inspection.files),
+        content_truncated=inspection.content_truncated,
+        proposal=proposal,
+        planner_alias="local_general",
+        planner_model="qwen3:4b-instruct",
+    )
+    linked = service.finish_self_improvement(
+        parent_execution,
+        preparation,
+        developer_instruction(preparation),
+    )
+    assert linked is not None
+
+    child = service.get(linked.developer_task_id)
+    service.decide(child.approvals[0].id, "approve")
+    child_execution = service.claim()
+    assert child_execution is not None
+    service.finish(child_execution, State.FAILED, error="fixture_failure")
+
+    with pytest.raises(DomainError, match="fresh self-improvement run"):
+        service.retry(child.id)
+
+
+def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(
+    developer_case, database
+):
+    source = developer_case.source_repository
+    docs = source / "docs"
+    docs.mkdir()
+    (docs / "evidence.md").write_text(
+        "The fixture needs one bounded generated documentation artifact.\n",
+        encoding="utf-8",
+    )
+    fixture_commit(source)
+
+    proposal_payload = {
+        "schema_version": "zelo-improvement-proposal-v1",
+        "title": "Add bounded self-improvement smoke artifact",
+        "problem": "The fixture has evidence but no generated smoke artifact.",
+        "evidence": ["docs/evidence.md"],
+        "expected_benefit": "Prove the complete bounded v0.11 cycle.",
+        "affected_components": ["documentation"],
+        "estimated_cost": "One local bounded developer attempt; no external spend.",
+        "rollback_approach": "Discard the isolated candidate workspace.",
+        "implementation_instruction": "Create docs/self-improvement-smoke.md with a short proof note.",
+        "acceptance_criteria": [
+            "The new documentation artifact exists and trusted validation remains green."
+        ],
+        "risk": "low",
+        "required_capabilities": ["zelo_core_development"],
+        "scope_paths": ["docs/self-improvement-smoke.md"],
+    }
+    provider = PlannerProvider(proposal_payload)
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "smoke-config")
+
+    producer = FakeWorker()
+
+    async def implement(_request, repo):
+        target = repo / "docs" / "self-improvement-smoke.md"
+        target.write_text("v0.11 bounded cycle candidate\n", encoding="utf-8")
+
+    producer.action = implement
+    reviewer = NoFindingReviewWorker()
+    registry = WorkerRegistry(
+        [
+            (
+                descriptor_for_worker(
+                    producer,
+                    implementation="fake",
+                    worker_id="producer",
+                    priority=100,
+                ),
+                producer,
+            ),
+            (
+                descriptor_for_reviewer(
+                    reviewer,
+                    implementation="reviewer_fake",
+                    worker_id="independent_reviewer",
+                ),
+                reviewer,
+            ),
+        ]
+    )
+    developer_runtime = DeveloperRuntime(
+        developer_case.settings,
+        producer,
+        source,
+        registry,
+    )
+    self_improvement_runtime = SelfImprovementRuntime(
+        RepositoryInspector(source),
+        SelfImprovementPlanner(gateway),
+    )
+    service = TaskService(
+        database,
+        developer_case.settings,
+        gateway=gateway,
+        developer_runtime=developer_runtime,
+    )
+    runner = Runner(
+        service,
+        gateway=gateway,
+        developer_runtime=developer_runtime,
+        self_improvement_runtime=self_improvement_runtime,
+    )
+
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        "self-improvement-full-cycle-smoke",
+    )
+    assert created is True
+    parent_execution = service.claim()
+    assert parent_execution is not None
+    asyncio.run(runner._run(parent_execution))
+
+    prepared_parent = service.get(parent.id)
+    assert prepared_parent.status == State.SUCCEEDED
+    assert prepared_parent.result is not None
+    child = service.get(prepared_parent.result["developer_task_id"])
+    assert child.status == State.AWAITING_APPROVAL
+    assert producer.calls == []
+
+    service.decide(child.approvals[0].id, "approve")
+    child_execution = service.claim()
+    assert child_execution is not None
+    asyncio.run(runner._run(child_execution))
+
+    completed_child = service.get(child.id)
+    assert completed_child.status == State.SUCCEEDED
+    assert completed_child.result is not None
+    assert completed_child.result["validation_passed"] is True
+    assert completed_child.result["changed_files"] == ["docs/self-improvement-smoke.md"]
+    assert completed_child.result["independent_review"]["report"]["findings"] == []
+
+    evaluations = [
+        event
+        for event in service.events(parent.id, 100, 0)
+        if event.event == "self_improvement_evaluation_completed"
+    ]
+    assert len(evaluations) == 1
+    evaluation = evaluations[0].details
+    assert evaluation["status"] == "accepted_candidate"
+    assert evaluation["changed_files"] == ["docs/self-improvement-smoke.md"]
+    assert len(evaluation["final_diff_sha256"]) == 64
+    assert evaluation["validation_passed"] is True
+    assert evaluation["acceptance_criteria_proven"] is True
+    assert len(reviewer.review_requests) == 1
+    assert proposal_payload["acceptance_criteria"][0] in reviewer.review_requests[0].instruction
+
+    tasks = service.list_tasks(10, 0).items
+    assert {task.kind for task in tasks} == {"self_improvement_run", "developer_run"}
+    assert not any(task.kind in {"promotion_run", "merge_run", "release_run"} for task in tasks)
