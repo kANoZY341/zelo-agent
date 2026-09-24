@@ -199,7 +199,6 @@ def test_self_improvement_claim_fails_closed_when_planner_config_changes(setting
     assert cancelled.attempts == []
 
 
-
 def test_self_improvement_cancellation_before_child_creation_stops_cycle(developer_case, database):
     provider = PlannerProvider()
     gateway = ModelGateway(
@@ -269,6 +268,7 @@ def test_self_improvement_cancellation_before_child_creation_stops_cycle(develop
     assert cancelled.attempts[-1].outcome == State.CANCELLED
     assert cancelled.attempts[-1].error == "cancelled_by_operator"
     assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
+
 
 def test_developer_completion_records_inconclusive_without_independent_review(
     developer_case, database
