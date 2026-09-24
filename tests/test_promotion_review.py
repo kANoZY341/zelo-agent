@@ -35,13 +35,14 @@ def owned_candidate(runtime):
     return PromotionReviewer(runtime), repo, request, task_id, attempt_id
 
 
-def create_review(reviewer, task_id, attempt_id, request):
+def create_review(reviewer, task_id, attempt_id, request, *, expected_diff_sha256=None):
     return asyncio.run(
         reviewer.create(
             task_id,
             attempt_id,
             request,
             validation_passed=True,
+            expected_diff_sha256=expected_diff_sha256,
         )
     )
 
@@ -62,6 +63,33 @@ def test_review_is_deterministic_sorted_and_ignores_generated_artifacts(develope
     assert [entry.path for entry in first.candidate_manifest] == ["a.txt", "z.txt"]
     assert first.changed_file_count == 2
     assert [item.path for item in first.ignored_artifact_summary] == [".ruff_cache/cache-entry"]
+
+
+def test_review_rejects_candidate_changed_after_evaluation(developer_case):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    target = repo / "candidate.txt"
+    target.write_text("first\n")
+    reviewed = asyncio.run(reviewer.runtime.review(repo, request))
+    expected = hashlib.sha256(reviewed["diff"].encode("utf-8")).hexdigest()
+
+    create_review(
+        reviewer,
+        task_id,
+        attempt_id,
+        request,
+        expected_diff_sha256=expected,
+    )
+
+    target.write_text("second\n")
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_diff_sha256=expected,
+        )
 
 
 def test_binary_content_is_hashed_exactly(developer_case):
