@@ -765,7 +765,7 @@ def test_self_improvement_real_validation_failure_is_rejected(developer_case, da
 def test_rejected_self_improvement_candidate_cannot_enter_promotion(
     developer_case, database
 ):
-    service, _, child, proposal = _prepare_bound_self_improvement_child(
+    service, parent, child, proposal = _prepare_bound_self_improvement_child(
         developer_case,
         database,
         "self-improvement-rejected-promotion",
@@ -790,12 +790,11 @@ def test_rejected_self_improvement_candidate_cannot_enter_promotion(
     assert completed.status == State.SUCCEEDED
     evaluations = [
         event
-        for event in service.events(completed.id, 100, 0)
+        for event in service.events(parent.id, 100, 0)
         if event.event == "self_improvement_evaluation_completed"
     ]
-    # Evaluations are audited on the parent, so promotion must not rely on the
-    # child success state alone.
-    assert evaluations == []
+    assert len(evaluations) == 1
+    assert evaluations[0].details["status"] == "rejected_candidate"
 
     with pytest.raises(
         DomainError,
