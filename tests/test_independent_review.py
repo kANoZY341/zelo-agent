@@ -279,6 +279,7 @@ def test_independent_reviewer_receives_approval_bound_review_context(developer_c
     assert "Approved review context:" in review_request.instruction
     assert "Frozen acceptance criterion: tests stay green." in review_request.instruction
 
+
 def test_reviewer_capacity_contention_does_not_requeue_completed_implementation(
     developer_case, monkeypatch
 ):
