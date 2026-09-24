@@ -263,6 +263,7 @@ class ImprovementEvaluation(Contract):
     worker_implementation: str = Field(min_length=1, max_length=64)
     changed_files: tuple[str, ...] = Field(max_length=1000)
     final_diff_sha256: Sha256
+    candidate_content_sha256: Sha256 | None = None
     validation_passed: bool
     scope_valid: bool
     execution_clean: bool
@@ -288,6 +289,7 @@ class ImprovementEvaluation(Contract):
             or self.reviewer_finding_count != 0
             or self.reviewer_high_or_critical
             or self.changed_file_count == 0
+            or self.candidate_content_sha256 is None
         ):
             raise ValueError("improvement_evaluation_invalid")
         return self
