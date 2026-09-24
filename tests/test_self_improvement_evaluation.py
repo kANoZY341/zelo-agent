@@ -236,4 +236,3 @@ def test_evaluator_reapplies_protected_namespace_scope(tmp_path):
 
     assert evaluation.status == "rejected_candidate"
     assert evaluation.scope_valid is False
-
