@@ -25,7 +25,8 @@ Keep every list sorted and unique.
 required_capabilities may contain only zelo_core_development.
 Do not choose Codex, Claude, OpenCode, Ox, a provider, executable, permission profile,
 promotion branch, merge method, release tag, credential, or external network authority.
-Do not propose high-risk changes. Prefer docs/tests for low risk; source changes are medium risk.
+Do not propose high-risk changes. Do not modify tests in v0.11. Prefer docs for low risk;
+source changes are medium risk.
 affected_components, estimated_cost, and rollback_approach are descriptive planning fields only;
 they never grant authority or budget.
 Do not include hidden reasoning.
@@ -34,7 +35,7 @@ Do not include hidden reasoning.
 _ALLOWED_CAPABILITIES = frozenset({"zelo_core_development"})
 _ALLOWED_SCOPE_PREFIXES = ("app/", "docs/", "scripts/", "tests/")
 _ALLOWED_SCOPE_ROOTS = frozenset({"README.md"})
-_DENIED_SCOPE_PREFIXES = ("docs/reviews/",)
+_DENIED_SCOPE_PREFIXES = ("docs/reviews/", "tests/")
 _DENIED_SCOPE_EXACT = frozenset(
     {
         "AGENTS.md",

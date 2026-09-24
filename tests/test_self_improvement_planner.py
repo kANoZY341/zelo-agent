@@ -98,6 +98,7 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         (valid_response(scope_paths=["app/tasks.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/self_improvement_new.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["docs/reviews/new.md"]), "proposal_scope_denied"),
+        (valid_response(scope_paths=["tests/test_core.py"]), "proposal_scope_denied"),
         (valid_response(risk="low"), "proposal_risk_understated"),
         (valid_response(scope_paths=["pyproject.toml"]), "proposal_scope_denied"),
     ],

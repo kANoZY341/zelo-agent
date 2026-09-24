@@ -72,6 +72,19 @@ def test_repository_inspector_ignores_untracked_private_review_evidence(tmp_path
     }
 
 
+def test_repository_inspector_preserves_untracked_protected_d(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    protected = repo / "d"
+    protected.mkdir()
+    (protected / "opaque.bin").write_bytes(b"\xff\x00private")
+
+    snapshot = RepositoryInspector(repo).inspect()
+
+    assert snapshot.base_sha == sha
+    assert all(not path.startswith("d") for path in snapshot.tracked_paths)
+    assert all(not item.path.startswith("d") for item in snapshot.files)
+
+
 def test_repository_inspector_refuses_dirty_checkout(tmp_path):
     repo, _ = make_repo(tmp_path)
     (repo / "UNTRACKED.txt").write_text("dirty\n", encoding="utf-8")
@@ -131,7 +144,7 @@ def proposal_draft(**changes):
         "acceptance_criteria": ("Existing tests remain green.", "Routing behavior is unchanged."),
         "risk": "low",
         "required_capabilities": ("zelo_core_development",),
-        "scope_paths": ("app/core.py", "tests/test_core.py"),
+        "scope_paths": ("app/core.py",),
     }
     values.update(changes)
     return ImprovementProposalDraft(**values)
