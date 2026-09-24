@@ -70,6 +70,7 @@ def evaluate_improvement_candidate(
         not result.validation_passed
         or not scope_valid
         or not execution_clean
+        or result.candidate_content_sha256 is None
         or reviewer_high_or_critical
     ):
         status = "rejected_candidate"
@@ -86,6 +87,7 @@ def evaluate_improvement_candidate(
         worker_implementation=worker_implementation,
         changed_files=tuple(sorted(changed_files)),
         final_diff_sha256=hashlib.sha256(result.diff.encode("utf-8")).hexdigest(),
+        candidate_content_sha256=result.candidate_content_sha256,
         validation_passed=result.validation_passed,
         scope_valid=scope_valid,
         execution_clean=execution_clean,
