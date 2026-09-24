@@ -727,10 +727,15 @@ class DeveloperRuntime:
             limits=request.limits,
         )
         before = await asyncio.to_thread(tree_digest, repo)
-        lock = self.worker_lock(
-            registration.descriptor.worker_id,
-            registration.descriptor.max_concurrency,
-        )
+        try:
+            lock = self.worker_lock(
+                registration.descriptor.worker_id,
+                registration.descriptor.max_concurrency,
+            )
+        except DeveloperError as error:
+            if str(error) == "developer_worker_capacity_exhausted":
+                raise DeveloperError("reviewer_worker_capacity_exhausted") from None
+            raise
         context = registration.worker.bind(binding.worker)
         entered = False
         emit(
