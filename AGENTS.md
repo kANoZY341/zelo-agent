@@ -78,3 +78,16 @@ Control and Agent Town are references/candidates, not mandatory dependencies.
 OpenClaw, Ruflo, ECC, Harness, OpenMAIC, Context Mode, Supabase and other
 reference projects may be studied now but integrated only when their canonical
 roadmap capability is active or an explicit operator decision changes scope.
+
+
+## Workspace decision
+
+- The current workspace product direction is one Zelo experience with three
+  connected views: Talk to Zelo, Company World, and Control Desk.
+- Mission Control is a strong candidate/reference, not a mandatory dependency.
+  Agent Town is a visual-world reference/adaptation candidate.
+- Choose Mission Control, Agent Town, a hybrid, or a Zelo-owned workspace only
+  after proving one complete conversation -> Core task -> progress -> approval ->
+  verified result flow.
+- UI code must remain a projection/adapter over canonical Core state. It must not
+  create a parallel task, approval, scheduler, memory, or authority system.

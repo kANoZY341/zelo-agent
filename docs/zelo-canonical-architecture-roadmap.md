@@ -570,3 +570,52 @@ When a new repository, framework, product, or architecture idea appears, ask:
 
 If those questions do not have clear answers, study the idea but do not change
 the active roadmap around it.
+
+
+## Workspace direction addendum — 24 September 2026
+
+The current workspace decision refines the earlier Mission Control-only direction.
+
+Zelo's user experience has three connected views:
+
+1. **Talk to Zelo** — the primary text/voice conversation with Zelo Mind for ideas,
+   goals, decisions, delegation, progress and follow-up.
+2. **Company world** — an optional visual office/town representation of real Core
+   state, inspired by Agent Town. It is a view over actual departments, agents,
+   assignments and outputs; animation must never become execution authority.
+3. **Control desk** — practical project, file, policy, procedure, approval, budget,
+   artifact and activity management.
+
+All three views share one Zelo identity and one canonical Core state.
+
+Mission Control remains a strong candidate and reference for task, agent, activity,
+cost and chat surfaces, but it is **not a mandatory dependency**. Agent Town is a
+visual-world reference or adaptation candidate. Zelo may use Mission Control,
+Agent Town, a hybrid, or its own workspace if that produces the better experience.
+
+The implementation decision must be made through one working proof:
+
+```text
+Talk to Zelo
+  -> delegate one bounded task
+  -> observe real Core progress
+  -> make any required approval
+  -> open the verified result
+```
+
+Use that proof to choose adaptation versus a custom workspace before expanding the
+visual world. The workspace must never become a second task, approval, scheduling,
+memory or authority system.
+
+### Early workspace increment
+
+Immediately after v0.11 and on the path to v0.12:
+
+- expose Core tasks, self-improvement proposals, approvals, decisions and results;
+- add the first persistent Zelo Mind text conversation;
+- support direct discussion, plan refinement and a typed Core action request;
+- prove one conversation-to-result path;
+- keep Mission Control/Agent Town/custom implementation choice reversible until
+  the proof identifies the best fit.
+
+This increment does not replace the v0.12 durable-goals/campaign milestone.
