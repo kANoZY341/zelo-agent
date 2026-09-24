@@ -319,6 +319,7 @@ class PromotionReviewer:
         request: DeveloperRequest,
         *,
         validation_passed: bool,
+        expected_diff_sha256: str | None = None,
     ) -> PromotionReview:
         if not validation_passed:
             raise DeveloperError("promotion_source_not_validated")
@@ -331,6 +332,12 @@ class PromotionReviewer:
         second = await self._state(task_id, attempt_id, request)
         if first != second:
             raise DeveloperError("promotion_candidate_changed")
+        if expected_diff_sha256 is not None:
+            repo = self._owned_repo(task_id, attempt_id)
+            current = await self.runtime.review(repo, request)
+            current_diff_sha256 = hashlib.sha256(current["diff"].encode("utf-8")).hexdigest()
+            if current_diff_sha256 != expected_diff_sha256:
+                raise DeveloperError("promotion_candidate_changed")
         head, manifest, ignored = first
         workspace = str(self.runtime.path(attempt_id).relative_to(self.runtime.root()))
         values: dict[str, Any] = {
