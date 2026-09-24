@@ -454,7 +454,7 @@ class TaskService:
 
     def _promotion_source(
         self, developer_task_id: str, developer_attempt_id: str
-    ) -> tuple[DeveloperRequest, int, str, str | None]:
+    ) -> tuple[DeveloperRequest, int, str, str | None, str | None]:
         with self.database.read() as session:
             source = require_task(session, developer_task_id)
             attempt = session.get(TaskAttempt, developer_attempt_id)
@@ -486,11 +486,15 @@ class TaskService:
                 raise DomainError("Promotion source specification is invalid") from None
             evaluation = self._accepted_self_improvement_evaluation(session, source, attempt)
             expected_diff_sha256 = evaluation.final_diff_sha256 if evaluation is not None else None
+            expected_candidate_content_sha256 = (
+                evaluation.candidate_content_sha256 if evaluation is not None else None
+            )
             return (
                 developer_request,
                 source.action_version,
                 source.action_hash,
                 expected_diff_sha256,
+                expected_candidate_content_sha256,
             )
 
     def _submit_promotion(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
@@ -514,6 +518,7 @@ class TaskService:
             source_version,
             source_hash,
             expected_diff_sha256,
+            expected_candidate_content_sha256,
         ) = self._promotion_source(payload["developer_task_id"], payload["developer_attempt_id"])
         try:
             review = asyncio.run(
@@ -523,6 +528,7 @@ class TaskService:
                     developer_request,
                     validation_passed=True,
                     expected_diff_sha256=expected_diff_sha256,
+                    expected_candidate_content_sha256=expected_candidate_content_sha256,
                 )
             )
             promotion = PromotionRequest(
