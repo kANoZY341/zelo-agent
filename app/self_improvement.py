@@ -165,6 +165,17 @@ class ImprovementProposalDraft(Contract):
     @model_validator(mode="after")
     def _validate_canonical_fields(self):
         for name in (
+            "title",
+            "problem",
+            "expected_benefit",
+            "estimated_cost",
+            "rollback_approach",
+            "implementation_instruction",
+        ):
+            value = getattr(self, name)
+            if not value.strip() or value.strip() != value:
+                raise ValueError(f"{name}_not_canonical")
+        for name in (
             "evidence",
             "affected_components",
             "acceptance_criteria",
@@ -173,6 +184,9 @@ class ImprovementProposalDraft(Contract):
         ):
             value = getattr(self, name)
             if value != tuple(sorted(set(value))):
+                raise ValueError(f"{name}_not_canonical")
+        for name in ("affected_components", "acceptance_criteria"):
+            if any(not item.strip() or item.strip() != item for item in getattr(self, name)):
                 raise ValueError(f"{name}_not_canonical")
         for path in (*self.evidence, *self.scope_paths):
             _repo_path(path)
