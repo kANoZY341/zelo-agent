@@ -44,9 +44,7 @@ def evaluate_improvement_candidate(
     reviewer_high_or_critical = any(
         finding.severity in {"high", "critical"} for finding in findings
     )
-    acceptance_criteria_proven = (
-        review_present and review_context_bound and len(findings) == 0
-    )
+    acceptance_criteria_proven = review_present and review_context_bound and len(findings) == 0
 
     if (
         not result.validation_passed

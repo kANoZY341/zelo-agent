@@ -716,8 +716,7 @@ class DeveloperRuntime:
                 "When approved review context is present, report a concrete finding for every "
                 "unmet acceptance criterion, out-of-scope change, or authority violation. Use an "
                 "empty "
-                "findings array only when no concrete issue is found."
-                + review_context
+                "findings array only when no concrete issue is found." + review_context
             ),
             source_repository=request.source_repository,
             workspace_root=request.workspace_root,

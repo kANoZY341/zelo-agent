@@ -358,8 +358,7 @@ class TaskService:
             if (
                 developer_result.worker != developer_request.worker.implementation
                 or developer_result.worker_version != developer_request.worker.cli_version
-                or developer_result.worker_config_version
-                != developer_request.worker.config_version
+                or developer_result.worker_config_version != developer_request.worker.config_version
             ):
                 raise ValueError("developer_worker_identity_mismatch")
             evaluation = evaluate_improvement_candidate(
