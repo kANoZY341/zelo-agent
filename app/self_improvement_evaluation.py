@@ -9,6 +9,7 @@ from app.self_improvement import (
     ImprovementProposal,
     SelfImprovementError,
 )
+from app.self_improvement_planner import candidate_scope_allowed
 
 
 def _trusted_validation_artifact(path: str) -> bool:
@@ -42,7 +43,9 @@ def evaluate_improvement_candidate(
         if not (path in ignored_paths and _trusted_validation_artifact(path))
     )
     scope = set(proposal.draft.scope_paths)
-    scope_valid = bool(changed_files) and all(path in scope for path in changed_files)
+    scope_valid = bool(changed_files) and all(
+        path in scope and candidate_scope_allowed(path) for path in changed_files
+    )
 
     execution_clean = (
         result.worker_exit_code == 0
