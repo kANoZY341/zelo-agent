@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import UUID
 
@@ -83,6 +83,154 @@ def parse_reviewer_report(value: str) -> ReviewerReport:
         return ReviewerReport.model_validate(payload)
     except (ValueError, TypeError, RecursionError):
         raise DeveloperError("reviewer_report_invalid") from None
+
+
+def candidate_content_digest(
+    repo: Path,
+    paths: Iterable[str],
+    ignored_paths: Iterable[str] = (),
+) -> str:
+    """Hash exact promotable candidate bytes, including binary files and deletions."""
+    ignored = set(ignored_paths)
+    canonical_paths = sorted(set(paths), key=lambda value: value.encode("utf-8"))
+    entries: list[dict[str, Any]] = []
+    total = 0
+    for relative in canonical_paths:
+        if relative in ignored:
+            continue
+        pure = PurePosixPath(relative)
+        if (
+            not relative
+            or "\\" in relative
+            or pure.is_absolute()
+            or pure.as_posix() != relative
+            or any(part in {"", ".", "..", ".git"} for part in pure.parts)
+        ):
+            raise DeveloperError("review_path_invalid")
+        parent = no_symlinks(repo.joinpath(*pure.parts[:-1]))
+        if not parent.is_relative_to(repo):
+            raise DeveloperError("workspace_escape")
+        target = parent / pure.name
+        try:
+            before = target.lstat()
+        except FileNotFoundError:
+            entries.append({"path": relative, "operation": "delete"})
+            continue
+        if stat.S_ISREG(before.st_mode):
+            descriptor = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                opened = os.fstat(descriptor)
+                if (
+                    opened.st_dev,
+                    opened.st_ino,
+                    opened.st_mode,
+                    opened.st_size,
+                    opened.st_mtime_ns,
+                    opened.st_ctime_ns,
+                ) != (
+                    before.st_dev,
+                    before.st_ino,
+                    before.st_mode,
+                    before.st_size,
+                    before.st_mtime_ns,
+                    before.st_ctime_ns,
+                ):
+                    raise DeveloperError("review_candidate_changed")
+                digest = hashlib.sha256()
+                size = 0
+                while block := os.read(descriptor, 65536):
+                    size += len(block)
+                    total += len(block)
+                    if total > 64 * 1024 * 1024:
+                        raise DeveloperError("review_candidate_limit")
+                    digest.update(block)
+                after = os.fstat(descriptor)
+            finally:
+                os.close(descriptor)
+            current = target.lstat()
+            stable = (
+                before.st_dev,
+                before.st_ino,
+                before.st_mode,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            )
+            if (
+                (
+                    after.st_dev,
+                    after.st_ino,
+                    after.st_mode,
+                    after.st_size,
+                    after.st_mtime_ns,
+                    after.st_ctime_ns,
+                )
+                != stable
+                or (
+                    current.st_dev,
+                    current.st_ino,
+                    current.st_mode,
+                    current.st_size,
+                    current.st_mtime_ns,
+                    current.st_ctime_ns,
+                )
+                != stable
+            ):
+                raise DeveloperError("review_candidate_changed")
+            entries.append(
+                {
+                    "path": relative,
+                    "operation": "present",
+                    "type": "file",
+                    "mode": "100755" if before.st_mode & 0o111 else "100644",
+                    "size": size,
+                    "sha256": digest.hexdigest(),
+                }
+            )
+            continue
+        if stat.S_ISLNK(before.st_mode):
+            target_value = os.readlink(target)
+            target_bytes = os.fsencode(target_value)
+            after = target.lstat()
+            if (
+                after.st_dev,
+                after.st_ino,
+                after.st_mode,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ) != (
+                before.st_dev,
+                before.st_ino,
+                before.st_mode,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            ):
+                raise DeveloperError("review_candidate_changed")
+            total += len(target_bytes)
+            if total > 64 * 1024 * 1024:
+                raise DeveloperError("review_candidate_limit")
+            entries.append(
+                {
+                    "path": relative,
+                    "operation": "present",
+                    "type": "symlink",
+                    "mode": "120000",
+                    "size": len(target_bytes),
+                    "sha256": hashlib.sha256(target_bytes).hexdigest(),
+                }
+            )
+            continue
+        raise DeveloperError("review_special_file")
+    payload = json.dumps(
+        entries,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def tree_digest(root: Path) -> str:
@@ -675,6 +823,12 @@ class DeveloperRuntime:
             stat_output += json.dumps(name, ensure_ascii=True).encode() + b" (untracked)\n"
         if len(diff) > request.limits.diff_bytes or len(stat_output) > request.limits.stat_bytes:
             raise DeveloperError("diff_limit")
+        candidate_digest = await asyncio.to_thread(
+            candidate_content_digest,
+            repo,
+            paths,
+            ignored_names,
+        )
         return {
             "head": head,
             "head_changed": head != request.base_sha,
@@ -683,6 +837,7 @@ class DeveloperRuntime:
             "git_status": status.decode("utf-8", "replace"),
             "diff_stat": stat_output.decode("utf-8", "replace"),
             "diff": diff.decode("utf-8", "replace"),
+            "candidate_content_sha256": candidate_digest,
         }
 
     async def run_independent_review(
@@ -893,6 +1048,7 @@ class DeveloperRuntime:
             "git_status": "",
             "diff_stat": "",
             "diff": "",
+            "candidate_content_sha256": None,
             "head": None,
             "head_changed": False,
             "validation": [],
@@ -1016,6 +1172,18 @@ class DeveloperRuntime:
                     result["independent_review"] = await self.run_independent_review(
                         repo, request, emit
                     )
+                if passed and result["candidate_content_sha256"] is not None:
+                    current_candidate_digest = await asyncio.to_thread(
+                        candidate_content_digest,
+                        repo,
+                        result["changed_files"],
+                        {
+                            item["path"]
+                            for item in result["ignored_generated_files"]
+                        },
+                    )
+                    if current_candidate_digest != result["candidate_content_sha256"]:
+                        raise DeveloperError("review_candidate_changed")
                 result["validation_passed"] = passed
         except asyncio.CancelledError:
             result.update(error="developer_cancelled", cancelled=True)
