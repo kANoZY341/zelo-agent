@@ -258,7 +258,7 @@ def test_developer_completion_records_inconclusive_without_independent_review(
 
     child = service.get(linked.developer_task_id)
     assert child.developer_spec is not None
-    assert child.developer_spec["reviewer"] is None
+    assert child.developer_spec.reviewer is None
     service.decide(child.approvals[0].id, "approve")
     child_execution = service.claim()
     assert child_execution is not None
