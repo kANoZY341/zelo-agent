@@ -241,6 +241,7 @@ def test_accepted_evaluation_requires_validation_and_clean_review():
         "worker_implementation": "fake",
         "changed_files": ("app/core.py",),
         "final_diff_sha256": "d" * 64,
+        "candidate_content_sha256": "c" * 64,
         "validation_passed": True,
         "scope_valid": True,
         "execution_clean": True,
