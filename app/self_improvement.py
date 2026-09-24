@@ -32,10 +32,28 @@ _FORBIDDEN_PARTS = frozenset(
         "__pycache__",
         "runtime",
         "secrets",
+        "credentials",
         "workspaces",
     }
 )
-_FORBIDDEN_NAMES = frozenset({".env", "auth.json"})
+_FORBIDDEN_NAMES = frozenset(
+    {
+        ".env",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        "auth.json",
+        "credentials.json",
+        "credentials.yaml",
+        "credentials.yml",
+        "secrets.json",
+        "secrets.yaml",
+        "secrets.yml",
+        "service-account.json",
+        "service_account.json",
+        "token.json",
+    }
+)
 _TEXT_SUFFIXES = frozenset({".ini", ".json", ".md", ".py", ".toml", ".txt", ".yaml", ".yml"})
 _TEXT_ROOTS = frozenset({"app", "docs", "migrations", "scripts", "tests"})
 _TEXT_TOP_LEVEL = frozenset(
@@ -85,7 +103,11 @@ def _repo_path(value: str) -> str:
     path = PurePosixPath(value)
     if path.is_absolute() or path.as_posix() != value or "." in path.parts or ".." in path.parts:
         raise ValueError("repository_path_invalid")
-    if any(part in _FORBIDDEN_PARTS for part in path.parts) or path.name in _FORBIDDEN_NAMES:
+    if (
+        any(part in _FORBIDDEN_PARTS for part in path.parts)
+        or path.name in _FORBIDDEN_NAMES
+        or (path.name.startswith(".env.") and path.name != ".env.example")
+    ):
         raise ValueError("repository_path_forbidden")
     return value
 
