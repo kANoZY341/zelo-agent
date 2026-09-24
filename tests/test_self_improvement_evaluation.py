@@ -45,6 +45,7 @@ def developer_result(proposal, **changes) -> DeveloperRunResult:
         "git_status": " M app/core.py",
         "diff_stat": "app/core.py | 1 +",
         "diff": "diff",
+        "candidate_content_sha256": "c" * 64,
         "head": proposal.base_sha,
         "head_changed": False,
         "validation": [],
@@ -98,6 +99,7 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
     assert evaluation.worker_implementation == "fake"
     assert evaluation.changed_files == ("app/core.py",)
     assert evaluation.final_diff_sha256 == hashlib.sha256(b"diff").hexdigest()
+    assert evaluation.candidate_content_sha256 == "c" * 64
     assert evaluation.validation_passed is True
     assert evaluation.scope_valid is True
     assert evaluation.execution_clean is True
@@ -118,6 +120,7 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
         ({"head_changed": True}, "rejected_candidate"),
         ({"cancelled": True}, "rejected_candidate"),
         ({"changed_files": []}, "rejected_candidate"),
+        ({"candidate_content_sha256": None}, "rejected_candidate"),
         ({"independent_review": None}, "inconclusive"),
     ],
 )
