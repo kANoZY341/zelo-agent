@@ -335,7 +335,9 @@ class PromotionReviewer:
         if expected_diff_sha256 is not None:
             repo = self._owned_repo(task_id, attempt_id)
             current = await self.runtime.review(repo, request)
-            current_diff_sha256 = hashlib.sha256(current["diff"].encode("utf-8")).hexdigest()
+            current_diff_sha256 = hashlib.sha256(
+                current["diff"].encode("utf-8")
+            ).hexdigest()
             if current_diff_sha256 != expected_diff_sha256:
                 raise DeveloperError("promotion_candidate_changed")
         head, manifest, ignored = first
