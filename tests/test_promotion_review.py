@@ -35,7 +35,15 @@ def owned_candidate(runtime):
     return PromotionReviewer(runtime), repo, request, task_id, attempt_id
 
 
-def create_review(reviewer, task_id, attempt_id, request, *, expected_diff_sha256=None):
+def create_review(
+    reviewer,
+    task_id,
+    attempt_id,
+    request,
+    *,
+    expected_diff_sha256=None,
+    expected_candidate_content_sha256=None,
+):
     return asyncio.run(
         reviewer.create(
             task_id,
@@ -43,6 +51,7 @@ def create_review(reviewer, task_id, attempt_id, request, *, expected_diff_sha25
             request,
             validation_passed=True,
             expected_diff_sha256=expected_diff_sha256,
+            expected_candidate_content_sha256=expected_candidate_content_sha256,
         )
     )
 
@@ -95,9 +104,17 @@ def test_review_rejects_candidate_changed_after_evaluation(developer_case):
 def test_binary_content_is_hashed_exactly(developer_case):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     content = b"\x00\xffbinary\r\ncontent\x00"
-    (repo / "payload.bin").write_bytes(content)
+    target = repo / "payload.bin"
+    target.write_bytes(content)
+    reviewed = asyncio.run(reviewer.runtime.review(repo, request))
 
-    review = create_review(reviewer, task_id, attempt_id, request)
+    review = create_review(
+        reviewer,
+        task_id,
+        attempt_id,
+        request,
+        expected_candidate_content_sha256=reviewed["candidate_content_sha256"],
+    )
     entry = review.candidate_manifest[0]
 
     assert entry.path == "payload.bin"
@@ -106,6 +123,17 @@ def test_binary_content_is_hashed_exactly(developer_case):
     assert entry.mode == "100644"
     assert entry.size == len(content)
     assert entry.sha256 == hashlib.sha256(content).hexdigest()
+
+    target.write_bytes(b"\x01\xffbinary\r\ncontent\x00")
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_candidate_content_sha256=reviewed["candidate_content_sha256"],
+        )
 
 
 def test_symlink_hashes_target_bytes_without_following_target(developer_case):
