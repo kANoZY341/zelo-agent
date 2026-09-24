@@ -168,7 +168,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0010_capacity_backoff"
+                == "0011_self_improvement"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -200,6 +200,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
             )
+            assert "self_improvement_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
             columns = {column["name"] for column in inspect(database.engine).get_columns("tasks")}
             assert "developer_spec" in columns
             assert "promotion_spec" in columns
@@ -207,6 +212,19 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert "release_spec" in columns
             assert "capacity_backoff_attempts" in columns
             assert "capacity_backoff_until" in columns
+            trigger_names = {
+                row[0]
+                for row in session.execute(
+                    text(
+                        "SELECT name FROM sqlite_master "
+                        "WHERE type = 'trigger' AND name LIKE 'running_attempt_%_exclusive'"
+                    )
+                )
+            }
+            assert trigger_names == {
+                "running_attempt_insert_exclusive",
+                "running_attempt_update_exclusive",
+            }
             assert not any(
                 table.startswith("_alembic_tmp_")
                 for table in inspect(database.engine).get_table_names()
@@ -233,6 +251,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             "0009_worker_concurrency",
             "0010_capacity_backoff",
             "ADD COLUMN capacity_backoff_attempts",
+        ),
+        (
+            "0010_capacity_backoff",
+            "0011_self_improvement",
+            "DROP TABLE tasks",
         ),
     ],
 )
@@ -348,7 +371,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0010_capacity_backoff"
+                "0011_self_improvement"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1

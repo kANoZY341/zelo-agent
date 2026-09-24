@@ -9,29 +9,33 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - zelo-ci
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install system prerequisites
+      - name: Verify self-hosted CI prerequisites
         run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap python3-venv
-      - name: Allow Bubblewrap user namespaces on Ubuntu CI
-        run: |
-          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
+          python3 --version
+          git --version
+          bwrap --version
+          test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "0"
       - name: Create trusted validation environment
         run: |
+          rm -rf .venv
           /usr/bin/python3 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -r requirements-dev.txt
+      - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - run: .venv/bin/python -m pytest -q

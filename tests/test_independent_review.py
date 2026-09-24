@@ -20,12 +20,14 @@ class ReviewWorker(FakeWorker):
     def __init__(self, implementation: str = "reviewer_fake", *, mutate: bool = False):
         super().__init__()
         self.mutate = mutate
+        self.review_requests = []
         self.worker_identity = self.worker_identity.model_copy(
             update={"implementation": implementation}
         )
 
     async def run(self, request, repo):
         self.calls.append(repo)
+        self.review_requests.append(request)
         started = datetime.now(UTC)
         if self.mutate:
             (repo / "REVIEWER_MUTATION.txt").write_text("forbidden\n")
@@ -225,6 +227,9 @@ def test_independent_reviewer_executes_read_only_and_returns_structured_report(d
     assert result["report"]["summary"] == "Independent review complete"
     assert result["report"]["findings"][0]["severity"] == "low"
     assert reviewer.calls == [repo]
+    assert reviewer.review_requests[0].instruction.startswith(
+        "Review the current checkout independently"
+    )
     names = [name for name, _ in events]
     assert names == [
         "reviewer_capacity_claimed",
@@ -255,3 +260,21 @@ def test_reviewer_mutation_is_detected_and_fails_closed(developer_case):
     names = [name for name, _ in events]
     assert "review_failed" in names
     assert names[-1] == "reviewer_capacity_released"
+
+
+@pytest.mark.skipif(not Path("/usr/bin/bwrap").is_file(), reason="Bubblewrap required")
+def test_independent_reviewer_receives_approval_bound_review_context(developer_case):
+    runtime, _, reviewer = review_runtime(developer_case)
+    request = runtime.request("test", "zelo_core", 30).model_copy(
+        update={"review_instruction": "Frozen acceptance criterion: tests stay green."}
+    )
+    repo = runtime.path(str(uuid4()))
+    repo.parent.mkdir(parents=True)
+    asyncio.run(runtime.prepare(repo, request))
+
+    asyncio.run(runtime.run_independent_review(repo, request, lambda *_: None))
+
+    assert len(reviewer.review_requests) == 1
+    review_request = reviewer.review_requests[0]
+    assert "Approved review context:" in review_request.instruction
+    assert "Frozen acceptance criterion: tests stay green." in review_request.instruction

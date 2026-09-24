@@ -29,9 +29,21 @@ from app.schemas import (
     ApprovalResponse,
     AttemptResponse,
     AuditResponse,
+    DeveloperPayload,
+    DeveloperRunInput,
+    DeveloperRunResult,
     TaskCreate,
     TaskPage,
     TaskResponse,
+)
+from app.self_improvement import SelfImprovementError
+from app.self_improvement_evaluation import evaluate_improvement_candidate
+from app.self_improvement_planner import planner_configuration_version
+from app.self_improvement_runtime import (
+    SelfImprovementPreparation,
+    SelfImprovementRunResult,
+    developer_instruction,
+    developer_review_instruction,
 )
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
@@ -201,6 +213,189 @@ class TaskService:
             worker_id = request.worker_selection.descriptor.worker_id
             counts[worker_id] = counts.get(worker_id, 0) + 1
         return counts
+
+    def _prepare_developer_request(
+        self,
+        session: Session,
+        *,
+        payload: dict[str, Any],
+        timeout_seconds: float,
+        capabilities: tuple[str, ...] = ("zelo_core_development",),
+        review_instruction: str | None = None,
+    ) -> tuple[DeveloperRequest, dict[str, int]]:
+        if self.developer_runtime is None:
+            raise DomainError("Developer runtime unavailable", 503)
+        running_counts = self._developer_running_counts(session)
+        try:
+            if capabilities == ("zelo_core_development",):
+                request = self.developer_runtime.request(
+                    payload["instruction"],
+                    payload["validation_profile"],
+                    timeout_seconds,
+                    running_counts=running_counts,
+                )
+            else:
+                request = self.developer_runtime.request(
+                    payload["instruction"],
+                    payload["validation_profile"],
+                    timeout_seconds,
+                    capabilities=capabilities,
+                    running_counts=running_counts,
+                )
+        except DeveloperRuntimeError as error:
+            raise DomainError(error.args[0], 422) from None
+        if review_instruction is not None:
+            request = request.model_copy(update={"review_instruction": review_instruction})
+        return request, running_counts
+
+    @staticmethod
+    def _audit_developer_binding(
+        session: Session,
+        task: Task,
+        request: DeveloperRequest,
+        running_counts: dict[str, int],
+    ) -> None:
+        selection = request.worker_selection
+        audit(
+            session,
+            task,
+            "supervisor_routing_requested",
+            role=selection.requested_role,
+            capabilities=list(selection.requested_capabilities),
+            routing_policy=selection.routing_policy,
+        )
+        running_count = running_counts.get(selection.descriptor.worker_id, 0)
+        audit(
+            session,
+            task,
+            "supervisor_worker_selected",
+            worker_id=selection.descriptor.worker_id,
+            implementation=selection.descriptor.implementation,
+            registry_version=selection.registry_version,
+            priority=selection.descriptor.priority,
+            running_count=running_count,
+            available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
+        )
+        if request.reviewer is not None:
+            reviewer_selection = request.reviewer.worker_selection
+            audit(
+                session,
+                task,
+                "reviewer_selected",
+                worker_id=reviewer_selection.descriptor.worker_id,
+                implementation=reviewer_selection.descriptor.implementation,
+                registry_version=reviewer_selection.registry_version,
+                authority_profile=reviewer_selection.authority_profile,
+                excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
+            )
+
+    @staticmethod
+    def _self_improvement_parent(
+        session: Session,
+        developer_task: Task,
+    ) -> tuple[Task, SelfImprovementRunResult] | None:
+        key = developer_task.idempotency_key
+        if not key or not key.startswith("self-improvement:"):
+            return None
+        parts = key.split(":")
+        if len(parts) != 3 or len(parts[1]) != 36 or len(parts[2]) != 64:
+            return None
+
+        parent = session.get(Task, parts[1])
+        if (
+            parent is None
+            or parent.kind != "self_improvement_run"
+            or parent.status != State.SUCCEEDED
+            or not isinstance(parent.result, dict)
+        ):
+            return None
+        try:
+            run_result = SelfImprovementRunResult.model_validate(parent.result)
+        except ValueError:
+            return None
+        if (
+            run_result.developer_task_id != developer_task.id
+            or run_result.developer_action_hash != developer_task.action_hash
+            or run_result.proposal.proposal_fingerprint != parts[2]
+        ):
+            return None
+        return parent, run_result
+
+    def _evaluate_self_improvement_child(
+        self,
+        session: Session,
+        task: Task,
+        attempt: TaskAttempt,
+        result: dict[str, Any] | None,
+    ) -> None:
+        linked = self._self_improvement_parent(session, task)
+        if linked is None:
+            return
+        parent, run_result = linked
+        proposal = run_result.proposal
+        if result is None:
+            audit(
+                session,
+                parent,
+                "self_improvement_evaluation_completed",
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                status="inconclusive",
+                reason="developer_result_unavailable",
+            )
+            return
+        try:
+            developer_result = DeveloperRunResult.model_validate(result)
+            developer_request = DeveloperRequest.model_validate(task.developer_spec)
+            if task.payload.get("instruction") != developer_instruction(
+                run_result
+            ) or developer_request.review_instruction != developer_review_instruction(run_result):
+                raise ValueError("self_improvement_child_context_mismatch")
+            review = developer_result.independent_review
+            reviewer = developer_request.reviewer
+            if review is not None:
+                if reviewer is None:
+                    raise ValueError("unexpected_independent_review")
+                review_selection = reviewer.worker_selection
+                if (
+                    review.worker_id != review_selection.descriptor.worker_id
+                    or review.implementation != review_selection.descriptor.implementation
+                    or review.worker_version != reviewer.worker.cli_version
+                ):
+                    raise ValueError("independent_review_identity_mismatch")
+            if (
+                developer_result.worker != developer_request.worker.implementation
+                or developer_result.worker_version != developer_request.worker.cli_version
+                or developer_result.worker_config_version != developer_request.worker.config_version
+            ):
+                raise ValueError("developer_worker_identity_mismatch")
+            evaluation = evaluate_improvement_candidate(
+                proposal,
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                worker_id=developer_request.worker_selection.descriptor.worker_id,
+                worker_implementation=developer_request.worker.implementation,
+                review_context_bound=developer_request.review_instruction is not None,
+                result=developer_result,
+            )
+        except (ValueError, SelfImprovementError):
+            audit(
+                session,
+                parent,
+                "self_improvement_evaluation_completed",
+                developer_task_id=task.id,
+                developer_attempt_id=attempt.id,
+                status="inconclusive",
+                reason="evaluation_evidence_invalid",
+            )
+            return
+
+        audit(
+            session,
+            parent,
+            "self_improvement_evaluation_completed",
+            **evaluation.model_dump(mode="json"),
+        )
 
     def _new_approval(self, session: Session, task: Task) -> Approval:
         approval = Approval(
@@ -695,11 +890,14 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
-            if request.kind in {"ai_prompt", "agent_run"}:
+            if request.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
+                profile = (
+                    payload["profile"] if request.kind != "self_improvement_run" else "general"
+                )
                 try:
-                    alias, model = self.gateway.select(payload["profile"])
+                    alias, model = self.gateway.select(profile)
                 except Exception:
                     raise DomainError("Invalid model profile", 422) from None
                 task.selected_alias, task.selected_model = alias, model
@@ -710,7 +908,7 @@ class TaskService:
                     request.timeout_seconds,
                     1,
                     {
-                        "profile": payload["profile"],
+                        "profile": profile,
                         "alias": alias,
                         "model": model,
                         "config_version": task.config_version,
@@ -723,20 +921,14 @@ class TaskService:
                     self.tool_gateway.validate(payload["tool"], payload["arguments"])
                 except ToolRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
+            developer_request = None
             developer_running_counts: dict[str, int] = {}
             if request.kind == "developer_run":
-                if self.developer_runtime is None:
-                    raise DomainError("Developer runtime unavailable", 503)
-                developer_running_counts = self._developer_running_counts(session)
-                try:
-                    developer_request = self.developer_runtime.request(
-                        payload["instruction"],
-                        payload["validation_profile"],
-                        request.timeout_seconds,
-                        running_counts=developer_running_counts,
-                    )
-                except DeveloperRuntimeError as error:
-                    raise DomainError(error.args[0], 422) from None
+                developer_request, developer_running_counts = self._prepare_developer_request(
+                    session,
+                    payload=payload,
+                    timeout_seconds=request.timeout_seconds,
+                )
                 task.developer_spec = developer_request.model_dump(mode="json")
                 task.action_hash = action_hash(
                     request.kind,
@@ -749,41 +941,15 @@ class TaskService:
             session.flush()
             audit(session, task, "task_submitted")
             if task.kind == "developer_run":
-                selection = DeveloperRequest.model_validate(task.developer_spec).worker_selection
-                audit(
+                if developer_request is None:
+                    raise DomainError("Developer routing state unavailable", 503)
+                self._audit_developer_binding(
                     session,
                     task,
-                    "supervisor_routing_requested",
-                    role=selection.requested_role,
-                    capabilities=list(selection.requested_capabilities),
-                    routing_policy=selection.routing_policy,
+                    developer_request,
+                    developer_running_counts,
                 )
-                running_count = developer_running_counts.get(selection.descriptor.worker_id, 0)
-                audit(
-                    session,
-                    task,
-                    "supervisor_worker_selected",
-                    worker_id=selection.descriptor.worker_id,
-                    implementation=selection.descriptor.implementation,
-                    registry_version=selection.registry_version,
-                    priority=selection.descriptor.priority,
-                    running_count=running_count,
-                    available_capacity=max(0, selection.descriptor.max_concurrency - running_count),
-                )
-                developer_spec = DeveloperRequest.model_validate(task.developer_spec)
-                if developer_spec.reviewer is not None:
-                    reviewer_selection = developer_spec.reviewer.worker_selection
-                    audit(
-                        session,
-                        task,
-                        "reviewer_selected",
-                        worker_id=reviewer_selection.descriptor.worker_id,
-                        implementation=reviewer_selection.descriptor.implementation,
-                        registry_version=reviewer_selection.registry_version,
-                        authority_profile=reviewer_selection.authority_profile,
-                        excluded_worker_ids=list(reviewer_selection.excluded_worker_ids),
-                    )
-            if task.kind in {"ai_prompt", "agent_run"}:
+            if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
                 audit(
                     session,
                     task,
@@ -813,6 +979,160 @@ class TaskService:
                 )
                 self._new_approval(session, task)
             return snapshot(session, task), True
+
+    def finish_self_improvement(
+        self,
+        execution: Execution,
+        preparation: SelfImprovementPreparation,
+        instruction: str,
+    ) -> SelfImprovementRunResult | None:
+        if execution.kind != "self_improvement_run":
+            raise DomainError("Self-improvement execution kind mismatch")
+        child_request = DeveloperRunInput(
+            kind="developer_run",
+            payload=DeveloperPayload(
+                instruction=instruction,
+                validation_profile="zelo_core",
+            ),
+            timeout_seconds=self.settings.developer_timeout_seconds,
+        )
+        child_payload = child_request.payload.model_dump(mode="json")
+        child_request_hash = fingerprint(child_request.model_dump(mode="json"))
+        child_key = (
+            f"self-improvement:{execution.task_id}:{preparation.proposal.proposal_fingerprint}"
+        )
+
+        with self.database.transaction() as session:
+            parent = require_task(session, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if attempt is None or attempt.outcome != State.RUNNING:
+                raise DomainError("Attempt is not running")
+            if parent.kind != "self_improvement_run":
+                raise DomainError("Self-improvement parent kind mismatch")
+            if parent.payload.get("goal") != preparation.goal:
+                raise DomainError("Self-improvement goal changed")
+            if (
+                parent.selected_alias != preparation.planner_alias
+                or parent.selected_model != preparation.planner_model
+                or parent.config_version is None
+                or preparation.proposal.planner_config_version
+                != planner_configuration_version(
+                    model_config_version=parent.config_version,
+                    alias=preparation.planner_alias,
+                    model=preparation.planner_model,
+                )
+            ):
+                raise DomainError("Self-improvement planner binding changed")
+
+            if parent.cancel_requested:
+                parent.capacity_backoff_attempts = 0
+                parent.capacity_backoff_until = None
+                transition(session, parent, State.CANCELLED)
+                parent.result = None
+                parent.error = "cancelled_by_operator"
+                attempt.outcome = State.CANCELLED
+                attempt.result = None
+                attempt.error = "cancelled_by_operator"
+                attempt.ended_at = utcnow()
+                audit(
+                    session,
+                    parent,
+                    "cancellation_completed",
+                    attempt_id=attempt.id,
+                )
+                audit(
+                    session,
+                    parent,
+                    "self_improvement_failed",
+                    attempt_id=attempt.id,
+                    reason="cancelled_by_operator",
+                )
+                return None
+
+            if session.scalar(select(Task).where(Task.idempotency_key == child_key)) is not None:
+                raise DomainError("Self-improvement developer child already exists")
+
+            self._check_capacity(session)
+            developer_request, running_counts = self._prepare_developer_request(
+                session,
+                payload=child_payload,
+                timeout_seconds=child_request.timeout_seconds,
+                capabilities=tuple(preparation.proposal.draft.required_capabilities),
+                review_instruction=developer_review_instruction(preparation),
+            )
+            if developer_request.base_sha != preparation.base_sha:
+                raise DomainError("self_improvement_source_changed")
+
+            developer_spec = developer_request.model_dump(mode="json")
+            child = Task(
+                kind="developer_run",
+                payload=child_payload,
+                timeout_seconds=child_request.timeout_seconds,
+                status=State.AWAITING_APPROVAL,
+                action_version=1,
+                action_hash=action_hash(
+                    "developer_run",
+                    child_payload,
+                    child_request.timeout_seconds,
+                    1,
+                    developer_spec,
+                ),
+                idempotency_key=child_key,
+                request_hash=child_request_hash,
+                developer_spec=developer_spec,
+            )
+            session.add(child)
+            session.flush()
+            audit(session, child, "task_submitted")
+            self._audit_developer_binding(session, child, developer_request, running_counts)
+            audit(
+                session,
+                child,
+                "state_transition",
+                previous=None,
+                target=State.AWAITING_APPROVAL,
+            )
+            approval = self._new_approval(session, child)
+
+            result = SelfImprovementRunResult(
+                **preparation.model_dump(mode="python"),
+                developer_task_id=child.id,
+                developer_approval_id=approval.id,
+                developer_action_hash=child.action_hash,
+            )
+            result_json = result.model_dump(mode="json")
+
+            parent.capacity_backoff_attempts = 0
+            parent.capacity_backoff_until = None
+            transition(session, parent, State.SUCCEEDED)
+            parent.result = result_json
+            parent.error = None
+            attempt.outcome = State.SUCCEEDED
+            attempt.result = result_json
+            attempt.error = None
+            attempt.ended_at = utcnow()
+            audit(session, parent, "execution_completed", attempt_id=attempt.id)
+            audit(
+                session,
+                parent,
+                "self_improvement_proposal_created",
+                attempt_id=attempt.id,
+                base_sha=preparation.base_sha,
+                inspection_fingerprint=preparation.inspection_fingerprint,
+                proposal_fingerprint=preparation.proposal.proposal_fingerprint,
+                risk=preparation.proposal.draft.risk,
+            )
+            audit(
+                session,
+                parent,
+                "self_improvement_developer_prepared",
+                attempt_id=attempt.id,
+                developer_task_id=child.id,
+                developer_approval_id=approval.id,
+                developer_action_hash=child.action_hash,
+                worker_id=developer_request.worker_selection.descriptor.worker_id,
+            )
+            return result
 
     def model_event(self, task_id: str, event: str, attempt_id: str, **details: Any) -> None:
         with self.database.transaction() as session:
@@ -862,12 +1182,16 @@ class TaskService:
 
     def _valid_action(self, task: Task, approval: Approval, *, live: bool = True) -> bool:
         selection = None
-        if task.kind in {"ai_prompt", "agent_run"}:
+        if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
             selection = {
                 "alias": task.selected_alias,
                 "model": task.selected_model,
                 "config_version": task.config_version,
-                "profile": task.payload.get("profile"),
+                "profile": (
+                    "general"
+                    if task.kind == "self_improvement_run"
+                    else task.payload.get("profile")
+                ),
             }
         elif task.kind == "developer_run":
             selection = task.developer_spec
@@ -1101,6 +1425,14 @@ class TaskService:
             task = require_task(session, task_id)
             if task.status == State.RUNNING:
                 raise DomainError(f"Cannot retry task in state {task.status}")
+            if (
+                task.kind == "developer_run"
+                and task.idempotency_key
+                and task.idempotency_key.startswith("self-improvement:")
+            ):
+                raise DomainError(
+                    "Self-improvement developer child requires a fresh self-improvement run"
+                )
             approval_kinds = {
                 "approval_demo",
                 "ai_prompt",
@@ -1167,12 +1499,16 @@ class TaskService:
                 task.timeout_seconds,
                 task.action_version,
                 {
-                    "profile": task.payload.get("profile"),
+                    "profile": (
+                        "general"
+                        if task.kind == "self_improvement_run"
+                        else task.payload.get("profile")
+                    ),
                     "alias": task.selected_alias,
                     "model": task.selected_model,
                     "config_version": task.config_version,
                 }
-                if task.kind in {"ai_prompt", "agent_run"}
+                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -1315,6 +1651,22 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            if task.kind == "self_improvement_run":
+                try:
+                    if self.gateway is None:
+                        raise ValueError("gateway_unavailable")
+                    alias, model = self.gateway.select("general")
+                    if (
+                        alias != task.selected_alias
+                        or model != task.selected_model
+                        or self.gateway.config_version != task.config_version
+                    ):
+                        raise ValueError("planner_selection_changed")
+                except Exception:
+                    task.error = "planner_selection_changed"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -1338,9 +1690,13 @@ class TaskService:
                     "alias": task.selected_alias,
                     "model": task.selected_model,
                     "config_version": task.config_version,
-                    "profile": task.payload.get("profile"),
+                    "profile": (
+                        "general"
+                        if task.kind == "self_improvement_run"
+                        else task.payload.get("profile")
+                    ),
                 }
-                if task.kind in {"ai_prompt", "agent_run"}
+                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -1534,6 +1890,12 @@ class TaskService:
                     reason=error,
                     workspace=result.get("worktree") if result else None,
                 )
+                self._evaluate_self_improvement_child(
+                    session,
+                    task,
+                    attempt,
+                    result,
+                )
             if task.kind == "promotion_run":
                 details = (
                     {
@@ -1597,6 +1959,28 @@ class TaskService:
                     session,
                     task,
                     "agent_completed" if outcome == State.SUCCEEDED else "agent_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+            if task.kind == "self_improvement_run":
+                details = (
+                    {
+                        "base_sha": result["base_sha"],
+                        "inspection_fingerprint": result["inspection_fingerprint"],
+                        "proposal_fingerprint": result["proposal"]["proposal_fingerprint"],
+                        "risk": result["proposal"]["draft"]["risk"],
+                    }
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                audit(
+                    session,
+                    task,
+                    (
+                        "self_improvement_proposal_created"
+                        if outcome == State.SUCCEEDED
+                        else "self_improvement_failed"
+                    ),
                     attempt_id=attempt.id,
                     **details,
                 )
@@ -1752,6 +2136,14 @@ class TaskService:
                         session,
                         task,
                         "agent_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "self_improvement_run":
+                    audit(
+                        session,
+                        task,
+                        "self_improvement_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

@@ -7,10 +7,16 @@ from typing import Any
 from app.agent import AgentRuntime, AgentRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
-from app.policy import State
+from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
+from app.self_improvement import SelfImprovementError
+from app.self_improvement_runtime import (
+    SelfImprovementPreparation,
+    SelfImprovementRuntime,
+    developer_instruction,
+)
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.workers import RESULT_MODELS, Worker, execute
@@ -29,11 +35,13 @@ class Runner:
         promotion_runtime: PromotionRuntime | None = None,
         promotion_merge_runtime: PromotionMergeRuntime | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
+        self_improvement_runtime: SelfImprovementRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
+        self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
         self.promotion_merge_runtime = promotion_merge_runtime
@@ -169,6 +177,8 @@ class Runner:
             operation = asyncio.create_task(self._tool_worker(execution))
         elif execution.kind == "agent_run":
             operation = asyncio.create_task(self._agent_worker(execution))
+        elif execution.kind == "self_improvement_run":
+            operation = asyncio.create_task(self._self_improvement_worker(execution))
         elif execution.kind == "developer_run":
             operation = asyncio.create_task(self._developer_worker(execution))
         elif execution.kind == "promotion_run":
@@ -191,6 +201,17 @@ class Runner:
                 if execution.kind == "tool_call"
                 else RESULT_MODELS[execution.kind].model_validate(raw).model_dump(mode="json")
             )
+            if execution.kind == "self_improvement_run":
+                preparation = SelfImprovementPreparation.model_validate(result)
+                instruction = developer_instruction(preparation)
+                await asyncio.to_thread(
+                    self.service.finish_self_improvement,
+                    execution,
+                    preparation,
+                    instruction,
+                )
+                return
+
             outcome = (
                 State.FAILED
                 if execution.kind == "developer_run" and not result["validation_passed"]
@@ -235,6 +256,12 @@ class Runner:
                 )
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
+        except DomainError as error:
+            if execution.kind != "self_improvement_run":
+                raise
+            self.service.finish(execution, State.FAILED, error=error.message[:256])
+        except SelfImprovementError as error:
+            self.service.finish(execution, State.FAILED, error=error.args[0])
         except DeveloperRuntimeError as error:
             if error.args and error.args[0] == "developer_worker_capacity_exhausted":
                 self.service.defer(execution, error=error.args[0])
@@ -359,6 +386,31 @@ class Runner:
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
         )
+
+    async def _self_improvement_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.self_improvement_runtime is None:
+            raise SelfImprovementError("self_improvement_runtime_unavailable")
+        self.service.model_event(
+            execution.task_id,
+            "self_improvement_inspection_started",
+            execution.attempt_id,
+        )
+        result = await self.self_improvement_runtime.prepare(
+            execution.payload["goal"],
+            selected_alias=execution.selected_alias,
+            selected_model=execution.selected_model,
+        )
+        self.service.model_event(
+            execution.task_id,
+            "self_improvement_inspection_completed",
+            execution.attempt_id,
+            base_sha=result.base_sha,
+            inspection_fingerprint=result.inspection_fingerprint,
+            tracked_path_count=result.tracked_path_count,
+            inspected_content_file_count=result.inspected_content_file_count,
+            content_truncated=result.content_truncated,
+        )
+        return result.model_dump(mode="json")
 
     async def _developer_worker(self, execution: Execution) -> dict[str, Any]:
         if self.developer_runtime is None or execution.developer_request is None:

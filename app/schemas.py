@@ -56,6 +56,16 @@ class AgentRunInput(TaskInput):
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
 
 
+class SelfImprovementPayload(StrictModel):
+    goal: str = Field(min_length=1, max_length=1024)
+
+
+class SelfImprovementRunInput(TaskInput):
+    kind: Literal["self_improvement_run"]
+    payload: SelfImprovementPayload
+    timeout_seconds: float = Field(default=120.0, ge=1.0, le=600.0, allow_inf_nan=False)
+
+
 class DeveloperPayload(StrictModel):
     instruction: str = Field(min_length=1, max_length=65536)
     validation_profile: Literal["zelo_core"] = "zelo_core"
@@ -138,6 +148,7 @@ TaskCreate = Annotated[
     | AIPromptInput
     | ToolCallInput
     | AgentRunInput
+    | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
     | MergeRunInput
@@ -258,6 +269,7 @@ class TaskResponse(StrictModel):
         "ai_prompt",
         "tool_call",
         "agent_run",
+        "self_improvement_run",
         "developer_run",
         "promotion_run",
         "merge_run",
@@ -268,6 +280,7 @@ class TaskResponse(StrictModel):
         | AIPromptPayload
         | ToolCallPayload
         | AgentRunPayload
+        | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
         | MergePayload
