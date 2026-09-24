@@ -308,4 +308,3 @@ def test_reviewer_capacity_contention_does_not_requeue_completed_implementation(
     assert len(producer.calls) == 1
     assert result["error"] == "reviewer_worker_capacity_exhausted"
     assert result["validation_passed"] is False
-
