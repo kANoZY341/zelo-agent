@@ -284,7 +284,6 @@ def test_developer_completion_records_inconclusive_without_independent_review(
     assert evaluations[0].details["independent_review_present"] is False
 
 
-
 def test_self_improvement_child_retry_requires_fresh_parent_run(developer_case, database):
     provider = PlannerProvider()
     gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "retry-config")
@@ -348,9 +347,7 @@ def test_self_improvement_child_retry_requires_fresh_parent_run(developer_case, 
         service.retry(child.id)
 
 
-def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(
-    developer_case, database
-):
+def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(developer_case, database):
     source = developer_case.source_repository
     docs = source / "docs"
     docs.mkdir()
