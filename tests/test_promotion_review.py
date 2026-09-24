@@ -35,7 +35,9 @@ def owned_candidate(runtime):
     return PromotionReviewer(runtime), repo, request, task_id, attempt_id
 
 
-def create_review(reviewer, task_id, attempt_id, request, *, expected_diff_sha256=None):
+def create_review(
+    reviewer, task_id, attempt_id, request, *, expected_diff_sha256=None
+):
     return asyncio.run(
         reviewer.create(
             task_id,
