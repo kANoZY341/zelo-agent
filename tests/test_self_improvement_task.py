@@ -270,6 +270,70 @@ def test_self_improvement_cancellation_before_child_creation_stops_cycle(develop
     assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
 
 
+def test_self_improvement_timeout_fails_closed_without_developer_child(settings, database):
+    provider = PlannerProvider()
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "timeout-config")
+    service = TaskService(database, settings, gateway=gateway)
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=1,
+        ),
+        "self-improvement-timeout",
+    )
+    assert created is True
+    execution = service.claim()
+    assert execution is not None
+
+    class HangingRuntime:
+        async def prepare(self, *_args, **_kwargs):
+            await asyncio.Future()
+
+    runner = Runner(
+        service,
+        gateway=gateway,
+        self_improvement_runtime=HangingRuntime(),
+    )
+    asyncio.run(runner._run(execution))
+
+    failed = service.get(parent.id)
+    assert failed.status == State.FAILED
+    assert failed.error == "execution_timeout"
+    assert failed.result is None
+    assert failed.attempts[-1].outcome == State.FAILED
+    assert failed.attempts[-1].error == "execution_timeout"
+    assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
+
+
+def test_self_improvement_startup_recovery_interrupts_running_parent(settings, database):
+    provider = PlannerProvider()
+    gateway = ModelGateway(provider, "qwen3:4b-instruct", "deepseek-r1:7b", "restart-config")
+    service = TaskService(database, settings, gateway=gateway)
+    parent, created = service.submit(
+        SelfImprovementRunInput(
+            kind="self_improvement_run",
+            payload={"goal": "Improve Zelo safely."},
+            timeout_seconds=120,
+        ),
+        "self-improvement-restart",
+    )
+    assert created is True
+    execution = service.claim()
+    assert execution is not None
+    assert service.get(parent.id).status == State.RUNNING
+
+    service.recover()
+
+    recovered = service.get(parent.id)
+    assert recovered.status == State.INTERRUPTED
+    assert recovered.result is None
+    assert recovered.error == "process_interrupted"
+    assert recovered.attempts[-1].outcome == State.INTERRUPTED
+    assert recovered.attempts[-1].error == "process_interrupted"
+    assert all(task.kind != "developer_run" for task in service.list_tasks(10, 0).items)
+
+
 def test_developer_completion_records_inconclusive_without_independent_review(
     developer_case, database
 ):
