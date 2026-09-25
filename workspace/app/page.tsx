@@ -97,10 +97,16 @@ export default function Home() {
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const latestTask = useMemo(
-    () => [...messages].reverse().find((message) => message.task)?.task ?? null,
-    [messages],
-  );
+  const latestTask = useMemo(() => {
+    const tasks = messages
+      .map((message) => message.task)
+      .filter((task): task is TaskProjection => Boolean(task));
+    return (
+      [...tasks].reverse().find((task) => ACTIVE_TASK_STATES.has(task.status)) ??
+      tasks.at(-1) ??
+      null
+    );
+  }, [messages]);
 
   const refreshConversation = useCallback(
     async (id: string): Promise<Conversation> => {
