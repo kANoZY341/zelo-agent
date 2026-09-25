@@ -122,15 +122,6 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
         ({"cancelled": True}, "rejected_candidate"),
         ({"changed_files": []}, "rejected_candidate"),
         ({"candidate_content_sha256": None}, "rejected_candidate"),
-        (
-            {
-                "independent_review": {
-                    **developer_result(proposal).model_dump(mode="json")["independent_review"],
-                    "candidate_content_sha256": "d" * 64,
-                }
-            },
-            "rejected_candidate",
-        ),
         ({"independent_review": None}, "inconclusive"),
     ],
 )
@@ -140,6 +131,22 @@ def test_evaluator_fails_closed_on_untrusted_or_unproven_candidate(tmp_path, cha
     evaluation = evaluate(proposal, developer_result(proposal, **changes))
 
     assert evaluation.status == expected
+
+
+def test_evaluator_rejects_review_bound_to_different_candidate(tmp_path):
+    proposal = frozen_proposal(tmp_path)
+    result = developer_result(proposal)
+    assert result.independent_review is not None
+    mismatched_review = result.independent_review.model_copy(
+        update={"candidate_content_sha256": "d" * 64}
+    )
+    evaluation = evaluate(
+        proposal,
+        result.model_copy(update={"independent_review": mismatched_review}),
+    )
+
+    assert evaluation.status == "rejected_candidate"
+    assert evaluation.acceptance_criteria_proven is False
 
 
 def test_high_or_critical_reviewer_finding_rejects_candidate(tmp_path):
