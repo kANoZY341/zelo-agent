@@ -95,9 +95,7 @@ _HIGH_RISK_EXACT = frozenset(
 )
 _HIGH_RISK_NAMESPACE_STEMS = tuple(
     sorted(
-        path[:-3]
-        for path in _HIGH_RISK_EXACT
-        if path.startswith("app/") and path.endswith(".py")
+        path[:-3] for path in _HIGH_RISK_EXACT if path.startswith("app/") and path.endswith(".py")
     )
 )
 
@@ -172,7 +170,9 @@ def _high_risk_scope(path: str) -> bool:
         path in _HIGH_RISK_EXACT
         or path.startswith(_HIGH_RISK_PREFIXES)
         or any(
-            path.startswith(namespace + "/") or path.startswith(namespace + ".")
+            path == namespace
+            or path.startswith(namespace + "/")
+            or path.startswith(namespace + ".")
             for namespace in _HIGH_RISK_NAMESPACE_STEMS
         )
     )

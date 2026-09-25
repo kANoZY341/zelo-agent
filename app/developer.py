@@ -157,25 +157,20 @@ def candidate_content_digest(
                 before.st_ctime_ns,
             )
             if (
-                (
-                    after.st_dev,
-                    after.st_ino,
-                    after.st_mode,
-                    after.st_size,
-                    after.st_mtime_ns,
-                    after.st_ctime_ns,
-                )
-                != stable
-                or (
-                    current.st_dev,
-                    current.st_ino,
-                    current.st_mode,
-                    current.st_size,
-                    current.st_mtime_ns,
-                    current.st_ctime_ns,
-                )
-                != stable
-            ):
+                after.st_dev,
+                after.st_ino,
+                after.st_mode,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ) != stable or (
+                current.st_dev,
+                current.st_ino,
+                current.st_mode,
+                current.st_size,
+                current.st_mtime_ns,
+                current.st_ctime_ns,
+            ) != stable:
                 raise DeveloperError("review_candidate_changed")
             entries.append(
                 {
@@ -1177,10 +1172,7 @@ class DeveloperRuntime:
                         candidate_content_digest,
                         repo,
                         result["changed_files"],
-                        {
-                            item["path"]
-                            for item in result["ignored_generated_files"]
-                        },
+                        {item["path"] for item in result["ignored_generated_files"]},
                     )
                     if current_candidate_digest != result["candidate_content_sha256"]:
                         raise DeveloperError("review_candidate_changed")

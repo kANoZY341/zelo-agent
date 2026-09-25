@@ -7,13 +7,7 @@ import stat
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from app.developer import (
-    DeveloperRuntime,
-    candidate_content_digest,
-    identifier,
-    no_symlinks,
-    review_name,
-)
+from app.developer import DeveloperRuntime, identifier, no_symlinks, review_name
 from app.developer_contracts import DeveloperRequest
 from app.developer_process import DeveloperError
 from app.developer_review import inventory
@@ -76,6 +70,33 @@ def _fingerprint_payload(values: dict[str, Any]) -> dict[str, Any]:
         "candidate_manifest": values["candidate_manifest"],
         "ignored_artifact_summary": values["ignored_artifact_summary"],
     }
+
+
+def candidate_manifest_content_sha256(manifest: list[CandidateEntry]) -> str:
+    """Derive the developer candidate identity from the exact returned manifest."""
+    entries: list[dict[str, Any]] = []
+    for item in sorted(manifest, key=lambda entry: entry.path.encode("utf-8")):
+        if item.operation == "delete":
+            entries.append({"path": item.path, "operation": "delete"})
+            continue
+        entries.append(
+            {
+                "path": item.path,
+                "operation": "present",
+                "type": item.object_type,
+                "mode": item.mode,
+                "size": item.size,
+                "sha256": item.sha256,
+            }
+        )
+    canonical = json.dumps(
+        entries,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _open_parent(repo: Path, relative: str) -> tuple[int, bytes]:
@@ -339,24 +360,19 @@ class PromotionReviewer:
         second = await self._state(task_id, attempt_id, request)
         if first != second:
             raise DeveloperError("promotion_candidate_changed")
-        if expected_diff_sha256 is not None or expected_candidate_content_sha256 is not None:
+        head, manifest, ignored = first
+        if (
+            expected_candidate_content_sha256 is not None
+            and candidate_manifest_content_sha256(manifest)
+            != expected_candidate_content_sha256
+        ):
+            raise DeveloperError("promotion_candidate_changed")
+        if expected_diff_sha256 is not None:
             repo = self._owned_repo(task_id, attempt_id)
             current = await self.runtime.review(repo, request)
-            if expected_diff_sha256 is not None:
-                current_diff_sha256 = hashlib.sha256(
-                    current["diff"].encode("utf-8")
-                ).hexdigest()
-                if current_diff_sha256 != expected_diff_sha256:
-                    raise DeveloperError("promotion_candidate_changed")
-            if expected_candidate_content_sha256 is not None:
-                current_candidate_content_sha256 = candidate_content_digest(
-                    repo,
-                    current["changed_files"],
-                    {item["path"] for item in current["ignored_generated_files"]},
-                )
-                if current_candidate_content_sha256 != expected_candidate_content_sha256:
-                    raise DeveloperError("promotion_candidate_changed")
-        head, manifest, ignored = first
+            current_diff_sha256 = hashlib.sha256(current["diff"].encode("utf-8")).hexdigest()
+            if current_diff_sha256 != expected_diff_sha256:
+                raise DeveloperError("promotion_candidate_changed")
         workspace = str(self.runtime.path(attempt_id).relative_to(self.runtime.root()))
         values: dict[str, Any] = {
             "review_version": "promotion-review-v1",

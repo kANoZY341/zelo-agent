@@ -214,13 +214,14 @@ def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
     assert evaluation.changed_files == ("app/core.py", "hidden/worker-secret.txt")
 
 
-def test_evaluator_reapplies_protected_namespace_scope(tmp_path):
+@pytest.mark.parametrize("protected_path", ["app/auth", "app/auth/__init__.py"])
+def test_evaluator_reapplies_protected_namespace_scope(tmp_path, protected_path):
     repo, _ = make_repo(tmp_path)
     inspection = RepositoryInspector(repo).inspect()
     draft = proposal_draft(
         risk="medium",
         evidence=("app/core.py",),
-        scope_paths=("app/auth/__init__.py",),
+        scope_paths=(protected_path,),
     )
     proposal = ImprovementProposal.freeze(
         draft,
@@ -230,9 +231,9 @@ def test_evaluator_reapplies_protected_namespace_scope(tmp_path):
     )
     result = developer_result(
         proposal,
-        changed_files=["app/auth/__init__.py"],
-        git_status="?? app/auth/__init__.py",
-        diff_stat="app/auth/__init__.py | 1 +",
+        changed_files=[protected_path],
+        git_status=f"?? {protected_path}",
+        diff_stat=f"{protected_path} | 1 +",
     )
 
     evaluation = evaluate(proposal, result)

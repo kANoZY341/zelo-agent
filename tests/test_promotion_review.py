@@ -136,6 +136,42 @@ def test_binary_content_is_hashed_exactly(developer_case):
         )
 
 
+def test_returned_manifest_is_bound_directly_to_evaluated_content(
+    developer_case, monkeypatch
+):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    target = repo / "payload.bin"
+    evaluated = b"evaluated-bytes"
+    stale = b"stale-unevaluated-bytes"
+
+    target.write_bytes(evaluated)
+    evaluated_review = asyncio.run(reviewer.runtime.review(repo, request))
+    expected = evaluated_review["candidate_content_sha256"]
+    target.write_bytes(stale)
+
+    original_review = reviewer.runtime.review
+    review_calls = 0
+
+    async def switch_to_evaluated_bytes(*args):
+        nonlocal review_calls
+        review_calls += 1
+        target.write_bytes(evaluated)
+        return await original_review(*args)
+
+    monkeypatch.setattr(reviewer.runtime, "review", switch_to_evaluated_bytes)
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_candidate_content_sha256=expected,
+        )
+
+    assert review_calls == 0
+
+
 def test_symlink_hashes_target_bytes_without_following_target(developer_case):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     target = "../outside-sensitive-file"

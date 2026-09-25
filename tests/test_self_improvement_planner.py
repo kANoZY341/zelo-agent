@@ -89,6 +89,7 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         (valid_response(scope_paths=["app/policy.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/policy/__init__.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/auth/__init__.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/auth"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/auth.so"]), "proposal_high_risk_scope"),
         (
             valid_response(scope_paths=["app/auth.cpython-312-x86_64-linux-gnu.so"]),
