@@ -36,6 +36,10 @@ dist/
 node_modules/
 .next/
 *.tsbuildinfo
+next-env.d.ts
+
+# Temporary until workspace dependency hardening adds a committed lockfile.
+workspace/package-lock.json
 
 # Logs, generated output, and editor files
 logs/
