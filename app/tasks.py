@@ -153,20 +153,21 @@ def _bounded_projection_text(value: Any, limit: int) -> str | None:
 
 def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
     ignored_items = result.get("ignored_generated_files")
-    ignored_paths = {
-        item.get("path")
-        for item in ignored_items
-        if isinstance(ignored_items, list) and isinstance(item, dict)
-        and isinstance(item.get("path"), str)
-    } if isinstance(ignored_items, list) else set()
+    ignored_paths = (
+        {
+            item.get("path")
+            for item in ignored_items
+            if isinstance(ignored_items, list)
+            and isinstance(item, dict)
+            and isinstance(item.get("path"), str)
+        }
+        if isinstance(ignored_items, list)
+        else set()
+    )
 
     changed_items = result.get("changed_files")
     source_changed = (
-        [
-            item
-            for item in changed_items
-            if isinstance(item, str) and item not in ignored_paths
-        ]
+        [item for item in changed_items if isinstance(item, str) and item not in ignored_paths]
         if isinstance(changed_items, list)
         else []
     )

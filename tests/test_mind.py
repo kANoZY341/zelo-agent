@@ -427,17 +427,13 @@ def test_large_developer_result_remains_visible_to_mind(settings, database):
             turn.user_content = "u" * 10000
             turn.assistant_content = "a" * 10000
 
-        stored = client.get(
-            f"/conversations/{conversation['id']}?turn_limit=1"
-        ).json()
+        stored = client.get(f"/conversations/{conversation['id']}?turn_limit=1").json()
         projected = stored["turns"][0]["core_task"]
         assert projected["status"] == "failed"
         assert projected["error"] == "developer_validation_failed"
         assert projected["result_truncated"] is True
         assert projected["result"]["worker_exit_code"] == 0
-        assert projected["result"]["source_changed_files"] == [
-            "docs/early-zelo-chat.md"
-        ]
+        assert projected["result"]["source_changed_files"] == ["docs/early-zelo-chat.md"]
         assert projected["result"]["validation_passed"] is False
         assert projected["result"]["validation"][2] == {
             "identifier": "pytest",
