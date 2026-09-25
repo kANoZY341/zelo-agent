@@ -55,6 +55,8 @@ MIND_ACTION = TypeAdapter(
     Annotated[MindReplyAction | MindCoreTaskAction, Field(discriminator="type")]
 )
 
+MIND_HISTORY_CHARS = 16384
+
 SYSTEM_PROMPT = """You are Zelo Mind, the persistent reasoning and conversational identity of Zelo.
 You are speaking directly with Ahmad. Discuss ideas, answer questions, form plans, and explain
 what Zelo is doing in clear natural language. You are not an execution authority.
@@ -194,17 +196,26 @@ class MindService:
         )
 
     def _history(self, turns: Iterable[ConversationTurn]) -> list[ModelMessage]:
-        messages: list[ModelMessage] = []
-        for turn in turns:
-            messages.append(ModelMessage("user", turn.user_content))
-            messages.append(ModelMessage("assistant", turn.assistant_content))
+        bundles: list[list[ModelMessage]] = []
+        total = 0
+        for turn in reversed(list(turns)):
+            bundle = [
+                ModelMessage("user", turn.user_content),
+                ModelMessage("assistant", turn.assistant_content),
+            ]
             if turn.core_task_id is not None:
                 try:
                     task = self.tasks.get(turn.core_task_id)
                 except DomainError:
-                    continue
-                messages.append(self._task_state_message(task))
-        return messages
+                    pass
+                else:
+                    bundle.append(self._task_state_message(task))
+            size = sum(len(message.content) for message in bundle)
+            if size > MIND_HISTORY_CHARS or total + size > MIND_HISTORY_CHARS:
+                break
+            bundles.append(bundle)
+            total += size
+        return [message for bundle in reversed(bundles) for message in bundle]
 
     def _turn_response(self, turn: ConversationTurn) -> ConversationTurnResponse:
         task = self.tasks.get(turn.core_task_id) if turn.core_task_id is not None else None
