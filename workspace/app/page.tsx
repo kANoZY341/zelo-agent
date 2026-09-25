@@ -221,10 +221,16 @@ export default function Home() {
     if (!prompt || busy) return;
 
     const previousSubmission = pendingSubmissionRef.current;
+    if (previousSubmission && previousSubmission.prompt !== prompt) {
+      setError(
+        "The previous turn has an uncertain delivery state. Retry that exact message before sending a different one.",
+      );
+      setText(previousSubmission.prompt);
+      return;
+    }
+
     const submission =
-      previousSubmission?.prompt === prompt
-        ? previousSubmission
-        : { prompt, key: crypto.randomUUID() };
+      previousSubmission ?? { prompt, key: crypto.randomUUID() };
     pendingSubmissionRef.current = submission;
 
     setBusy(true);
@@ -232,8 +238,11 @@ export default function Home() {
     setError(null);
     setText("");
 
+    let activeConversationId: string | null = null;
+
     try {
       const id = await ensureConversation();
+      activeConversationId = id;
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(id)}/turns`,
         {
@@ -262,11 +271,40 @@ export default function Home() {
         ...incoming,
       ]);
 
+      void refreshConversation(id).catch((refreshError) => {
+        setError(
+          refreshError instanceof Error
+            ? refreshError.message
+            : "conversation_refresh_failed",
+        );
+      });
+
       if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
       }
     } catch (submitError) {
       setPendingPrompt(null);
+
+      if (activeConversationId) {
+        try {
+          const conversation = await refreshConversation(activeConversationId);
+          const latestTurn = conversation.turns.at(-1);
+          if (latestTurn?.user_content === prompt) {
+            pendingSubmissionRef.current = null;
+            setError(null);
+            if (
+              latestTurn.core_task &&
+              ACTIVE_TASK_STATES.has(latestTurn.core_task.status)
+            ) {
+              await pollUntilTaskSettles(activeConversationId);
+            }
+            return;
+          }
+        } catch {
+          // Keep the pending submission key so an exact retry stays idempotent.
+        }
+      }
+
       setError(
         submitError instanceof Error ? submitError.message : "turn_failed",
       );
