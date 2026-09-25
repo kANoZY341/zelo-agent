@@ -8,30 +8,18 @@ in `docs/zelo-workspace-decision.md`.
 
 ## Released baseline
 
-- Zelo Core v0.10.0 is the latest published release.
-- Release commit:
-  `666a0a4d12d280187af02a621e1ab4b57ce604c6`.
-- v0.10 established the multi-worker foundation: tasks, approvals, audit, Model
-  Gateway, Tool Gateway, Developer Runtime, Worker Registry/Supervisor, Codex,
-  Claude Code and OpenCode adapters, worker authority, validation, independent
-  review, promotion boundaries and recovery/concurrency controls.
+- Zelo Core v0.11.0 — Self-Improvement Seed is the latest published release.
+- Exact release commit:
+  `b2c4a7d13fd8e64c6badfbae89d2a29629fd3c12`.
+- Release tag: `v0.11.0`.
+- PR #14 introduced the bounded self-improvement seed.
+- PR #16 corrected the Astra pre-release blockers and subsequent focused review findings.
+- Main CI run #636 succeeded on the exact release commit.
+- The final focused Codex review of the corrective head reported no major issue.
 
-## v0.11 integration state
+## v0.11 released behavior
 
-- Milestone: v0.11 — Self-Improvement Seed.
-- Version metadata: `0.11.0`.
-- PR #14 — `v0.11 — Self-Improvement Seed` was squash-merged into `main`.
-- Verified main commit:
-  `efd01242d42c167ee557d1d56aae7bd18597e036`.
-- Main CI run #562 succeeded on the Zelo self-hosted runner.
-- Verification: `git diff --check`, Ruff, Ruff format, and pytest all passed.
-- Test result: 667 passed, 2 skipped, 1 existing Starlette/httpx deprecation
-  warning.
-- v0.11.0 has **not** been tagged or published.
-
-## v0.11 implemented behavior
-
-The merged implementation provides one bounded cycle:
+The release provides one bounded cycle:
 
 ```text
 trusted repository inspection
@@ -42,43 +30,48 @@ trusted repository inspection
   -> Supervisor worker selection
   -> implementation
   -> trusted validation
-  -> approval-bound independent review
+  -> independent review bound to an immutable candidate snapshot
   -> deterministic ImprovementEvaluation
-  -> stop before merge/release
+  -> stop before autonomous merge/release
 ```
 
 The planner cannot select a concrete worker, executable, credential, authority
 profile, merge method or release tag. Promotion, merge and release remain
 separate approval-bound operations.
 
-## Pre-release audit
+## v0.11 pre-release audit closure
 
-GPT-6 Astra performed a read-only full-repository pre-release audit of exact main
-commit `efd01242d42c167ee557d1d56aae7bd18597e036`.
+GPT-6 Astra audited pre-release main commit
+`efd01242d42c167ee557d1d56aae7bd18597e036` and found three release blockers.
+Corrective PR #16 closed them and the later focused review findings. Exact-head
+CI and the final Codex re-review were clean before merge.
 
-The audit verdict is **HOLD RELEASE**. Three findings are release-blocking:
-
-1. `Z11-01` — protected Python module namespaces can be shadowed by package
-   paths not covered by the proposal policy.
-2. `Z11-02` — a rejected or inconclusive self-improvement evaluation can still
-   leave the developer attempt eligible for ordinary promotion.
-3. `Z11-03` — reviewer-capacity contention after implementation can defer the
-   whole developer task and repeat implementation under one approval.
-
-The full report is retained at
+The historical audit remains at
 `docs/reviews/zelo-core-v0.11-astra-pre-release-audit.md`.
 
-Non-blocking follow-ups are tracked for OpenCode repeated-cancellation cleanup,
-stale `ai_prompt` model-route approval, the promotion smoke entrypoint, runner
-isolation evidence, remote merge interleavings and vendor-boundary probes.
+Non-blocking follow-ups remain for OpenCode cancellation cleanup, stale
+`ai_prompt` model-route approval, the promotion smoke entrypoint, self-hosted
+runner isolation evidence, remote merge interleavings and deeper vendor-boundary
+probes.
 
-## Corrective work
+## Active increment: Early Zelo Chat
 
-- Corrective branch: `fix/v0.11-astra-blockers`.
-- Scope is limited to the three release blockers plus their regression tests and
-  audit/status documentation.
-- No v0.11.0 tag or release may be created until the exact corrective head passes
-  CI and the corrective delta receives an independent re-review.
+Branch: `feat/early-zelo-chat`.
+
+The target path is:
+
+```text
+operator text
+  -> persistent Zelo Mind conversation
+  -> direct reply or one typed Core task proposal
+  -> existing TaskService policy/approval boundary
+  -> existing runner and workers
+  -> authoritative task status/result projected back into conversation
+```
+
+This increment does not pull forward v0.12 autonomous events/wake cycles/campaigns,
+v0.13 memory, v0.14 Agent Factory, v0.15 broad tools/capabilities, or v0.16
+WhatsApp/email/live voice.
 
 ## Parked work
 
@@ -87,9 +80,9 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Finish and verify the three Astra release-blocker corrections.
-2. Run full CI on the exact corrective branch head.
-3. Perform an independent corrective review against the original Astra findings.
-4. Merge the corrective PR only after the fixes and review are clean.
-5. Re-run CI on the resulting `main` commit.
-6. Tag and publish `v0.11.0` only after Ahmad separately authorizes release.
+1. Finish and verify the Early Zelo Chat Core contract.
+2. Prove conversation -> typed Core task -> real result -> conversation projection.
+3. Run full exact-head CI and focused review.
+4. With the Core path proven, adapt the workspace UI without creating a parallel
+   authority system.
+5. Continue into v0.12 durable events, wake cycles and campaigns.
