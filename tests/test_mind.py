@@ -395,7 +395,9 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         wait_for(client, task_id, "succeeded")
 
         huge_output = "x" * 50000
-        long_paths = [f"src/{number:02d}/" + ("nested-" * 45) + "file.py" for number in range(19)]
+        long_paths = [
+            f"src/{number:02d}/" + ("路径🚀" * 120) + "file.py" for number in range(19)
+        ]
         with database.transaction() as session:
             task = session.get(Task, task_id)
             assert task is not None
@@ -404,11 +406,11 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
             task.error = "developer_validation_failed"
             task.result = {
                 "worker": "codex",
-                "worker_version": "codex-cli 0.155.1-" + ("v" * 300),
+                "worker_version": "codex-cli 0.155.1-" + ("版本🚀" * 300),
                 "worker_exit_code": 0,
                 "worker_summary": (
                     "Added one sentence to docs/early-zelo-chat.md. "
-                    "No merge or release was performed. " + ("s" * 2000)
+                    "No merge or release was performed. " + ("结果🚀" * 2000)
                 ),
                 "changed_files": [
                     "docs/early-zelo-chat.md",
@@ -439,7 +441,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
                         "identifier": "pytest",
                         "exit_code": 124,
                         "output": huge_output,
-                        "error": "process_output_limit" + ("e" * 400),
+                        "error": "process_output_limit" + ("错误🚀" * 400),
                     },
                 ],
                 "validation_passed": False,
@@ -473,6 +475,13 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert projected["result"]["validation"][2]["exit_code"] == 124
         assert projected["result"]["validation"][2]["error"].startswith("process_output_limit")
         assert len(projected["result"]["validation"][2]["error"]) <= 128
+        encoded_projected_result = json.dumps(
+            projected["result"],
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        assert len(encoded_projected_result) <= 4096
         assert "diff" not in json.dumps(projected)
         assert huge_output not in json.dumps(projected)
 
