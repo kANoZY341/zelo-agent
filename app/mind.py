@@ -342,7 +342,7 @@ class MindService:
                         if duplicate.user_content != text:
                             raise DomainError(
                                 "Idempotency key was already used with a different "
-                    "conversation turn",
+                                "conversation turn",
                                 409,
                             )
                         return self._turn_response(duplicate)
