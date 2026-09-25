@@ -353,7 +353,9 @@ def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str
     }
 
 
-def _emergency_developer_result_projection(projection: dict[str, Any]) -> dict[str, Any]:
+def _emergency_developer_result_projection(
+    projection: dict[str, Any],
+) -> dict[str, Any]:
     validation_items: list[dict[str, Any]] = []
     raw_validation = projection.get("validation")
     if isinstance(raw_validation, list):
