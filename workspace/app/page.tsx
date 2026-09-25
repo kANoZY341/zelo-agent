@@ -240,9 +240,7 @@ export default function Home() {
 
     let activeConversationId: string | null = null;
 
-    try {
-      const id = await ensureConversation();
-      activeConversationId = id;
+    const postTurn = async (id: string): Promise<ConversationTurn> => {
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(id)}/turns`,
         {
@@ -260,7 +258,10 @@ export default function Home() {
         pendingSubmissionRef.current = null;
       }
 
-      const turn = await parseJson<ConversationTurn>(response);
+      return parseJson<ConversationTurn>(response);
+    };
+
+    const acceptTurn = async (id: string, turn: ConversationTurn) => {
       pendingSubmissionRef.current = null;
       setPendingPrompt(null);
 
@@ -282,29 +283,37 @@ export default function Home() {
       if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
       }
-    } catch (submitError) {
-      setPendingPrompt(null);
+    };
 
-      if (activeConversationId) {
+    try {
+      const id = await ensureConversation();
+      activeConversationId = id;
+      const turn = await postTurn(id);
+      await acceptTurn(id, turn);
+    } catch (submitError) {
+      const retryable =
+        activeConversationId !== null &&
+        pendingSubmissionRef.current?.key === submission.key;
+
+      if (retryable && activeConversationId) {
         try {
-          const conversation = await refreshConversation(activeConversationId);
-          const latestTurn = conversation.turns.at(-1);
-          if (latestTurn?.user_content === prompt) {
-            pendingSubmissionRef.current = null;
-            setError(null);
-            if (
-              latestTurn.core_task &&
-              ACTIVE_TASK_STATES.has(latestTurn.core_task.status)
-            ) {
-              await pollUntilTaskSettles(activeConversationId);
-            }
-            return;
-          }
-        } catch {
-          // Keep the pending submission key so an exact retry stays idempotent.
+          const recoveredTurn = await postTurn(activeConversationId);
+          await acceptTurn(activeConversationId, recoveredTurn);
+          setError(null);
+          return;
+        } catch (retryError) {
+          setPendingPrompt(null);
+          setError(
+            retryError instanceof Error
+              ? retryError.message
+              : "turn_delivery_uncertain",
+          );
+          setText(prompt);
+          return;
         }
       }
 
+      setPendingPrompt(null);
       setError(
         submitError instanceof Error ? submitError.message : "turn_failed",
       );
