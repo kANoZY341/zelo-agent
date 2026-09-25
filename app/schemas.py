@@ -314,6 +314,38 @@ class TaskPage(StrictModel):
     total: int
 
 
+class TaskProjection(StrictModel):
+    id: str
+    kind: Literal[
+        "echo",
+        "text_stats",
+        "approval_demo",
+        "ai_prompt",
+        "tool_call",
+        "agent_run",
+        "self_improvement_run",
+        "developer_run",
+        "promotion_run",
+        "merge_run",
+        "release_run",
+    ]
+    status: State
+    created_at: datetime
+    updated_at: datetime
+    cancel_requested: bool
+    result: dict[str, Any] | None
+    error: str | None
+    attempt_count: int = Field(ge=0)
+    latest_attempt_outcome: State | None = None
+    approval_count: int = Field(ge=0)
+    latest_approval_id: str | None = None
+    latest_approval_status: (
+        Literal["pending", "approved", "rejected", "expired", "invalidated", "cancelled"] | None
+    ) = None
+    selected_alias: str | None = None
+    selected_model: str | None = None
+
+
 class ConversationCreate(StrictModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
 
@@ -330,7 +362,7 @@ class ConversationTurnResponse(StrictModel):
     selected_alias: str
     selected_model: str
     usage: dict[str, int | None] = Field(default_factory=dict)
-    core_task: TaskResponse | None = None
+    core_task: TaskProjection | None = None
     created_at: datetime
 
 

@@ -52,6 +52,12 @@ Conversation listing returns summaries rather than complete threads.
 pagination. Model generation queries at most the bounded recent-history window
 and then applies the character budget.
 
+Linked Core tasks use a bounded projection in conversation responses and Mind
+context: current state/result/error, aggregate attempt and approval counts, and
+only the latest attempt/approval status. Full attempt and approval histories
+remain available through the canonical task API rather than being embedded in
+each conversation turn.
+
 Mind model generation has process-wide admission control, independent of
 conversation ID. The operator settings `ZELO_MIND_MAX_CONCURRENCY` and
 `ZELO_MIND_ADMISSION_TIMEOUT_SECONDS` bound active provider calls and how long

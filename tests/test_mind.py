@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.gateway import ModelResult
 from app.main import create_app
+from app.models import Approval, TaskAttempt, utcnow
 from app.policy import DomainError
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -276,6 +278,77 @@ def test_conversation_reads_are_paginated_and_list_is_summary(settings, database
         assert listing["total"] == 1
         assert listing["items"][0]["turn_count"] == 3
         assert "turns" not in listing["items"][0]
+
+
+def test_conversation_task_projection_bounds_attempt_and_approval_histories(
+    settings,
+    database,
+):
+    provider = MindProvider(
+        core_task("echo", {"text": "bounded"}),
+        reply("I can see the bounded Core task state."),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        created = send_turn(
+            client,
+            conversation["id"],
+            "Create a bounded task projection.",
+            "bounded-task-1",
+        )
+        assert created.status_code == 201, created.text
+        task_id = created.json()["core_task"]["id"]
+        wait_for(client, task_id, "succeeded")
+
+        now = utcnow()
+        with database.transaction() as session:
+            for number in range(2, 22):
+                session.add(
+                    TaskAttempt(
+                        task_id=task_id,
+                        number=number,
+                        started_at=now,
+                        ended_at=now,
+                        outcome="succeeded",
+                        result={"synthetic": number},
+                    )
+                )
+            for number in range(30):
+                session.add(
+                    Approval(
+                        task_id=task_id,
+                        action_version=1,
+                        action_hash="a" * 64,
+                        status="rejected",
+                        created_at=now + timedelta(microseconds=number),
+                        expires_at=now + timedelta(hours=1),
+                        decided_at=now,
+                    )
+                )
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}?turn_limit=1"
+        ).json()
+        projected = stored["turns"][0]["core_task"]
+        assert projected["attempt_count"] == 21
+        assert projected["approval_count"] == 30
+        assert projected["latest_attempt_outcome"] == "succeeded"
+        assert projected["latest_approval_status"] == "rejected"
+        assert "attempts" not in projected
+        assert "approvals" not in projected
+
+        follow_up = send_turn(
+            client,
+            conversation["id"],
+            "What is the current task state?",
+            "bounded-task-2",
+        )
+        assert follow_up.status_code == 201, follow_up.text
+        task_state = json.loads(provider.requests[1].messages[2].content)
+        assert task_state["attempt_count"] == 21
+        assert task_state["approval_count"] == 30
+        assert "attempts" not in task_state
+        assert "approvals" not in task_state
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):

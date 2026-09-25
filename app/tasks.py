@@ -35,6 +35,7 @@ from app.schemas import (
     DeveloperRunResult,
     TaskCreate,
     TaskPage,
+    TaskProjection,
     TaskResponse,
 )
 from app.self_improvement import ImprovementEvaluation, SelfImprovementError
@@ -1201,6 +1202,62 @@ class TaskService:
     def get(self, task_id: str) -> TaskResponse:
         with self.database.read() as session:
             return snapshot(session, require_task(session, task_id))
+
+    def project(self, task_id: str) -> TaskProjection:
+        """Return bounded authoritative task state for conversation/workspace projection."""
+        with self.database.read() as session:
+            task = require_task(session, task_id)
+            attempt_count = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(TaskAttempt)
+                    .where(TaskAttempt.task_id == task.id)
+                )
+                or 0
+            )
+            latest_attempt = session.scalar(
+                select(TaskAttempt)
+                .where(TaskAttempt.task_id == task.id)
+                .order_by(TaskAttempt.number.desc())
+                .limit(1)
+            )
+            approval_count = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(Approval)
+                    .where(Approval.task_id == task.id)
+                )
+                or 0
+            )
+            latest_approval = session.scalar(
+                select(Approval)
+                .where(Approval.task_id == task.id)
+                .order_by(Approval.created_at.desc(), Approval.id.desc())
+                .limit(1)
+            )
+            return TaskProjection(
+                id=task.id,
+                kind=task.kind,
+                status=task.status,
+                created_at=task.created_at,
+                updated_at=task.updated_at,
+                cancel_requested=task.cancel_requested,
+                result=task.result,
+                error=task.error,
+                attempt_count=attempt_count,
+                latest_attempt_outcome=(
+                    latest_attempt.outcome if latest_attempt is not None else None
+                ),
+                approval_count=approval_count,
+                latest_approval_id=(
+                    latest_approval.id if latest_approval is not None else None
+                ),
+                latest_approval_status=(
+                    latest_approval.status if latest_approval is not None else None
+                ),
+                selected_alias=task.selected_alias,
+                selected_model=task.selected_model,
+            )
 
     def list_tasks(self, limit: int, offset: int) -> TaskPage:
         with self.database.read() as session:

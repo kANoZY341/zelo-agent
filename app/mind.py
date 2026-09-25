@@ -23,7 +23,7 @@ from app.schemas import (
     EchoInput,
     SelfImprovementRunInput,
     StrictModel,
-    TaskResponse,
+    TaskProjection,
     TextStatsInput,
     ToolCallInput,
 )
@@ -222,7 +222,7 @@ class MindService:
             )
         )
 
-    def _task_state_message(self, task: TaskResponse) -> ModelMessage:
+    def _task_state_message(self, task: TaskProjection) -> ModelMessage:
         result_json = json.dumps(
             task.result,
             ensure_ascii=True,
@@ -239,7 +239,17 @@ class MindService:
             "result_json": result_json[:limit],
             "result_truncated": len(result_json) > limit,
             "error": task.error,
-            "approvals": [{"id": item.id, "status": item.status} for item in task.approvals],
+            "attempt_count": task.attempt_count,
+            "latest_attempt_outcome": task.latest_attempt_outcome,
+            "approval_count": task.approval_count,
+            "latest_approval": (
+                {
+                    "id": task.latest_approval_id,
+                    "status": task.latest_approval_status,
+                }
+                if task.latest_approval_id is not None
+                else None
+            ),
         }
         return ModelMessage(
             "tool",
@@ -261,7 +271,7 @@ class MindService:
             ]
             if turn.core_task_id is not None:
                 try:
-                    task = self.tasks.get(turn.core_task_id)
+                    task = self.tasks.project(turn.core_task_id)
                 except DomainError:
                     pass
                 else:
@@ -274,7 +284,7 @@ class MindService:
         return [message for bundle in reversed(bundles) for message in bundle]
 
     def _turn_response(self, turn: ConversationTurn) -> ConversationTurnResponse:
-        task = self.tasks.get(turn.core_task_id) if turn.core_task_id is not None else None
+        task = self.tasks.project(turn.core_task_id) if turn.core_task_id is not None else None
         return ConversationTurnResponse(
             id=turn.id,
             number=turn.number,
