@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.gateway import ModelResult
 from app.main import create_app
-from app.models import Approval, TaskAttempt, utcnow
+from app.models import Approval, ConversationTurn, Task, TaskAttempt, utcnow
 from app.policy import DomainError
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -179,7 +179,7 @@ def test_conversation_core_task_reaches_verified_result(settings, database):
         assert task_state["type"] == "core_task_state"
         assert task_state["task_id"] == task_id
         assert task_state["status"] == "succeeded"
-        assert json.loads(task_state["result_json"])["words"] == 3
+        assert task_state["result"]["words"] == 3
         assert task_state["result_truncated"] is False
 
 
@@ -347,6 +347,168 @@ def test_conversation_task_projection_bounds_attempt_and_approval_histories(
         assert task_state["approval_count"] == 30
         assert "attempts" not in task_state
         assert "approvals" not in task_state
+
+
+def test_large_developer_result_remains_visible_and_history_keeps_scanning(
+    settings,
+    database,
+):
+    provider = MindProvider(
+        reply("Oldest reply."),
+        reply("Middle reply."),
+        core_task("echo", {"text": "placeholder"}, "I am sending work to Core."),
+        reply("I can see the final Core result."),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+
+        oldest = send_turn(
+            client,
+            conversation["id"],
+            "Oldest context.",
+            "history-oldest",
+        )
+        assert oldest.status_code == 201, oldest.text
+
+        middle = send_turn(
+            client,
+            conversation["id"],
+            "Middle context.",
+            "history-middle",
+        )
+        assert middle.status_code == 201, middle.text
+        with database.transaction() as session:
+            middle_turn = session.get(ConversationTurn, middle.json()["id"])
+            assert middle_turn is not None
+            middle_turn.user_content = "MIDDLE_SHOULD_BE_SKIPPED:" + ("m" * 10000)
+            middle_turn.assistant_content = "MIDDLE_REPLY_SHOULD_BE_SKIPPED:" + ("n" * 10000)
+
+        created = send_turn(
+            client,
+            conversation["id"],
+            "Run the developer task.",
+            "large-result-1",
+        )
+        assert created.status_code == 201, created.text
+        turn_id = created.json()["id"]
+        task_id = created.json()["core_task"]["id"]
+        wait_for(client, task_id, "succeeded")
+
+        huge_output = "x" * 50000
+        long_paths = [f"src/{number:02d}/" + ("nested-" * 45) + "file.py" for number in range(19)]
+        with database.transaction() as session:
+            task = session.get(Task, task_id)
+            assert task is not None
+            task.kind = "developer_run"
+            task.status = "failed"
+            task.error = "developer_validation_failed"
+            task.result = {
+                "worker": "codex",
+                "worker_version": "codex-cli 0.155.1-" + ("v" * 300),
+                "worker_exit_code": 0,
+                "worker_summary": (
+                    "Added one sentence to docs/early-zelo-chat.md. "
+                    "No merge or release was performed. " + ("s" * 2000)
+                ),
+                "changed_files": [
+                    "docs/early-zelo-chat.md",
+                    *long_paths,
+                    ".pytest_cache/v/cache/nodeids",
+                ],
+                "ignored_generated_files": [
+                    {
+                        "path": ".pytest_cache/v/cache/nodeids",
+                        "type": "file",
+                        "size": 99999,
+                    }
+                ],
+                "validation": [
+                    {
+                        "identifier": "ruff_check",
+                        "exit_code": 0,
+                        "output": "All checks passed!",
+                        "error": None,
+                    },
+                    {
+                        "identifier": "ruff_format",
+                        "exit_code": 0,
+                        "output": "formatted",
+                        "error": None,
+                    },
+                    {
+                        "identifier": "pytest",
+                        "exit_code": 124,
+                        "output": huge_output,
+                        "error": "process_output_limit" + ("e" * 400),
+                    },
+                ],
+                "validation_passed": False,
+                "independent_review": None,
+                "diff": huge_output,
+                "error": "developer_validation_failed",
+                "protocol_diagnostic": None,
+                "boundary_error": None,
+                "original_error": None,
+                "cancelled": False,
+            }
+            turn = session.get(ConversationTurn, turn_id)
+            assert turn is not None
+            turn.user_content = "DEVELOPER_LARGE:" + ("u" * 10000)
+            turn.assistant_content = "DEVELOPER_ASSISTANT:" + ("a" * 10000)
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}?turn_limit=1&turn_offset=2"
+        ).json()
+        projected = stored["turns"][0]["core_task"]
+        assert projected["status"] == "failed"
+        assert projected["error"] == "developer_validation_failed"
+        assert projected["result_truncated"] is True
+        assert projected["result"]["worker_exit_code"] == 0
+        assert projected["result"]["source_changed_files"][0] == "docs/early-zelo-chat.md"
+        assert len(projected["result"]["source_changed_files"]) <= 6
+        assert all(len(path) <= 192 for path in projected["result"]["source_changed_files"])
+        assert len(projected["result"]["worker_summary"]) <= 768
+        assert projected["result"]["validation_passed"] is False
+        assert projected["result"]["validation"][2]["identifier"] == "pytest"
+        assert projected["result"]["validation"][2]["exit_code"] == 124
+        assert projected["result"]["validation"][2]["error"].startswith("process_output_limit")
+        assert len(projected["result"]["validation"][2]["error"]) <= 128
+        assert "diff" not in json.dumps(projected)
+        assert huge_output not in json.dumps(projected)
+
+        follow_up = send_turn(
+            client,
+            conversation["id"],
+            "What happened with that developer task?",
+            "large-result-2",
+        )
+        assert follow_up.status_code == 201, follow_up.text
+
+        messages = provider.requests[3].messages
+        assert [message.role for message in messages] == [
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+            "tool",
+            "user",
+        ]
+        assert messages[0].content == "Oldest context."
+        assert messages[1].content == "Oldest reply."
+        assert messages[2].content.startswith("DEVELOPER_LARGE:")
+        assert messages[3].content.startswith("DEVELOPER_ASSISTANT:")
+        assert all("MIDDLE_SHOULD_BE_SKIPPED" not in message.content for message in messages)
+        assert len(messages[2].content) <= 4096
+        assert len(messages[3].content) <= 4096
+        task_state = json.loads(messages[4].content)
+        assert len(messages[4].content) <= 6144
+        assert task_state["status"] == "failed"
+        assert task_state["error"] == "developer_validation_failed"
+        assert task_state["result"]["worker"] == "codex"
+        assert task_state["result"]["worker_exit_code"] == 0
+        assert task_state["result"]["source_changed_files"][0] == ("docs/early-zelo-chat.md")
+        assert task_state["result"]["validation_passed"] is False
+        assert task_state["result"]["validation"][2]["error"].startswith("process_output_limit")
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):

@@ -334,6 +334,7 @@ class TaskProjection(StrictModel):
     updated_at: datetime
     cancel_requested: bool
     result: dict[str, Any] | None
+    result_truncated: bool = False
     error: str | None
     attempt_count: int = Field(ge=0)
     latest_attempt_outcome: State | None = None
