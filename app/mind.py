@@ -96,13 +96,23 @@ Core task:
 TASK must be exactly one of:
 {"kind":"echo","payload":{"text":"..."}}
 {"kind":"text_stats","payload":{"text":"..."}}
-{"kind":"tool_call","payload":{"tool":"repo_status","arguments":{}}}
+{"kind":"tool_call","payload":{"tool":"TOOL","arguments":{...}}}
 {"kind":"agent_run","payload":{"prompt":"...","profile":"general"}}
 {"kind":"self_improvement_run","payload":{"goal":"..."}}
 {"kind":"developer_run","payload":{"instruction":"...","validation_profile":"zelo_core"}}
 
-Optional task timeout_seconds may be supplied only when needed. Do not emit any
-other task kind. Promotion, merge, release, and approval decisions are unavailable.
+Allowed TOOL forms:
+system_info -> {}
+repo_status -> {}
+list_workspace_files -> {} or {"path":"relative/directory"}
+read_workspace_file -> {"path":"relative/file"}
+
+Prefer omitting timeout_seconds. If supplied, bounds are:
+echo/text_stats/tool_call 0.01..60; agent_run 0.01..600;
+self_improvement_run 1..600; developer_run 1..3600.
+
+Do not emit any other task kind or tool name. Promotion, merge, release, and
+approval decisions are unavailable.
 """
 
 
