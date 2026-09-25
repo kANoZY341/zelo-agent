@@ -81,7 +81,28 @@ results, approvals, capabilities, tools, files, or current system state.
 
 This early conversation contract intentionally cannot request promotion, merge, release, or
 approval decisions. Those authority-bearing actions remain outside Zelo Mind's model output.
-Available Core task schema:
+Available Core task contract:
+"""
+
+MIND_COMPACT_CONTRACT = """
+Return exactly one of these shapes.
+
+Direct reply:
+{"type":"reply","content":"..."}
+
+Core task:
+{"type":"core_task","content":"...","task":TASK}
+
+TASK must be exactly one of:
+{"kind":"echo","payload":{"text":"..."}}
+{"kind":"text_stats","payload":{"text":"..."}}
+{"kind":"tool_call","payload":{"tool":"repo_status","arguments":{}}}
+{"kind":"agent_run","payload":{"prompt":"...","profile":"general"}}
+{"kind":"self_improvement_run","payload":{"goal":"..."}}
+{"kind":"developer_run","payload":{"instruction":"...","validation_profile":"zelo_core"}}
+
+Optional task timeout_seconds may be supplied only when needed. Do not emit any
+other task kind. Promotion, merge, release, and approval decisions are unavailable.
 """
 
 
@@ -422,7 +443,7 @@ class MindService:
             raise DomainError("Zelo Mind capacity reached; try again later", 503) from None
 
         try:
-            system = SYSTEM_PROMPT + json.dumps(MIND_ACTION.json_schema(), sort_keys=True)
+            system = SYSTEM_PROMPT + MIND_COMPACT_CONTRACT
             working = list(messages)
             for attempt in range(self.settings.max_model_parse_retries + 1):
                 try:
