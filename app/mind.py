@@ -289,7 +289,8 @@ class MindService:
                     messages.append(
                         ModelMessage(
                             "user",
-                            "Invalid protocol action. Return exactly one JSON object matching the schema.",
+                            "Invalid protocol action. Return exactly one JSON object "
+                            "matching the schema.",
                         )
                     )
             assert action is not None
