@@ -96,6 +96,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
+    null,
+  );
 
   const latestTask = useMemo(() => {
     const tasks = messages
@@ -206,9 +209,18 @@ export default function Home() {
     const prompt = text.trim();
     if (!prompt || busy) return;
 
+    const previousSubmission = pendingSubmissionRef.current;
+    const submission =
+      previousSubmission?.prompt === prompt
+        ? previousSubmission
+        : { prompt, key: crypto.randomUUID() };
+    pendingSubmissionRef.current = submission;
+
     setBusy(true);
     setError(null);
     setText("");
+
+    let acceptedConversationId: string | null = null;
 
     try {
       const id = await ensureConversation();
@@ -219,12 +231,20 @@ export default function Home() {
           headers: {
             ...WORKSPACE_HEADERS,
             "Content-Type": "application/json",
-            "Idempotency-Key": crypto.randomUUID(),
+            "Idempotency-Key": submission.key,
           },
           body: JSON.stringify({ text: prompt }),
         },
       );
+
+      if (!response.ok && response.status >= 400 && response.status < 500) {
+        pendingSubmissionRef.current = null;
+      }
+
       await parseJson<ConversationTurn>(response);
+      acceptedConversationId = id;
+      pendingSubmissionRef.current = null;
+
       const conversation = await refreshConversation(id);
       const hasActiveTask = conversation.turns.some(
         (turn) => turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
@@ -233,10 +253,17 @@ export default function Home() {
         await pollUntilTaskSettles(id);
       }
     } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : "turn_failed",
-      );
-      setText(prompt);
+      if (acceptedConversationId) {
+        setError(
+          "Turn accepted by Core, but the workspace refresh failed. Retrying the canonical conversation state.",
+        );
+        await pollUntilTaskSettles(acceptedConversationId);
+      } else {
+        setError(
+          submitError instanceof Error ? submitError.message : "turn_failed",
+        );
+        setText(prompt);
+      }
     } finally {
       setBusy(false);
     }
@@ -244,6 +271,7 @@ export default function Home() {
 
   function newConversation() {
     if (pollRef.current) clearTimeout(pollRef.current);
+    pendingSubmissionRef.current = null;
     setConversationId(null);
     setMessages([]);
     setError(null);
