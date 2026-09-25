@@ -1,0 +1,39 @@
+name: Workspace CI
+
+on:
+  push:
+    paths:
+      - 'workspace/**'
+      - '.github/workflows/workspace-ci.yml'
+  pull_request:
+    paths:
+      - 'workspace/**'
+      - '.github/workflows/workspace-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - zelo-ci
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: workspace
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install workspace dependencies
+        run: npm install --ignore-scripts
+      - name: Typecheck workspace
+        run: npm run typecheck
+      - name: Build workspace
+        run: npm run build
