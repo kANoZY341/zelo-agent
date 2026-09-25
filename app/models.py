@@ -104,3 +104,36 @@ class AuditEvent(Base):
     event: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    title: Mapped[str] = mapped_column(String(120), default="New conversation")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class ConversationTurn(Base):
+    __tablename__ = "conversation_turns"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "number", name="uq_conversation_turn_number"),
+        UniqueConstraint(
+            "conversation_id",
+            "idempotency_key",
+            name="uq_conversation_turn_idempotency",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
+    user_content: Mapped[str] = mapped_column(String(16384))
+    assistant_content: Mapped[str] = mapped_column(String(16384))
+    selected_alias: Mapped[str] = mapped_column(String(64))
+    selected_model: Mapped[str] = mapped_column(String(128))
+    usage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    core_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

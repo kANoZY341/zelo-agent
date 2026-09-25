@@ -314,6 +314,41 @@ class TaskPage(StrictModel):
     total: int
 
 
+class ConversationCreate(StrictModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class ConversationTurnCreate(StrictModel):
+    text: str = Field(min_length=1, max_length=16384)
+
+
+class ConversationTurnResponse(StrictModel):
+    id: str
+    number: int = Field(ge=1)
+    user_content: str = Field(min_length=1, max_length=16384)
+    assistant_content: str = Field(min_length=1, max_length=16384)
+    selected_alias: str
+    selected_model: str
+    usage: dict[str, int | None] = Field(default_factory=dict)
+    core_task: TaskResponse | None = None
+    created_at: datetime
+
+
+class ConversationResponse(StrictModel):
+    id: str
+    title: str = Field(min_length=1, max_length=120)
+    created_at: datetime
+    updated_at: datetime
+    turns: list[ConversationTurnResponse] = Field(default_factory=list)
+
+
+class ConversationPage(StrictModel):
+    items: list[ConversationResponse]
+    limit: int
+    offset: int
+    total: int
+
+
 class ApprovalDecision(StrictModel):
     decision: Literal["approve", "reject"]
 
