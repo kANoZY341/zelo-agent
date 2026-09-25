@@ -41,8 +41,21 @@ All conversation routes require the existing operator bearer token.
 - `GET /conversations/{id}` — load the thread plus current linked Core task projections.
 - `POST /conversations/{id}/turns` — send one text turn to Zelo Mind.
 
-`Idempotency-Key` on a turn prevents duplicate conversation actions and binds
-any generated Core task to a stable idempotency key.
+`Idempotency-Key` is required on every turn. The validated model action is
+committed to the conversation before Zelo submits any Core task. If the process
+stops after Core submission but before the turn is linked, retrying the same
+turn key reuses the persisted action and the existing idempotent Core task; the
+model is not called again.
+
+Conversation listing returns summaries rather than complete threads.
+`GET /conversations/{id}` accepts bounded `turn_limit` and `turn_offset`
+pagination. Model generation queries at most the bounded recent-history window
+and then applies the character budget.
+
+Mind model generation has process-wide admission control, independent of
+conversation ID. The operator settings `ZELO_MIND_MAX_CONCURRENCY` and
+`ZELO_MIND_ADMISSION_TIMEOUT_SECONDS` bound active provider calls and how long
+another conversation waits for capacity.
 
 ## Workspace boundary
 

@@ -96,6 +96,17 @@ GET  /conversations/{id}
 POST /conversations/{id}/turns
 ```
 
+Every turn submission requires a unique `Idempotency-Key`. Zelo persists the
+validated Mind action before any Core task is submitted, so a retry after a
+process interruption reuses the same action and the same Core task instead of
+asking the model to decide again.
+
+`GET /conversations` returns bounded conversation summaries. Thread reads use
+`turn_limit` and `turn_offset` (default 50, maximum 100), while model context
+queries only a bounded recent window. Mind model generation also uses a
+process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
+`ZELO_MIND_ADMISSION_TIMEOUT_SECONDS`.
+
 A linked task is projected back into the conversation from canonical TaskService
 state, so a workspace can show pending/running/approval/result state without
 duplicating it. The first proof path is documented in
