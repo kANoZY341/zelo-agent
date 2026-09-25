@@ -259,6 +259,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             "0011_self_improvement",
             "DROP TABLE tasks",
         ),
+        (
+            "0011_self_improvement",
+            "0012_early_zelo_chat",
+            "CREATE TABLE conversations",
+        ),
     ],
 )
 def test_failed_migration_rolls_back_and_can_retry(
@@ -373,7 +378,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0011_self_improvement"
+                "0012_early_zelo_chat"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
