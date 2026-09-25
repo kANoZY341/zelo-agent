@@ -266,9 +266,7 @@ def test_conversation_reads_are_paginated_and_list_is_summary(settings, database
             )
             assert response.status_code == 201
 
-        page = client.get(
-            f"/conversations/{conversation['id']}?turn_limit=1&turn_offset=1"
-        ).json()
+        page = client.get(f"/conversations/{conversation['id']}?turn_limit=1&turn_offset=1").json()
         assert page["turn_limit"] == 1
         assert page["turn_offset"] == 1
         assert page["turn_total"] == 3
@@ -296,9 +294,7 @@ def test_mind_generation_has_process_wide_admission_limit(settings, database):
         async def scenario() -> None:
             provider.entered = asyncio.Event()
             provider.release = asyncio.Event()
-            first_call = asyncio.create_task(
-                mind.send_turn(first.id, "first", "capacity-1")
-            )
+            first_call = asyncio.create_task(mind.send_turn(first.id, "first", "capacity-1"))
             await provider.entered.wait()
             with pytest.raises(DomainError, match="capacity reached") as error:
                 await mind.send_turn(second.id, "second", "capacity-2")

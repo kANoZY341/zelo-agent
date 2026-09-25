@@ -148,9 +148,7 @@ class MindService:
                 offset=0,
             )
 
-    def list_conversations(
-        self, limit: int, offset: int
-    ) -> tuple[list[ConversationSummary], int]:
+    def list_conversations(self, limit: int, offset: int) -> tuple[list[ConversationSummary], int]:
         with self.database.read() as session:
             total = session.scalar(select(func.count()).select_from(Conversation)) or 0
             rows = session.execute(
