@@ -125,10 +125,11 @@ export default function Home() {
       const tick = async () => {
         try {
           const conversation = await refreshConversation(id);
-          const task = [...conversation.turns]
-            .reverse()
-            .find((turn) => turn.core_task)?.core_task;
-          if (task && ACTIVE_TASK_STATES.has(task.status)) {
+          const hasActiveTask = conversation.turns.some(
+            (turn) =>
+              turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
+          );
+          if (hasActiveTask) {
             pollRef.current = setTimeout(tick, 1200);
           }
         } catch (pollError) {
@@ -207,10 +208,10 @@ export default function Home() {
       );
       await parseJson<ConversationTurn>(response);
       const conversation = await refreshConversation(id);
-      const task = [...conversation.turns]
-        .reverse()
-        .find((turn) => turn.core_task)?.core_task;
-      if (task && ACTIVE_TASK_STATES.has(task.status)) {
+      const hasActiveTask = conversation.turns.some(
+        (turn) => turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
+      );
+      if (hasActiveTask) {
         await pollUntilTaskSettles(id);
       }
     } catch (submitError) {
