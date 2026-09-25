@@ -86,7 +86,8 @@ def test_conversation_core_task_reaches_verified_result(settings, database):
             "text_stats",
             {"text": "hello from Zelo"},
             "I am sending that count to Zelo Core.",
-        )
+        ),
+        reply("Core finished the count."),
     )
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
         conversation = new_conversation(client)
@@ -109,6 +110,25 @@ def test_conversation_core_task_reaches_verified_result(settings, database):
         assert linked["status"] == "succeeded"
         assert linked["result"]["words"] == 3
 
+        follow_up = client.post(
+            f"/conversations/{conversation['id']}/turns",
+            json={"text": "What happened?"},
+        )
+        assert follow_up.status_code == 201, follow_up.text
+        messages = provider.requests[1].messages
+        assert [message.role for message in messages] == [
+            "user",
+            "assistant",
+            "tool",
+            "user",
+        ]
+        task_state = json.loads(messages[2].content)
+        assert task_state["type"] == "core_task_state"
+        assert task_state["task_id"] == task_id
+        assert task_state["status"] == "succeeded"
+        assert json.loads(task_state["result_json"])["words"] == 3
+        assert task_state["result_truncated"] is False
+
 
 def test_turn_idempotency_reuses_same_conversation_action(settings, database):
     provider = MindProvider(core_task("echo", {"text": "same"}))
@@ -122,6 +142,20 @@ def test_turn_idempotency_reuses_same_conversation_action(settings, database):
         assert first.status_code == second.status_code == 201
         assert first.json()["id"] == second.json()["id"]
         assert first.json()["core_task"]["id"] == second.json()["core_task"]["id"]
+        assert len(provider.requests) == 1
+
+
+def test_turn_idempotency_rejects_different_message(settings, database):
+    provider = MindProvider(reply("First response."))
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        path = f"/conversations/{conversation['id']}/turns"
+        headers = {"Idempotency-Key": "same-key"}
+        first = client.post(path, json={"text": "First message."}, headers=headers)
+        second = client.post(path, json={"text": "Different message."}, headers=headers)
+
+        assert first.status_code == 201
+        assert second.status_code == 409
         assert len(provider.requests) == 1
 
 
