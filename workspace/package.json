@@ -1,0 +1,25 @@
+{
+  "name": "zelo-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port ${PORT:-3000}",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port ${PORT:-3000}",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.6",
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "typescript": "5.7.2"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}

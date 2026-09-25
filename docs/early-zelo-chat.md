@@ -77,3 +77,28 @@ conversation -> Core task -> result path, then choose the exact Mission Control,
 Agent Town, hybrid, or Zelo-owned UI adaptation. The UI is always a projection
 over these Core contracts; it may not create a second task, approval, scheduler,
 memory, or authority system.
+
+
+## Live proof — completed
+
+The prerequisite path was proven outside the test suite on 26 September 2026
+(Asia/Dubai) from green main commit
+`f920036d9c1631b8ddf999554b3c10437602cbf5`.
+
+Main CI #695 succeeded with `697 passed, 2 skipped, 1 warning`.
+
+The live sequence was:
+
+1. create a persistent conversation;
+2. ask Zelo Mind a direct identity/capability question and receive a normal reply;
+3. ask Mind to use Core for current repository status;
+4. Mind submits an `agent_run` rather than guessing;
+5. Agent Runtime invokes the read-only `repo_status` capability and the task
+   reaches `succeeded`;
+6. ask Zelo what Core found in a later turn;
+7. Mind answers from the persisted task projection without creating another task.
+
+The authoritative live result included branch `main` and the then-current dirty
+working tree. This closes the workspace-decision prerequisite. The next increment
+may build the UI over these contracts; it may not create a parallel authority
+system.

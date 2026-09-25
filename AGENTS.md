@@ -55,35 +55,31 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: Early Zelo Chat increment
+## Current scope: Zelo Workspace Foundation
 
-The released base is Zelo Core v0.11.0. It includes durable tasks and attempts,
-SQLite persistence/migrations, authentication, approvals/audit, local model
-routing, typed native tools, bounded Agent and Developer runtimes, trusted
-validation, independent review, promotion/merge/release boundaries, the Worker
-Registry/Supervisor, enforceable worker authority, multi-worker delegation, and
-the bounded v0.11 self-improvement seed.
+The released base remains Zelo Core v0.11.0. The post-v0.11 Early Zelo Chat
+prerequisite is complete and live-proven on main commit
+`f920036d9c1631b8ddf999554b3c10437602cbf5`, with main CI #695 green.
 
-The active increment is the first post-v0.11 Talk-to-Zelo path toward v0.12.
-Add persistent text conversation for Zelo Mind and prove one conversation ->
-typed Core task -> real task progress -> authoritative result projection flow.
-Zelo Mind may discuss and plan, but model output must not receive execution
-authority or bypass TaskService, approvals, policy, workers, validation, or audit.
+The active increment is now the first Zelo-owned workspace slice. Build a thin
+presentation/interaction layer over the existing authenticated conversation and
+Core task projection contracts. Browser code must not receive the operator token,
+and UI code must not create a parallel task, approval, scheduler, memory, worker
+authority or operational state system.
 
 Do not pull v0.12 durability/wake cycles/campaigns forward wholesale. Memory
 remains v0.13, Agent Factory remains v0.14, broad tools/capabilities remain
-v0.15, and WhatsApp/email/live voice remain v0.16. Mission Control and Agent
-Town are references/candidates until the complete conversation-to-result flow
-is proven as required by the workspace decision.
+v0.15, and WhatsApp/email/live voice remain v0.16.
 
 ## Workspace decision
 
 - The current workspace product direction is one Zelo experience with three
   connected views: Talk to Zelo, Company World, and Control Desk.
-- Mission Control is a strong candidate/reference, not a mandatory dependency.
-  Agent Town is a visual-world reference/adaptation candidate.
-- Choose Mission Control, Agent Town, a hybrid, or a Zelo-owned workspace only
-  after proving one complete conversation -> Core task -> progress -> approval ->
-  verified result flow.
+- The proof gate is complete. The selected direction is a Zelo-owned workspace
+  with Mission-Control-derived Control Desk UX/components and a later
+  Agent-Town-derived Company World.
+- Mission Control and Agent Town are MIT-licensed reference/reuse sources, not
+  Zelo's runtime or authority boundary. Preserve required attribution for copied
+  or materially adapted code.
 - UI code must remain a projection/adapter over canonical Core state. It must not
   create a parallel task, approval, scheduler, memory, or authority system.

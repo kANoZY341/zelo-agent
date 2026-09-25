@@ -32,6 +32,11 @@ htmlcov/
 build/
 dist/
 
+# Frontend dependencies and generated build files
+node_modules/
+.next/
+*.tsbuildinfo
+
 # Logs, generated output, and editor files
 logs/
 *.log
