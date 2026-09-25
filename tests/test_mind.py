@@ -11,6 +11,7 @@ from app.gateway import ModelResult
 from app.main import create_app
 from app.models import Approval, ConversationTurn, Task, TaskAttempt, utcnow
 from app.policy import DomainError
+from app.tasks import _project_task_result
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 
@@ -395,7 +396,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         wait_for(client, task_id, "succeeded")
 
         huge_output = "x" * 50000
-        long_paths = [f"src/{number:02d}/" + ("nested-" * 45) + "file.py" for number in range(19)]
+        long_paths = [f"src/{number:02d}/" + ("路径🚀" * 120) + "file.py" for number in range(19)]
         with database.transaction() as session:
             task = session.get(Task, task_id)
             assert task is not None
@@ -404,11 +405,11 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
             task.error = "developer_validation_failed"
             task.result = {
                 "worker": "codex",
-                "worker_version": "codex-cli 0.155.1-" + ("v" * 300),
+                "worker_version": "codex-cli 0.155.1-" + ("版本🚀" * 300),
                 "worker_exit_code": 0,
                 "worker_summary": (
                     "Added one sentence to docs/early-zelo-chat.md. "
-                    "No merge or release was performed. " + ("s" * 2000)
+                    "No merge or release was performed. " + ("结果🚀" * 2000)
                 ),
                 "changed_files": [
                     "docs/early-zelo-chat.md",
@@ -439,7 +440,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
                         "identifier": "pytest",
                         "exit_code": 124,
                         "output": huge_output,
-                        "error": "process_output_limit" + ("e" * 400),
+                        "error": "process_output_limit" + ("错误🚀" * 400),
                     },
                 ],
                 "validation_passed": False,
@@ -473,6 +474,13 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert projected["result"]["validation"][2]["exit_code"] == 124
         assert projected["result"]["validation"][2]["error"].startswith("process_output_limit")
         assert len(projected["result"]["validation"][2]["error"]) <= 128
+        encoded_projected_result = json.dumps(
+            projected["result"],
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        assert len(encoded_projected_result) <= 4096
         assert "diff" not in json.dumps(projected)
         assert huge_output not in json.dumps(projected)
 
@@ -509,6 +517,48 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert task_state["result"]["source_changed_files"][0] == ("docs/early-zelo-chat.md")
         assert task_state["result"]["validation_passed"] is False
         assert task_state["result"]["validation"][2]["error"].startswith("process_output_limit")
+
+
+def test_developer_projection_bounds_oversized_exit_codes():
+    oversized_exit_code = 10**5000
+    projected, truncated = _project_task_result(
+        "developer_run",
+        {
+            "worker": "codex",
+            "worker_exit_code": oversized_exit_code,
+            "worker_summary": "Developer result.",
+            "changed_files": ["docs/early-zelo-chat.md"],
+            "ignored_generated_files": [],
+            "validation": [
+                {
+                    "identifier": "pytest",
+                    "exit_code": oversized_exit_code,
+                    "error": "process_output_limit",
+                }
+            ],
+            "validation_passed": False,
+            "error": "developer_validation_failed",
+            "cancelled": False,
+        },
+        4096,
+    )
+
+    assert truncated is True
+    assert projected is not None
+    assert projected["worker_exit_code"] is None
+    assert projected["validation"][0]["exit_code"] is None
+    assert projected["validation_passed"] is False
+    assert (
+        len(
+            json.dumps(
+                projected,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+        )
+        <= 4096
+    )
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):

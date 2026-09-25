@@ -145,6 +145,8 @@ TASK_PROJECTION_FIELD_CHARS = 128
 TASK_PROJECTION_REVIEW_SUMMARY_CHARS = 384
 TASK_PROJECTION_VALIDATIONS = 4
 TASK_PROJECTION_INPUT_ITEMS = 1000
+TASK_PROJECTION_EXIT_CODE_MIN = -(2**31)
+TASK_PROJECTION_EXIT_CODE_MAX = (2**31) - 1
 
 
 def _bounded_projection_text(value: Any, limit: int) -> str | None:
@@ -154,6 +156,49 @@ def _bounded_projection_text(value: Any, limit: int) -> str | None:
         return value
     marker = "...[truncated]"
     return value[: limit - len(marker)] + marker
+
+
+def _bounded_projection_exit_code(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < TASK_PROJECTION_EXIT_CODE_MIN or value > TASK_PROJECTION_EXIT_CODE_MAX:
+        return None
+    return value
+
+
+def _encoded_json_length(value: Any) -> int:
+    return len(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+    )
+
+
+def _bounded_projection_json_text(value: Any, limit: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    if _encoded_json_length(value) <= limit:
+        return value
+
+    marker = "...[truncated]"
+    if _encoded_json_length(marker) > limit:
+        return ""
+
+    low = 0
+    high = len(value)
+    best = marker
+    while low <= high:
+        middle = (low + high) // 2
+        candidate = value[:middle] + marker
+        if _encoded_json_length(candidate) <= limit:
+            best = candidate
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best
 
 
 def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
@@ -196,7 +241,9 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
                         item.get("identifier"),
                         TASK_PROJECTION_FIELD_CHARS,
                     ),
-                    "exit_code": item.get("exit_code"),
+                    "exit_code": _bounded_projection_exit_code(
+                        item.get("exit_code")
+                    ),
                     "error": _bounded_projection_text(
                         item.get("error"),
                         TASK_PROJECTION_FIELD_CHARS,
@@ -231,7 +278,9 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
             result.get("worker_version"),
             TASK_PROJECTION_FIELD_CHARS,
         ),
-        "worker_exit_code": result.get("worker_exit_code"),
+        "worker_exit_code": _bounded_projection_exit_code(
+            result.get("worker_exit_code")
+        ),
         "worker_summary": _bounded_projection_text(
             result.get("worker_summary"),
             TASK_PROJECTION_SUMMARY_CHARS,
@@ -263,28 +312,99 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str, Any]:
+    source_changed_files = projection.get("source_changed_files")
+    bounded_source_changed = (
+        [
+            bounded
+            for item in source_changed_files[:2]
+            if (bounded := _bounded_projection_json_text(item, 192)) is not None
+        ]
+        if isinstance(source_changed_files, list)
+        else []
+    )
+
+    validation_items: list[dict[str, Any]] = []
+    raw_validation = projection.get("validation")
+    if isinstance(raw_validation, list):
+        for item in raw_validation[:TASK_PROJECTION_VALIDATIONS]:
+            if not isinstance(item, dict):
+                continue
+            validation_items.append(
+                {
+                    "identifier": _bounded_projection_json_text(
+                        item.get("identifier"),
+                        96,
+                    ),
+                    "exit_code": _bounded_projection_exit_code(
+                        item.get("exit_code")
+                    ),
+                    "error": _bounded_projection_json_text(
+                        item.get("error"),
+                        192,
+                    ),
+                }
+            )
+
     return {
-        "worker": projection.get("worker"),
-        "worker_exit_code": projection.get("worker_exit_code"),
-        "worker_summary": _bounded_projection_text(
-            projection.get("worker_summary"),
-            256,
+        "worker": _bounded_projection_json_text(projection.get("worker"), 96),
+        "worker_exit_code": _bounded_projection_exit_code(
+            projection.get("worker_exit_code")
         ),
-        "source_changed_files": (
-            projection.get("source_changed_files", [])[:2]
-            if isinstance(projection.get("source_changed_files"), list)
-            else []
+        "worker_summary": _bounded_projection_json_text(
+            projection.get("worker_summary"),
+            384,
+        ),
+        "source_changed_files": bounded_source_changed,
+        "source_changed_file_count": projection.get("source_changed_file_count"),
+        "validation_passed": projection.get("validation_passed"),
+        "validation": validation_items,
+        "error": _bounded_projection_json_text(projection.get("error"), 128),
+        "boundary_error": _bounded_projection_json_text(
+            projection.get("boundary_error"),
+            128,
+        ),
+        "original_error": _bounded_projection_json_text(
+            projection.get("original_error"),
+            128,
+        ),
+        "cancelled": projection.get("cancelled"),
+    }
+
+
+def _emergency_developer_result_projection(
+    projection: dict[str, Any],
+) -> dict[str, Any]:
+    validation_items: list[dict[str, Any]] = []
+    raw_validation = projection.get("validation")
+    if isinstance(raw_validation, list):
+        for item in raw_validation[:2]:
+            if not isinstance(item, dict):
+                continue
+            validation_items.append(
+                {
+                    "identifier": _bounded_projection_json_text(
+                        item.get("identifier"),
+                        64,
+                    ),
+                    "exit_code": _bounded_projection_exit_code(
+                        item.get("exit_code")
+                    ),
+                    "error": _bounded_projection_json_text(
+                        item.get("error"),
+                        96,
+                    ),
+                }
+            )
+
+    return {
+        "worker": _bounded_projection_json_text(projection.get("worker"), 64),
+        "worker_exit_code": _bounded_projection_exit_code(
+            projection.get("worker_exit_code")
         ),
         "source_changed_file_count": projection.get("source_changed_file_count"),
         "validation_passed": projection.get("validation_passed"),
-        "validation": (
-            projection.get("validation", [])[:TASK_PROJECTION_VALIDATIONS]
-            if isinstance(projection.get("validation"), list)
-            else []
-        ),
-        "error": projection.get("error"),
-        "boundary_error": projection.get("boundary_error"),
-        "original_error": projection.get("original_error"),
+        "validation": validation_items,
+        "error": _bounded_projection_json_text(projection.get("error"), 96),
         "cancelled": projection.get("cancelled"),
     }
 
@@ -307,7 +427,24 @@ def _project_task_result(
         )
         if len(encoded_projection) <= TASK_PROJECTION_RESULT_CHARS:
             return projection, True
-        return _minimal_developer_result_projection(projection), True
+
+        minimal = _minimal_developer_result_projection(projection)
+        if _encoded_json_length(minimal) <= TASK_PROJECTION_RESULT_CHARS:
+            return minimal, True
+
+        emergency = _emergency_developer_result_projection(projection)
+        if _encoded_json_length(emergency) <= TASK_PROJECTION_RESULT_CHARS:
+            return emergency, True
+
+        return {
+            "summary": "Developer result exceeded the conversation projection budget.",
+            "worker_exit_code": _bounded_projection_exit_code(
+            projection.get("worker_exit_code")
+        ),
+            "source_changed_file_count": projection.get("source_changed_file_count"),
+            "validation_passed": projection.get("validation_passed"),
+            "cancelled": projection.get("cancelled"),
+        }, True
 
     encoded = json.dumps(
         result,
