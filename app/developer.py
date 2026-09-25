@@ -1039,9 +1039,8 @@ class DeveloperRuntime:
         ignored_paths: Iterable[str],
         candidate_content_sha256: str,
     ) -> Path:
-        if (
-            len(candidate_content_sha256) != 64
-            or any(character not in "0123456789abcdef" for character in candidate_content_sha256)
+        if len(candidate_content_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in candidate_content_sha256
         ):
             raise DeveloperError("review_candidate_identity_invalid")
         changed = tuple(changed_files)
