@@ -21,6 +21,7 @@ class ReviewWorker(FakeWorker):
         super().__init__()
         self.mutate = mutate
         self.review_requests = []
+        self.action = None
         self.worker_identity = self.worker_identity.model_copy(
             update={"implementation": implementation}
         )
@@ -29,6 +30,8 @@ class ReviewWorker(FakeWorker):
         self.calls.append(repo)
         self.review_requests.append(request)
         started = datetime.now(UTC)
+        if self.action is not None:
+            await self.action(request, repo)
         if self.mutate:
             (repo / "REVIEWER_MUTATION.txt").write_text("forbidden\n")
         summary = json.dumps(
@@ -87,6 +90,20 @@ def review_runtime(developer_case, *, mutate: bool = False):
         registry,
     )
     return runtime, producer, reviewer
+
+
+def run_review(runtime, repo, request, emit):
+    reviewed = asyncio.run(runtime.review(repo, request))
+    return asyncio.run(
+        runtime.run_independent_review(
+            repo,
+            request,
+            emit,
+            changed_files=reviewed["changed_files"],
+            ignored_generated_files=reviewed["ignored_generated_files"],
+            candidate_content_sha256=reviewed["candidate_content_sha256"],
+        )
+    )
 
 
 def named_review_runtime(
@@ -214,19 +231,20 @@ def test_independent_reviewer_executes_read_only_and_returns_structured_report(d
     asyncio.run(runtime.prepare(repo, request))
     events = []
 
-    result = asyncio.run(
-        runtime.run_independent_review(
-            repo,
-            request,
-            lambda event, details: events.append((event, details)),
-        )
+    result = run_review(
+        runtime,
+        repo,
+        request,
+        lambda event, details: events.append((event, details)),
     )
 
     assert result is not None
     assert result["worker_id"] == "independent_reviewer"
     assert result["report"]["summary"] == "Independent review complete"
     assert result["report"]["findings"][0]["severity"] == "low"
-    assert reviewer.calls == [repo]
+    assert len(reviewer.calls) == 1
+    assert reviewer.calls[0] != repo
+    assert not reviewer.calls[0].exists()
     assert reviewer.review_requests[0].instruction.startswith(
         "Review the current checkout independently"
     )
@@ -249,12 +267,11 @@ def test_reviewer_mutation_is_detected_and_fails_closed(developer_case):
     events = []
 
     with pytest.raises(DeveloperError, match="reviewer_boundary_violation"):
-        asyncio.run(
-            runtime.run_independent_review(
-                repo,
-                request,
-                lambda event, details: events.append((event, details)),
-            )
+        run_review(
+            runtime,
+            repo,
+            request,
+            lambda event, details: events.append((event, details)),
         )
 
     names = [name for name, _ in events]
@@ -272,12 +289,79 @@ def test_independent_reviewer_receives_approval_bound_review_context(developer_c
     repo.parent.mkdir(parents=True)
     asyncio.run(runtime.prepare(repo, request))
 
-    asyncio.run(runtime.run_independent_review(repo, request, lambda *_: None))
+    run_review(runtime, repo, request, lambda *_: None)
 
     assert len(reviewer.review_requests) == 1
     review_request = reviewer.review_requests[0]
     assert "Approved review context:" in review_request.instruction
     assert "Frozen acceptance criterion: tests stay green." in review_request.instruction
+
+
+@pytest.mark.skipif(not Path("/usr/bin/bwrap").is_file(), reason="Bubblewrap required")
+def test_independent_review_uses_candidate_snapshot_not_live_workspace(developer_case):
+    runtime, _, reviewer = review_runtime(developer_case)
+    request = runtime.request("test", "zelo_core", 30)
+    repo = runtime.path(str(uuid4()))
+    repo.parent.mkdir(parents=True)
+    asyncio.run(runtime.prepare(repo, request))
+    target = repo / "test_example.py"
+    candidate = "def test_example():\n    assert 2 == 2\n"
+    target.write_text(candidate)
+
+    reviewed = asyncio.run(runtime.review(repo, request))
+
+    async def swap_live_workspace(_request, review_repo):
+        assert review_repo != repo
+        assert (review_repo / "test_example.py").read_text() == candidate
+        target.write_text("def test_example():\n    assert False\n")
+        assert (review_repo / "test_example.py").read_text() == candidate
+        target.write_text(candidate)
+
+    reviewer.action = swap_live_workspace
+
+    result = asyncio.run(
+        runtime.run_independent_review(
+            repo,
+            request,
+            lambda *_: None,
+            changed_files=reviewed["changed_files"],
+            ignored_generated_files=reviewed["ignored_generated_files"],
+            candidate_content_sha256=reviewed["candidate_content_sha256"],
+        )
+    )
+
+    assert result is not None
+    assert result["candidate_content_sha256"] == reviewed["candidate_content_sha256"]
+    assert len(reviewer.calls) == 1
+    assert reviewer.calls[0] != repo
+    assert not reviewer.calls[0].exists()
+
+
+@pytest.mark.skipif(not Path("/usr/bin/bwrap").is_file(), reason="Bubblewrap required")
+def test_independent_review_rejects_live_candidate_changed_before_snapshot(developer_case):
+    runtime, _, reviewer = review_runtime(developer_case)
+    request = runtime.request("test", "zelo_core", 30)
+    repo = runtime.path(str(uuid4()))
+    repo.parent.mkdir(parents=True)
+    asyncio.run(runtime.prepare(repo, request))
+    target = repo / "test_example.py"
+    target.write_text("def test_example():\n    assert 2 == 2\n")
+    reviewed = asyncio.run(runtime.review(repo, request))
+    target.write_text("def test_example():\n    assert False\n")
+
+    with pytest.raises(DeveloperError, match="review_candidate_changed"):
+        asyncio.run(
+            runtime.run_independent_review(
+                repo,
+                request,
+                lambda *_: None,
+                changed_files=reviewed["changed_files"],
+                ignored_generated_files=reviewed["ignored_generated_files"],
+                candidate_content_sha256=reviewed["candidate_content_sha256"],
+            )
+        )
+
+    assert reviewer.calls == []
 
 
 def test_reviewer_capacity_contention_does_not_requeue_completed_implementation(

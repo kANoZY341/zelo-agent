@@ -60,17 +60,25 @@ def evaluate_improvement_candidate(
 
     review = result.independent_review
     review_present = review is not None
+    review_candidate_bound = (
+        review is not None
+        and result.candidate_content_sha256 is not None
+        and review.candidate_content_sha256 == result.candidate_content_sha256
+    )
     findings = review.report.findings if review is not None else ()
     reviewer_high_or_critical = any(
         finding.severity in {"high", "critical"} for finding in findings
     )
-    acceptance_criteria_proven = review_present and review_context_bound and len(findings) == 0
+    acceptance_criteria_proven = (
+        review_present and review_candidate_bound and review_context_bound and len(findings) == 0
+    )
 
     if (
         not result.validation_passed
         or not scope_valid
         or not execution_clean
         or result.candidate_content_sha256 is None
+        or (review_present and not review_candidate_bound)
         or reviewer_high_or_critical
     ):
         status = "rejected_candidate"

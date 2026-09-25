@@ -13,7 +13,7 @@ from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.claude_worker import ClaudeCodeWorker
 from app.codex_worker import CodexCliWorker, file_digest
@@ -226,6 +226,201 @@ def candidate_content_digest(
         allow_nan=False,
     ).encode("ascii")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _candidate_relative_path(relative: str) -> PurePosixPath:
+    path = PurePosixPath(relative)
+    if (
+        not relative
+        or "\\" in relative
+        or path.is_absolute()
+        or path.as_posix() != relative
+        or any(part in {"", ".", "..", ".git"} for part in path.parts)
+    ):
+        raise DeveloperError("review_path_invalid")
+    return path
+
+
+def _snapshot_parent(repo: Path, path: PurePosixPath) -> Path:
+    current = no_symlinks(repo)
+    for part in path.parts[:-1]:
+        candidate = current / part
+        try:
+            info = candidate.lstat()
+        except FileNotFoundError:
+            candidate.mkdir(mode=0o700)
+            info = candidate.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise DeveloperError("review_snapshot_conflict")
+        current = no_symlinks(candidate)
+    return current
+
+
+def _remove_snapshot_target(target: Path) -> None:
+    try:
+        info = target.lstat()
+    except FileNotFoundError:
+        return
+    if stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        target.unlink()
+        return
+    if stat.S_ISDIR(info.st_mode):
+        try:
+            target.rmdir()
+        except OSError:
+            raise DeveloperError("review_snapshot_conflict") from None
+        return
+    raise DeveloperError("review_snapshot_conflict")
+
+
+def _copy_candidate_path(source_repo: Path, snapshot_repo: Path, relative: str) -> int:
+    path = _candidate_relative_path(relative)
+    source_parent = no_symlinks(source_repo.joinpath(*path.parts[:-1]))
+    if not source_parent.is_relative_to(source_repo):
+        raise DeveloperError("workspace_escape")
+    source = source_parent / path.name
+    target_parent = _snapshot_parent(snapshot_repo, path)
+    target = target_parent / path.name
+
+    try:
+        before = source.lstat()
+    except FileNotFoundError:
+        _remove_snapshot_target(target)
+        return 0
+
+    if stat.S_ISREG(before.st_mode):
+        descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            opened = os.fstat(descriptor)
+            stable = (
+                before.st_dev,
+                before.st_ino,
+                before.st_mode,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            )
+            if (
+                opened.st_dev,
+                opened.st_ino,
+                opened.st_mode,
+                opened.st_size,
+                opened.st_mtime_ns,
+                opened.st_ctime_ns,
+            ) != stable:
+                raise DeveloperError("review_candidate_changed")
+            _remove_snapshot_target(target)
+            mode = 0o755 if before.st_mode & 0o111 else 0o644
+            output = os.open(
+                target,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                mode,
+            )
+            copied = 0
+            try:
+                while block := os.read(descriptor, 65536):
+                    copied += len(block)
+                    if copied > 64 * 1024 * 1024:
+                        raise DeveloperError("review_candidate_limit")
+                    view = memoryview(block)
+                    while view:
+                        written = os.write(output, view)
+                        view = view[written:]
+                os.fchmod(output, mode)
+            finally:
+                os.close(output)
+            after_fd = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        after_path = source.lstat()
+        if (
+            after_fd.st_dev,
+            after_fd.st_ino,
+            after_fd.st_mode,
+            after_fd.st_size,
+            after_fd.st_mtime_ns,
+            after_fd.st_ctime_ns,
+        ) != stable or (
+            after_path.st_dev,
+            after_path.st_ino,
+            after_path.st_mode,
+            after_path.st_size,
+            after_path.st_mtime_ns,
+            after_path.st_ctime_ns,
+        ) != stable:
+            _remove_snapshot_target(target)
+            raise DeveloperError("review_candidate_changed")
+        return copied
+
+    if stat.S_ISLNK(before.st_mode):
+        value = os.readlink(source)
+        after = source.lstat()
+        stable = (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        )
+        if (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ) != stable:
+            raise DeveloperError("review_candidate_changed")
+        raw = os.fsencode(value)
+        _remove_snapshot_target(target)
+        os.symlink(value, target)
+        return len(raw)
+
+    raise DeveloperError("review_special_file")
+
+
+def materialize_candidate_snapshot(
+    source_repo: Path,
+    snapshot_repo: Path,
+    paths: Iterable[str],
+    ignored_paths: Iterable[str] = (),
+) -> None:
+    """Copy only promotable candidate state into a clean base checkout."""
+    ignored = set(ignored_paths)
+    candidates = sorted(set(paths), key=lambda value: value.encode("utf-8"))
+    states: list[tuple[str, bool]] = []
+    for relative in candidates:
+        if relative in ignored:
+            continue
+        path = _candidate_relative_path(relative)
+        parent = no_symlinks(source_repo.joinpath(*path.parts[:-1]))
+        if not parent.is_relative_to(source_repo):
+            raise DeveloperError("workspace_escape")
+        try:
+            present = (parent / path.name).lstat()
+        except FileNotFoundError:
+            states.append((relative, False))
+        else:
+            if not (stat.S_ISREG(present.st_mode) or stat.S_ISLNK(present.st_mode)):
+                raise DeveloperError("review_special_file")
+            states.append((relative, True))
+
+    total = 0
+    for relative, present in sorted(
+        states,
+        key=lambda item: (-len(PurePosixPath(item[0]).parts), item[0].encode("utf-8")),
+    ):
+        if not present:
+            total += _copy_candidate_path(source_repo, snapshot_repo, relative)
+    for relative, present in sorted(
+        states,
+        key=lambda item: (len(PurePosixPath(item[0]).parts), item[0].encode("utf-8")),
+    ):
+        if present:
+            total += _copy_candidate_path(source_repo, snapshot_repo, relative)
+        if total > 64 * 1024 * 1024:
+            raise DeveloperError("review_candidate_limit")
 
 
 def tree_digest(root: Path) -> str:
@@ -835,11 +1030,74 @@ class DeveloperRuntime:
             "candidate_content_sha256": candidate_digest,
         }
 
+    async def _create_review_snapshot(
+        self,
+        repo: Path,
+        request: DeveloperRequest,
+        *,
+        changed_files: Iterable[str],
+        ignored_paths: Iterable[str],
+        candidate_content_sha256: str,
+    ) -> Path:
+        if (
+            len(candidate_content_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in candidate_content_sha256)
+        ):
+            raise DeveloperError("review_candidate_identity_invalid")
+        changed = tuple(changed_files)
+        ignored = tuple(ignored_paths)
+        current = await asyncio.to_thread(candidate_content_digest, repo, changed, ignored)
+        if current != candidate_content_sha256:
+            raise DeveloperError("review_candidate_changed")
+
+        snapshot_id = str(uuid4())
+        snapshot_repo = self.path(snapshot_id)
+        snapshot_repo.parent.mkdir(mode=0o700)
+        try:
+            await self.prepare(snapshot_repo, request)
+            await asyncio.to_thread(
+                materialize_candidate_snapshot,
+                repo,
+                snapshot_repo,
+                changed,
+                ignored,
+            )
+            frozen = await asyncio.to_thread(
+                candidate_content_digest,
+                snapshot_repo,
+                changed,
+                ignored,
+            )
+            if frozen != candidate_content_sha256:
+                raise DeveloperError("review_candidate_changed")
+            return snapshot_repo
+        except BaseException:
+            self._discard_review_snapshot(snapshot_repo)
+            raise
+
+    def _discard_review_snapshot(self, snapshot_repo: Path) -> None:
+        parent = snapshot_repo.parent
+        if snapshot_repo != self.path(parent.name) or parent.parent != self.root():
+            raise DeveloperError("review_snapshot_invalid")
+        if not parent.exists():
+            return
+        no_symlinks(parent)
+        if not shutil.rmtree.avoids_symlink_attacks:
+            raise DeveloperError("safe_cleanup_unavailable")
+        try:
+            shutil.rmtree(parent)
+        except OSError:
+            raise DeveloperError("review_snapshot_cleanup_failed") from None
+
     async def run_independent_review(
         self,
         repo: Path,
         request: DeveloperRequest,
         emit: Emit,
+        *,
+        changed_files: Iterable[str],
+        ignored_generated_files: Iterable[Mapping[str, str | int]],
+        candidate_content_sha256: str,
     ) -> dict[str, Any] | None:
         binding = request.reviewer
         if binding is None:
@@ -876,7 +1134,12 @@ class DeveloperRuntime:
             sandbox_version=request.sandbox_version,
             limits=request.limits,
         )
-        before = await asyncio.to_thread(tree_digest, repo)
+        ignored_paths = tuple(
+            str(item["path"])
+            for item in ignored_generated_files
+            if isinstance(item.get("path"), str)
+        )
+        snapshot_repo = None
         try:
             lock = self.worker_lock(
                 registration.descriptor.worker_id,
@@ -911,16 +1174,33 @@ class DeveloperRuntime:
             actual = await bound.preflight()
             if actual != binding.worker:
                 raise DeveloperError("reviewer_configuration_changed")
-            result = await bound.run(review_request, repo)
+            snapshot_repo = await self._create_review_snapshot(
+                repo,
+                request,
+                changed_files=changed_files,
+                ignored_paths=ignored_paths,
+                candidate_content_sha256=candidate_content_sha256,
+            )
+            before = await asyncio.to_thread(tree_digest, snapshot_repo)
+            result = await bound.run(review_request, snapshot_repo)
             if result.exit_code:
                 raise DeveloperError("reviewer_nonzero_exit", exit_code=result.exit_code)
-            if await asyncio.to_thread(tree_digest, repo) != before:
+            if await asyncio.to_thread(tree_digest, snapshot_repo) != before:
+                raise DeveloperError("reviewer_boundary_violation")
+            reviewed_identity = await asyncio.to_thread(
+                candidate_content_digest,
+                snapshot_repo,
+                changed_files,
+                ignored_paths,
+            )
+            if reviewed_identity != candidate_content_sha256:
                 raise DeveloperError("reviewer_boundary_violation")
             report = parse_reviewer_report(result.summary)
             payload = {
                 "worker_id": registration.descriptor.worker_id,
                 "implementation": registration.descriptor.implementation,
                 "worker_version": binding.worker.cli_version,
+                "candidate_content_sha256": candidate_content_sha256,
                 "report": report.model_dump(mode="json"),
                 "usage": result.usage,
                 "event_count": result.event_count,
@@ -952,20 +1232,30 @@ class DeveloperRuntime:
             finally:
                 raise
         finally:
+            cleanup_failure = None
             release_failure = None
-            lock.close()
             try:
-                emit(
-                    "reviewer_capacity_released",
-                    {"worker_id": registration.descriptor.worker_id},
-                )
-            except Exception as error:
-                release_failure = error
-            if entered:
-                exit_task = asyncio.create_task(
-                    asyncio.to_thread(context.__exit__, None, None, None)
-                )
-                await uncancellable(exit_task)
+                if entered:
+                    exit_task = asyncio.create_task(
+                        asyncio.to_thread(context.__exit__, None, None, None)
+                    )
+                    await uncancellable(exit_task)
+            finally:
+                if snapshot_repo is not None:
+                    try:
+                        self._discard_review_snapshot(snapshot_repo)
+                    except DeveloperError as error:
+                        cleanup_failure = error
+                lock.close()
+                try:
+                    emit(
+                        "reviewer_capacity_released",
+                        {"worker_id": registration.descriptor.worker_id},
+                    )
+                except Exception as error:
+                    release_failure = error
+            if cleanup_failure is not None:
+                raise cleanup_failure
             if release_failure is not None:
                 raise release_failure
 
@@ -1165,7 +1455,12 @@ class DeveloperRuntime:
                     raise DeveloperError("developer_boundary_violation")
                 if passed and request.reviewer is not None:
                     result["independent_review"] = await self.run_independent_review(
-                        repo, request, emit
+                        repo,
+                        request,
+                        emit,
+                        changed_files=result["changed_files"],
+                        ignored_generated_files=result["ignored_generated_files"],
+                        candidate_content_sha256=result["candidate_content_sha256"],
                     )
                 if passed and result["candidate_content_sha256"] is not None:
                     current_candidate_digest = await asyncio.to_thread(

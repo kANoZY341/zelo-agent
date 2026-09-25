@@ -54,6 +54,7 @@ def developer_result(proposal, **changes) -> DeveloperRunResult:
             "worker_id": "reviewer",
             "implementation": "fake",
             "worker_version": "fake-1",
+            "candidate_content_sha256": "c" * 64,
             "report": {"summary": "Looks good.", "findings": []},
             "usage": {},
             "event_count": 1,
@@ -121,6 +122,15 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
         ({"cancelled": True}, "rejected_candidate"),
         ({"changed_files": []}, "rejected_candidate"),
         ({"candidate_content_sha256": None}, "rejected_candidate"),
+        (
+            {
+                "independent_review": {
+                    **developer_result(proposal).model_dump(mode="json")["independent_review"],
+                    "candidate_content_sha256": "d" * 64,
+                }
+            },
+            "rejected_candidate",
+        ),
         ({"independent_review": None}, "inconclusive"),
     ],
 )

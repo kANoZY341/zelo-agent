@@ -197,6 +197,7 @@ class IndependentReviewResult(StrictModel):
     worker_id: str
     implementation: str
     worker_version: str
+    candidate_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     report: ReviewerReport
     usage: dict[str, int]
     event_count: int = Field(ge=0, le=4096)
