@@ -36,7 +36,7 @@ def create_conversation(body: ConversationCreate, mind: Mind) -> ConversationRes
 
 @router.get("", response_model=ConversationPage)
 def list_conversations(mind: Mind, limit: Limit = 20, offset: Offset = 0) -> ConversationPage:
-    items, total = mind.list(limit, offset)
+    items, total = mind.list_conversations(limit, offset)
     return ConversationPage(items=items, limit=limit, offset=offset, total=total)
 
 
