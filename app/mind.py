@@ -58,6 +58,8 @@ MIND_ACTION = TypeAdapter(
 
 MIND_HISTORY_CHARS = 16384
 MIND_HISTORY_TURNS = 64
+MIND_HISTORY_MESSAGE_CHARS = 4096
+MIND_TASK_STATE_CHARS = 6144
 DEFAULT_TURN_PAGE_SIZE = 50
 
 SYSTEM_PROMPT = """You are Zelo Mind, the persistent reasoning and conversational identity of Zelo.
@@ -222,22 +224,22 @@ class MindService:
             )
         )
 
+    @staticmethod
+    def _history_text(value: str) -> str:
+        if len(value) <= MIND_HISTORY_MESSAGE_CHARS:
+            return value
+        marker = "\n...[truncated for Mind history]"
+        return value[: MIND_HISTORY_MESSAGE_CHARS - len(marker)] + marker
+
     def _task_state_message(self, task: TaskProjection) -> ModelMessage:
-        result_json = json.dumps(
-            task.result,
-            ensure_ascii=True,
-            allow_nan=False,
-            separators=(",", ":"),
-        )
-        limit = self.settings.max_agent_tool_result_chars
         envelope = {
             "type": "core_task_state",
             "untrusted": True,
             "task_id": task.id,
             "kind": task.kind,
             "status": task.status,
-            "result_json": result_json[:limit],
-            "result_truncated": len(result_json) > limit,
+            "result": task.result,
+            "result_truncated": task.result_truncated,
             "error": task.error,
             "attempt_count": task.attempt_count,
             "latest_attempt_outcome": task.latest_attempt_outcome,
@@ -251,23 +253,32 @@ class MindService:
                 else None
             ),
         }
-        return ModelMessage(
-            "tool",
-            json.dumps(
+        serialized = json.dumps(
+            envelope,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        if len(serialized) > MIND_TASK_STATE_CHARS:
+            envelope["result"] = {
+                "summary": "Task result omitted because the bounded Mind projection was too large."
+            }
+            envelope["result_truncated"] = True
+            serialized = json.dumps(
                 envelope,
                 ensure_ascii=True,
                 allow_nan=False,
                 separators=(",", ":"),
-            ),
-        )
+            )
+        return ModelMessage("tool", serialized)
 
     def _history(self, turns: Iterable[ConversationTurn]) -> list[ModelMessage]:
         bundles: list[list[ModelMessage]] = []
         total = 0
         for turn in reversed(list(turns)):
             bundle = [
-                ModelMessage("user", turn.user_content),
-                ModelMessage("assistant", turn.assistant_content),
+                ModelMessage("user", self._history_text(turn.user_content)),
+                ModelMessage("assistant", self._history_text(turn.assistant_content)),
             ]
             if turn.core_task_id is not None:
                 try:
@@ -277,7 +288,9 @@ class MindService:
                 else:
                     bundle.append(self._task_state_message(task))
             size = sum(len(message.content) for message in bundle)
-            if size > MIND_HISTORY_CHARS or total + size > MIND_HISTORY_CHARS:
+            if size > MIND_HISTORY_CHARS:
+                continue
+            if total + size > MIND_HISTORY_CHARS:
                 break
             bundles.append(bundle)
             total += size

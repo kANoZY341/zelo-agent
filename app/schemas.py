@@ -247,6 +247,7 @@ class AttemptResponse(StrictModel):
     ended_at: datetime | None
     outcome: State
     result: dict[str, Any] | None
+    result_truncated: bool = False
     error: str | None
     cancellation_requested_at: datetime | None
 

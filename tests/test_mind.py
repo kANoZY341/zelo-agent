@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.gateway import ModelResult
 from app.main import create_app
-from app.models import Approval, TaskAttempt, utcnow
+from app.models import Approval, ConversationTurn, Task, TaskAttempt, utcnow
 from app.policy import DomainError
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -179,7 +179,7 @@ def test_conversation_core_task_reaches_verified_result(settings, database):
         assert task_state["type"] == "core_task_state"
         assert task_state["task_id"] == task_id
         assert task_state["status"] == "succeeded"
-        assert json.loads(task_state["result_json"])["words"] == 3
+        assert task_state["result"]["words"] == 3
         assert task_state["result_truncated"] is False
 
 
@@ -347,6 +347,131 @@ def test_conversation_task_projection_bounds_attempt_and_approval_histories(
         assert task_state["approval_count"] == 30
         assert "attempts" not in task_state
         assert "approvals" not in task_state
+
+
+def test_large_developer_result_remains_visible_to_mind(settings, database):
+    provider = MindProvider(
+        core_task("echo", {"text": "placeholder"}, "I am sending work to Core."),
+        reply("I can see the final Core result."),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        created = send_turn(
+            client,
+            conversation["id"],
+            "Run the developer task.",
+            "large-result-1",
+        )
+        assert created.status_code == 201, created.text
+        turn_id = created.json()["id"]
+        task_id = created.json()["core_task"]["id"]
+        wait_for(client, task_id, "succeeded")
+
+        huge_output = "x" * 50000
+        with database.transaction() as session:
+            task = session.get(Task, task_id)
+            assert task is not None
+            task.kind = "developer_run"
+            task.status = "failed"
+            task.error = "developer_validation_failed"
+            task.result = {
+                "worker": "codex",
+                "worker_version": "codex-cli 0.155.1",
+                "worker_exit_code": 0,
+                "worker_summary": (
+                    "Added one sentence to docs/early-zelo-chat.md. "
+                    "No merge or release was performed."
+                ),
+                "changed_files": [
+                    "docs/early-zelo-chat.md",
+                    ".pytest_cache/v/cache/nodeids",
+                ],
+                "ignored_generated_files": [
+                    {
+                        "path": ".pytest_cache/v/cache/nodeids",
+                        "type": "file",
+                        "size": 99999,
+                    }
+                ],
+                "validation": [
+                    {
+                        "identifier": "ruff_check",
+                        "exit_code": 0,
+                        "output": "All checks passed!",
+                        "error": None,
+                    },
+                    {
+                        "identifier": "ruff_format",
+                        "exit_code": 0,
+                        "output": "formatted",
+                        "error": None,
+                    },
+                    {
+                        "identifier": "pytest",
+                        "exit_code": 124,
+                        "output": huge_output,
+                        "error": "process_output_limit",
+                    },
+                ],
+                "validation_passed": False,
+                "independent_review": None,
+                "diff": huge_output,
+                "error": "developer_validation_failed",
+                "protocol_diagnostic": None,
+                "boundary_error": None,
+                "original_error": None,
+                "cancelled": False,
+            }
+            turn = session.get(ConversationTurn, turn_id)
+            assert turn is not None
+            turn.user_content = "u" * 10000
+            turn.assistant_content = "a" * 10000
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}?turn_limit=1"
+        ).json()
+        projected = stored["turns"][0]["core_task"]
+        assert projected["status"] == "failed"
+        assert projected["error"] == "developer_validation_failed"
+        assert projected["result_truncated"] is True
+        assert projected["result"]["worker_exit_code"] == 0
+        assert projected["result"]["source_changed_files"] == [
+            "docs/early-zelo-chat.md"
+        ]
+        assert projected["result"]["validation_passed"] is False
+        assert projected["result"]["validation"][2] == {
+            "identifier": "pytest",
+            "exit_code": 124,
+            "error": "process_output_limit",
+        }
+        assert "diff" not in json.dumps(projected)
+        assert huge_output not in json.dumps(projected)
+
+        follow_up = send_turn(
+            client,
+            conversation["id"],
+            "What happened with that developer task?",
+            "large-result-2",
+        )
+        assert follow_up.status_code == 201, follow_up.text
+
+        messages = provider.requests[1].messages
+        assert [message.role for message in messages] == [
+            "user",
+            "assistant",
+            "tool",
+            "user",
+        ]
+        assert len(messages[0].content) <= 4096
+        assert len(messages[1].content) <= 4096
+        task_state = json.loads(messages[2].content)
+        assert len(messages[2].content) <= 6144
+        assert task_state["status"] == "failed"
+        assert task_state["error"] == "developer_validation_failed"
+        assert task_state["result"]["worker"] == "codex"
+        assert task_state["result"]["worker_exit_code"] == 0
+        assert task_state["result"]["validation_passed"] is False
+        assert task_state["result"]["validation"][2]["error"] == "process_output_limit"
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):

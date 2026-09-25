@@ -54,9 +54,15 @@ and then applies the character budget.
 
 Linked Core tasks use a bounded projection in conversation responses and Mind
 context: current state/result/error, aggregate attempt and approval counts, and
-only the latest attempt/approval status. Full attempt and approval histories
-remain available through the canonical task API rather than being embedded in
-each conversation turn.
+only the latest attempt/approval status. Developer results are reduced to a
+compact operational summary (worker outcome, source changes, validation outcomes,
+and failure details) rather than exposing raw diffs, generated-file inventories,
+or validator output. Other oversized results fall back to a bounded preview.
+Full task results and histories remain available through the canonical task API.
+
+Mind history also bounds persisted user/assistant text before composing a turn
+bundle. A single oversized historical turn is skipped rather than hiding all
+older context, while recent bounded Core task state remains available to Mind.
 
 Mind model generation has process-wide admission control, independent of
 conversation ID. The operator settings `ZELO_MIND_MAX_CONCURRENCY` and
