@@ -137,9 +137,7 @@ class MindService:
             session.flush()
             return self._conversation_response(session, conversation)
 
-    def list_conversations(
-        self, limit: int, offset: int
-    ) -> tuple[list[ConversationResponse], int]:
+    def list_conversations(self, limit: int, offset: int) -> tuple[list[ConversationResponse], int]:
         with self.database.read() as session:
             total = session.scalar(select(func.count()).select_from(Conversation)) or 0
             conversations = session.scalars(
@@ -251,8 +249,7 @@ class MindService:
                 return None
             if turn.user_content != text:
                 raise DomainError(
-                    "Idempotency key was already used with a different "
-                    "conversation turn",
+                    "Idempotency key was already used with a different conversation turn",
                     409,
                 )
             return self._turn_response(turn)
