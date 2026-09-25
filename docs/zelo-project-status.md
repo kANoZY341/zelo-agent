@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Verified: 25 September 2026
+Verified: 26 September 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -39,39 +39,66 @@ The planner cannot select a concrete worker, executable, credential, authority
 profile, merge method or release tag. Promotion, merge and release remain
 separate approval-bound operations.
 
-## v0.11 pre-release audit closure
+## Early Zelo Chat — completed and live-proven
 
-GPT-6 Astra audited pre-release main commit
-`efd01242d42c167ee557d1d56aae7bd18597e036` and found three release blockers.
-Corrective PR #16 closed them and the later focused review findings. Exact-head
-CI and the final Codex re-review were clean before merge.
+The post-v0.11 conversation prerequisite is complete on `main`.
 
-The historical audit remains at
-`docs/reviews/zelo-core-v0.11-astra-pre-release-audit.md`.
+Relevant merged work:
 
-Non-blocking follow-ups remain for OpenCode cancellation cleanup, stale
-`ai_prompt` model-route approval, the promotion smoke entrypoint, self-hosted
-runner isolation evidence, remote merge interleavings and deeper vendor-boundary
-probes.
+- PR #17 — persistent Early Zelo Chat and Mind -> Core conversation contract.
+- PR #18 — keep large Core result context available to Mind.
+- PR #19 — enforce the serialized Unicode/result projection budget.
+- PR #20 — final Ruff formatting correction.
 
-## Active increment: Early Zelo Chat
+Current verified main commit:
 
-Branch: `feat/early-zelo-chat`.
+`f920036d9c1631b8ddf999554b3c10437602cbf5`
 
-The target path is:
+Main CI #695 succeeded with:
+
+`697 passed, 2 skipped, 1 warning`
+
+A live local proof was completed on 26 September 2026 (Asia/Dubai):
 
 ```text
-operator text
-  -> persistent Zelo Mind conversation
-  -> direct reply or one typed Core task proposal
-  -> existing TaskService policy/approval boundary
-  -> existing runner and workers
-  -> authoritative task status/result projected back into conversation
+Ahmad -> Zelo Mind direct conversation
+      -> Mind requests an agent_run Core task
+      -> Core Agent Runtime executes repo_status
+      -> task succeeds with authoritative repository state
+      -> later Mind turn reads the persisted Core projection
+      -> Zelo answers from that result without rerunning or guessing
 ```
 
-This increment does not pull forward v0.12 autonomous events/wake cycles/campaigns,
-v0.13 memory, v0.14 Agent Factory, v0.15 broad tools/capabilities, or v0.16
-WhatsApp/email/live voice.
+The live task correctly reported branch `main` and the then-current dirty working
+tree. This proves the required conversation -> Core task -> real result ->
+conversation-context path outside the automated test suite.
+
+## Active increment: Zelo Workspace Foundation
+
+The workspace implementation choice is now made:
+
+- Zelo owns the workspace application and contracts.
+- Mission Control is the primary control-desk UX/component reference and a
+  selective MIT-licensed reuse source.
+- Agent Town is the Company World/Phaser reference for a later visual slice.
+- Neither project becomes Zelo Core, task authority, scheduler, memory owner or
+  agent runtime.
+
+The first implementation slice is intentionally narrow:
+
+```text
+browser
+  -> local Zelo Workspace server
+  -> server-side authenticated Core proxy
+  -> existing conversation API
+  -> Zelo Mind
+  -> optional canonical Core task
+  -> projected progress/result
+  -> browser
+```
+
+The browser must never receive the Core operator token. Workspace task state is
+always projected from Core rather than duplicated in a UI database.
 
 ## Parked work
 
@@ -80,9 +107,11 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Finish and verify the Early Zelo Chat Core contract.
-2. Prove conversation -> typed Core task -> real result -> conversation projection.
-3. Run full exact-head CI and focused review.
-4. With the Core path proven, adapt the workspace UI without creating a parallel
-   authority system.
-5. Continue into v0.12 durable events, wake cycles and campaigns.
+1. Land and smoke-test the first Zelo-owned Talk-to-Zelo workspace.
+2. Verify browser -> Mind -> Core task -> live projected result with the same
+   contract proven by curl.
+3. Add practical Control Desk projections over existing Core state.
+4. Enter v0.12 with durable GoalSpec/project/campaign ownership, events,
+   checkpoints, budgets and bounded scheduling.
+5. Add Company World only as a projection over real Core/company state; do not
+   pull Agent Factory or broad autonomy forward.
