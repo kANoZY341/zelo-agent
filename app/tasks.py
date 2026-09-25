@@ -288,6 +288,7 @@ def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str
         "cancelled": projection.get("cancelled"),
     }
 
+
 def _project_task_result(
     kind: str,
     result: dict[str, Any] | None,
