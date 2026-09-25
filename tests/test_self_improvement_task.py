@@ -370,7 +370,7 @@ def test_developer_completion_records_inconclusive_without_independent_review(
         proposal_draft(
             risk="medium",
             evidence=("test_example.py",),
-            scope_paths=("test_example.py",),
+            scope_paths=("docs/self-improvement-note.md",),
         ),
         inspection,
         goal="Improve Zelo safely.",
@@ -408,7 +408,7 @@ def test_developer_completion_records_inconclusive_without_independent_review(
 
     result = developer_result(
         proposal,
-        changed_files=["test_example.py"],
+        changed_files=["docs/self-improvement-note.md"],
         independent_review=None,
     )
     service.finish(
@@ -621,6 +621,10 @@ def test_self_improvement_full_cycle_smoke_stops_after_accepted_candidate(develo
     assert len(evaluation["final_diff_sha256"]) == 64
     assert evaluation["validation_passed"] is True
     assert evaluation["acceptance_criteria_proven"] is True
+    promotion_source = service._promotion_source(child.id, completed_child.attempts[-1].id)
+    assert promotion_source[3] == evaluation["final_diff_sha256"]
+    assert promotion_source[4] == evaluation["candidate_content_sha256"]
+    assert len(evaluation["candidate_content_sha256"]) == 64
     assert len(reviewer.review_requests) == 1
     assert proposal_payload["acceptance_criteria"][0] in reviewer.review_requests[0].instruction
 
@@ -759,3 +763,42 @@ def test_self_improvement_real_validation_failure_is_rejected(developer_case, da
     assert len(evaluations) == 1
     assert evaluations[0].details["status"] == "rejected_candidate"
     assert evaluations[0].details["validation_passed"] is False
+
+
+def test_rejected_self_improvement_candidate_cannot_enter_promotion(developer_case, database):
+    service, parent, child, proposal = _prepare_bound_self_improvement_child(
+        developer_case,
+        database,
+        "self-improvement-rejected-promotion",
+    )
+    service.decide(child.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    result = developer_result(
+        proposal,
+        changed_files=["app/auth.py"],
+        git_status=" M app/auth.py",
+        diff_stat="app/auth.py | 1 +",
+        independent_review=None,
+    )
+    service.finish(
+        execution,
+        State.SUCCEEDED,
+        result=result.model_dump(mode="json"),
+    )
+
+    completed = service.get(child.id)
+    assert completed.status == State.SUCCEEDED
+    evaluations = [
+        event
+        for event in service.events(parent.id, 100, 0)
+        if event.event == "self_improvement_evaluation_completed"
+    ]
+    assert len(evaluations) == 1
+    assert evaluations[0].details["status"] == "rejected_candidate"
+
+    with pytest.raises(
+        DomainError,
+        match="Self-improvement candidate is not accepted for promotion",
+    ):
+        service._promotion_source(child.id, execution.attempt_id)

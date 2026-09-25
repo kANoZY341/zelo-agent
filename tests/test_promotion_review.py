@@ -35,13 +35,23 @@ def owned_candidate(runtime):
     return PromotionReviewer(runtime), repo, request, task_id, attempt_id
 
 
-def create_review(reviewer, task_id, attempt_id, request):
+def create_review(
+    reviewer,
+    task_id,
+    attempt_id,
+    request,
+    *,
+    expected_diff_sha256=None,
+    expected_candidate_content_sha256=None,
+):
     return asyncio.run(
         reviewer.create(
             task_id,
             attempt_id,
             request,
             validation_passed=True,
+            expected_diff_sha256=expected_diff_sha256,
+            expected_candidate_content_sha256=expected_candidate_content_sha256,
         )
     )
 
@@ -64,12 +74,47 @@ def test_review_is_deterministic_sorted_and_ignores_generated_artifacts(develope
     assert [item.path for item in first.ignored_artifact_summary] == [".ruff_cache/cache-entry"]
 
 
+def test_review_rejects_candidate_changed_after_evaluation(developer_case):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    target = repo / "candidate.txt"
+    target.write_text("first\n")
+    reviewed = asyncio.run(reviewer.runtime.review(repo, request))
+    expected = hashlib.sha256(reviewed["diff"].encode("utf-8")).hexdigest()
+
+    create_review(
+        reviewer,
+        task_id,
+        attempt_id,
+        request,
+        expected_diff_sha256=expected,
+    )
+
+    target.write_text("second\n")
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_diff_sha256=expected,
+        )
+
+
 def test_binary_content_is_hashed_exactly(developer_case):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     content = b"\x00\xffbinary\r\ncontent\x00"
-    (repo / "payload.bin").write_bytes(content)
+    target = repo / "payload.bin"
+    target.write_bytes(content)
+    reviewed = asyncio.run(reviewer.runtime.review(repo, request))
 
-    review = create_review(reviewer, task_id, attempt_id, request)
+    review = create_review(
+        reviewer,
+        task_id,
+        attempt_id,
+        request,
+        expected_candidate_content_sha256=reviewed["candidate_content_sha256"],
+    )
     entry = review.candidate_manifest[0]
 
     assert entry.path == "payload.bin"
@@ -78,6 +123,51 @@ def test_binary_content_is_hashed_exactly(developer_case):
     assert entry.mode == "100644"
     assert entry.size == len(content)
     assert entry.sha256 == hashlib.sha256(content).hexdigest()
+
+    target.write_bytes(b"\x01\xffbinary\r\ncontent\x00")
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_candidate_content_sha256=reviewed["candidate_content_sha256"],
+        )
+
+
+def test_returned_manifest_is_bound_directly_to_evaluated_content(developer_case, monkeypatch):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    target = repo / "payload.bin"
+    evaluated = b"evaluated-bytes"
+    stale = b"stale-unevaluated-bytes"
+
+    target.write_bytes(evaluated)
+    evaluated_review = asyncio.run(reviewer.runtime.review(repo, request))
+    expected = evaluated_review["candidate_content_sha256"]
+    target.write_bytes(stale)
+
+    original_review = reviewer.runtime.review
+    review_calls = 0
+
+    async def switch_to_evaluated_bytes(*args):
+        nonlocal review_calls
+        review_calls += 1
+        target.write_bytes(evaluated)
+        return await original_review(*args)
+
+    monkeypatch.setattr(reviewer.runtime, "review", switch_to_evaluated_bytes)
+
+    with pytest.raises(DeveloperError, match="promotion_candidate_changed"):
+        create_review(
+            reviewer,
+            task_id,
+            attempt_id,
+            request,
+            expected_candidate_content_sha256=expected,
+        )
+
+    assert review_calls == 0
 
 
 def test_symlink_hashes_target_bytes_without_following_target(developer_case):

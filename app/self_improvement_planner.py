@@ -93,6 +93,11 @@ _HIGH_RISK_EXACT = frozenset(
         "scripts/smoke_promotion.py",
     }
 )
+_HIGH_RISK_NAMESPACE_STEMS = tuple(
+    sorted(
+        path[:-3] for path in _HIGH_RISK_EXACT if path.startswith("app/") and path.endswith(".py")
+    )
+)
 
 
 class PlannerResult(Contract):
@@ -161,7 +166,21 @@ def _scope_allowed(path: str) -> bool:
 
 
 def _high_risk_scope(path: str) -> bool:
-    return path in _HIGH_RISK_EXACT or path.startswith(_HIGH_RISK_PREFIXES)
+    return (
+        path in _HIGH_RISK_EXACT
+        or path.startswith(_HIGH_RISK_PREFIXES)
+        or any(
+            path == namespace
+            or path.startswith(namespace + "/")
+            or path.startswith(namespace + ".")
+            for namespace in _HIGH_RISK_NAMESPACE_STEMS
+        )
+    )
+
+
+def candidate_scope_allowed(path: str) -> bool:
+    """Apply the trusted v0.11 scope boundary to a final candidate path."""
+    return _scope_allowed(path) and not _high_risk_scope(path)
 
 
 class SelfImprovementPolicy:

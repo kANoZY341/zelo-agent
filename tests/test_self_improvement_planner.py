@@ -87,6 +87,18 @@ def test_planner_returns_frozen_policy_checked_proposal(tmp_path):
         ),
         (valid_response(evidence=["missing.py"]), "proposal_evidence_unavailable"),
         (valid_response(scope_paths=["app/policy.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/policy/__init__.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/auth/__init__.py"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/auth"]), "proposal_high_risk_scope"),
+        (valid_response(scope_paths=["app/auth.so"]), "proposal_high_risk_scope"),
+        (
+            valid_response(scope_paths=["app/auth.cpython-312-x86_64-linux-gnu.so"]),
+            "proposal_high_risk_scope",
+        ),
+        (
+            valid_response(scope_paths=["app/developer_sandbox/__init__.py"]),
+            "proposal_high_risk_scope",
+        ),
         (valid_response(scope_paths=["app/__init__.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["app/logging_config.py"]), "proposal_high_risk_scope"),
         (valid_response(scope_paths=["AGENTS.md"]), "proposal_scope_denied"),

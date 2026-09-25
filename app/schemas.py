@@ -197,6 +197,7 @@ class IndependentReviewResult(StrictModel):
     worker_id: str
     implementation: str
     worker_version: str
+    candidate_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     report: ReviewerReport
     usage: dict[str, int]
     event_count: int = Field(ge=0, le=4096)
@@ -220,6 +221,7 @@ class DeveloperRunResult(StrictModel):
     git_status: str = Field(max_length=1048576)
     diff_stat: str = Field(max_length=8192)
     diff: str = Field(max_length=131072)
+    candidate_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     head: str | None
     head_changed: bool
     validation: list[ValidationResult] = Field(max_length=4)

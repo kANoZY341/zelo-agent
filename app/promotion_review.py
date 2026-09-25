@@ -72,6 +72,33 @@ def _fingerprint_payload(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def candidate_manifest_content_sha256(manifest: list[CandidateEntry]) -> str:
+    """Derive the developer candidate identity from the exact returned manifest."""
+    entries: list[dict[str, Any]] = []
+    for item in sorted(manifest, key=lambda entry: entry.path.encode("utf-8")):
+        if item.operation == "delete":
+            entries.append({"path": item.path, "operation": "delete"})
+            continue
+        entries.append(
+            {
+                "path": item.path,
+                "operation": "present",
+                "type": item.object_type,
+                "mode": item.mode,
+                "size": item.size,
+                "sha256": item.sha256,
+            }
+        )
+    canonical = json.dumps(
+        entries,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _open_parent(repo: Path, relative: str) -> tuple[int, bytes]:
     parts = relative.split("/")
     root_fd = os.open(repo, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -319,6 +346,8 @@ class PromotionReviewer:
         request: DeveloperRequest,
         *,
         validation_passed: bool,
+        expected_diff_sha256: str | None = None,
+        expected_candidate_content_sha256: str | None = None,
     ) -> PromotionReview:
         if not validation_passed:
             raise DeveloperError("promotion_source_not_validated")
@@ -332,6 +361,17 @@ class PromotionReviewer:
         if first != second:
             raise DeveloperError("promotion_candidate_changed")
         head, manifest, ignored = first
+        if (
+            expected_candidate_content_sha256 is not None
+            and candidate_manifest_content_sha256(manifest) != expected_candidate_content_sha256
+        ):
+            raise DeveloperError("promotion_candidate_changed")
+        if expected_diff_sha256 is not None:
+            repo = self._owned_repo(task_id, attempt_id)
+            current = await self.runtime.review(repo, request)
+            current_diff_sha256 = hashlib.sha256(current["diff"].encode("utf-8")).hexdigest()
+            if current_diff_sha256 != expected_diff_sha256:
+                raise DeveloperError("promotion_candidate_changed")
         workspace = str(self.runtime.path(attempt_id).relative_to(self.runtime.root()))
         values: dict[str, Any] = {
             "review_version": "promotion-review-v1",

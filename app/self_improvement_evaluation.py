@@ -9,6 +9,7 @@ from app.self_improvement import (
     ImprovementProposal,
     SelfImprovementError,
 )
+from app.self_improvement_planner import candidate_scope_allowed
 
 
 def _trusted_validation_artifact(path: str) -> bool:
@@ -42,7 +43,9 @@ def evaluate_improvement_candidate(
         if not (path in ignored_paths and _trusted_validation_artifact(path))
     )
     scope = set(proposal.draft.scope_paths)
-    scope_valid = bool(changed_files) and all(path in scope for path in changed_files)
+    scope_valid = bool(changed_files) and all(
+        path in scope and candidate_scope_allowed(path) for path in changed_files
+    )
 
     execution_clean = (
         result.worker_exit_code == 0
@@ -57,16 +60,25 @@ def evaluate_improvement_candidate(
 
     review = result.independent_review
     review_present = review is not None
+    review_candidate_bound = (
+        review is not None
+        and result.candidate_content_sha256 is not None
+        and review.candidate_content_sha256 == result.candidate_content_sha256
+    )
     findings = review.report.findings if review is not None else ()
     reviewer_high_or_critical = any(
         finding.severity in {"high", "critical"} for finding in findings
     )
-    acceptance_criteria_proven = review_present and review_context_bound and len(findings) == 0
+    acceptance_criteria_proven = (
+        review_present and review_candidate_bound and review_context_bound and len(findings) == 0
+    )
 
     if (
         not result.validation_passed
         or not scope_valid
         or not execution_clean
+        or result.candidate_content_sha256 is None
+        or (review_present and not review_candidate_bound)
         or reviewer_high_or_critical
     ):
         status = "rejected_candidate"
@@ -83,6 +95,7 @@ def evaluate_improvement_candidate(
         worker_implementation=worker_implementation,
         changed_files=tuple(sorted(changed_files)),
         final_diff_sha256=hashlib.sha256(result.diff.encode("utf-8")).hexdigest(),
+        candidate_content_sha256=result.candidate_content_sha256,
         validation_passed=result.validation_passed,
         scope_valid=scope_valid,
         execution_clean=execution_clean,

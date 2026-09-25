@@ -45,6 +45,7 @@ def developer_result(proposal, **changes) -> DeveloperRunResult:
         "git_status": " M app/core.py",
         "diff_stat": "app/core.py | 1 +",
         "diff": "diff",
+        "candidate_content_sha256": "c" * 64,
         "head": proposal.base_sha,
         "head_changed": False,
         "validation": [],
@@ -53,6 +54,7 @@ def developer_result(proposal, **changes) -> DeveloperRunResult:
             "worker_id": "reviewer",
             "implementation": "fake",
             "worker_version": "fake-1",
+            "candidate_content_sha256": "c" * 64,
             "report": {"summary": "Looks good.", "findings": []},
             "usage": {},
             "event_count": 1,
@@ -98,6 +100,7 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
     assert evaluation.worker_implementation == "fake"
     assert evaluation.changed_files == ("app/core.py",)
     assert evaluation.final_diff_sha256 == hashlib.sha256(b"diff").hexdigest()
+    assert evaluation.candidate_content_sha256 == "c" * 64
     assert evaluation.validation_passed is True
     assert evaluation.scope_valid is True
     assert evaluation.execution_clean is True
@@ -118,6 +121,7 @@ def test_clean_validated_independently_reviewed_candidate_is_accepted(tmp_path):
         ({"head_changed": True}, "rejected_candidate"),
         ({"cancelled": True}, "rejected_candidate"),
         ({"changed_files": []}, "rejected_candidate"),
+        ({"candidate_content_sha256": None}, "rejected_candidate"),
         ({"independent_review": None}, "inconclusive"),
     ],
 )
@@ -127,6 +131,22 @@ def test_evaluator_fails_closed_on_untrusted_or_unproven_candidate(tmp_path, cha
     evaluation = evaluate(proposal, developer_result(proposal, **changes))
 
     assert evaluation.status == expected
+
+
+def test_evaluator_rejects_review_bound_to_different_candidate(tmp_path):
+    proposal = frozen_proposal(tmp_path)
+    result = developer_result(proposal)
+    assert result.independent_review is not None
+    mismatched_review = result.independent_review.model_copy(
+        update={"candidate_content_sha256": "d" * 64}
+    )
+    evaluation = evaluate(
+        proposal,
+        result.model_copy(update={"independent_review": mismatched_review}),
+    )
+
+    assert evaluation.status == "rejected_candidate"
+    assert evaluation.acceptance_criteria_proven is False
 
 
 def test_high_or_critical_reviewer_finding_rejects_candidate(tmp_path):
@@ -209,3 +229,31 @@ def test_arbitrary_ignored_artifact_still_fails_scope(tmp_path):
     assert evaluation.status == "rejected_candidate"
     assert evaluation.scope_valid is False
     assert evaluation.changed_files == ("app/core.py", "hidden/worker-secret.txt")
+
+
+@pytest.mark.parametrize("protected_path", ["app/auth", "app/auth/__init__.py"])
+def test_evaluator_reapplies_protected_namespace_scope(tmp_path, protected_path):
+    repo, _ = make_repo(tmp_path)
+    inspection = RepositoryInspector(repo).inspect()
+    draft = proposal_draft(
+        risk="medium",
+        evidence=("app/core.py",),
+        scope_paths=(protected_path,),
+    )
+    proposal = ImprovementProposal.freeze(
+        draft,
+        inspection,
+        goal="Improve Zelo safely.",
+        planner_config_version="planner-test",
+    )
+    result = developer_result(
+        proposal,
+        changed_files=[protected_path],
+        git_status=f"?? {protected_path}",
+        diff_stat=f"{protected_path} | 1 +",
+    )
+
+    evaluation = evaluate(proposal, result)
+
+    assert evaluation.status == "rejected_candidate"
+    assert evaluation.scope_valid is False
