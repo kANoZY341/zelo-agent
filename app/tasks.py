@@ -241,9 +241,7 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
                         item.get("identifier"),
                         TASK_PROJECTION_FIELD_CHARS,
                     ),
-                    "exit_code": _bounded_projection_exit_code(
-                        item.get("exit_code")
-                    ),
+                    "exit_code": _bounded_projection_exit_code(item.get("exit_code")),
                     "error": _bounded_projection_text(
                         item.get("error"),
                         TASK_PROJECTION_FIELD_CHARS,
@@ -278,9 +276,7 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
             result.get("worker_version"),
             TASK_PROJECTION_FIELD_CHARS,
         ),
-        "worker_exit_code": _bounded_projection_exit_code(
-            result.get("worker_exit_code")
-        ),
+        "worker_exit_code": _bounded_projection_exit_code(result.get("worker_exit_code")),
         "worker_summary": _bounded_projection_text(
             result.get("worker_summary"),
             TASK_PROJECTION_SUMMARY_CHARS,
@@ -335,9 +331,7 @@ def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str
                         item.get("identifier"),
                         96,
                     ),
-                    "exit_code": _bounded_projection_exit_code(
-                        item.get("exit_code")
-                    ),
+                    "exit_code": _bounded_projection_exit_code(item.get("exit_code")),
                     "error": _bounded_projection_json_text(
                         item.get("error"),
                         192,
@@ -347,9 +341,7 @@ def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str
 
     return {
         "worker": _bounded_projection_json_text(projection.get("worker"), 96),
-        "worker_exit_code": _bounded_projection_exit_code(
-            projection.get("worker_exit_code")
-        ),
+        "worker_exit_code": _bounded_projection_exit_code(projection.get("worker_exit_code")),
         "worker_summary": _bounded_projection_json_text(
             projection.get("worker_summary"),
             384,
@@ -386,9 +378,7 @@ def _emergency_developer_result_projection(
                         item.get("identifier"),
                         64,
                     ),
-                    "exit_code": _bounded_projection_exit_code(
-                        item.get("exit_code")
-                    ),
+                    "exit_code": _bounded_projection_exit_code(item.get("exit_code")),
                     "error": _bounded_projection_json_text(
                         item.get("error"),
                         96,
@@ -398,9 +388,7 @@ def _emergency_developer_result_projection(
 
     return {
         "worker": _bounded_projection_json_text(projection.get("worker"), 64),
-        "worker_exit_code": _bounded_projection_exit_code(
-            projection.get("worker_exit_code")
-        ),
+        "worker_exit_code": _bounded_projection_exit_code(projection.get("worker_exit_code")),
         "source_changed_file_count": projection.get("source_changed_file_count"),
         "validation_passed": projection.get("validation_passed"),
         "validation": validation_items,
@@ -438,9 +426,7 @@ def _project_task_result(
 
         return {
             "summary": "Developer result exceeded the conversation projection budget.",
-            "worker_exit_code": _bounded_projection_exit_code(
-            projection.get("worker_exit_code")
-        ),
+            "worker_exit_code": _bounded_projection_exit_code(projection.get("worker_exit_code")),
             "source_changed_file_count": projection.get("source_changed_file_count"),
             "validation_passed": projection.get("validation_passed"),
             "cancelled": projection.get("cancelled"),
