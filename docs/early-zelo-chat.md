@@ -61,8 +61,9 @@ or validator output. Other oversized results fall back to a bounded preview.
 Full task results and histories remain available through the canonical task API.
 
 Mind history also bounds persisted user/assistant text before composing a turn
-bundle. A single oversized historical turn is skipped rather than hiding all
-older context, while recent bounded Core task state remains available to Mind.
+bundle. History packing keeps scanning older turns when an intermediate bundle
+does not fit the remaining character budget, so one large turn cannot hide all
+earlier small context. Recent bounded Core task state remains available to Mind.
 
 Mind model generation has process-wide admission control, independent of
 conversation ID. The operator settings `ZELO_MIND_MAX_CONCURRENCY` and

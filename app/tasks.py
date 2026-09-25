@@ -138,8 +138,13 @@ def require_task(session: Session, task_id: str) -> Task:
 
 
 TASK_PROJECTION_RESULT_CHARS = 4096
-TASK_PROJECTION_SUMMARY_CHARS = 2048
-TASK_PROJECTION_CHANGED_FILES = 20
+TASK_PROJECTION_SUMMARY_CHARS = 768
+TASK_PROJECTION_PATH_CHARS = 192
+TASK_PROJECTION_CHANGED_FILES = 6
+TASK_PROJECTION_FIELD_CHARS = 128
+TASK_PROJECTION_REVIEW_SUMMARY_CHARS = 384
+TASK_PROJECTION_VALIDATIONS = 4
+TASK_PROJECTION_INPUT_ITEMS = 1000
 
 
 def _bounded_projection_text(value: Any, limit: int) -> str | None:
@@ -156,10 +161,8 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
     ignored_paths = (
         {
             item.get("path")
-            for item in ignored_items
-            if isinstance(ignored_items, list)
-            and isinstance(item, dict)
-            and isinstance(item.get("path"), str)
+            for item in ignored_items[:TASK_PROJECTION_INPUT_ITEMS]
+            if isinstance(item, dict) and isinstance(item.get("path"), str)
         }
         if isinstance(ignored_items, list)
         else set()
@@ -167,22 +170,37 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
 
     changed_items = result.get("changed_files")
     source_changed = (
-        [item for item in changed_items if isinstance(item, str) and item not in ignored_paths]
+        [
+            item
+            for item in changed_items[:TASK_PROJECTION_INPUT_ITEMS]
+            if isinstance(item, str) and item not in ignored_paths
+        ]
         if isinstance(changed_items, list)
         else []
     )
+    bounded_source_changed = [
+        bounded
+        for item in source_changed[:TASK_PROJECTION_CHANGED_FILES]
+        if (bounded := _bounded_projection_text(item, TASK_PROJECTION_PATH_CHARS)) is not None
+    ]
 
     validation_items: list[dict[str, Any]] = []
     raw_validation = result.get("validation")
     if isinstance(raw_validation, list):
-        for item in raw_validation[:8]:
+        for item in raw_validation[:TASK_PROJECTION_VALIDATIONS]:
             if not isinstance(item, dict):
                 continue
             validation_items.append(
                 {
-                    "identifier": item.get("identifier"),
+                    "identifier": _bounded_projection_text(
+                        item.get("identifier"),
+                        TASK_PROJECTION_FIELD_CHARS,
+                    ),
                     "exit_code": item.get("exit_code"),
-                    "error": item.get("error"),
+                    "error": _bounded_projection_text(
+                        item.get("error"),
+                        TASK_PROJECTION_FIELD_CHARS,
+                    ),
                 }
             )
 
@@ -193,35 +211,82 @@ def _developer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
         report_dict = report if isinstance(report, dict) else {}
         findings = report_dict.get("findings")
         review_projection = {
-            "worker_id": raw_review.get("worker_id"),
+            "worker_id": _bounded_projection_text(
+                raw_review.get("worker_id"),
+                TASK_PROJECTION_FIELD_CHARS,
+            ),
             "summary": _bounded_projection_text(
                 report_dict.get("summary"),
-                1024,
+                TASK_PROJECTION_REVIEW_SUMMARY_CHARS,
             ),
             "finding_count": len(findings) if isinstance(findings, list) else 0,
         }
 
     return {
-        "worker": result.get("worker"),
-        "worker_version": result.get("worker_version"),
+        "worker": _bounded_projection_text(
+            result.get("worker"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
+        "worker_version": _bounded_projection_text(
+            result.get("worker_version"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
         "worker_exit_code": result.get("worker_exit_code"),
         "worker_summary": _bounded_projection_text(
             result.get("worker_summary"),
             TASK_PROJECTION_SUMMARY_CHARS,
         ),
-        "source_changed_files": source_changed[:TASK_PROJECTION_CHANGED_FILES],
+        "source_changed_files": bounded_source_changed,
         "source_changed_file_count": len(source_changed),
         "ignored_generated_file_count": len(ignored_paths),
         "validation_passed": result.get("validation_passed"),
         "validation": validation_items,
         "independent_review": review_projection,
-        "error": result.get("error"),
-        "protocol_diagnostic": result.get("protocol_diagnostic"),
-        "boundary_error": result.get("boundary_error"),
-        "original_error": result.get("original_error"),
+        "error": _bounded_projection_text(
+            result.get("error"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
+        "protocol_diagnostic": _bounded_projection_text(
+            result.get("protocol_diagnostic"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
+        "boundary_error": _bounded_projection_text(
+            result.get("boundary_error"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
+        "original_error": _bounded_projection_text(
+            result.get("original_error"),
+            TASK_PROJECTION_FIELD_CHARS,
+        ),
         "cancelled": result.get("cancelled"),
     }
 
+
+def _minimal_developer_result_projection(projection: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "worker": projection.get("worker"),
+        "worker_exit_code": projection.get("worker_exit_code"),
+        "worker_summary": _bounded_projection_text(
+            projection.get("worker_summary"),
+            256,
+        ),
+        "source_changed_files": (
+            projection.get("source_changed_files", [])[:2]
+            if isinstance(projection.get("source_changed_files"), list)
+            else []
+        ),
+        "source_changed_file_count": projection.get("source_changed_file_count"),
+        "validation_passed": projection.get("validation_passed"),
+        "validation": (
+            projection.get("validation", [])[:TASK_PROJECTION_VALIDATIONS]
+            if isinstance(projection.get("validation"), list)
+            else []
+        ),
+        "error": projection.get("error"),
+        "boundary_error": projection.get("boundary_error"),
+        "original_error": projection.get("original_error"),
+        "cancelled": projection.get("cancelled"),
+    }
 
 def _project_task_result(
     kind: str,
@@ -232,7 +297,16 @@ def _project_task_result(
         return None, False
 
     if kind == "developer_run":
-        return _developer_result_projection(result), True
+        projection = _developer_result_projection(result)
+        encoded_projection = json.dumps(
+            projection,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        if len(encoded_projection) <= TASK_PROJECTION_RESULT_CHARS:
+            return projection, True
+        return _minimal_developer_result_projection(projection), True
 
     encoded = json.dumps(
         result,

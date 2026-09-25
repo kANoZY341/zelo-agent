@@ -260,10 +260,38 @@ class MindService:
             separators=(",", ":"),
         )
         if len(serialized) > MIND_TASK_STATE_CHARS:
-            envelope["result"] = {
-                "summary": "Task result omitted because the bounded Mind projection was too large."
-            }
+            if task.kind == "developer_run" and isinstance(task.result, dict):
+                envelope["result"] = {
+                    key: task.result.get(key)
+                    for key in (
+                        "worker",
+                        "worker_exit_code",
+                        "worker_summary",
+                        "source_changed_files",
+                        "source_changed_file_count",
+                        "validation_passed",
+                        "validation",
+                        "error",
+                        "boundary_error",
+                        "original_error",
+                        "cancelled",
+                    )
+                }
+            else:
+                envelope["result"] = {
+                    "summary": "Task result exceeded the Mind task-state budget."
+                }
             envelope["result_truncated"] = True
+            serialized = json.dumps(
+                envelope,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+        if len(serialized) > MIND_TASK_STATE_CHARS:
+            envelope["result"] = {
+                "summary": "Task result omitted after bounded fallback exceeded the budget."
+            }
             serialized = json.dumps(
                 envelope,
                 ensure_ascii=True,
@@ -291,7 +319,7 @@ class MindService:
             if size > MIND_HISTORY_CHARS:
                 continue
             if total + size > MIND_HISTORY_CHARS:
-                break
+                continue
             bundles.append(bundle)
             total += size
         return [message for bundle in reversed(bundles) for message in bundle]
