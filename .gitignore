@@ -36,6 +36,8 @@ dist/
 node_modules/
 .next/
 *.tsbuildinfo
+next-env.d.ts
+workspace/package-lock.json
 
 # Logs, generated output, and editor files
 logs/
