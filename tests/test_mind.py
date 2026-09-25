@@ -395,9 +395,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         wait_for(client, task_id, "succeeded")
 
         huge_output = "x" * 50000
-        long_paths = [
-            f"src/{number:02d}/" + ("路径🚀" * 120) + "file.py" for number in range(19)
-        ]
+        long_paths = [f"src/{number:02d}/" + ("路径🚀" * 120) + "file.py" for number in range(19)]
         with database.transaction() as session:
             task = session.get(Task, task_id)
             assert task is not None
