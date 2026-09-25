@@ -31,23 +31,27 @@ export async function proxyCore(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const url = new URL(path, coreBaseUrl());
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${operatorToken()}`);
-  headers.set("Accept", "application/json");
+  try {
+    const url = new URL(path, coreBaseUrl());
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${operatorToken()}`);
+    headers.set("Accept", "application/json");
 
-  const response = await fetch(url, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
-  const body = await response.text();
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+    const body = await response.text();
 
-  return new Response(body, {
-    status: response.status,
-    headers: {
-      "Content-Type": response.headers.get("content-type") ?? "application/json",
-      "Cache-Control": "no-store",
-    },
-  });
+    return new Response(body, {
+      status: response.status,
+      headers: {
+        "Content-Type": response.headers.get("content-type") ?? "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch {
+    return Response.json({ detail: "core_proxy_unavailable" }, { status: 503 });
+  }
 }
