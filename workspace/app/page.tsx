@@ -110,8 +110,20 @@ export default function Home() {
 
   const refreshConversation = useCallback(
     async (id: string): Promise<Conversation> => {
+      const encodedId = encodeURIComponent(id);
+      const metadataResponse = await fetch(
+        `/api/conversations/${encodedId}?turn_limit=1&turn_offset=0`,
+        {
+          headers: WORKSPACE_HEADERS,
+          cache: "no-store",
+        },
+      );
+      const metadata = await parseJson<Conversation>(metadataResponse);
+      const turnLimit = 50;
+      const turnOffset = Math.max(metadata.turn_total - turnLimit, 0);
+
       const response = await fetch(
-        `/api/conversations/${encodeURIComponent(id)}`,
+        `/api/conversations/${encodedId}?turn_limit=${turnLimit}&turn_offset=${turnOffset}`,
         {
           headers: WORKSPACE_HEADERS,
           cache: "no-store",
