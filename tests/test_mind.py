@@ -395,10 +395,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         wait_for(client, task_id, "succeeded")
 
         huge_output = "x" * 50000
-        long_paths = [
-            f"src/{number:02d}/" + ("nested-" * 45) + "file.py"
-            for number in range(19)
-        ]
+        long_paths = [f"src/{number:02d}/" + ("nested-" * 45) + "file.py" for number in range(19)]
         with database.transaction() as session:
             task = session.get(Task, task_id)
             assert task is not None
@@ -411,8 +408,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
                 "worker_exit_code": 0,
                 "worker_summary": (
                     "Added one sentence to docs/early-zelo-chat.md. "
-                    "No merge or release was performed. "
-                    + ("s" * 2000)
+                    "No merge or release was performed. " + ("s" * 2000)
                 ),
                 "changed_files": [
                     "docs/early-zelo-chat.md",
@@ -470,16 +466,12 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert projected["result"]["worker_exit_code"] == 0
         assert projected["result"]["source_changed_files"][0] == "docs/early-zelo-chat.md"
         assert len(projected["result"]["source_changed_files"]) <= 6
-        assert all(
-            len(path) <= 192 for path in projected["result"]["source_changed_files"]
-        )
+        assert all(len(path) <= 192 for path in projected["result"]["source_changed_files"])
         assert len(projected["result"]["worker_summary"]) <= 768
         assert projected["result"]["validation_passed"] is False
         assert projected["result"]["validation"][2]["identifier"] == "pytest"
         assert projected["result"]["validation"][2]["exit_code"] == 124
-        assert projected["result"]["validation"][2]["error"].startswith(
-            "process_output_limit"
-        )
+        assert projected["result"]["validation"][2]["error"].startswith("process_output_limit")
         assert len(projected["result"]["validation"][2]["error"]) <= 128
         assert "diff" not in json.dumps(projected)
         assert huge_output not in json.dumps(projected)
@@ -505,9 +497,7 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert messages[1].content == "Oldest reply."
         assert messages[2].content.startswith("DEVELOPER_LARGE:")
         assert messages[3].content.startswith("DEVELOPER_ASSISTANT:")
-        assert all(
-            "MIDDLE_SHOULD_BE_SKIPPED" not in message.content for message in messages
-        )
+        assert all("MIDDLE_SHOULD_BE_SKIPPED" not in message.content for message in messages)
         assert len(messages[2].content) <= 4096
         assert len(messages[3].content) <= 4096
         task_state = json.loads(messages[4].content)
@@ -516,13 +506,9 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert task_state["error"] == "developer_validation_failed"
         assert task_state["result"]["worker"] == "codex"
         assert task_state["result"]["worker_exit_code"] == 0
-        assert task_state["result"]["source_changed_files"][0] == (
-            "docs/early-zelo-chat.md"
-        )
+        assert task_state["result"]["source_changed_files"][0] == ("docs/early-zelo-chat.md")
         assert task_state["result"]["validation_passed"] is False
-        assert task_state["result"]["validation"][2]["error"].startswith(
-            "process_output_limit"
-        )
+        assert task_state["result"]["validation"][2]["error"].startswith("process_output_limit")
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):

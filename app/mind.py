@@ -278,9 +278,7 @@ class MindService:
                     )
                 }
             else:
-                envelope["result"] = {
-                    "summary": "Task result exceeded the Mind task-state budget."
-                }
+                envelope["result"] = {"summary": "Task result exceeded the Mind task-state budget."}
             envelope["result_truncated"] = True
             serialized = json.dumps(
                 envelope,
