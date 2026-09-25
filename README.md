@@ -5,7 +5,8 @@ application, durable task execution, approvals, a localhost-only Ollama model
 gateway, native read-only tools, a bounded Agent Runtime, an approved
 Developer Runtime, an approval-bound Review & Promotion Runtime, and a trusted
 worker registry with deterministic supervisor routing, enforceable worker authority, bounded
-multi-worker developer execution, and a one-cycle approval-gated self-improvement runtime.
+multi-worker developer execution, a one-cycle approval-gated self-improvement runtime,
+and the in-development persistent Talk-to-Zelo conversation contract.
 
 ## Setup
 
@@ -78,6 +79,29 @@ Provider access is typed and replaceable behind `app.gateway.ModelProvider`.
 The authenticated `GET /models` endpoint reports local alias availability.
 Prompts and hidden reasoning are not written to audit events; only model result
 text and non-secret usage/timing metadata are persisted.
+
+## Early Talk to Zelo
+
+The post-v0.11 workspace increment adds a persistent Zelo Mind text surface
+without creating a parallel execution system. Conversation may answer directly
+or request one allowlisted typed Core task. Core still owns validation,
+idempotency, approvals, execution, task state, and results.
+
+Authenticated endpoints:
+
+```text
+POST /conversations
+GET  /conversations
+GET  /conversations/{id}
+POST /conversations/{id}/turns
+```
+
+A linked task is projected back into the conversation from canonical TaskService
+state, so a workspace can show pending/running/approval/result state without
+duplicating it. The first proof path is documented in
+`docs/early-zelo-chat.md`. Autonomous events, wake cycles, campaigns, memory,
+Agent Factory, broad capabilities, and external channels remain in their later
+canonical milestones.
 
 ## Local Model Gateway
 
