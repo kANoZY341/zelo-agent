@@ -11,6 +11,7 @@ from app.gateway import ModelResult
 from app.main import create_app
 from app.models import Approval, ConversationTurn, Task, TaskAttempt, utcnow
 from app.policy import DomainError
+from app.tasks import _project_task_result
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 
@@ -516,6 +517,48 @@ def test_large_developer_result_remains_visible_and_history_keeps_scanning(
         assert task_state["result"]["source_changed_files"][0] == ("docs/early-zelo-chat.md")
         assert task_state["result"]["validation_passed"] is False
         assert task_state["result"]["validation"][2]["error"].startswith("process_output_limit")
+
+
+def test_developer_projection_bounds_oversized_exit_codes():
+    oversized_exit_code = 10**5000
+    projected, truncated = _project_task_result(
+        "developer_run",
+        {
+            "worker": "codex",
+            "worker_exit_code": oversized_exit_code,
+            "worker_summary": "Developer result.",
+            "changed_files": ["docs/early-zelo-chat.md"],
+            "ignored_generated_files": [],
+            "validation": [
+                {
+                    "identifier": "pytest",
+                    "exit_code": oversized_exit_code,
+                    "error": "process_output_limit",
+                }
+            ],
+            "validation_passed": False,
+            "error": "developer_validation_failed",
+            "cancelled": False,
+        },
+        4096,
+    )
+
+    assert truncated is True
+    assert projected is not None
+    assert projected["worker_exit_code"] is None
+    assert projected["validation"][0]["exit_code"] is None
+    assert projected["validation_passed"] is False
+    assert (
+        len(
+            json.dumps(
+                projected,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+        )
+        <= 4096
+    )
 
 
 def test_mind_generation_has_process_wide_admission_limit(settings, database):
