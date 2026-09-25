@@ -123,7 +123,20 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert messages[0].content == "Help me plan the next Zelo step."
         assert messages[1].content == "We can plan that."
         assert messages[2].content == "Continue."
-        assert "Zelo Mind" in provider.requests[0].system_prompt
+        first_request = provider.requests[0]
+        assert "Zelo Mind" in first_request.system_prompt
+        assert '"kind":"self_improvement_run"' in first_request.system_prompt
+        assert '"kind":"developer_run"' in first_request.system_prompt
+        assert "system_info -> {}" in first_request.system_prompt
+        assert "repo_status -> {}" in first_request.system_prompt
+        assert "list_workspace_files" in first_request.system_prompt
+        assert "read_workspace_file" in first_request.system_prompt
+        assert "echo/text_stats/tool_call 0.01..60" in first_request.system_prompt
+        assert "developer_run 1..3600" in first_request.system_prompt
+        assert '"kind":"release_run"' not in first_request.system_prompt
+        assert "$defs" not in first_request.system_prompt
+        assert first_request.output_schema is not None
+        assert "$defs" in first_request.output_schema
 
         stored = client.get(f"/conversations/{conversation['id']}").json()
         assert stored["title"] == "Help me plan the next Zelo step."
