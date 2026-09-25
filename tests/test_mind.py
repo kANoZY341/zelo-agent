@@ -131,8 +131,12 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert "read_workspace_file" not in first_request.system_prompt
         assert "timeout_seconds" not in first_request.system_prompt
         assert "release" in first_request.system_prompt
-        assert "$defs" not in first_request.system_prompt
-        assert len(first_request.system_prompt) < 700
+        assert "Ahmad created and operates Zelo" in first_request.system_prompt
+        assert "customer-support bot" in first_request.system_prompt
+        assert "Do not automatically end replies" in first_request.system_prompt
+        assert "Avoid repeating stock phrases" in first_request.system_prompt
+        assert '$defs' not in first_request.system_prompt
+        assert len(first_request.system_prompt) < 1200
         assert first_request.output_schema is not None
         assert "$defs" in first_request.output_schema
 
