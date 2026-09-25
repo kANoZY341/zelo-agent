@@ -363,8 +363,7 @@ class PromotionReviewer:
         head, manifest, ignored = first
         if (
             expected_candidate_content_sha256 is not None
-            and candidate_manifest_content_sha256(manifest)
-            != expected_candidate_content_sha256
+            and candidate_manifest_content_sha256(manifest) != expected_candidate_content_sha256
         ):
             raise DeveloperError("promotion_candidate_changed")
         if expected_diff_sha256 is not None:

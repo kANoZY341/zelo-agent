@@ -136,9 +136,7 @@ def test_binary_content_is_hashed_exactly(developer_case):
         )
 
 
-def test_returned_manifest_is_bound_directly_to_evaluated_content(
-    developer_case, monkeypatch
-):
+def test_returned_manifest_is_bound_directly_to_evaluated_content(developer_case, monkeypatch):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     target = repo / "payload.bin"
     evaluated = b"evaluated-bytes"
