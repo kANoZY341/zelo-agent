@@ -326,7 +326,7 @@ Established:
 - promotion, merge and release boundaries;
 - recovery and concurrency controls.
 
-### v0.11 — Self-improvement seed — active
+### v0.11 — Self-improvement seed — released
 
 Goal: Zelo originates one bounded improvement to itself.
 
@@ -345,13 +345,16 @@ inspect
 
 v0.11 does not autonomously merge, tag, release or deploy itself.
 
-### Early workspace increment — immediately after v0.11
+### Early workspace increment — Core proof completed; workspace foundation active
 
-Adapt or prototype the workspace to show Core tasks, proposals, decisions and
-results. Add the first Zelo Mind text conversation that can answer directly,
-discuss a plan and request one typed Core action. Prove one
-conversation-to-result path before committing to Mission Control, Agent Town, a
-hybrid or a custom workspace.
+The Core prerequisite is complete: persistent Zelo Mind conversation can answer
+directly, request one typed Core action, observe the authoritative task result and
+use that result in a later turn.
+
+The selected implementation direction is now a Zelo-owned workspace with
+Mission-Control-derived Control Desk UX/components and a later
+Agent-Town-derived Company World. The workspace remains a projection over Core,
+not a second authority system.
 
 This is a prerequisite slice on the path to v0.12, not a separate release and
 not permission to create a parallel task/approval authority system.
@@ -549,13 +552,14 @@ Live implementation status is maintained separately in
 `docs/zelo-project-status.md` so architecture and roadmap documents do not
 become stale.
 
-Current verified baseline as of 24 September 2026:
+Current verified baseline as of 26 September 2026:
 
-- v0.10.0 is released from main commit
-  `666a0a4d12d280187af02a621e1ab4b57ce604c6`;
-- active branch: `feat/v0.11-self-improvement`;
-- parked experiment: `feat/v1.0-agent-factory`, deferred to v0.14;
-- v0.11 implementation is at PR/review preparation stage.
+- v0.11.0 is released from
+  `b2c4a7d13fd8e64c6badfbae89d2a29629fd3c12`;
+- Early Zelo Chat is merged and live-proven on green main commit
+  `f920036d9c1631b8ddf999554b3c10437602cbf5`;
+- the active increment is the Zelo Workspace Foundation;
+- parked experiment `feat/v1.0-agent-factory` remains deferred to v0.14.
 
 ## Decision rule for new ideas
 
