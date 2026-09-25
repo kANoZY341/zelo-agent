@@ -24,6 +24,14 @@ type UiMessage = {
   task?: TaskProjection | null;
 };
 
+function friendlyTaskError(error: string): string {
+  const knownErrors: Record<string, string> = {
+    inspection_repository_dirty:
+      "I can’t start self-improvement while the Zelo repository has uncommitted changes. Commit, stash, or remove them, then retry.",
+  };
+  return knownErrors[error] ?? error.replaceAll("_", " ");
+}
+
 function taskResultSummary(task: TaskProjection): string | null {
   if (!task.result) return null;
   const finalResponse = task.result.final_response;
@@ -67,7 +75,7 @@ function TaskCard({ task }: { task: TaskProjection }) {
     <div className="task-card">
       <div className="task-card-head">
         <span className={`status-dot ${active ? "pulse" : ""}`} />
-        <strong>{task.kind}</strong>
+        <strong>{task.kind.replaceAll("_", " ")}</strong>
         <span className="task-status">{task.status.replaceAll("_", " ")}</span>
       </div>
       <div className="task-meta">
@@ -79,7 +87,9 @@ function TaskCard({ task }: { task: TaskProjection }) {
           <span>{task.approval_count} approval event(s)</span>
         ) : null}
       </div>
-      {task.error ? <div className="task-error">{task.error}</div> : null}
+      {task.error ? (
+        <div className="task-error">{friendlyTaskError(task.error)}</div>
+      ) : null}
       {result ? <div className="task-result">{result}</div> : null}
       {task.result_truncated ? (
         <div className="task-note">Projected result is bounded by Core.</div>
@@ -93,6 +103,7 @@ export default function Home() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,10 +228,9 @@ export default function Home() {
     pendingSubmissionRef.current = submission;
 
     setBusy(true);
+    setPendingPrompt(prompt);
     setError(null);
     setText("");
-
-    let acceptedConversationId: string | null = null;
 
     try {
       const id = await ensureConversation();
@@ -241,29 +251,26 @@ export default function Home() {
         pendingSubmissionRef.current = null;
       }
 
-      await parseJson<ConversationTurn>(response);
-      acceptedConversationId = id;
+      const turn = await parseJson<ConversationTurn>(response);
       pendingSubmissionRef.current = null;
+      setPendingPrompt(null);
 
-      const conversation = await refreshConversation(id);
-      const hasActiveTask = conversation.turns.some(
-        (turn) => turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
-      );
-      if (hasActiveTask) {
+      const incoming = toMessages([turn]);
+      const incomingIds = new Set(incoming.map((message) => message.id));
+      setMessages((current) => [
+        ...current.filter((message) => !incomingIds.has(message.id)),
+        ...incoming,
+      ]);
+
+      if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
       }
     } catch (submitError) {
-      if (acceptedConversationId) {
-        setError(
-          "Turn accepted by Core, but the workspace refresh failed. Retrying the canonical conversation state.",
-        );
-        await pollUntilTaskSettles(acceptedConversationId);
-      } else {
-        setError(
-          submitError instanceof Error ? submitError.message : "turn_failed",
-        );
-        setText(prompt);
-      }
+      setPendingPrompt(null);
+      setError(
+        submitError instanceof Error ? submitError.message : "turn_failed",
+      );
+      setText(prompt);
     } finally {
       setBusy(false);
     }
@@ -274,6 +281,7 @@ export default function Home() {
     pendingSubmissionRef.current = null;
     setConversationId(null);
     setMessages([]);
+    setPendingPrompt(null);
     setError(null);
     setText("");
   }
@@ -319,7 +327,7 @@ export default function Home() {
         </header>
 
         <div className="conversation-body">
-          {messages.length === 0 ? (
+          {messages.length === 0 && !pendingPrompt ? (
             <div className="hero">
               <div className="hero-orb">Z</div>
               <p className="eyebrow">PERSISTENT PERSONAL AI</p>
@@ -344,6 +352,25 @@ export default function Home() {
                   {message.task ? <TaskCard task={message.task} /> : null}
                 </article>
               ))}
+              {pendingPrompt ? (
+                <>
+                  <article className="message user pending-message">
+                    <div className="message-label">YOU</div>
+                    <div className="message-content">{pendingPrompt}</div>
+                  </article>
+                  <article className="message zelo pending-message">
+                    <div className="message-label">ZELO</div>
+                    <div className="thinking-line">
+                      Thinking
+                      <span className="thinking-dots" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    </div>
+                  </article>
+                </>
+              ) : null}
             </div>
           )}
         </div>
