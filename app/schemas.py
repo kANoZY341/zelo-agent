@@ -314,6 +314,84 @@ class TaskPage(StrictModel):
     total: int
 
 
+class TaskProjection(StrictModel):
+    id: str
+    kind: Literal[
+        "echo",
+        "text_stats",
+        "approval_demo",
+        "ai_prompt",
+        "tool_call",
+        "agent_run",
+        "self_improvement_run",
+        "developer_run",
+        "promotion_run",
+        "merge_run",
+        "release_run",
+    ]
+    status: State
+    created_at: datetime
+    updated_at: datetime
+    cancel_requested: bool
+    result: dict[str, Any] | None
+    error: str | None
+    attempt_count: int = Field(ge=0)
+    latest_attempt_outcome: State | None = None
+    approval_count: int = Field(ge=0)
+    latest_approval_id: str | None = None
+    latest_approval_status: (
+        Literal["pending", "approved", "rejected", "expired", "invalidated", "cancelled"] | None
+    ) = None
+    selected_alias: str | None = None
+    selected_model: str | None = None
+
+
+class ConversationCreate(StrictModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class ConversationTurnCreate(StrictModel):
+    text: str = Field(min_length=1, max_length=16384)
+
+
+class ConversationTurnResponse(StrictModel):
+    id: str
+    number: int = Field(ge=1)
+    user_content: str = Field(min_length=1, max_length=16384)
+    assistant_content: str = Field(min_length=1, max_length=16384)
+    selected_alias: str
+    selected_model: str
+    usage: dict[str, int | None] = Field(default_factory=dict)
+    core_task: TaskProjection | None = None
+    created_at: datetime
+
+
+class ConversationResponse(StrictModel):
+    id: str
+    title: str = Field(min_length=1, max_length=120)
+    created_at: datetime
+    updated_at: datetime
+    turns: list[ConversationTurnResponse] = Field(default_factory=list)
+    turn_limit: int = Field(ge=1, le=100)
+    turn_offset: int = Field(ge=0)
+    turn_total: int = Field(ge=0)
+
+
+class ConversationSummary(StrictModel):
+    id: str
+    title: str = Field(min_length=1, max_length=120)
+    created_at: datetime
+    updated_at: datetime
+    turn_count: int = Field(ge=0)
+
+
+class ConversationPage(StrictModel):
+    items: list[ConversationSummary]
+    limit: int
+    offset: int
+    total: int
+
+
 class ApprovalDecision(StrictModel):
     decision: Literal["approve", "reject"]
 

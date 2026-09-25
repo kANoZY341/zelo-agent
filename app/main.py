@@ -15,6 +15,8 @@ from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
+from app.mind import MindService
+from app.mind_api import router as mind_router
 from app.policy import DomainError
 from app.promotion import PromotionRuntime
 from app.promotion_ci import PromotionCIVerifier
@@ -104,6 +106,7 @@ def create_app(
             )
             tasks.recover()
             tasks.expire_approvals()
+            mind = MindService(database, configuration, gateway, tasks)
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
@@ -118,6 +121,7 @@ def create_app(
             )
             application.state.database = database
             application.state.tasks = tasks
+            application.state.mind = mind
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()
@@ -131,6 +135,7 @@ def create_app(
     application.state.settings = configuration
     application.include_router(router)
     application.include_router(task_router)
+    application.include_router(mind_router)
 
     @application.exception_handler(DomainError)
     async def domain_error(request: Request, error: DomainError) -> JSONResponse:

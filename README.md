@@ -5,7 +5,8 @@ application, durable task execution, approvals, a localhost-only Ollama model
 gateway, native read-only tools, a bounded Agent Runtime, an approved
 Developer Runtime, an approval-bound Review & Promotion Runtime, and a trusted
 worker registry with deterministic supervisor routing, enforceable worker authority, bounded
-multi-worker developer execution, and a one-cycle approval-gated self-improvement runtime.
+multi-worker developer execution, a one-cycle approval-gated self-improvement runtime,
+and the in-development persistent Talk-to-Zelo conversation contract.
 
 ## Setup
 
@@ -78,6 +79,40 @@ Provider access is typed and replaceable behind `app.gateway.ModelProvider`.
 The authenticated `GET /models` endpoint reports local alias availability.
 Prompts and hidden reasoning are not written to audit events; only model result
 text and non-secret usage/timing metadata are persisted.
+
+## Early Talk to Zelo
+
+The post-v0.11 workspace increment adds a persistent Zelo Mind text surface
+without creating a parallel execution system. Conversation may answer directly
+or request one allowlisted typed Core task. Core still owns validation,
+idempotency, approvals, execution, task state, and results.
+
+Authenticated endpoints:
+
+```text
+POST /conversations
+GET  /conversations
+GET  /conversations/{id}
+POST /conversations/{id}/turns
+```
+
+Every turn submission requires a unique `Idempotency-Key`. Zelo persists the
+validated Mind action before any Core task is submitted, so a retry after a
+process interruption reuses the same action and the same Core task instead of
+asking the model to decide again.
+
+`GET /conversations` returns bounded conversation summaries. Thread reads use
+`turn_limit` and `turn_offset` (default 50, maximum 100), while model context
+queries only a bounded recent window. Mind model generation also uses a
+process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
+`ZELO_MIND_ADMISSION_TIMEOUT_SECONDS`.
+
+A linked task is projected back into the conversation from canonical TaskService
+state, so a workspace can show pending/running/approval/result state without
+duplicating it. The first proof path is documented in
+`docs/early-zelo-chat.md`. Autonomous events, wake cycles, campaigns, memory,
+Agent Factory, broad capabilities, and external channels remain in their later
+canonical milestones.
 
 ## Local Model Gateway
 

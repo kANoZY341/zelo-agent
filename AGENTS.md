@@ -55,30 +55,26 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: Core v0.11 development
+## Current scope: Early Zelo Chat increment
 
-The released base is Zelo Core v0.10.0. It already includes durable tasks and
-attempts, SQLite persistence/migrations, authentication, approvals/audit,
-localhost model routing, typed native tools, a bounded Agent Runtime, an
-approval-bound Developer Runtime, trusted validation, independent review,
-promotion/merge/release boundaries, a Worker Registry/Supervisor, enforceable
-worker authority, concurrency/recovery controls, and Codex, Claude Code and
-OpenCode worker adapters.
+The released base is Zelo Core v0.11.0. It includes durable tasks and attempts,
+SQLite persistence/migrations, authentication, approvals/audit, local model
+routing, typed native tools, bounded Agent and Developer runtimes, trusted
+validation, independent review, promotion/merge/release boundaries, the Worker
+Registry/Supervisor, enforceable worker authority, multi-worker delegation, and
+the bounded v0.11 self-improvement seed.
 
-The active milestone is v0.11 Self-Improvement Seed. Its scope is one bounded
-cycle: trusted self-inspection -> one strict policy-checked proposal -> existing
-approval-bound developer delegation -> validation/review -> evaluation -> stop.
-v0.11 must not autonomously merge, tag, release, deploy, widen authority, or
-start repeated background self-modification cycles.
+The active increment is the first post-v0.11 Talk-to-Zelo path toward v0.12.
+Add persistent text conversation for Zelo Mind and prove one conversation ->
+typed Core task -> real task progress -> authoritative result projection flow.
+Zelo Mind may discuss and plan, but model output must not receive execution
+authority or bypass TaskService, approvals, policy, workers, validation, or audit.
 
-Agent Factory work is intentionally deferred to the canonical v0.14 milestone.
-After v0.11, the roadmap calls for an early workspace increment proving one
-Talk-to-Zelo -> delegated work -> real progress -> verified result path. Mission
-Control and Agent Town are references/candidates, not mandatory dependencies.
-OpenClaw, Ruflo, ECC, Harness, OpenMAIC, Context Mode, Supabase and other
-reference projects may be studied now but integrated only when their canonical
-roadmap capability is active or an explicit operator decision changes scope.
-
+Do not pull v0.12 durability/wake cycles/campaigns forward wholesale. Memory
+remains v0.13, Agent Factory remains v0.14, broad tools/capabilities remain
+v0.15, and WhatsApp/email/live voice remain v0.16. Mission Control and Agent
+Town are references/candidates until the complete conversation-to-result flow
+is proven as required by the workspace decision.
 
 ## Workspace decision
 
