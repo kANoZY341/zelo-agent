@@ -92,7 +92,8 @@ MIND_TASK_PROMPTS = {
     "echo": """Return JSON only: {"kind":"echo","payload":{"text":"..."}}.
 Use the exact text Core should echo. Prefer omitting timeout_seconds; if supplied use 0.01..60.""",
     "text_stats": """Return JSON only: {"kind":"text_stats","payload":{"text":"..."}}.
-Use the exact text Core should analyze. Prefer omitting timeout_seconds; if supplied use 0.01..60.""",
+Use the exact text Core should analyze.
+Prefer omitting timeout_seconds; if supplied use 0.01..60.""",
     "tool_call": """Return JSON only for one allowed read-only tool_call.
 system_info -> {"kind":"tool_call","payload":{"tool":"system_info","arguments":{}}}
 repo_status -> {"kind":"tool_call","payload":{"tool":"repo_status","arguments":{}}}
