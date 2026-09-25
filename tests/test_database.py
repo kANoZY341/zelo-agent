@@ -28,6 +28,8 @@ def test_migration_from_empty_database(settings) -> None:
             "task_attempts",
             "approvals",
             "audit_events",
+            "conversations",
+            "conversation_turns",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
@@ -168,7 +170,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0011_self_improvement"
+                == "0012_early_zelo_chat"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
