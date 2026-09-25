@@ -137,7 +137,9 @@ class MindService:
             session.flush()
             return self._conversation_response(session, conversation)
 
-    def list(self, limit: int, offset: int) -> tuple[list[ConversationResponse], int]:
+    def list_conversations(
+        self, limit: int, offset: int
+    ) -> tuple[list[ConversationResponse], int]:
         with self.database.read() as session:
             total = session.scalar(select(func.count()).select_from(Conversation)) or 0
             conversations = session.scalars(
@@ -165,24 +167,33 @@ class MindService:
         )
 
     def _task_state_message(self, task: TaskResponse) -> ModelMessage:
+        result_json = json.dumps(
+            task.result,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        limit = self.settings.max_agent_tool_result_chars
         envelope = {
             "type": "core_task_state",
             "untrusted": True,
             "task_id": task.id,
             "kind": task.kind,
             "status": task.status,
-            "result": task.result,
+            "result_json": result_json[:limit],
+            "result_truncated": len(result_json) > limit,
             "error": task.error,
             "approvals": [{"id": item.id, "status": item.status} for item in task.approvals],
         }
-        serialized = json.dumps(
-            envelope,
-            ensure_ascii=True,
-            allow_nan=False,
-            separators=(",", ":"),
+        return ModelMessage(
+            "tool",
+            json.dumps(
+                envelope,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            ),
         )
-        limit = self.settings.max_agent_tool_result_chars
-        return ModelMessage("tool", serialized[:limit])
 
     def _history(self, turns: Iterable[ConversationTurn]) -> list[ModelMessage]:
         messages: list[ModelMessage] = []
@@ -222,7 +233,10 @@ class MindService:
         )
 
     def _existing_turn(
-        self, conversation_id: str, idempotency_key: str | None
+        self,
+        conversation_id: str,
+        idempotency_key: str | None,
+        text: str,
     ) -> ConversationTurnResponse | None:
         if idempotency_key is None:
             return None
@@ -233,7 +247,14 @@ class MindService:
                     ConversationTurn.idempotency_key == idempotency_key,
                 )
             )
-            return self._turn_response(turn) if turn is not None else None
+            if turn is None:
+                return None
+            if turn.user_content != text:
+                raise DomainError(
+                    "Idempotency key was already used with a different conversation turn",
+                    409,
+                )
+            return self._turn_response(turn)
 
     async def send_turn(
         self,
@@ -242,7 +263,7 @@ class MindService:
         idempotency_key: str | None,
     ) -> ConversationTurnResponse:
         async with self._lock(conversation_id):
-            existing = self._existing_turn(conversation_id, idempotency_key)
+            existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 return existing
 
@@ -317,6 +338,11 @@ class MindService:
                         )
                     )
                     if duplicate is not None:
+                        if duplicate.user_content != text:
+                            raise DomainError(
+                                "Idempotency key was already used with a different conversation turn",
+                                409,
+                            )
                         return self._turn_response(duplicate)
                 number = (
                     session.scalar(
