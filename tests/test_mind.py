@@ -125,16 +125,14 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert messages[2].content == "Continue."
         first_request = provider.requests[0]
         assert "Zelo Mind" in first_request.system_prompt
-        assert '"kind":"self_improvement_run"' in first_request.system_prompt
-        assert '"kind":"developer_run"' in first_request.system_prompt
-        assert "system_info -> {}" in first_request.system_prompt
-        assert "repo_status -> {}" in first_request.system_prompt
-        assert "list_workspace_files" in first_request.system_prompt
-        assert "read_workspace_file" in first_request.system_prompt
-        assert "echo/text_stats/tool_call 0.01..60" in first_request.system_prompt
-        assert "developer_run 1..3600" in first_request.system_prompt
-        assert '"kind":"release_run"' not in first_request.system_prompt
+        assert "self_improvement_run" in first_request.system_prompt
+        assert "developer_run" in first_request.system_prompt
+        assert "system_info" not in first_request.system_prompt
+        assert "read_workspace_file" not in first_request.system_prompt
+        assert "timeout_seconds" not in first_request.system_prompt
+        assert "release" in first_request.system_prompt
         assert "$defs" not in first_request.system_prompt
+        assert len(first_request.system_prompt) < 700
         assert first_request.output_schema is not None
         assert "$defs" in first_request.output_schema
 
@@ -142,6 +140,37 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert stored["title"] == "Help me plan the next Zelo step."
         assert stored["turn_total"] == 2
         assert [turn["number"] for turn in stored["turns"]] == [1, 2]
+
+
+def test_core_task_route_uses_second_task_specific_model_call(settings, database):
+    provider = MindProvider(
+        {
+            "type": "core_task",
+            "content": "I will ask Core to count that text.",
+            "kind": "text_stats",
+        },
+        {
+            "kind": "text_stats",
+            "payload": {"text": "hello from Zelo"},
+        },
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "Count the words in hello from Zelo.",
+            "two-stage-count",
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["core_task"]["kind"] == "text_stats"
+        assert len(provider.requests) == 2
+        assert "tool_call" in provider.requests[0].system_prompt
+        assert "timeout_seconds" not in provider.requests[0].system_prompt
+        assert '"kind":"text_stats"' in provider.requests[1].system_prompt
+        assert "0.01..60" in provider.requests[1].system_prompt
+        assert provider.requests[1].output_schema is not None
 
 
 def test_conversation_core_task_reaches_verified_result(settings, database):
