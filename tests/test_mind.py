@@ -326,9 +326,7 @@ def test_conversation_task_projection_bounds_attempt_and_approval_histories(
                     )
                 )
 
-        stored = client.get(
-            f"/conversations/{conversation['id']}?turn_limit=1"
-        ).json()
+        stored = client.get(f"/conversations/{conversation['id']}?turn_limit=1").json()
         projected = stored["turns"][0]["core_task"]
         assert projected["attempt_count"] == 21
         assert projected["approval_count"] == 30

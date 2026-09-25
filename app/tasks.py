@@ -1223,9 +1223,7 @@ class TaskService:
             )
             approval_count = (
                 session.scalar(
-                    select(func.count())
-                    .select_from(Approval)
-                    .where(Approval.task_id == task.id)
+                    select(func.count()).select_from(Approval).where(Approval.task_id == task.id)
                 )
                 or 0
             )
@@ -1249,9 +1247,7 @@ class TaskService:
                     latest_attempt.outcome if latest_attempt is not None else None
                 ),
                 approval_count=approval_count,
-                latest_approval_id=(
-                    latest_approval.id if latest_approval is not None else None
-                ),
+                latest_approval_id=(latest_approval.id if latest_approval is not None else None),
                 latest_approval_status=(
                     latest_approval.status if latest_approval is not None else None
                 ),
