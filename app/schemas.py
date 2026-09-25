@@ -340,10 +340,21 @@ class ConversationResponse(StrictModel):
     created_at: datetime
     updated_at: datetime
     turns: list[ConversationTurnResponse] = Field(default_factory=list)
+    turn_limit: int = Field(ge=1, le=100)
+    turn_offset: int = Field(ge=0)
+    turn_total: int = Field(ge=0)
+
+
+class ConversationSummary(StrictModel):
+    id: str
+    title: str = Field(min_length=1, max_length=120)
+    created_at: datetime
+    updated_at: datetime
+    turn_count: int = Field(ge=0)
 
 
 class ConversationPage(StrictModel):
-    items: list[ConversationResponse]
+    items: list[ConversationSummary]
     limit: int
     offset: int
     total: int
