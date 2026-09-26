@@ -126,7 +126,11 @@ export function ControlDesk({
     [campaigns, campaignId],
   );
   const visibleOverview =
-    overview?.campaign.id === campaignId ? overview : null;
+    overview?.campaign.id === campaignId &&
+    overview.budgets.offset === budgetOffset &&
+    overview.schedules.offset === scheduleOffset
+      ? overview
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +228,8 @@ export function ControlDesk({
       campaignsGoalRef.current = goalId;
       setCampaigns([]);
       setCampaignId(null);
+      setCampaignOffset(0);
+      setCampaignTotal(0);
       setOverview(null);
     }
     if (!goalId) return () => undefined;
