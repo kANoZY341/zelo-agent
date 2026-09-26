@@ -180,7 +180,6 @@ def test_campaign_checkpoint_budget_is_enforced(database):
         )
 
 
-
 def test_campaign_events_and_checkpoints_are_immutable(database):
     _, _, campaign = campaign_fixture(database)
     campaigns = CampaignService(database)
