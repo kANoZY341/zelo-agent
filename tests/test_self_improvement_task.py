@@ -194,9 +194,7 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
 
         campaign_events = client.get(f"/campaigns/{campaign['id']}/events").json()["items"]
         attached_ids = [
-            event["task_id"]
-            for event in campaign_events
-            if event["event"] == "task_attached"
+            event["task_id"] for event in campaign_events if event["event"] == "task_attached"
         ]
         assert attached_ids == [submitted["id"], child["id"]]
         parent_terminal = [
