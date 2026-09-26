@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.campaign_control import CampaignControlService
+from app.campaigns import CampaignService
 from app.policy import DomainError
 from app.projects import ProjectService
 from app.schemas import (
@@ -21,7 +22,6 @@ from app.schemas import (
     GoalSpec,
     ProjectCreate,
 )
-from app.campaigns import CampaignService
 from tests.conftest import AUTH
 
 
