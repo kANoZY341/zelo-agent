@@ -72,6 +72,8 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     resolver = ContextResolver(projects)
 
     assert resolver.resolve("hi") is None
+    assert resolver.resolve("Zelo, what is the current time?") is None
+    assert resolver.resolve("Zelo, build a calculator") is None
 
     context = resolver.resolve("what are we currently building with Zelo?")
     assert context is not None
@@ -79,10 +81,37 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
 
     envelope = json.loads(context)
     assert envelope["type"] == "zelo_context"
-    assert envelope["trusted"] is True
+    assert envelope["instruction_trust"] == "none"
     assert envelope["purpose"] == "factual_project_context"
-    sources = {item["source"]: item["content"] for item in envelope["sources"]}
-    assert "docs/zelo-project-status.md" in sources
+    sources = {item["source"]: item for item in envelope["sources"]}
+    assert "docs/zelo-project-status.md#active" in sources
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.12" in sources
     assert "core.projects" in sources
-    assert "Project context" in sources["core.projects"]
+    assert "Active increment: v0.12 Project foundation" in sources[
+        "docs/zelo-project-status.md#active"
+    ]["content"]
+    assert "Early Zelo Chat" not in sources["docs/zelo-project-status.md#active"]["content"]
+    assert sources["core.projects"]["provenance"] == "operator_records"
+    assert sources["core.projects"]["instruction_trust"] == "none"
+    assert "Project context" in sources["core.projects"]["content"]
+
+
+
+def test_context_budget_is_enforced_after_unicode_serialization(database, tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "zelo-project-status.md").write_text(
+        "## Active increment: unicode\n\n" + ("😀" * 5000),
+        encoding="utf-8",
+    )
+    (docs / "zelo-canonical-architecture-roadmap.md").write_text(
+        "### v0.12 — Durable goals and first useful campaign\n\n" + ("é" * 5000),
+        encoding="utf-8",
+    )
+
+    resolver = ContextResolver(ProjectService(database), root=tmp_path)
+    context = resolver.resolve("what are we building")
+    assert context is not None
+    assert len(context) <= CONTEXT_MAX_CHARS
+    envelope = json.loads(context)
+    assert envelope["instruction_trust"] == "none"
