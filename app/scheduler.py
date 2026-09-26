@@ -45,6 +45,10 @@ WAKE_BUDGET_UNITS = 1
 SCHEDULE_ERROR_CHARS = 256
 
 
+class WakeAuthorityUnavailable(RuntimeError):
+    """The current logical wake must retry before Mind can run."""
+
+
 class CampaignScheduler:
     """One deliberately small scheduler over Core-owned Campaign controls."""
 
@@ -113,7 +117,10 @@ class CampaignScheduler:
             )
             if existing is not None:
                 if existing.request_hash != request_hash:
-                    raise DomainError("Schedule idempotency key was reused with a different request", 409)
+                    raise DomainError(
+                        "Schedule idempotency key was reused with a different request",
+                        409,
+                    )
                 return self._schedule_response(existing)
             if campaign.status != "active":
                 raise DomainError("Campaign is not active", 409)
