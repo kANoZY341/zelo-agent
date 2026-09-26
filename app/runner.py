@@ -32,12 +32,12 @@ class Runner:
         worker: Worker = execute,
         gateway: ModelGateway | None = None,
         agent_runtime: AgentRuntime | None = None,
-        research_runtime: ResearchRuntime | None = None,
         developer_runtime: DeveloperRuntime | None = None,
         promotion_runtime: PromotionRuntime | None = None,
         promotion_merge_runtime: PromotionMergeRuntime | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         self_improvement_runtime: SelfImprovementRuntime | None = None,
+        research_runtime: ResearchRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
