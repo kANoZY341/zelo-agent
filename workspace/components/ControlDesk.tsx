@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 
 const WORKSPACE_HEADERS = { "X-Zelo-Workspace": "1" };
+const PAGE_SIZE = 25;
 const REFRESH_INTERVAL_MS = 5000;
 const HIERARCHY_REFRESH_INTERVAL_MS = 15000;
 
@@ -49,6 +50,40 @@ function shortId(value: string | null): string {
   return value ? value.slice(0, 8) : "—";
 }
 
+function Pager({
+  offset,
+  total,
+  onOffsetChange,
+}: {
+  offset: number;
+  total: number;
+  onOffsetChange: (offset: number) => void;
+}) {
+  if (total <= PAGE_SIZE) return null;
+
+  const first = total === 0 ? 0 : offset + 1;
+  const last = Math.min(offset + PAGE_SIZE, total);
+  return (
+    <div className="desk-pager">
+      <button
+        onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))}
+        disabled={offset === 0}
+      >
+        Prev
+      </button>
+      <span>
+        {first}–{last} of {total}
+      </span>
+      <button
+        onClick={() => onOffsetChange(offset + PAGE_SIZE)}
+        disabled={offset + PAGE_SIZE >= total}
+      >
+        Next
+      </button>
+    </div>
+  );
+}
+
 export function ControlDesk({
   coreHealthy,
   onShowTalk,
@@ -58,10 +93,16 @@ export function ControlDesk({
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectOffset, setProjectOffset] = useState(0);
+  const [projectTotal, setProjectTotal] = useState(0);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [goalId, setGoalId] = useState<string | null>(null);
+  const [goalOffset, setGoalOffset] = useState(0);
+  const [goalTotal, setGoalTotal] = useState(0);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [campaignOffset, setCampaignOffset] = useState(0);
+  const [campaignTotal, setCampaignTotal] = useState(0);
   const [overview, setOverview] = useState<CampaignOverview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -90,14 +131,19 @@ export function ControlDesk({
     setLoading(true);
     setError(null);
 
-    fetch("/api/projects?limit=100&offset=0", {
+    fetch(`/api/projects?limit=${PAGE_SIZE}&offset=${projectOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
     })
       .then((response) => parseJson<ProjectPage>(response))
       .then((page) => {
         if (cancelled) return;
+        if (page.items.length === 0 && page.total > 0 && projectOffset > 0) {
+          setProjectOffset(Math.max(0, projectOffset - PAGE_SIZE));
+          return;
+        }
         setProjects(page.items);
+        setProjectTotal(page.total);
         setProjectId((current) =>
           current && page.items.some((item) => item.id === current)
             ? current
@@ -118,7 +164,7 @@ export function ControlDesk({
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [projectOffset, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,20 +173,29 @@ export function ControlDesk({
       goalsProjectRef.current = projectId;
       setGoals([]);
       setGoalId(null);
+      setGoalOffset(0);
+      setGoalTotal(0);
       setCampaigns([]);
       setCampaignId(null);
+      setCampaignOffset(0);
+      setCampaignTotal(0);
       setOverview(null);
     }
     if (!projectId) return () => undefined;
 
-    fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=100&offset=0`, {
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=${PAGE_SIZE}&offset=${goalOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
     })
       .then((response) => parseJson<GoalPage>(response))
       .then((page) => {
         if (cancelled) return;
+        if (page.items.length === 0 && page.total > 0 && goalOffset > 0) {
+          setGoalOffset(Math.max(0, goalOffset - PAGE_SIZE));
+          return;
+        }
         setGoals(page.items);
+        setGoalTotal(page.total);
         setGoalId((current) =>
           current && page.items.some((item) => item.id === current)
             ? current
@@ -158,7 +213,7 @@ export function ControlDesk({
     return () => {
       cancelled = true;
     };
-  }, [projectId, refreshKey]);
+  }, [goalOffset, projectId, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,14 +226,19 @@ export function ControlDesk({
     }
     if (!goalId) return () => undefined;
 
-    fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=100&offset=0`, {
+    fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=${PAGE_SIZE}&offset=${campaignOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
     })
       .then((response) => parseJson<CampaignPage>(response))
       .then((page) => {
         if (cancelled) return;
+        if (page.items.length === 0 && page.total > 0 && campaignOffset > 0) {
+          setCampaignOffset(Math.max(0, campaignOffset - PAGE_SIZE));
+          return;
+        }
         setCampaigns(page.items);
+        setCampaignTotal(page.total);
         setCampaignId((current) =>
           current && page.items.some((item) => item.id === current)
             ? current
@@ -198,7 +258,7 @@ export function ControlDesk({
     return () => {
       cancelled = true;
     };
-  }, [goalId, refreshKey]);
+  }, [campaignOffset, goalId, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,6 +371,11 @@ export function ControlDesk({
             ))
           )}
         </div>
+        <Pager
+          offset={projectOffset}
+          total={projectTotal}
+          onOffsetChange={setProjectOffset}
+        />
 
         <div className="desk-core-state">
           <span
@@ -332,6 +397,14 @@ export function ControlDesk({
           </div>
           <div className="desk-topbar-actions">
             <div className="mobile-project-controls">
+              <button
+                className="mobile-project-page"
+                onClick={() => setProjectOffset(Math.max(0, projectOffset - PAGE_SIZE))}
+                disabled={projectOffset === 0}
+                aria-label="Previous project page"
+              >
+                ‹
+              </button>
               <select
                 className="mobile-project-select"
                 value={projectId ?? ""}
@@ -345,6 +418,14 @@ export function ControlDesk({
                   </option>
                 ))}
               </select>
+              <button
+                className="mobile-project-page"
+                onClick={() => setProjectOffset(projectOffset + PAGE_SIZE)}
+                disabled={projectOffset + PAGE_SIZE >= projectTotal}
+                aria-label="Next project page"
+              >
+                ›
+              </button>
               <button
                 className="mobile-project-refresh"
                 onClick={() => setRefreshKey((value) => value + 1)}
@@ -389,7 +470,7 @@ export function ControlDesk({
                     <p className="eyebrow">GOALS</p>
                     <h2>What this project is trying to achieve</h2>
                   </div>
-                  <span>{goals.length}</span>
+                  <span>{goalTotal}</span>
                 </div>
                 {goals.length === 0 ? (
                   <div className="desk-empty-card">No goals attached to this project.</div>
@@ -408,6 +489,11 @@ export function ControlDesk({
                     ))}
                   </div>
                 )}
+                <Pager
+                  offset={goalOffset}
+                  total={goalTotal}
+                  onOffsetChange={setGoalOffset}
+                />
               </section>
 
               {selectedGoal ? (
@@ -417,7 +503,7 @@ export function ControlDesk({
                       <p className="eyebrow">CAMPAIGNS</p>
                       <h2>{selectedGoal.title}</h2>
                     </div>
-                    <span>{campaigns.length}</span>
+                    <span>{campaignTotal}</span>
                   </div>
 
                   <div className="goal-spec-strip">
@@ -460,6 +546,11 @@ export function ControlDesk({
                       ))}
                     </div>
                   )}
+                  <Pager
+                    offset={campaignOffset}
+                    total={campaignTotal}
+                    onOffsetChange={setCampaignOffset}
+                  />
                 </section>
               ) : null}
             </>

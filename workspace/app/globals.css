@@ -859,7 +859,8 @@ h2 {
 }
 
 .mobile-project-select,
-.mobile-project-refresh {
+.mobile-project-refresh,
+.mobile-project-page {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--panel-2);
@@ -871,10 +872,41 @@ h2 {
   padding: 8px 10px;
 }
 
-.mobile-project-refresh {
-  width: 34px;
+.mobile-project-refresh,
+.mobile-project-page {
+  min-width: 34px;
   height: 34px;
   cursor: pointer;
+}
+
+.mobile-project-refresh:disabled,
+.mobile-project-page:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.desk-pager {
+  margin: 12px 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.desk-pager button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: #d8e0e7;
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.desk-pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .desk-status-pill,
