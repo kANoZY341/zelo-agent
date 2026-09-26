@@ -625,6 +625,28 @@ class CampaignScheduler:
                 raise DomainError("Campaign schedule run not found", 404)
             return self._run_response(run)
 
+    async def _thread_mutation(
+        self,
+        operation: Callable[..., object],
+        *args: object,
+        remember: Callable[[object], None] | None = None,
+        **kwargs: object,
+    ) -> object:
+        pending = asyncio.create_task(asyncio.to_thread(operation, *args, **kwargs))
+        try:
+            result = await asyncio.shield(pending)
+        except asyncio.CancelledError as cancellation:
+            try:
+                result = await pending
+            except Exception as error:
+                raise cancellation from error
+            if remember is not None:
+                remember(result)
+            raise cancellation
+        if remember is not None:
+            remember(result)
+        return result
+
     async def _execute_due(self, schedule_id: str) -> None:
         snapshot = self._execution_snapshot(schedule_id)
         if snapshot is None:
@@ -634,8 +656,21 @@ class CampaignScheduler:
         lease = None
         run = None
         reservation = None
+
+        def remember_lease(value: object) -> None:
+            nonlocal lease
+            lease = value
+
+        def remember_run(value: object) -> None:
+            nonlocal run
+            run = value
+
+        def remember_reservation(value: object) -> None:
+            nonlocal reservation
+            reservation = value
+
         try:
-            lease = await asyncio.to_thread(
+            lease = await self._thread_mutation(
                 self.controls.acquire_lease,
                 campaign_id,
                 WAKE_LEASE_SCOPE,
@@ -643,18 +678,20 @@ class CampaignScheduler:
                     holder_id=holder_id,
                     ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
                 ),
+                remember=remember_lease,
             )
-            run = await asyncio.to_thread(
+            run = await self._thread_mutation(
                 self._begin_run,
                 schedule_id,
                 holder_id=holder_id,
                 lease_token=lease.lease_token,
                 lease_generation=lease.generation,
+                remember=remember_run,
             )
             if run.sequence != sequence:
                 raise DomainError("Campaign schedule occurrence changed", 409)
 
-            reservation = await asyncio.to_thread(
+            reservation = await self._thread_mutation(
                 self.controls.reserve_budget,
                 campaign_id,
                 CampaignBudgetReserve(
@@ -666,11 +703,12 @@ class CampaignScheduler:
                     units=WAKE_BUDGET_UNITS,
                     ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
                 ),
+                remember=remember_reservation,
             )
-            await asyncio.to_thread(self._bind_budget, run.id, reservation.id)
+            await self._thread_mutation(self._bind_budget, run.id, reservation.id)
 
             try:
-                lease = await asyncio.to_thread(
+                lease = await self._thread_mutation(
                     self.controls.renew_lease,
                     campaign_id,
                     WAKE_LEASE_SCOPE,
@@ -680,6 +718,7 @@ class CampaignScheduler:
                         generation=lease.generation,
                         ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
                     ),
+                    remember=remember_lease,
                 )
             except DomainError as error:
                 raise WakeAuthorityUnavailable("wake_lease_renewal_failed") from error
@@ -695,7 +734,7 @@ class CampaignScheduler:
                 campaign_id=campaign_id,
                 before_side_effect=require_authority_after_admission,
             )
-            await asyncio.to_thread(
+            await self._thread_mutation(
                 self._finalize_run,
                 run.id,
                 status="succeeded",
