@@ -73,32 +73,57 @@ The live task correctly reported branch `main` and the then-current dirty workin
 tree. This proves the required conversation -> Core task -> real result ->
 conversation-context path outside the automated test suite.
 
-## Active increment: Zelo Workspace Foundation
+## Zelo Workspace Foundation — completed
 
-The workspace implementation choice is now made:
+The first Zelo-owned workspace is merged on main.
 
-- Zelo owns the workspace application and contracts.
-- Mission Control is the primary control-desk UX/component reference and a
-  selective MIT-licensed reuse source.
-- Agent Town is the Company World/Phaser reference for a later visual slice.
-- Neither project becomes Zelo Core, task authority, scheduler, memory owner or
-  agent runtime.
+Current verified main commit before v0.12 work:
 
-The first implementation slice is intentionally narrow:
+`5738d6f7e0435941abfafb13a5b4bb86e7dd4d66`
 
-```text
-browser
-  -> local Zelo Workspace server
-  -> server-side authenticated Core proxy
-  -> existing conversation API
-  -> Zelo Mind
-  -> optional canonical Core task
-  -> projected progress/result
-  -> browser
-```
+Relevant merged work includes:
 
-The browser must never receive the Core operator token. Workspace task state is
-always projected from Core rather than duplicated in a UI database.
+- PR #21 — initial Zelo-owned Talk workspace.
+- PR #22 — workspace feedback/latency and generated-file cleanup.
+- PR #23/#24 — compact and then two-stage Mind routing.
+- PR #25 — compact persistent Zelo identity.
+- PR #27 — dedicated Mind-model route plus fixed-height scrollable chat viewport.
+
+The browser keeps the Core operator token server-side, conversation/task state is
+projected from canonical Core state, and the transcript now scrolls inside a
+fixed workspace viewport rather than stretching the page.
+
+A local live smoke on 26 September 2026 confirmed the dedicated Mind route with
+`qwen3.5:4b`. Warm conversational turns were materially faster than the original
+single-stage path and the model showed stronger conversational behavior. The
+remaining gap was grounded persistent project context: Mind could converse but
+could not reliably answer what Zelo is currently building without explicit
+context.
+
+## Active increment: v0.12 Project foundation and context seed
+
+Active branch:
+
+`feat/v0.12-project-context-seed`
+
+Design:
+
+`docs/v0.12-project-context-seed.md`
+
+This first v0.12 slice is intentionally bounded:
+
+- durable Core-owned Project records;
+- durable typed GoalSpec records owned by a Project;
+- authenticated Project/Goal create/read/list APIs;
+- a bounded read-only Context Resolver for canonical Zelo/project state;
+- selective Mind context injection only for relevant project-state questions.
+
+The resolver reads canonical repository status/roadmap plus active Core
+Project/Goal records. It does not write persistent memory, store hidden
+reasoning, create embeddings, schedule work, or grant execution authority.
+
+Full persistent personal/project/agent memory remains v0.13 after v0.12 has the
+ownership/state boundaries it needs.
 
 ## Parked work
 
@@ -107,11 +132,11 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and smoke-test the first Zelo-owned Talk-to-Zelo workspace.
-2. Verify browser -> Mind -> Core task -> live projected result with the same
-   contract proven by curl.
-3. Add practical Control Desk projections over existing Core state.
-4. Enter v0.12 with durable GoalSpec/project/campaign ownership, events,
-   checkpoints, budgets and bounded scheduling.
-5. Add Company World only as a projection over real Core/company state; do not
-   pull Agent Factory or broad autonomy forward.
+1. Land and live-prove the v0.12 Project/Goal + Context Resolver seed.
+2. Create the canonical Zelo Project and its active Goal records through Core.
+3. Continue v0.12 with campaign/task ownership, durable events/checkpoints,
+   shared budget accounting, cancellation/recovery and bounded scheduling.
+4. Add the first fixed Research specialist only within the v0.12 capability
+   boundary.
+5. Enter v0.13 with scoped persistent memory, provenance, correction,
+   supersession and bounded retrieval after project/state ownership is stable.
