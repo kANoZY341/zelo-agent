@@ -40,9 +40,7 @@ def append_campaign_event(
 ) -> CampaignEvent:
     latest = (
         session.scalar(
-            select(func.max(CampaignEvent.sequence)).where(
-                CampaignEvent.campaign_id == campaign_id
-            )
+            select(func.max(CampaignEvent.sequence)).where(CampaignEvent.campaign_id == campaign_id)
         )
         or 0
     )
@@ -138,9 +136,7 @@ class CampaignService:
                 raise DomainError("Goal not found", 404)
             total = (
                 session.scalar(
-                    select(func.count())
-                    .select_from(Campaign)
-                    .where(Campaign.goal_id == goal_id)
+                    select(func.count()).select_from(Campaign).where(Campaign.goal_id == goal_id)
                 )
                 or 0
             )
