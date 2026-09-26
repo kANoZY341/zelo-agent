@@ -423,9 +423,12 @@ class CampaignScheduler:
                     or reservation.campaign_id != schedule.campaign_id
                     or reservation.resource != WAKE_BUDGET_RESOURCE
                     or reservation.owner_id != run.lease_holder_id
+                    or reservation.units != WAKE_BUDGET_UNITS
                 ):
                     raise DomainError("Wake budget reservation binding is invalid", 500)
                 if reservation.status == "reserved":
+                    if reservation.expires_at <= now:
+                        raise DomainError("Wake budget reservation expired", 409)
                     reservation.status = "committed"
                     reservation.committed_units = WAKE_BUDGET_UNITS
                     reservation.updated_at = now
