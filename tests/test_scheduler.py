@@ -509,7 +509,7 @@ def test_post_mind_authority_failure_retries_same_occurrence_without_double_char
         conversation = create_conversation(client)
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
-        clock = MutableClock(datetime(2026, 9, 26, 14, 30, tzinfo=UTC))
+        clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
         schedule = create_schedule(
@@ -681,12 +681,17 @@ def test_success_fails_closed_after_wake_lease_is_replaced(settings, database):
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=2)
         conversation = create_conversation(client)
-        schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
-        clock = MutableClock(datetime(2026, 9, 26, 15, 0, tzinfo=UTC))
+        clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
         holder = f"schedule:{schedule['id']}"
 
         lease = controls.acquire_lease(
@@ -750,7 +755,7 @@ def test_success_fails_closed_after_wake_budget_expires(settings, database):
         schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
-        clock = MutableClock(datetime(2026, 9, 26, 16, 0, tzinfo=UTC))
+        clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
         holder = f"schedule:{schedule['id']}"
