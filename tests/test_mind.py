@@ -140,11 +140,18 @@ def test_project_question_receives_context_but_casual_chat_does_not(settings, da
             if message.role == "tool" and '"type":"zelo_context"' in message.content
         ]
         assert len(context_messages) == 1
-        assert context_messages[0]["trusted"] is True
+        assert context_messages[0]["instruction_trust"] == "none"
         assert any(
-            source["source"] == "docs/zelo-project-status.md"
+            source["source"] == "docs/zelo-project-status.md#active"
             for source in context_messages[0]["sources"]
         )
+        records = next(
+            source
+            for source in context_messages[0]["sources"]
+            if source["source"] == "core.projects"
+        )
+        assert records["provenance"] == "operator_records"
+        assert records["instruction_trust"] == "none"
         assert messages[-1].role == "user"
         assert messages[-1].content == "what are we currently building with Zelo?"
 
