@@ -17,6 +17,7 @@ from app.config import Settings
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
+from app.policy import DomainError
 from app.scheduler import WakeAuthorityUnavailable
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
@@ -875,6 +876,98 @@ def test_cancellation_waits_for_threaded_core_task_submission(
         assert stored["turns"][0]["core_task"]["campaign_id"] == campaign["id"]
 
 
+def test_task_link_failure_retries_same_persisted_occurrence(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(scheduled_echo("link retry echo"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=3)
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+
+        original_link = scheduler.mind._link_core_task
+        failed_once = False
+
+        def fail_first_link(turn_id: str, task_id: str):
+            nonlocal failed_once
+            if not failed_once:
+                failed_once = True
+                raise DomainError("synthetic link failure", 500)
+            return original_link(turn_id, task_id)
+
+        monkeypatch.setattr(scheduler.mind, "_link_core_task", fail_first_link)
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        first_runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert first_runs["total"] == 1
+        assert first_runs["items"][0]["status"] == "interrupted"
+        run_id = first_runs["items"][0]["id"]
+
+        first_schedule = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert first_schedule["run_count"] == 0
+        assert first_schedule["status"] == "active"
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert stored["turn_total"] == 1
+        assert stored["turns"][0]["core_task"] is None
+        assert len(provider.requests) == 1
+
+        budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert budget["spent_units"] == 0
+        assert budget["reserved_units"] == 0
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        completed = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert completed["status"] == "completed"
+        assert completed["run_count"] == 1
+
+        final_runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert final_runs["total"] == 1
+        assert final_runs["items"][0]["id"] == run_id
+        assert final_runs["items"][0]["status"] == "succeeded"
+
+        final_stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert final_stored["turn_total"] == 1
+        assert final_stored["turns"][0]["core_task"] is not None
+        assert final_stored["turns"][0]["core_task"]["campaign_id"] == campaign["id"]
+        assert len(provider.requests) == 1
+
+        final_budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert final_budget["spent_units"] == 1
+        assert final_budget["reserved_units"] == 0
+
+
 def test_success_fails_closed_after_wake_lease_is_replaced(settings, database):
     provider = SchedulerMindProvider(reply("Late wake result."))
     configured = settings.model_copy(update={"scheduler_enabled": False})
@@ -1214,6 +1307,55 @@ def test_database_rejects_terminal_schedule_run_insert(settings, database):
                     {
                         "schedule_id": schedule["id"],
                         "holder_id": lease.holder_id,
+                        "lease_token": lease.lease_token,
+                        "generation": lease.generation,
+                        "now": datetime.now(UTC),
+                    },
+                )
+
+
+def test_database_rejects_future_schedule_run_sequence(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            interval_seconds=60,
+            max_runs=2,
+        )
+        controls: CampaignControlService = client.app.state.campaign_controls
+        holder = f"schedule:{schedule['id']}"
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=600),
+        )
+
+        with pytest.raises(IntegrityError, match="lease proof is not current"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO campaign_schedule_runs (
+                            id, schedule_id, sequence, status,
+                            lease_holder_id, lease_token, lease_generation,
+                            started_at, completed_at
+                        ) VALUES (
+                            '73000000-0000-0000-0000-000000000073',
+                            :schedule_id, 2, 'running',
+                            :holder_id, :lease_token, :generation,
+                            :now, NULL
+                        )
+                        """
+                    ),
+                    {
+                        "schedule_id": schedule["id"],
+                        "holder_id": holder,
                         "lease_token": lease.lease_token,
                         "generation": lease.generation,
                         "now": datetime.now(UTC),
