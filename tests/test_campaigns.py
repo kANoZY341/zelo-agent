@@ -198,3 +198,102 @@ def test_campaign_events_and_checkpoints_are_immutable(database):
         with pytest.raises(IntegrityError):
             with database.transaction() as session:
                 session.execute(text(statement))
+
+
+def test_campaign_ownership_and_dependencies_are_database_immutable(settings, database):
+    _, goal, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+    other_campaign = campaigns.create(goal.id, CampaignCreate(title="Other campaign"))
+    tasks = TaskService(database, settings)
+
+    prerequisite, _ = tasks.submit(
+        EchoInput(
+            kind="echo",
+            payload={"text": "prerequisite"},
+            campaign_id=campaign.id,
+        ),
+        None,
+    )
+    dependent, _ = tasks.submit(
+        EchoInput(
+            kind="echo",
+            payload={"text": "dependent"},
+            campaign_id=campaign.id,
+            depends_on_task_ids=[prerequisite.id],
+        ),
+        None,
+    )
+    outsider, _ = tasks.submit(
+        EchoInput(
+            kind="echo",
+            payload={"text": "outsider"},
+            campaign_id=other_campaign.id,
+        ),
+        None,
+    )
+
+    immutable_statements = (
+        (
+            "UPDATE campaign_task_links SET campaign_id=:campaign_id WHERE task_id=:task_id",
+            {"campaign_id": other_campaign.id, "task_id": dependent.id},
+        ),
+        (
+            "DELETE FROM campaign_task_links WHERE task_id=:task_id",
+            {"task_id": dependent.id},
+        ),
+        (
+            "UPDATE task_dependencies SET depends_on_task_id=:depends_on "
+            "WHERE task_id=:task_id",
+            {"depends_on": outsider.id, "task_id": dependent.id},
+        ),
+        (
+            "DELETE FROM task_dependencies WHERE task_id=:task_id",
+            {"task_id": dependent.id},
+        ),
+    )
+    for statement, parameters in immutable_statements:
+        with pytest.raises(IntegrityError):
+            with database.transaction() as session:
+                session.execute(text(statement), parameters)
+
+    with pytest.raises(IntegrityError):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO task_dependencies (task_id, depends_on_task_id) "
+                    "VALUES (:task_id, :depends_on)"
+                ),
+                {"task_id": outsider.id, "depends_on": prerequisite.id},
+            )
+
+
+def test_campaign_terminal_event_and_activity_follow_pre_execution_cancel(settings, database):
+    _, _, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+    before = campaigns.get(campaign.id)
+    tasks = TaskService(database, settings)
+
+    task, _ = tasks.submit(
+        EchoInput(
+            kind="echo",
+            payload={"text": "cancel me"},
+            campaign_id=campaign.id,
+        ),
+        None,
+    )
+    after_attach = campaigns.get(campaign.id)
+    assert after_attach.updated_at > before.updated_at
+
+    cancelled = tasks.cancel(task.id)
+    assert cancelled.status == State.CANCELLED
+
+    after_cancel = campaigns.get(campaign.id)
+    assert after_cancel.updated_at > after_attach.updated_at
+    events = campaigns.events(campaign.id, 100, 0).items
+    terminal = [
+        event
+        for event in events
+        if event.event == "task_finished" and event.task_id == task.id
+    ]
+    assert len(terminal) == 1
+    assert terminal[0].details["status"] == State.CANCELLED
