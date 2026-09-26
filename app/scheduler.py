@@ -385,9 +385,7 @@ class CampaignScheduler:
     def _require_live_mind_authority(self, run_id: str) -> None:
         with self.database.transaction() as session:
             now = self.clock()
-            minimum_expiry = now + timedelta(
-                seconds=self.settings.scheduler_mind_window_seconds
-            )
+            minimum_expiry = now + timedelta(seconds=self.settings.scheduler_mind_window_seconds)
             run = session.get(CampaignScheduleRun, run_id)
             if run is None or run.status != "running":
                 raise WakeAuthorityUnavailable("wake_run_not_active")
@@ -464,7 +462,7 @@ class CampaignScheduler:
                     or lease.expires_at is None
                     or lease.expires_at <= now
                 ):
-                    raise DomainError("Wake lease proof is no longer current", 409)
+                    raise WakeAuthorityUnavailable("wake_lease_finalization_stale")
                 if run.budget_reservation_id is None:
                     raise DomainError("Successful wake is missing its budget reservation", 500)
                 reservation = session.get(
@@ -481,7 +479,7 @@ class CampaignScheduler:
                     raise DomainError("Wake budget reservation binding is invalid", 500)
                 if reservation.status == "reserved":
                     if reservation.expires_at <= now:
-                        raise DomainError("Wake budget reservation expired", 409)
+                        raise WakeAuthorityUnavailable("wake_budget_finalization_expired")
                     reservation.status = "committed"
                     reservation.committed_units = WAKE_BUDGET_UNITS
                     reservation.updated_at = now
@@ -499,7 +497,7 @@ class CampaignScheduler:
                     reservation.status == "committed"
                     and reservation.committed_units == WAKE_BUDGET_UNITS
                 ):
-                    raise DomainError("Wake budget reservation is no longer committable", 409)
+                    raise WakeAuthorityUnavailable("wake_budget_finalization_stale")
 
             run.status = status
             run.conversation_turn_id = conversation_turn_id
