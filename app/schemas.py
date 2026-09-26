@@ -475,6 +475,113 @@ class CampaignCheckpointPage(StrictModel):
     total: int = Field(ge=0)
 
 
+ControlName = Annotated[
+    str,
+    Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_.:-]{0,63}$"),
+]
+ControlOwner = Annotated[str, Field(min_length=1, max_length=128)]
+ControlUnits = Annotated[int, Field(ge=0, le=1_000_000_000_000_000)]
+
+
+class CampaignLeaseAcquire(StrictModel):
+    holder_id: ControlOwner
+    ttl_seconds: int = Field(default=60, ge=1, le=86400)
+
+
+class CampaignLeaseRenew(StrictModel):
+    holder_id: ControlOwner
+    lease_token: TaskId
+    generation: int = Field(ge=1)
+    ttl_seconds: int = Field(default=60, ge=1, le=86400)
+
+
+class CampaignLeaseRelease(StrictModel):
+    holder_id: ControlOwner
+    lease_token: TaskId
+    generation: int = Field(ge=1)
+
+
+class CampaignLeaseGrantResponse(StrictModel):
+    campaign_id: TaskId
+    scope: ControlName
+    generation: int = Field(ge=1)
+    holder_id: ControlOwner
+    lease_token: TaskId
+    acquired_at: datetime
+    expires_at: datetime
+    updated_at: datetime
+
+
+class CampaignLeaseStatusResponse(StrictModel):
+    campaign_id: TaskId
+    scope: ControlName
+    generation: int = Field(ge=0)
+    status: Literal["free", "held", "expired"]
+    holder_id: ControlOwner | None = None
+    acquired_at: datetime | None = None
+    expires_at: datetime | None = None
+    updated_at: datetime
+
+
+class CampaignBudgetSet(StrictModel):
+    limit_units: ControlUnits
+
+
+class CampaignBudgetResponse(StrictModel):
+    campaign_id: TaskId
+    resource: ControlName
+    limit_units: ControlUnits
+    spent_units: ControlUnits
+    reserved_units: ControlUnits
+    available_units: ControlUnits
+    updated_at: datetime
+
+
+class CampaignBudgetPage(StrictModel):
+    items: list[CampaignBudgetResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class CampaignBudgetReserve(StrictModel):
+    resource: ControlName
+    owner_id: ControlOwner
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    units: int = Field(ge=1, le=1_000_000_000_000_000)
+    ttl_seconds: int = Field(default=3600, ge=1, le=86400)
+
+
+class CampaignBudgetCommit(StrictModel):
+    actual_units: ControlUnits
+
+
+class CampaignBudgetReservationResponse(StrictModel):
+    id: TaskId
+    campaign_id: TaskId
+    resource: ControlName
+    owner_id: ControlOwner
+    units: int = Field(ge=1)
+    committed_units: ControlUnits
+    status: Literal["reserved", "committed", "released", "expired"]
+    expires_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignBudgetReservationPage(StrictModel):
+    items: list[CampaignBudgetReservationResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class CampaignRecoveryResponse(StrictModel):
+    campaign_id: TaskId | None = None
+    recovered_leases: int = Field(ge=0)
+    expired_budget_reservations: int = Field(ge=0)
+
+
 class ConversationCreate(StrictModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
 
