@@ -1194,7 +1194,7 @@ def test_database_rejects_terminal_schedule_run_insert(settings, database):
             ),
         )
 
-        with pytest.raises(IntegrityError, match="must start as running"):
+        with pytest.raises(IntegrityError, match="must start running and unbound"):
             with database.transaction() as session:
                 session.execute(
                     text(
