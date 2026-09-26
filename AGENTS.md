@@ -55,23 +55,23 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Campaign ownership and operational state
+## Current scope: v0.12 Campaign execution controls
 
 The released base remains Zelo Core v0.11.0. Early Zelo Chat, the first
-Zelo-owned workspace, and the v0.12 Project/Goal + Context Resolver seed are
-complete on main. The active implementation slice is documented in
-`docs/v0.12-campaign-state.md`.
+Zelo-owned workspace, Project/Goal ownership, and the Campaign/state foundation
+are complete on main. The active implementation slice is documented in
+`docs/v0.12-campaign-controls.md`.
 
-Build the minimum durable Campaign ownership and operational state boundary:
-campaign records owned by Goals, campaign-owned Core tasks, acyclic-by-construction
-task dependencies, durable campaign events, and immutable checkpoints. Dependency
-records are execution constraints and the runner must not claim a task before its
-dependencies succeed.
+Build the minimum Core authority needed before scheduling: Campaign-scoped leases
+with monotonic fencing generations, deterministic expiry recovery, shared named
+integer budgets, and idempotent reserve/commit/release accounting. Recovery must
+free expired control state without silently creating, retrying or claiming work.
 
-Do not silently add the later v0.12 scheduler, budgets, leases, autonomous Mind
-wake cycles, Research specialist, or full workspace project views in this slice.
-Persistent personal/project/agent memory remains v0.13. Agent Factory remains
-v0.14, broad tools/capabilities remain v0.15, and external channels remain v0.16.
+Do not silently add the later v0.12 scheduler, autonomous Mind wake cycles,
+Research specialist, workspace project/progress views, or new merge/release
+authority in this slice. Persistent personal/project/agent memory remains v0.13.
+Agent Factory remains v0.14, broad tools/capabilities remain v0.15, and external
+channels remain v0.16.
 
 ## Workspace decision
 
