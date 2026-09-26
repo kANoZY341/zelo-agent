@@ -110,9 +110,8 @@ process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
 A linked task is projected back into the conversation from canonical TaskService
 state, so a workspace can show pending/running/approval/result state without
 duplicating it. The first proof path is documented in
-`docs/early-zelo-chat.md`. Autonomous events, wake cycles, campaigns, memory,
-Agent Factory, broad capabilities, and external channels remain in their later
-canonical milestones.
+`docs/early-zelo-chat.md`. Persistent memory, Agent Factory, broad capabilities, and external channels
+remain in their later canonical milestones.
 
 ## Fixed Research specialist
 
