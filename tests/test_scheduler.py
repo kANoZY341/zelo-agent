@@ -15,6 +15,7 @@ from app.campaign_control import CampaignControlService
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
+from app.policy import DomainError
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -364,6 +365,131 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
             headers=AUTH,
         ).json()["items"]
         assert [item["status"] for item in reservations] == ["released", "committed"]
+
+
+def test_success_fails_closed_after_wake_lease_is_replaced(settings, database):
+    provider = SchedulerMindProvider(reply("Late wake result."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime(2026, 9, 26, 15, 0, tzinfo=UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        holder = f"schedule:{schedule['id']}"
+
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=30),
+        )
+        run = scheduler._begin_run(
+            schedule["id"],
+            holder_id=holder,
+            lease_token=lease.lease_token,
+            lease_generation=lease.generation,
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="stale-lease-budget",
+                units=1,
+                ttl_seconds=600,
+            ),
+        )
+        scheduler._bind_budget(run.id, reservation.id)
+        turn = asyncio.run(
+            scheduler.mind.send_turn(
+                conversation["id"],
+                schedule["prompt"],
+                f"schedule:{schedule['id']}:1",
+                campaign_id=campaign["id"],
+            )
+        )
+
+        clock.advance(seconds=31)
+        replacement = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id="replacement-holder", ttl_seconds=600),
+        )
+        assert replacement.generation == lease.generation + 1
+
+        with pytest.raises(DomainError, match="lease proof"):
+            scheduler._finalize_run(
+                run.id,
+                status="succeeded",
+                conversation_turn_id=turn.id,
+                error=None,
+            )
+
+        assert scheduler.get_run(run.id).status == "running"
+        assert client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()["run_count"] == 0
+
+
+def test_success_fails_closed_after_wake_budget_expires(settings, database):
+    provider = SchedulerMindProvider(reply("Late budget result."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime(2026, 9, 26, 16, 0, tzinfo=UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        holder = f"schedule:{schedule['id']}"
+
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=600),
+        )
+        run = scheduler._begin_run(
+            schedule["id"],
+            holder_id=holder,
+            lease_token=lease.lease_token,
+            lease_generation=lease.generation,
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="expiring-wake-budget",
+                units=1,
+                ttl_seconds=30,
+            ),
+        )
+        scheduler._bind_budget(run.id, reservation.id)
+        turn = asyncio.run(
+            scheduler.mind.send_turn(
+                conversation["id"],
+                schedule["prompt"],
+                f"schedule:{schedule['id']}:1",
+                campaign_id=campaign["id"],
+            )
+        )
+
+        clock.advance(seconds=31)
+        with pytest.raises(DomainError, match="reservation expired"):
+            scheduler._finalize_run(
+                run.id,
+                status="succeeded",
+                conversation_turn_id=turn.id,
+                error=None,
+            )
+
+        assert scheduler.get_run(run.id).status == "running"
+        assert client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()["run_count"] == 0
 
 
 def test_cancelled_schedule_allows_already_started_wake_to_close(settings, database):
