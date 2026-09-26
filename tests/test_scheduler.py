@@ -503,6 +503,68 @@ def test_conversation_wait_rechecks_authority_before_mind(settings, database):
         assert budget["reserved_units"] == 0
 
 
+def test_post_model_authority_check_blocks_persistence(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(scheduled_echo("must not persist"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime.now(UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
+
+        original_generate = scheduler.mind._generate_action
+
+        async def generate_then_age(*args, **kwargs):
+            result = await original_generate(*args, **kwargs)
+            clock.advance(seconds=configured.scheduler_wake_ttl_seconds + 1)
+            return result
+
+        monkeypatch.setattr(scheduler.mind, "_generate_action", generate_then_age)
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        assert len(provider.requests) == 1
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert stored["turn_total"] == 0
+
+        runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["status"] == "interrupted"
+
+        current = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert current["run_count"] == 0
+        assert current["status"] == "active"
+
+        budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert budget["spent_units"] == 0
+        assert budget["reserved_units"] == 0
+
+
 def test_mind_is_not_invoked_without_full_authority_window(
     settings,
     database,
