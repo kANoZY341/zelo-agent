@@ -431,9 +431,7 @@ class CampaignScheduler:
                 conversation_turn_id=conversation_turn_id,
                 error=error,
                 next_run_at=(
-                    schedule.next_run_at.isoformat()
-                    if schedule.next_run_at is not None
-                    else None
+                    schedule.next_run_at.isoformat() if schedule.next_run_at is not None else None
                 ),
             )
 
@@ -673,11 +671,7 @@ class CampaignScheduler:
     def ready(self) -> bool:
         if not self.settings.scheduler_enabled:
             return True
-        return (
-            self.loop_task is not None
-            and not self.loop_task.done()
-            and not self.stopping
-        )
+        return self.loop_task is not None and not self.loop_task.done() and not self.stopping
 
     async def stop(self) -> None:
         self.stopping = True
