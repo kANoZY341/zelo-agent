@@ -302,6 +302,11 @@ class CampaignBudgetReservation(Base):
 class CampaignSchedule(Base):
     __tablename__ = "campaign_schedules"
     __table_args__ = (
+        UniqueConstraint(
+            "campaign_id",
+            "idempotency_key",
+            name="uq_campaign_schedule_idempotency",
+        ),
         CheckConstraint(
             "status IN ('active','completed','cancelled')",
             name="ck_campaign_schedule_status",
@@ -325,6 +330,8 @@ class CampaignSchedule(Base):
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
     conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), index=True)
     prompt: Mapped[str] = mapped_column(String(16384))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)
     next_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime, index=True)
     interval_seconds: Mapped[int | None] = mapped_column(Integer)
