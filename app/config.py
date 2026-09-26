@@ -105,9 +105,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_scheduler_wake_ttl(self) -> "Settings":
-        minimum_ttl = (
-            self.scheduler_mind_window_seconds + self.scheduler_control_headroom_seconds
-        )
+        minimum_ttl = self.scheduler_mind_window_seconds + self.scheduler_control_headroom_seconds
         if self.scheduler_enabled and self.scheduler_wake_ttl_seconds < minimum_ttl:
             raise ValueError(
                 "Scheduler wake TTL must cover the bounded Mind window plus control headroom"
