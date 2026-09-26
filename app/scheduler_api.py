@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth import require_operator
 from app.scheduler import CampaignScheduler
@@ -23,6 +23,10 @@ def service(request: Request) -> CampaignScheduler:
 Scheduler = Annotated[CampaignScheduler, Depends(service)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0, le=1_000_000)]
+IdempotencyKey = Annotated[
+    str,
+    Header(alias="Idempotency-Key", min_length=1, max_length=128, pattern=r"^[!-~]+$"),
+]
 
 
 @router.post(
@@ -34,8 +38,9 @@ def create_schedule(
     campaign_id: str,
     body: CampaignScheduleCreate,
     scheduler: Scheduler,
+    idempotency_key: IdempotencyKey,
 ) -> CampaignScheduleResponse:
-    return scheduler.create(campaign_id, body)
+    return scheduler.create(campaign_id, body, idempotency_key)
 
 
 @router.get(
