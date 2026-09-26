@@ -88,7 +88,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.12" in sources
     assert "core.projects" in sources
     assert (
-        "Active increment: v0.12 Campaign ownership and operational state"
+        "Active increment: v0.12 Campaign execution controls"
         in sources["docs/zelo-project-status.md#active"]["content"]
     )
     assert "Early Zelo Chat" not in sources["docs/zelo-project-status.md#active"]["content"]
