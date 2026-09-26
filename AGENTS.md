@@ -55,24 +55,27 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Bounded scheduler and Mind wake cycles
+## Current scope: v0.12 Fixed Research specialist
 
-The released base remains Zelo Core v0.11.0. Early Zelo Chat, the first
-Zelo-owned workspace, Project/Goal ownership, Campaign/state, and Campaign
-leases/shared budgets are complete on main. The active implementation slice is
-documented in `docs/v0.12-scheduler-wakes.md`.
+The released base remains Zelo Core v0.11.0. Early Zelo Chat, the Zelo-owned
+workspace foundation, Project/Goal/Campaign ownership, Campaign controls, and the
+bounded scheduler/Mind wake cycle are complete on main. PR #32 merged the
+scheduler at `1ad8d7582713651dd5b2804ef88f8f78bba7f934` with green main CI.
 
-Build only the bounded Core scheduler: durable Campaign-owned one-shot/fixed-
-interval schedules, maximum run counts, Campaign-wide wake leases, required
-`mind_wakes` budget reservations, restart-safe logical occurrences, and
-deterministic scheduled Mind turns. Any Core task created by a scheduled Mind
-wake must remain owned by the same Campaign.
+The active slice is documented in `docs/v0.12-research-specialist.md`.
 
-Do not add free-running autonomy, cron expressions, self-created schedules,
-Research specialist execution, workspace project/progress views, voice, or new
-merge/release authority in this slice. Persistent personal/project/agent memory
-remains v0.13. Agent Factory remains v0.14, broad tools/capabilities remain
-v0.15, and external channels remain v0.16.
+Build only the first fixed Research specialist: one `research_run` Core task,
+the existing local general model, bounded model/tool steps, and an explicit
+read-only retrieval allowlist of `repo_status`, `list_workspace_files`, and
+`read_workspace_file`. Final answers must be grounded in Core-generated source
+IDs from tools actually executed. Preserve Campaign ownership and the existing
+task/retry/recovery/audit boundaries.
+
+Do not add public-web search, Browser/API/Research workers, recursive subagents,
+write authority, specialist memory, AgentSpec/DepartmentSpec generalization,
+workspace project/progress UI, voice, or new merge/release authority in this
+slice. Persistent memory remains v0.13, Agent Factory v0.14, broad capabilities
+and external retrieval workers v0.15, and external channels v0.16.
 
 ## Workspace decision
 
