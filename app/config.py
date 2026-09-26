@@ -96,9 +96,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_scheduler_wake_ttl(self) -> "Settings":
         worst_case_mind_seconds = (
-            self.model_timeout_seconds
-            * (self.max_model_parse_retries + 1)
-            * 2
+            self.model_timeout_seconds * (self.max_model_parse_retries + 1) * 2
             + self.mind_admission_timeout_seconds
             + 5
         )
