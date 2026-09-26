@@ -10,12 +10,15 @@ import {
 } from "react";
 import type {
   Conversation,
+  ConversationPage,
+  ConversationSummary,
   ConversationTurn,
   TaskProjection,
 } from "@/lib/types";
 
 const ACTIVE_TASK_STATES = new Set(["pending", "awaiting_approval", "running"]);
 const WORKSPACE_HEADERS = { "X-Zelo-Workspace": "1" };
+const ACTIVE_CONVERSATION_STORAGE_KEY = "zelo.workspace.activeConversationId";
 
 type UiMessage = {
   id: string;
@@ -67,6 +70,17 @@ async function parseJson<T>(response: Response): Promise<T> {
   return body as T;
 }
 
+function conversationTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function TaskCard({ task }: { task: TaskProjection }) {
   const result = taskResultSummary(task);
   const active = ACTIVE_TASK_STATES.has(task.status);
@@ -100,6 +114,10 @@ function TaskCard({ task }: { task: TaskProjection }) {
 
 export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,10 +125,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
   const conversationBodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
     null,
+  );
+
+  const activeConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === conversationId) ?? null,
+    [conversations, conversationId],
   );
 
   const latestTask = useMemo(() => {
@@ -123,6 +147,31 @@ export default function Home() {
       null
     );
   }, [messages]);
+
+  const loadConversationList = useCallback(async (): Promise<ConversationSummary[]> => {
+    const items: ConversationSummary[] = [];
+    const pageSize = 100;
+    let offset = 0;
+    let total = 0;
+
+    do {
+      const response = await fetch(
+        `/api/conversations?limit=${pageSize}&offset=${offset}`,
+        {
+          headers: WORKSPACE_HEADERS,
+          cache: "no-store",
+        },
+      );
+      const page = await parseJson<ConversationPage>(response);
+      items.push(...page.items);
+      total = page.total;
+      offset += page.items.length;
+      if (page.items.length === 0) break;
+    } while (offset < total);
+
+    setConversations(items);
+    return items;
+  }, []);
 
   const refreshConversation = useCallback(
     async (id: string): Promise<Conversation> => {
@@ -146,7 +195,9 @@ export default function Home() {
         },
       );
       const conversation = await parseJson<Conversation>(response);
-      setMessages(toMessages(conversation.turns));
+      if (activeConversationIdRef.current === id) {
+        setMessages(toMessages(conversation.turns));
+      }
       return conversation;
     },
     [],
@@ -157,8 +208,10 @@ export default function Home() {
       if (pollRef.current) clearTimeout(pollRef.current);
 
       const tick = async () => {
+        if (activeConversationIdRef.current !== id) return;
         try {
           const conversation = await refreshConversation(id);
+          if (activeConversationIdRef.current !== id) return;
           const hasActiveTask = conversation.turns.some(
             (turn) =>
               turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
@@ -167,6 +220,7 @@ export default function Home() {
             pollRef.current = setTimeout(tick, 1200);
           }
         } catch (pollError) {
+          if (activeConversationIdRef.current !== id) return;
           setError(
             pollError instanceof Error
               ? pollError.message
@@ -178,6 +232,58 @@ export default function Home() {
       pollRef.current = setTimeout(tick, 800);
     },
     [refreshConversation],
+  );
+
+  const openConversation = useCallback(
+    async (id: string) => {
+      if (busy || conversationLoading) return;
+      if (pendingSubmissionRef.current) {
+        setError(
+          "Resolve the pending message before switching conversations.",
+        );
+        return;
+      }
+
+      if (pollRef.current) clearTimeout(pollRef.current);
+      stickToBottomRef.current = true;
+      setConversationLoading(true);
+      setHistoryOpen(false);
+      setPendingPrompt(null);
+      setError(null);
+      activeConversationIdRef.current = id;
+      setConversationId(id);
+      window.localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, id);
+
+      try {
+        const conversation = await refreshConversation(id);
+        const hasActiveTask = conversation.turns.some(
+          (turn) =>
+            turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
+        );
+        if (hasActiveTask) {
+          await pollUntilTaskSettles(id);
+        }
+      } catch (openError) {
+        if (
+          window.localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY) === id
+        ) {
+          window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+        }
+        if (activeConversationIdRef.current === id) {
+          activeConversationIdRef.current = null;
+          setConversationId(null);
+          setMessages([]);
+        }
+        setError(
+          openError instanceof Error
+            ? openError.message
+            : "conversation_open_failed",
+        );
+      } finally {
+        setConversationLoading(false);
+      }
+    },
+    [busy, conversationLoading, pollUntilTaskSettles, refreshConversation],
   );
 
   useEffect(() => {
@@ -210,6 +316,64 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      setHistoryLoading(true);
+      try {
+        const saved = await loadConversationList();
+        if (cancelled) return;
+
+        const storedId = window.localStorage.getItem(
+          ACTIVE_CONVERSATION_STORAGE_KEY,
+        );
+        if (storedId && saved.some((conversation) => conversation.id === storedId)) {
+          setConversationLoading(true);
+          activeConversationIdRef.current = storedId;
+          setConversationId(storedId);
+          try {
+            const conversation = await refreshConversation(storedId);
+            const hasActiveTask = conversation.turns.some(
+              (turn) =>
+                turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
+            );
+            if (hasActiveTask) {
+              await pollUntilTaskSettles(storedId);
+            }
+          } catch (restoreError) {
+            window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+            if (activeConversationIdRef.current === storedId) {
+              activeConversationIdRef.current = null;
+              setConversationId(null);
+              setMessages([]);
+            }
+            throw restoreError;
+          } finally {
+            if (!cancelled) setConversationLoading(false);
+          }
+        } else if (storedId) {
+          window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+        }
+      } catch (historyError) {
+        if (!cancelled) {
+          setError(
+            historyError instanceof Error
+              ? historyError.message
+              : "conversation_history_failed",
+          );
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    };
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadConversationList, pollUntilTaskSettles, refreshConversation]);
+
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
 
@@ -219,10 +383,15 @@ export default function Home() {
         ...WORKSPACE_HEADERS,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ title: "Talk to Zelo" }),
+      body: "{}",
     });
     const conversation = await parseJson<Conversation>(response);
+    activeConversationIdRef.current = conversation.id;
     setConversationId(conversation.id);
+    window.localStorage.setItem(
+      ACTIVE_CONVERSATION_STORAGE_KEY,
+      conversation.id,
+    );
     return conversation.id;
   }
 
@@ -291,6 +460,7 @@ export default function Home() {
             : "conversation_refresh_failed",
         );
       });
+      void loadConversationList().catch(() => undefined);
 
       if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
@@ -336,9 +506,16 @@ export default function Home() {
   }
 
   function newConversation() {
+    if (busy || conversationLoading) return;
+    if (pendingSubmissionRef.current) {
+      setError("Resolve the pending message before starting a new conversation.");
+      return;
+    }
     if (pollRef.current) clearTimeout(pollRef.current);
-    pendingSubmissionRef.current = null;
     stickToBottomRef.current = true;
+    setHistoryOpen(false);
+    window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+    activeConversationIdRef.current = null;
     setConversationId(null);
     setMessages([]);
     setPendingPrompt(null);
@@ -363,13 +540,76 @@ export default function Home() {
         <span className="local-badge">LOCAL</span>
       </aside>
 
+      <aside className={`history-panel ${historyOpen ? "mobile-open" : ""}`}>
+        <div className="history-head">
+          <div>
+            <p className="eyebrow">TALK / HISTORY</p>
+            <h2>Conversations</h2>
+          </div>
+          <button
+            className="history-new"
+            onClick={newConversation}
+            disabled={busy || conversationLoading}
+            title="New conversation"
+            aria-label="New conversation"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="history-list">
+          {historyLoading ? (
+            <div className="history-empty">Loading conversations…</div>
+          ) : conversations.length === 0 ? (
+            <div className="history-empty">
+              No saved conversations yet. Start talking to Zelo.
+            </div>
+          ) : (
+            conversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                className={`history-item ${
+                  conversation.id === conversationId ? "active" : ""
+                }`}
+                onClick={() => void openConversation(conversation.id)}
+                disabled={busy || conversationLoading}
+                aria-pressed={conversation.id === conversationId}
+              >
+                <span className="history-title">{conversation.title}</span>
+                <span className="history-meta">
+                  {conversation.turn_count} turn
+                  {conversation.turn_count === 1 ? "" : "s"}
+                  <span aria-hidden="true"> · </span>
+                  {conversationTimestamp(conversation.updated_at)}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      {historyOpen ? (
+        <button
+          className="history-backdrop"
+          onClick={() => setHistoryOpen(false)}
+          aria-label="Close conversation history"
+        />
+      ) : null}
+
       <section className="conversation-panel">
         <header className="topbar">
           <div>
             <p className="eyebrow">ZELO / MIND</p>
-            <h1>Talk to Zelo</h1>
+            <h1>{activeConversation?.title ?? "Talk to Zelo"}</h1>
           </div>
           <div className="topbar-actions">
+            <button
+              className="mobile-history-button"
+              onClick={() => setHistoryOpen(true)}
+              disabled={busy || conversationLoading}
+            >
+              History
+            </button>
             <span className="core-state">
               <span
                 className={`status-dot ${coreHealthy === false ? "offline" : ""}`}
@@ -380,7 +620,11 @@ export default function Home() {
                   ? "Core connected"
                   : "Core unavailable"}
             </span>
-            <button className="secondary-button" onClick={newConversation}>
+            <button
+              className="secondary-button"
+              onClick={newConversation}
+              disabled={busy || conversationLoading}
+            >
               New conversation
             </button>
           </div>
@@ -458,7 +702,7 @@ export default function Home() {
               }}
               placeholder="Tell Zelo what you need..."
               rows={3}
-              disabled={busy}
+              disabled={busy || conversationLoading}
             />
             <div className="composer-footer">
               <span>
@@ -468,7 +712,7 @@ export default function Home() {
               </span>
               <button
                 className="send-button"
-                disabled={busy || !text.trim()}
+                disabled={busy || conversationLoading || !text.trim()}
               >
                 {busy ? "Thinking..." : "Send"}
               </button>
