@@ -61,6 +61,9 @@ from app.self_improvement_runtime import (
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
+TERMINAL_STATES = frozenset(
+    {State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED}
+)
 CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
 CAPACITY_BACKOFF_MAX_SECONDS = 5.0
 
@@ -121,6 +124,18 @@ def transition(session: Session, task: Task, target: State) -> None:
     task.status = target
     task.updated_at = utcnow()
     audit(session, task, "state_transition", previous=previous, target=target)
+    if target in TERMINAL_STATES:
+        campaign_id = _task_campaign_id(session, task)
+        if campaign_id is not None:
+            append_campaign_event(
+                session,
+                campaign_id,
+                "task_finished",
+                task_id=task.id,
+                previous=previous,
+                status=target,
+                reason=task.error,
+            )
 
 
 def defer_transition(session: Session, task: Task) -> None:
@@ -1469,9 +1484,9 @@ class TaskService:
             if parent.cancel_requested:
                 parent.capacity_backoff_attempts = 0
                 parent.capacity_backoff_until = None
-                transition(session, parent, State.CANCELLED)
                 parent.result = None
                 parent.error = "cancelled_by_operator"
+                transition(session, parent, State.CANCELLED)
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
@@ -1525,6 +1540,23 @@ class TaskService:
             )
             session.add(child)
             session.flush()
+            parent_campaign_id = _task_campaign_id(session, parent)
+            if parent_campaign_id is not None:
+                session.add(
+                    CampaignTaskLink(
+                        task_id=child.id,
+                        campaign_id=parent_campaign_id,
+                    )
+                )
+                append_campaign_event(
+                    session,
+                    parent_campaign_id,
+                    "task_attached",
+                    task_id=child.id,
+                    kind=child.kind,
+                    depends_on_task_ids=[],
+                    inherited_from_task_id=parent.id,
+                )
             audit(session, child, "task_submitted")
             self._audit_developer_binding(session, child, developer_request, running_counts)
             audit(
@@ -1546,9 +1578,9 @@ class TaskService:
 
             parent.capacity_backoff_attempts = 0
             parent.capacity_backoff_until = None
-            transition(session, parent, State.SUCCEEDED)
             parent.result = result_json
             parent.error = None
+            transition(session, parent, State.SUCCEEDED)
             attempt.outcome = State.SUCCEEDED
             attempt.result = result_json
             attempt.error = None
@@ -2382,8 +2414,8 @@ class TaskService:
                     result = None
             task.capacity_backoff_attempts = 0
             task.capacity_backoff_until = None
-            transition(session, task, outcome)
             task.result, task.error = result, error
+            transition(session, task, outcome)
             attempt.outcome = outcome
             attempt.result, attempt.error = result, error
             attempt.ended_at = utcnow()
@@ -2394,16 +2426,6 @@ class TaskService:
                 State.INTERRUPTED: "execution_interrupted",
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
-            campaign_id = _task_campaign_id(session, task)
-            if campaign_id is not None:
-                append_campaign_event(
-                    session,
-                    campaign_id,
-                    "task_finished",
-                    task_id=task.id,
-                    status=outcome,
-                    reason=error,
-                )
             if task.kind == "developer_run":
                 audit(
                     session,
@@ -2517,9 +2539,9 @@ class TaskService:
             if task.cancel_requested:
                 task.capacity_backoff_attempts = 0
                 task.capacity_backoff_until = None
-                transition(session, task, State.CANCELLED)
                 task.error = "cancelled_by_operator"
                 task.result = None
+                transition(session, task, State.CANCELLED)
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
@@ -2596,9 +2618,9 @@ class TaskService:
                         TaskAttempt.task_id == task.id, TaskAttempt.outcome == State.RUNNING
                     )
                 )
-                transition(session, task, State.INTERRUPTED)
                 task.error = "process_interrupted"
                 task.result = None
+                transition(session, task, State.INTERRUPTED)
                 if attempt:
                     attempt.outcome = State.INTERRUPTED
                     attempt.ended_at = utcnow()
