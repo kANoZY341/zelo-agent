@@ -256,6 +256,7 @@ def upgrade() -> None:
               ON lease.campaign_id = schedule.campaign_id
              AND lease.scope = 'mind-wake'
             WHERE schedule.id = NEW.schedule_id
+              AND NEW.sequence = schedule.run_count + 1
               AND lease.holder_id = NEW.lease_holder_id
               AND lease.lease_token = NEW.lease_token
               AND lease.generation = NEW.lease_generation
