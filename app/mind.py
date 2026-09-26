@@ -160,12 +160,16 @@ def parse_mind_action(text: str) -> MindReplyAction | MindCoreTaskAction:
 
 def parse_mind_route(
     text: str,
+    *,
+    allow_full_task_action: bool = True,
 ) -> MindReplyAction | MindCoreTaskAction | MindCoreTaskRouteAction:
     payload = _load_mind_json(text)
-    try:
-        return MIND_ACTION.validate_python(payload, strict=True)
-    except ValidationError:
-        return MIND_ROUTE.validate_python(payload, strict=True)
+    if allow_full_task_action:
+        try:
+            return MIND_ACTION.validate_python(payload, strict=True)
+        except ValidationError:
+            pass
+    return MIND_ROUTE.validate_python(payload, strict=True)
 
 
 def parse_mind_task(kind: str, text: str) -> MindCoreTask:
@@ -511,6 +515,7 @@ class MindService:
 
         try:
             route_working = list(messages)
+            allow_full_task_action = task_messages is None or task_messages == messages
             route = None
             route_usage: dict[str, int | None] = {}
             for attempt in range(self.settings.max_model_parse_retries + 1):
@@ -529,7 +534,10 @@ class MindService:
 
                 route_usage = self._result_usage(result)
                 try:
-                    route = parse_mind_route(result.text)
+                    route = parse_mind_route(
+                        result.text,
+                        allow_full_task_action=allow_full_task_action,
+                    )
                     break
                 except (ValueError, ValidationError, RecursionError):
                     if attempt >= self.settings.max_model_parse_retries:
