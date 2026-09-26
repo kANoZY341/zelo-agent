@@ -488,6 +488,8 @@ class MindService:
     async def _generate_action(
         self,
         messages: list[ModelMessage],
+        *,
+        task_messages: list[ModelMessage] | None = None,
     ) -> tuple[
         MindReplyAction | MindCoreTaskAction,
         dict[str, int | None],
@@ -545,7 +547,7 @@ class MindService:
                 raise DomainError("Zelo Mind returned no action", 502)
 
             task_model = MIND_TASK_MODELS[route.kind]
-            task_working = list(messages)
+            task_working = list(task_messages if task_messages is not None else messages)
             for attempt in range(self.settings.max_model_parse_retries + 1):
                 try:
                     result = await self.gateway.generate_action(
@@ -687,12 +689,18 @@ class MindService:
                 previous = self._recent_turns(session, conversation_id)
 
             messages = self._history(previous)
+            task_messages = list(messages)
             if self.context_resolver is not None:
                 context = self.context_resolver.resolve(text)
                 if context is not None:
                     messages.append(ModelMessage("tool", context))
-            messages.append(ModelMessage("user", text))
-            action, usage, alias, model = await self._generate_action(messages)
+            user_message = ModelMessage("user", text)
+            messages.append(user_message)
+            task_messages.append(user_message)
+            action, usage, alias, model = await self._generate_action(
+                messages,
+                task_messages=task_messages,
+            )
 
             turn_id = str(uuid5(NAMESPACE_URL, f"zelo-mind:{conversation_id}:{idempotency_key}"))
             turn = self._persist_turn(
