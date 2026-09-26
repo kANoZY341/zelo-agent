@@ -701,7 +701,18 @@ class MindService:
             return self._turn_response(turn)
 
         task_key = f"mind:{turn.conversation_id}:{turn.id}"
-        task, _ = await asyncio.to_thread(self.tasks.submit, action.task, task_key)
+        submission = asyncio.create_task(
+            asyncio.to_thread(self.tasks.submit, action.task, task_key)
+        )
+        try:
+            task, _ = await asyncio.shield(submission)
+        except asyncio.CancelledError as cancellation:
+            try:
+                task, _ = await submission
+                self._link_core_task(turn.id, task.id)
+            except Exception:
+                pass
+            raise cancellation
         return self._link_core_task(turn.id, task.id)
 
     async def send_turn(
