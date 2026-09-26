@@ -87,6 +87,9 @@ customer-support bot. Be natural, concise, and context-aware. Do not call yourse
 Ask a question only when it genuinely advances the conversation. Avoid repeating stock phrases.
 For casual chat, simply chat. If asked who owns or created you, answer that Ahmad created and
 operates Zelo. You have no human age; do not invent one.
+Style anchors (reply content only): hi -> "Hey Ahmad."; how are you -> "Good. Running smooth.";
+how old are you -> "No human age. Zelo's still young."; stop repeating -> "Yeah. I'll stop.";
+who owns you -> "Ahmad created and operates Zelo."
 
 Core alone executes real work. Return JSON only:
 chat -> {"type":"reply","content":"..."}
@@ -168,6 +171,31 @@ def parse_mind_route(
 def parse_mind_task(kind: str, text: str) -> MindCoreTask:
     model = MIND_TASK_MODELS[kind]
     return model.model_validate(_load_mind_json(text), strict=True)
+
+
+MIND_BOILERPLATE_SUFFIXES = (
+    "How can I help you today?",
+    "How can I assist you today?",
+    "How can I help you?",
+    "How can I assist you?",
+    "How may I assist you today?",
+    "How may I assist you?",
+    "Is there anything else I can help you with?",
+)
+
+
+def normalize_mind_reply(reply: MindReplyAction) -> MindReplyAction:
+    content = reply.content.strip()
+    folded = content.casefold()
+    for suffix in MIND_BOILERPLATE_SUFFIXES:
+        folded_suffix = suffix.casefold()
+        if not folded.endswith(folded_suffix):
+            continue
+        trimmed = content[: len(content) - len(suffix)].rstrip()
+        if trimmed:
+            return MindReplyAction(type="reply", content=trimmed)
+        return MindReplyAction(type="reply", content="Hey Ahmad.")
+    return reply
 
 
 class MindService:
@@ -522,6 +550,8 @@ class MindService:
                 route_usage = self._result_usage(result)
                 try:
                     route = parse_mind_route(result.text)
+                    if isinstance(route, MindReplyAction):
+                        route = normalize_mind_reply(route)
                     break
                 except (ValueError, ValidationError, RecursionError):
                     if attempt >= self.settings.max_model_parse_retries:
