@@ -116,6 +116,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [text, setText] = useState("");
@@ -124,6 +125,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
   const conversationBodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
@@ -193,7 +195,9 @@ export default function Home() {
         },
       );
       const conversation = await parseJson<Conversation>(response);
-      setMessages(toMessages(conversation.turns));
+      if (activeConversationIdRef.current === id) {
+        setMessages(toMessages(conversation.turns));
+      }
       return conversation;
     },
     [],
@@ -204,8 +208,10 @@ export default function Home() {
       if (pollRef.current) clearTimeout(pollRef.current);
 
       const tick = async () => {
+        if (activeConversationIdRef.current !== id) return;
         try {
           const conversation = await refreshConversation(id);
+          if (activeConversationIdRef.current !== id) return;
           const hasActiveTask = conversation.turns.some(
             (turn) =>
               turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
@@ -214,6 +220,7 @@ export default function Home() {
             pollRef.current = setTimeout(tick, 1200);
           }
         } catch (pollError) {
+          if (activeConversationIdRef.current !== id) return;
           setError(
             pollError instanceof Error
               ? pollError.message
@@ -240,8 +247,10 @@ export default function Home() {
       if (pollRef.current) clearTimeout(pollRef.current);
       stickToBottomRef.current = true;
       setConversationLoading(true);
+      setHistoryOpen(false);
       setPendingPrompt(null);
       setError(null);
+      activeConversationIdRef.current = id;
       setConversationId(id);
       window.localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, id);
 
@@ -260,8 +269,11 @@ export default function Home() {
         ) {
           window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
         }
-        setConversationId(null);
-        setMessages([]);
+        if (activeConversationIdRef.current === id) {
+          activeConversationIdRef.current = null;
+          setConversationId(null);
+          setMessages([]);
+        }
         setError(
           openError instanceof Error
             ? openError.message
@@ -318,6 +330,7 @@ export default function Home() {
         );
         if (storedId && saved.some((conversation) => conversation.id === storedId)) {
           setConversationLoading(true);
+          activeConversationIdRef.current = storedId;
           setConversationId(storedId);
           try {
             const conversation = await refreshConversation(storedId);
@@ -330,8 +343,11 @@ export default function Home() {
             }
           } catch (restoreError) {
             window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
-            setConversationId(null);
-            setMessages([]);
+            if (activeConversationIdRef.current === storedId) {
+              activeConversationIdRef.current = null;
+              setConversationId(null);
+              setMessages([]);
+            }
             throw restoreError;
           } finally {
             if (!cancelled) setConversationLoading(false);
@@ -370,6 +386,7 @@ export default function Home() {
       body: "{}",
     });
     const conversation = await parseJson<Conversation>(response);
+    activeConversationIdRef.current = conversation.id;
     setConversationId(conversation.id);
     window.localStorage.setItem(
       ACTIVE_CONVERSATION_STORAGE_KEY,
@@ -496,7 +513,9 @@ export default function Home() {
     }
     if (pollRef.current) clearTimeout(pollRef.current);
     stickToBottomRef.current = true;
+    setHistoryOpen(false);
     window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+    activeConversationIdRef.current = null;
     setConversationId(null);
     setMessages([]);
     setPendingPrompt(null);
@@ -521,7 +540,7 @@ export default function Home() {
         <span className="local-badge">LOCAL</span>
       </aside>
 
-      <aside className="history-panel">
+      <aside className={`history-panel ${historyOpen ? "mobile-open" : ""}`}>
         <div className="history-head">
           <div>
             <p className="eyebrow">TALK / HISTORY</p>
@@ -569,6 +588,14 @@ export default function Home() {
         </div>
       </aside>
 
+      {historyOpen ? (
+        <button
+          className="history-backdrop"
+          onClick={() => setHistoryOpen(false)}
+          aria-label="Close conversation history"
+        />
+      ) : null}
+
       <section className="conversation-panel">
         <header className="topbar">
           <div>
@@ -576,6 +603,13 @@ export default function Home() {
             <h1>{activeConversation?.title ?? "Talk to Zelo"}</h1>
           </div>
           <div className="topbar-actions">
+            <button
+              className="mobile-history-button"
+              onClick={() => setHistoryOpen(true)}
+              disabled={busy || conversationLoading}
+            >
+              History
+            </button>
             <span className="core-state">
               <span
                 className={`status-dot ${coreHealthy === false ? "offline" : ""}`}
