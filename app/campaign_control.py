@@ -152,8 +152,8 @@ class CampaignControlService:
         body: CampaignLeaseAcquire,
     ) -> CampaignLeaseGrantResponse:
         scope = self._validate_name(scope, "Lease scope")
-        now = self.clock()
         with self.database.transaction() as session:
+            now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_accepts_new_work(campaign)
             lease = session.get(CampaignLease, (campaign.id, scope))
@@ -213,9 +213,9 @@ class CampaignControlService:
         body: CampaignLeaseRenew,
     ) -> CampaignLeaseGrantResponse:
         scope = self._validate_name(scope, "Lease scope")
-        now = self.clock()
         expired = False
         with self.database.transaction() as session:
+            now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_accepts_new_work(campaign)
             lease = session.get(CampaignLease, (campaign.id, scope))
@@ -254,8 +254,8 @@ class CampaignControlService:
         body: CampaignLeaseRelease,
     ) -> CampaignLeaseStatusResponse:
         scope = self._validate_name(scope, "Lease scope")
-        now = self.clock()
         with self.database.transaction() as session:
+            now = self.clock()
             self._require_campaign(session, campaign_id)
             lease = session.get(CampaignLease, (campaign_id, scope))
             if lease is None:
@@ -418,8 +418,8 @@ class CampaignControlService:
         return len(leases)
 
     def recover_expired(self, campaign_id: str | None = None) -> CampaignRecoveryResponse:
-        now = self.clock()
         with self.database.transaction() as session:
+            now = self.clock()
             if campaign_id is not None:
                 self._require_campaign(session, campaign_id)
             recovered_leases = self._recover_expired_leases_in_session(
@@ -445,8 +445,8 @@ class CampaignControlService:
         body: CampaignBudgetSet,
     ) -> CampaignBudgetResponse:
         resource = self._validate_name(resource, "Budget resource")
-        now = self.clock()
         with self.database.transaction() as session:
+            now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_budget_mutable(campaign)
             recovered = self._recover_expired_budget_in_session(
@@ -533,7 +533,6 @@ class CampaignControlService:
         body: CampaignBudgetReserve,
     ) -> CampaignBudgetReservationResponse:
         resource = self._validate_name(body.resource, "Budget resource")
-        now = self.clock()
         request_hash = fingerprint(
             {
                 "resource": resource,
@@ -543,6 +542,7 @@ class CampaignControlService:
             }
         )
         with self.database.transaction() as session:
+            now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_accepts_new_work(campaign)
             recovered = self._recover_expired_budget_in_session(
@@ -605,9 +605,9 @@ class CampaignControlService:
         reservation_id: str,
         body: CampaignBudgetCommit,
     ) -> CampaignBudgetReservationResponse:
-        now = self.clock()
         expired = False
         with self.database.transaction() as session:
+            now = self.clock()
             self._require_campaign(session, campaign_id)
             reservation = session.get(CampaignBudgetReservation, reservation_id)
             if reservation is None or reservation.campaign_id != campaign_id:
@@ -653,8 +653,8 @@ class CampaignControlService:
         campaign_id: str,
         reservation_id: str,
     ) -> CampaignBudgetReservationResponse:
-        now = self.clock()
         with self.database.transaction() as session:
+            now = self.clock()
             self._require_campaign(session, campaign_id)
             reservation = session.get(CampaignBudgetReservation, reservation_id)
             if reservation is None or reservation.campaign_id != campaign_id:
