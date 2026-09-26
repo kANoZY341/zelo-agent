@@ -26,6 +26,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("prompt", sa.String(length=16384), nullable=False),
+        sa.Column("idempotency_key", sa.String(length=128), nullable=False),
+        sa.Column("request_hash", sa.String(length=64), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("next_run_at", sa.DateTime(), nullable=True),
         sa.Column("interval_seconds", sa.Integer(), nullable=True),
@@ -35,6 +37,11 @@ def upgrade() -> None:
         sa.Column("last_error", sa.String(length=256), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.UniqueConstraint(
+            "campaign_id",
+            "idempotency_key",
+            name="uq_campaign_schedule_idempotency",
+        ),
         sa.CheckConstraint(
             "status IN ('active','completed','cancelled')",
             name="ck_campaign_schedule_status",
@@ -160,6 +167,8 @@ def upgrade() -> None:
             OR NEW.campaign_id <> OLD.campaign_id
             OR NEW.conversation_id <> OLD.conversation_id
             OR NEW.prompt <> OLD.prompt
+            OR NEW.idempotency_key <> OLD.idempotency_key
+            OR NEW.request_hash <> OLD.request_hash
             OR COALESCE(NEW.interval_seconds, -1) <> COALESCE(OLD.interval_seconds, -1)
             OR NEW.max_runs <> OLD.max_runs
             OR NEW.created_at <> OLD.created_at
@@ -304,6 +313,29 @@ def upgrade() -> None:
              )
         BEGIN
             SELECT RAISE(ABORT, 'Wake conversation turn binding is invalid');
+        END
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER campaign_schedule_runs_success_lease_guard
+        BEFORE UPDATE OF status ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.status = 'succeeded'
+             AND NOT EXISTS (
+                SELECT 1
+                FROM campaign_schedules AS schedule
+                JOIN campaign_leases AS lease
+                  ON lease.campaign_id = schedule.campaign_id
+                 AND lease.scope = 'mind-wake'
+                WHERE schedule.id = NEW.schedule_id
+                  AND lease.holder_id = NEW.lease_holder_id
+                  AND lease.lease_token = NEW.lease_token
+                  AND lease.generation = NEW.lease_generation
+                  AND lease.expires_at > CURRENT_TIMESTAMP
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Successful wake lease proof is stale');
         END
         """
     )
