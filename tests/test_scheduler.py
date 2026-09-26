@@ -600,6 +600,78 @@ def test_post_mind_authority_failure_retries_same_occurrence_without_double_char
         assert final_budget["reserved_units"] == 0
 
 
+def test_cancellation_joins_budget_reservation_before_cleanup(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(reply("Budget cancellation must not reach Mind."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=1)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+
+        started = threading.Event()
+        release = threading.Event()
+        original_reserve = controls.reserve_budget
+
+        def slow_reserve(campaign_id, body):
+            started.set()
+            if not release.wait(timeout=2):
+                raise AssertionError("Timed out waiting to release budget reservation")
+            return original_reserve(campaign_id, body)
+
+        monkeypatch.setattr(controls, "reserve_budget", slow_reserve)
+
+        async def exercise_cancellation() -> None:
+            operation = asyncio.create_task(scheduler._execute_due(schedule["id"]))
+            assert await asyncio.to_thread(started.wait, 1)
+            operation.cancel()
+            await asyncio.sleep(0.01)
+
+            lease = controls.lease_status(campaign["id"], "mind-wake")
+            assert lease.status == "held"
+            assert not operation.done()
+
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+
+        asyncio.run(exercise_cancellation())
+
+        assert provider.requests == []
+        lease = controls.lease_status(campaign["id"], "mind-wake")
+        budget = controls.get_budget(campaign["id"], "mind_wakes")
+        assert lease.status == "free"
+        assert budget.spent_units == 0
+        assert budget.reserved_units == 0
+
+        reservations = client.get(
+            f"/campaigns/{campaign['id']}/budget-reservations",
+            headers=AUTH,
+        ).json()["items"]
+        assert len(reservations) == 1
+        assert reservations[0]["status"] == "released"
+
+        runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["status"] == "interrupted"
+
+        current = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert current["run_count"] == 0
+        assert current["status"] == "active"
+
+
 def test_cancellation_waits_for_threaded_core_task_submission(
     settings,
     database,
@@ -752,12 +824,17 @@ def test_success_fails_closed_after_wake_budget_expires(settings, database):
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=2)
         conversation = create_conversation(client)
-        schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
         clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
         holder = f"schedule:{schedule['id']}"
 
         lease = controls.acquire_lease(
