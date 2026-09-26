@@ -128,6 +128,7 @@ def create_schedule(
     run_at: datetime | None = None,
     interval_seconds: int | None = None,
     max_runs: int = 1,
+    idempotency_key: str = "schedule-create-1",
 ) -> dict:
     body = {
         "conversation_id": conversation_id,
@@ -139,7 +140,7 @@ def create_schedule(
         body["interval_seconds"] = interval_seconds
     response = client.post(
         f"/campaigns/{campaign_id}/schedules",
-        headers=AUTH,
+        headers={**AUTH, "Idempotency-Key": idempotency_key},
         json=body,
     )
     assert response.status_code == 201, response.text
@@ -451,7 +452,7 @@ def test_schedule_requires_budget_and_bounded_cadence(settings, database):
 
         missing_budget = client.post(
             f"/campaigns/{campaign['id']}/schedules",
-            headers=AUTH,
+            headers={**AUTH, "Idempotency-Key": "missing-budget"},
             json={
                 "conversation_id": conversation["id"],
                 "prompt": "Do not run without budget.",
@@ -465,7 +466,7 @@ def test_schedule_requires_budget_and_bounded_cadence(settings, database):
         configure_wake_budget(client, campaign["id"])
         invalid = client.post(
             f"/campaigns/{campaign['id']}/schedules",
-            headers=AUTH,
+            headers={**AUTH, "Idempotency-Key": "invalid-recurrence"},
             json={
                 "conversation_id": conversation["id"],
                 "prompt": "Invalid recurrence.",
@@ -475,6 +476,60 @@ def test_schedule_requires_budget_and_bounded_cadence(settings, database):
             },
         )
         assert invalid.status_code == 422
+
+
+def test_schedule_creation_is_idempotent_and_conflicts_fail_closed(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        run_at = datetime.now(UTC) + timedelta(hours=1)
+
+        first = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            idempotency_key="durable-create",
+        )
+        duplicate = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            idempotency_key="durable-create",
+        )
+        assert duplicate["id"] == first["id"]
+
+        conflict = client.post(
+            f"/campaigns/{campaign['id']}/schedules",
+            headers={**AUTH, "Idempotency-Key": "durable-create"},
+            json={
+                "conversation_id": conversation["id"],
+                "prompt": "Different request under same key.",
+                "run_at": run_at.isoformat(),
+                "max_runs": 1,
+            },
+        )
+        assert conflict.status_code == 409
+        assert "idempotency" in conflict.json()["detail"].lower()
+
+
+def test_external_chat_cannot_preempt_scheduled_turn_namespace(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        conversation = create_conversation(client)
+        response = client.post(
+            f"/conversations/{conversation['id']}/turns",
+            headers={**AUTH, "Idempotency-Key": "schedule:reserved-key"},
+            json={"text": "Try to preempt a scheduled turn."},
+        )
+        assert response.status_code == 422
+        assert "reserved" in response.json()["detail"].lower()
+        assert provider.requests == []
 
 
 def test_database_rejects_cross_campaign_wake_budget_binding(settings, database):
