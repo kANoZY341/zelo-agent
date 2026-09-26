@@ -877,6 +877,80 @@ def test_cancellation_waits_for_threaded_core_task_submission(
         assert stored["turns"][0]["core_task"]["campaign_id"] == campaign["id"]
 
 
+def test_cancel_after_task_link_failure_keeps_committed_wake_charge(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(scheduled_echo("cancel after link failure"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=1)
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+
+        submitted_task_id = None
+
+        def fail_link(turn_id: str, task_id: str):
+            nonlocal submitted_task_id
+            submitted_task_id = task_id
+            raise DomainError("synthetic permanent link failure", 500)
+
+        monkeypatch.setattr(scheduler.mind, "_link_core_task", fail_link)
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+        assert submitted_task_id is not None
+
+        runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["status"] == "interrupted"
+
+        before_cancel = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert before_cancel["spent_units"] == 1
+        assert before_cancel["reserved_units"] == 0
+
+        cancelled = client.post(
+            f"/schedules/{schedule['id']}/cancel",
+            headers=AUTH,
+        )
+        assert cancelled.status_code == 200, cancelled.text
+        assert cancelled.json()["status"] == "cancelled"
+
+        after_cancel = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert after_cancel["spent_units"] == 1
+        assert after_cancel["reserved_units"] == 0
+
+        reservations = client.get(
+            f"/campaigns/{campaign['id']}/budget-reservations",
+            headers=AUTH,
+        ).json()["items"]
+        assert len(reservations) == 1
+        assert reservations[0]["status"] == "committed"
+        assert reservations[0]["committed_units"] == 1
+
+        current = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert current["status"] == "cancelled"
+        assert current["run_count"] == 0
+
+        task = client.get(f"/tasks/{submitted_task_id}", headers=AUTH)
+        assert task.status_code == 200, task.text
+        assert task.json()["campaign_id"] == campaign["id"]
+
+
 def test_task_link_failure_retries_same_persisted_occurrence(
     settings,
     database,
