@@ -700,6 +700,7 @@ class MindService:
         turn: ConversationTurn,
         *,
         before_side_effect: Callable[[], Awaitable[None]] | None = None,
+        after_persist: Callable[[ConversationTurn], Awaitable[None]] | None = None,
     ) -> ConversationTurnResponse:
         action = self._saved_action(turn)
         if isinstance(action, MindReplyAction):
@@ -735,6 +736,8 @@ class MindService:
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 self._require_saved_campaign_binding(existing, campaign_id)
+                if after_persist is not None:
+                    await after_persist(existing)
                 return await self._complete_turn(
                     existing,
                     before_side_effect=before_side_effect,
@@ -776,6 +779,8 @@ class MindService:
                 model=model,
                 usage=usage,
             )
+            if after_persist is not None:
+                await after_persist(turn)
             return await self._complete_turn(
                 turn,
                 before_side_effect=before_side_effect,
