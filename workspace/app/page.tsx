@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ControlDesk } from "@/components/ControlDesk";
 import type {
   Conversation,
   ConversationPage,
@@ -113,6 +114,7 @@ function TaskCard({ task }: { task: TaskProjection }) {
 }
 
 export default function Home() {
+  const [activeView, setActiveView] = useState<"talk" | "desk">("talk");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -524,22 +526,34 @@ export default function Home() {
   }
 
   return (
-    <main className="workspace-shell">
+    <main className={`workspace-shell ${activeView === "desk" ? "desk-mode" : ""}`}>
       <aside className="rail">
         <div className="brand-mark">Z</div>
-        <button className="rail-item active" title="Talk to Zelo">
+        <button
+          className={`rail-item ${activeView === "talk" ? "active" : ""}`}
+          title="Talk to Zelo"
+          onClick={() => setActiveView("talk")}
+        >
           Talk
         </button>
         <button className="rail-item" title="Company World" disabled>
           World
         </button>
-        <button className="rail-item" title="Control Desk" disabled>
+        <button
+          className={`rail-item ${activeView === "desk" ? "active" : ""}`}
+          title="Control Desk"
+          onClick={() => setActiveView("desk")}
+        >
           Desk
         </button>
         <div className="rail-spacer" />
         <span className="local-badge">LOCAL</span>
       </aside>
 
+      {activeView === "desk" ? (
+        <ControlDesk coreHealthy={coreHealthy} />
+      ) : (
+        <>
       <aside className={`history-panel ${historyOpen ? "mobile-open" : ""}`}>
         <div className="history-head">
           <div>
@@ -740,6 +754,8 @@ export default function Home() {
           </p>
         </div>
       </aside>
+        </>
+      )}
     </main>
   );
 }
