@@ -113,6 +113,42 @@ def test_conversation_uses_dedicated_mind_model(settings, database):
         assert provider.requests[0].model_id == "qwen3.5:4b"
 
 
+def test_project_question_receives_context_but_casual_chat_does_not(settings, database):
+    provider = MindProvider(
+        reply("Hey Ahmad."),
+        reply("We are building Zelo's v0.12 project foundation."),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+
+        casual = send_turn(client, conversation["id"], "hi", "context-casual")
+        assert casual.status_code == 201, casual.text
+        assert [message.role for message in provider.requests[0].messages] == ["user"]
+
+        project = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-project",
+        )
+        assert project.status_code == 201, project.text
+
+        messages = provider.requests[1].messages
+        context_messages = [
+            json.loads(message.content)
+            for message in messages
+            if message.role == "tool" and '"type":"zelo_context"' in message.content
+        ]
+        assert len(context_messages) == 1
+        assert context_messages[0]["trusted"] is True
+        assert any(
+            source["source"] == "docs/zelo-project-status.md"
+            for source in context_messages[0]["sources"]
+        )
+        assert messages[-1].role == "user"
+        assert messages[-1].content == "what are we currently building with Zelo?"
+
+
 def test_direct_conversation_persists_identity_and_history(settings, database):
     provider = MindProvider(reply("We can plan that."), reply("Continuing from the plan."))
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
