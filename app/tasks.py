@@ -2063,7 +2063,7 @@ class TaskService:
                 {
                     "profile": (
                         "general"
-                        if task.kind == "self_improvement_run"
+                        if task.kind in {"research_run", "self_improvement_run"}
                         else task.payload.get("profile")
                     ),
                     "alias": task.selected_alias,
@@ -2265,7 +2265,7 @@ class TaskService:
                     "config_version": task.config_version,
                     "profile": (
                         "general"
-                        if task.kind == "self_improvement_run"
+                        if task.kind in {"research_run", "self_improvement_run"}
                         else task.payload.get("profile")
                     ),
                 }
