@@ -1,6 +1,8 @@
 """v0.12 Campaign ownership and operational-state tests."""
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.campaigns import CampaignService
 from app.policy import DomainError, State
@@ -176,3 +178,24 @@ def test_campaign_checkpoint_budget_is_enforced(database):
             campaign.id,
             CampaignCheckpointCreate(state={"oversized": "x" * 70000}),
         )
+
+
+
+def test_campaign_events_and_checkpoints_are_immutable(database):
+    _, _, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+    campaigns.checkpoint(
+        campaign.id,
+        CampaignCheckpointCreate(state={"phase": "proof"}),
+    )
+
+    statements = (
+        "UPDATE campaign_events SET event='altered'",
+        "DELETE FROM campaign_events",
+        "UPDATE campaign_checkpoints SET version=99",
+        "DELETE FROM campaign_checkpoints",
+    )
+    for statement in statements:
+        with pytest.raises(IntegrityError):
+            with database.transaction() as session:
+                session.execute(text(statement))

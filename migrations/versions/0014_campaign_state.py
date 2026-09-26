@@ -98,6 +98,18 @@ def upgrade() -> None:
         ["campaign_id"],
     )
 
+    for operation in ("UPDATE", "DELETE"):
+        op.execute(
+            f"CREATE TRIGGER campaign_events_no_{operation.lower()} "
+            f"BEFORE {operation} ON campaign_events "
+            "BEGIN SELECT RAISE(ABORT, 'Campaign events are append-only'); END"
+        )
+        op.execute(
+            f"CREATE TRIGGER campaign_checkpoints_no_{operation.lower()} "
+            f"BEFORE {operation} ON campaign_checkpoints "
+            "BEGIN SELECT RAISE(ABORT, 'Campaign checkpoints are immutable'); END"
+        )
+
 
 def downgrade() -> None:
     raise RuntimeError("Destructive downgrade is disabled; restore a reviewed backup instead")
