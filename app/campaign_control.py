@@ -171,6 +171,7 @@ class CampaignControlService:
                 if lease.expires_at is not None and lease.expires_at > now:
                     raise DomainError("Campaign lease is already held", 409)
                 self._clear_lease(session, lease, now, event="lease_recovered")
+                session.flush()
 
             lease.generation += 1
             lease.holder_id = body.holder_id
@@ -448,12 +449,14 @@ class CampaignControlService:
         with self.database.transaction() as session:
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_budget_mutable(campaign)
-            self._recover_expired_budget_in_session(
+            recovered = self._recover_expired_budget_in_session(
                 session,
                 now,
                 campaign_id=campaign.id,
                 resource=resource,
             )
+            if recovered:
+                session.flush()
             budget = session.get(CampaignBudgetLimit, (campaign.id, resource))
             spent, reserved = self._usage(session, campaign.id, resource, now)
             if body.limit_units < spent + reserved:
@@ -542,12 +545,14 @@ class CampaignControlService:
         with self.database.transaction() as session:
             campaign = self._require_campaign(session, campaign_id)
             self._ensure_campaign_accepts_new_work(campaign)
-            self._recover_expired_budget_in_session(
+            recovered = self._recover_expired_budget_in_session(
                 session,
                 now,
                 campaign_id=campaign.id,
                 resource=resource,
             )
+            if recovered:
+                session.flush()
             existing = session.scalar(
                 select(CampaignBudgetReservation).where(
                     CampaignBudgetReservation.campaign_id == campaign.id,
