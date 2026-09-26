@@ -434,6 +434,91 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
         assert [item["status"] for item in reservations] == ["released", "committed"]
 
 
+def test_restart_reconciles_persisted_turn_charge_before_generic_cleanup(
+    settings,
+    database,
+):
+    provider = SchedulerMindProvider(reply("Persisted before restart."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=1)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime.now(UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
+        holder = f"schedule:{schedule['id']}"
+
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(
+                holder_id=holder,
+                ttl_seconds=configured.scheduler_wake_ttl_seconds,
+            ),
+        )
+        run = scheduler._begin_run(
+            schedule["id"],
+            holder_id=holder,
+            lease_token=lease.lease_token,
+            lease_generation=lease.generation,
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="restart-persisted-turn",
+                units=1,
+                ttl_seconds=configured.scheduler_wake_ttl_seconds,
+            ),
+        )
+        scheduler._bind_budget(run.id, reservation.id)
+
+        turn = asyncio.run(
+            scheduler.mind.send_turn(
+                conversation["id"],
+                schedule["prompt"],
+                f"schedule:{schedule['id']}:1",
+                campaign_id=campaign["id"],
+            )
+        )
+        assert turn.id is not None
+
+        clock.advance(seconds=configured.scheduler_wake_ttl_seconds + 1)
+
+        assert scheduler.recover() == 1
+        recovered = scheduler.get_run(run.id)
+        assert recovered.status == "interrupted"
+
+        budget = controls.get_budget(campaign["id"], "mind_wakes")
+        assert budget.spent_units == 1
+        assert budget.reserved_units == 0
+
+        reservations = client.get(
+            f"/campaigns/{campaign['id']}/budget-reservations",
+            headers=AUTH,
+        ).json()["items"]
+        assert len(reservations) == 1
+        assert reservations[0]["id"] == reservation.id
+        assert reservations[0]["status"] == "committed"
+        assert reservations[0]["committed_units"] == 1
+
+        controls.recover_expired()
+
+        after_generic_cleanup = controls.get_budget(campaign["id"], "mind_wakes")
+        assert after_generic_cleanup.spent_units == 1
+        assert after_generic_cleanup.reserved_units == 0
+
+
 def test_conversation_wait_rechecks_authority_before_mind(
     settings,
     database,
