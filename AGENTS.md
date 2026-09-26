@@ -62,20 +62,24 @@ workspace foundation, Project/Goal/Campaign ownership, Campaign controls, and th
 bounded scheduler/Mind wake cycle are complete on main. PR #32 merged the
 scheduler at `1ad8d7582713651dd5b2804ef88f8f78bba7f934` with green main CI.
 
-The active slice is documented in `docs/v0.12-research-specialist.md`.
+The fixed Research specialist is complete on main at
+`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`. Its design remains documented in
+`docs/v0.12-research-specialist.md`.
 
-Build only the first fixed Research specialist: one `research_run` Core task,
-the existing local general model, bounded model/tool steps, and an explicit
-read-only retrieval allowlist of `repo_status`, `list_workspace_files`, and
-`read_workspace_file`. Final answers must be grounded in Core-generated source
-IDs from tools actually executed. Preserve Campaign ownership and the existing
-task/retry/recovery/audit boundaries.
+The active slice is **v0.12 Workspace project/progress views**. Build only the
+Control Desk projection needed to inspect canonical Core-owned Projects, Goals,
+Campaigns, Campaign events, budgets, schedules, task counts, and progress. Keep
+all browser-facing workspace routes read-only for this slice and keep
+`ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, and layout
+state are presentation state only and must never become lifecycle authority.
 
-Do not add public-web search, Browser/API/Research workers, recursive subagents,
-write authority, specialist memory, AgentSpec/DepartmentSpec generalization,
-workspace project/progress UI, voice, or new merge/release authority in this
-slice. Persistent memory remains v0.13, Agent Factory v0.14, broad capabilities
-and external retrieval workers v0.15, and external channels v0.16.
+Do not add project/campaign mutation controls, a second task/approval/scheduler
+or budget system, Company World runtime, voice, public-web search, broad worker
+capabilities, specialist memory, AgentSpec/DepartmentSpec generalization, or new
+merge/release authority in this slice. Push-to-talk voice remains the next
+v0.12 workspace increment; persistent memory remains v0.13, Agent Factory v0.14,
+broad capabilities and external retrieval workers v0.15, and external channels
+v0.16.
 
 ## Workspace decision
 

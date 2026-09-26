@@ -162,9 +162,8 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify the fixed Research specialist.
-2. Add workspace project/progress views backed only by Core state.
-3. Add push-to-talk voice through the existing conversation/action contracts.
-4. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
-5. Enter v0.13 with scoped persistent memory, provenance, correction,
+1. Land and verify the workspace project/progress views backed only by Core state.
+2. Add push-to-talk voice through the existing conversation/action contracts.
+3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
+4. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.

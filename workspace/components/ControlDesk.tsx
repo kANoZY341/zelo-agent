@@ -50,8 +50,10 @@ function shortId(value: string | null): string {
 
 export function ControlDesk({
   coreHealthy,
+  onShowTalk,
 }: {
   coreHealthy: boolean | null;
+  onShowTalk: () => void;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -287,9 +289,14 @@ export function ControlDesk({
             <p className="eyebrow">PROJECT / PROGRESS</p>
             <h1>{selectedProject?.name ?? "Control Desk"}</h1>
           </div>
-          {selectedProject ? (
-            <span className="desk-status-pill">{selectedProject.status}</span>
-          ) : null}
+          <div className="desk-topbar-actions">
+            <button className="mobile-view-button" onClick={onShowTalk}>
+              Talk
+            </button>
+            {selectedProject ? (
+              <span className="desk-status-pill">{selectedProject.status}</span>
+            ) : null}
+          </div>
         </header>
 
         <div className="desk-scroll">
@@ -392,6 +399,125 @@ export function ControlDesk({
               ) : null}
             </>
           )}
+
+          <div className="desk-inline-inspector">
+        <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
+        <h2>{overview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
+
+        {detailLoading && !overview ? (
+          <div className="desk-empty-card">Loading campaign state…</div>
+        ) : overview ? (
+          <>
+            <div className="campaign-overview-card">
+              <div>
+                <span>Status</span>
+                <strong>{overview.campaign.status}</strong>
+              </div>
+              <div>
+                <span>Tasks</span>
+                <strong>{overview.campaign.task_count}</strong>
+              </div>
+              <div>
+                <span>Events</span>
+                <strong>{overview.events.total}</strong>
+              </div>
+              <div>
+                <span>Schedules</span>
+                <strong>{overview.schedules.total}</strong>
+              </div>
+            </div>
+
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Recent activity</strong>
+                <span>polling Core</span>
+              </div>
+              {recentEvents.length === 0 ? (
+                <div className="desk-empty-mini">No campaign events yet.</div>
+              ) : (
+                <div className="activity-list">
+                  {recentEvents.map((event) => (
+                    <div className="activity-item" key={event.id}>
+                      <span className="activity-sequence">#{event.sequence}</span>
+                      <div>
+                        <strong>{event.event.replaceAll("_", " ")}</strong>
+                        <span>
+                          {event.task_id ? `task ${shortId(event.task_id)} · ` : ""}
+                          {eventDetail(event.details) ?? timestamp(event.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Budgets</strong>
+                <span>{overview.budgets.total}</span>
+              </div>
+              {overview.budgets.items.length === 0 ? (
+                <div className="desk-empty-mini">No campaign budgets configured.</div>
+              ) : (
+                <div className="budget-list">
+                  {overview.budgets.items.map((budget) => (
+                    <div className="budget-row" key={budget.resource}>
+                      <div>
+                        <strong>{budget.resource.replaceAll("_", " ")}</strong>
+                        <span>
+                          {budget.spent_units} spent · {budget.reserved_units} reserved
+                        </span>
+                      </div>
+                      <span>
+                        {budget.available_units}/{budget.limit_units}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Schedules</strong>
+                <span>{overview.schedules.total}</span>
+              </div>
+              {overview.schedules.items.length === 0 ? (
+                <div className="desk-empty-mini">No bounded Mind schedules.</div>
+              ) : (
+                <div className="schedule-list">
+                  {overview.schedules.items.map((schedule) => (
+                    <div className="schedule-row" key={schedule.id}>
+                      <div>
+                        <strong>{schedule.status}</strong>
+                        <span>
+                          {schedule.run_count}/{schedule.max_runs} runs
+                        </span>
+                      </div>
+                      <span>{timestamp(schedule.next_run_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="boundary-card">
+              <strong>Projection only</strong>
+              <p>
+                Projects, goals, campaigns, events, budgets and schedules come from
+                canonical Core APIs.
+              </p>
+              <p>The Desk does not own lifecycle or execution authority.</p>
+            </div>
+          </>
+        ) : (
+          <div className="desk-empty-card">
+            Select a campaign to inspect its canonical activity and operating state.
+          </div>
+        )}
+
+          </div>
         </div>
       </section>
 

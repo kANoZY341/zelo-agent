@@ -551,7 +551,10 @@ export default function Home() {
       </aside>
 
       {activeView === "desk" ? (
-        <ControlDesk coreHealthy={coreHealthy} />
+        <ControlDesk
+          coreHealthy={coreHealthy}
+          onShowTalk={() => setActiveView("talk")}
+        />
       ) : (
         <>
       <aside className={`history-panel ${historyOpen ? "mobile-open" : ""}`}>
@@ -617,6 +620,12 @@ export default function Home() {
             <h1>{activeConversation?.title ?? "Talk to Zelo"}</h1>
           </div>
           <div className="topbar-actions">
+            <button
+              className="mobile-view-button"
+              onClick={() => setActiveView("desk")}
+            >
+              Desk
+            </button>
             <button
               className="mobile-history-button"
               onClick={() => setHistoryOpen(true)}

@@ -160,7 +160,8 @@ button {
 
 .history-new:disabled,
 .secondary-button:disabled,
-.mobile-history-button:disabled {
+.mobile-history-button:disabled,
+.mobile-view-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -291,7 +292,8 @@ h2 {
   gap: 14px;
 }
 
-.mobile-history-button {
+.mobile-history-button,
+.mobile-view-button {
   display: none;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1093,7 +1095,15 @@ h2 {
   overflow-y: auto;
 }
 
-.desk-inspector h2 {
+.desk-inline-inspector {
+  display: none;
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+.desk-inspector h2,
+.desk-inline-inspector h2 {
   margin-bottom: 18px;
   font-size: 24px;
 }
@@ -1182,6 +1192,10 @@ h2 {
     display: none;
   }
 
+  .desk-inline-inspector {
+    display: block;
+  }
+
   .campaign-grid,
   .goal-grid {
     grid-template-columns: 1fr;
@@ -1191,6 +1205,16 @@ h2 {
 @media (max-width: 760px) {
   .workspace-shell.desk-mode {
     grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .mobile-view-button {
+    display: inline-flex;
+  }
+
+  .desk-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .desk-scroll {
