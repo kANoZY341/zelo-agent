@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
     scheduler_enabled: bool = True
     scheduler_poll_seconds: float = Field(default=1.0, ge=0.01, le=60.0, allow_inf_nan=False)
+    scheduler_wake_ttl_seconds: int = Field(default=600, ge=30, le=3600)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_general_model: str = "qwen3:4b-instruct"
     ollama_mind_model: str | None = None
