@@ -33,11 +33,11 @@ from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
+from app.scheduler import CampaignScheduler
+from app.scheduler_api import router as scheduler_router
 from app.self_improvement import RepositoryInspector
 from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
-from app.scheduler import CampaignScheduler
-from app.scheduler_api import router as scheduler_router
 from app.task_api import router as task_router
 from app.tasks import TaskService
 from app.tools import ToolGateway
