@@ -18,6 +18,7 @@ from app.mind import MindService
 from app.models import (
     Campaign,
     CampaignBudgetLimit,
+    CampaignBudgetReservation,
     CampaignSchedule,
     CampaignScheduleRun,
     Conversation,
@@ -368,6 +369,40 @@ class CampaignScheduler:
             if run.sequence != schedule.run_count + 1:
                 raise DomainError("Campaign schedule run sequence changed", 409)
 
+            if status == "succeeded":
+                if run.budget_reservation_id is None:
+                    raise DomainError("Successful wake is missing its budget reservation", 500)
+                reservation = session.get(
+                    CampaignBudgetReservation,
+                    run.budget_reservation_id,
+                )
+                if (
+                    reservation is None
+                    or reservation.campaign_id != schedule.campaign_id
+                    or reservation.resource != WAKE_BUDGET_RESOURCE
+                    or reservation.owner_id != run.lease_holder_id
+                ):
+                    raise DomainError("Wake budget reservation binding is invalid", 500)
+                if reservation.status == "reserved":
+                    reservation.status = "committed"
+                    reservation.committed_units = WAKE_BUDGET_UNITS
+                    reservation.updated_at = now
+                    append_campaign_event(
+                        session,
+                        schedule.campaign_id,
+                        "budget_reconciled",
+                        reservation_id=reservation.id,
+                        resource=reservation.resource,
+                        owner_id=reservation.owner_id,
+                        reserved_units=reservation.units,
+                        committed_units=WAKE_BUDGET_UNITS,
+                    )
+                elif not (
+                    reservation.status == "committed"
+                    and reservation.committed_units == WAKE_BUDGET_UNITS
+                ):
+                    raise DomainError("Wake budget reservation is no longer committable", 409)
+
             run.status = status
             run.conversation_turn_id = conversation_turn_id
             run.completed_at = now
@@ -545,12 +580,6 @@ class CampaignScheduler:
                 campaign_id=campaign_id,
             )
             await asyncio.to_thread(
-                self.controls.reconcile_reserved_budget,
-                campaign_id,
-                reservation.id,
-                WAKE_BUDGET_UNITS,
-            )
-            await asyncio.to_thread(
                 self._finalize_run,
                 run.id,
                 status="succeeded",
@@ -629,7 +658,6 @@ class CampaignScheduler:
                 schedule_id = await asyncio.to_thread(self._next_due_id)
                 if schedule_id is not None:
                     await self._execute_due(schedule_id)
-                    continue
                 await asyncio.sleep(self.settings.scheduler_poll_seconds)
         except asyncio.CancelledError:
             raise
