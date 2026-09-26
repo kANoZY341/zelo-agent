@@ -317,7 +317,25 @@ export default function Home() {
           ACTIVE_CONVERSATION_STORAGE_KEY,
         );
         if (storedId && saved.some((conversation) => conversation.id === storedId)) {
-          await openConversation(storedId);
+          setConversationLoading(true);
+          setConversationId(storedId);
+          try {
+            const conversation = await refreshConversation(storedId);
+            const hasActiveTask = conversation.turns.some(
+              (turn) =>
+                turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status),
+            );
+            if (hasActiveTask) {
+              await pollUntilTaskSettles(storedId);
+            }
+          } catch (restoreError) {
+            window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+            setConversationId(null);
+            setMessages([]);
+            throw restoreError;
+          } finally {
+            if (!cancelled) setConversationLoading(false);
+          }
         } else if (storedId) {
           window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
         }
@@ -338,7 +356,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [loadConversationList, openConversation]);
+  }, [loadConversationList, pollUntilTaskSettles, refreshConversation]);
 
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
