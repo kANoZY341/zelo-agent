@@ -19,12 +19,13 @@ from app.models import (
     Campaign,
     CampaignBudgetLimit,
     CampaignBudgetReservation,
+    CampaignLease,
     CampaignSchedule,
     CampaignScheduleRun,
     Conversation,
     utcnow,
 )
-from app.policy import DomainError
+from app.policy import DomainError, fingerprint
 from app.schemas import (
     CampaignBudgetReserve,
     CampaignLeaseAcquire,
@@ -98,10 +99,22 @@ class CampaignScheduler:
         self,
         campaign_id: str,
         body: CampaignScheduleCreate,
+        idempotency_key: str,
     ) -> CampaignScheduleResponse:
+        request_hash = fingerprint(body.model_dump(mode="json"))
         with self.database.transaction() as session:
             now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
+            existing = session.scalar(
+                select(CampaignSchedule).where(
+                    CampaignSchedule.campaign_id == campaign.id,
+                    CampaignSchedule.idempotency_key == idempotency_key,
+                )
+            )
+            if existing is not None:
+                if existing.request_hash != request_hash:
+                    raise DomainError("Schedule idempotency key was reused with a different request", 409)
+                return self._schedule_response(existing)
             if campaign.status != "active":
                 raise DomainError("Campaign is not active", 409)
             if session.get(Conversation, body.conversation_id) is None:
@@ -135,6 +148,8 @@ class CampaignScheduler:
                 campaign_id=campaign.id,
                 conversation_id=body.conversation_id,
                 prompt=body.prompt,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
                 status="active",
                 next_run_at=body.run_at,
                 interval_seconds=body.interval_seconds,
@@ -384,6 +399,19 @@ class CampaignScheduler:
                 raise DomainError("Campaign schedule run sequence changed", 409)
 
             if status == "succeeded":
+                lease = session.get(
+                    CampaignLease,
+                    (schedule.campaign_id, WAKE_LEASE_SCOPE),
+                )
+                if (
+                    lease is None
+                    or lease.holder_id != run.lease_holder_id
+                    or lease.lease_token != run.lease_token
+                    or lease.generation != run.lease_generation
+                    or lease.expires_at is None
+                    or lease.expires_at <= now
+                ):
+                    raise DomainError("Wake lease proof is no longer current", 409)
                 if run.budget_reservation_id is None:
                     raise DomainError("Successful wake is missing its budget reservation", 500)
                 reservation = session.get(
