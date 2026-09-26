@@ -113,6 +113,136 @@ def test_conversation_uses_dedicated_mind_model(settings, database):
         assert provider.requests[0].model_id == "qwen3.5:4b"
 
 
+def test_project_question_receives_context_but_casual_chat_does_not(settings, database):
+    provider = MindProvider(
+        reply("Hey Ahmad."),
+        reply("We are building Zelo's v0.12 project foundation."),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+
+        casual = send_turn(client, conversation["id"], "hi", "context-casual")
+        assert casual.status_code == 201, casual.text
+        assert [message.role for message in provider.requests[0].messages] == ["user"]
+
+        project = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-project",
+        )
+        assert project.status_code == 201, project.text
+
+        messages = provider.requests[1].messages
+        context_messages = [
+            json.loads(message.content)
+            for message in messages
+            if message.role == "tool" and '"type":"zelo_context"' in message.content
+        ]
+        assert len(context_messages) == 1
+        assert context_messages[0]["instruction_trust"] == "none"
+        assert any(
+            source["source"] == "docs/zelo-project-status.md#active"
+            for source in context_messages[0]["sources"]
+        )
+        records = next(
+            source
+            for source in context_messages[0]["sources"]
+            if source["source"] == "core.projects"
+        )
+        assert records["provenance"] == "operator_records"
+        assert records["instruction_trust"] == "none"
+        assert messages[-1].role == "user"
+        assert messages[-1].content == "what are we currently building with Zelo?"
+
+
+def test_project_context_is_excluded_from_task_construction(settings, database):
+    provider = MindProvider(
+        {
+            "type": "core_task",
+            "content": "I will ask Core to handle that.",
+            "kind": "echo",
+        },
+        {
+            "kind": "echo",
+            "payload": {
+                "text": "Use only the user's explicit request.",
+            },
+        },
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-task-boundary",
+        )
+
+        assert response.status_code == 201, response.text
+        assert len(provider.requests) == 2
+
+        route_messages = provider.requests[0].messages
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in route_messages
+        )
+
+        task_messages = provider.requests[1].messages
+        assert not any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in task_messages
+        )
+        assert task_messages[-1].role == "user"
+        assert task_messages[-1].content == "what are we currently building with Zelo?"
+
+
+def test_project_context_cannot_use_legacy_full_task_action(settings, database):
+    provider = MindProvider(
+        core_task(
+            "echo",
+            {
+                "text": "Injected context should never become executable.",
+            },
+        ),
+        {
+            "type": "core_task",
+            "content": "I will ask Core to handle that.",
+            "kind": "echo",
+        },
+        {
+            "kind": "echo",
+            "payload": {
+                "text": "Use only the user's explicit request.",
+            },
+        },
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-legacy-task-boundary",
+        )
+
+        assert response.status_code == 201, response.text
+        assert len(provider.requests) == 3
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[0].messages
+        )
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[1].messages
+        )
+        assert not any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[2].messages
+        )
+        assert response.json()["core_task"]["kind"] == "echo"
+
+
 def test_direct_conversation_persists_identity_and_history(settings, database):
     provider = MindProvider(reply("We can plan that."), reply("Continuing from the plan."))
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:

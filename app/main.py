@@ -10,6 +10,7 @@ from app import __version__
 from app.agent import AgentRuntime
 from app.api import router
 from app.config import ROOT, Settings
+from app.context import ContextResolver
 from app.database import Database
 from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
@@ -18,6 +19,8 @@ from app.logging_config import configure_logging
 from app.mind import MindService
 from app.mind_api import router as mind_router
 from app.policy import DomainError
+from app.project_api import router as project_router
+from app.projects import ProjectService
 from app.promotion import PromotionRuntime
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_git import PromotionCommitter
@@ -65,6 +68,8 @@ def create_app(
                 mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
+            projects = ProjectService(database)
+            context_resolver = ContextResolver(projects)
             self_improvement_runtime = SelfImprovementRuntime(
                 RepositoryInspector(ROOT),
                 SelfImprovementPlanner(
@@ -107,7 +112,13 @@ def create_app(
             )
             tasks.recover()
             tasks.expire_approvals()
-            mind = MindService(database, configuration, gateway, tasks)
+            mind = MindService(
+                database,
+                configuration,
+                gateway,
+                tasks,
+                context_resolver=context_resolver,
+            )
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
@@ -122,6 +133,7 @@ def create_app(
             )
             application.state.database = database
             application.state.tasks = tasks
+            application.state.projects = projects
             application.state.mind = mind
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
@@ -136,6 +148,7 @@ def create_app(
     application.state.settings = configuration
     application.include_router(router)
     application.include_router(task_router)
+    application.include_router(project_router)
     application.include_router(mind_router)
 
     @application.exception_handler(DomainError)

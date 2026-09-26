@@ -347,6 +347,60 @@ class TaskProjection(StrictModel):
     selected_model: str | None = None
 
 
+ProjectStatus = Literal["active", "paused", "completed", "archived"]
+GoalStatus = Literal["active", "completed", "cancelled"]
+GoalText = Annotated[str, Field(min_length=1, max_length=512)]
+
+
+class ProjectCreate(StrictModel):
+    name: str = Field(min_length=1, max_length=160)
+    summary: str = Field(default="", max_length=4096)
+
+
+class ProjectResponse(StrictModel):
+    id: str
+    name: str = Field(min_length=1, max_length=160)
+    summary: str = Field(max_length=4096)
+    status: ProjectStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectPage(StrictModel):
+    items: list[ProjectResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class GoalSpec(StrictModel):
+    objective: str = Field(min_length=1, max_length=2048)
+    success_criteria: list[GoalText] = Field(default_factory=list, max_length=16)
+    constraints: list[GoalText] = Field(default_factory=list, max_length=16)
+
+
+class GoalCreate(StrictModel):
+    title: str = Field(min_length=1, max_length=200)
+    spec: GoalSpec
+
+
+class GoalResponse(StrictModel):
+    id: str
+    project_id: str
+    title: str = Field(min_length=1, max_length=200)
+    spec: GoalSpec
+    status: GoalStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class GoalPage(StrictModel):
+    items: list[GoalResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
 class ConversationCreate(StrictModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
 

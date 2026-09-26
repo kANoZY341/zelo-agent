@@ -30,6 +30,8 @@ def test_migration_from_empty_database(settings) -> None:
             "audit_events",
             "conversations",
             "conversation_turns",
+            "projects",
+            "goals",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
@@ -170,7 +172,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0012_early_zelo_chat"
+                == "0013_project_goal_foundation"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -261,7 +263,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
         ),
         (
             "0011_self_improvement",
-            "0012_early_zelo_chat",
+            "0013_project_goal_foundation",
             "CREATE TABLE conversations",
         ),
     ],
@@ -378,7 +380,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0012_early_zelo_chat"
+                "0013_project_goal_foundation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
