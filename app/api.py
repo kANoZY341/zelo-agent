@@ -38,6 +38,9 @@ def health(request: Request, response: Response) -> HealthResponse:
             session.execute(text("SELECT 1"))
         if not request.app.state.runner.ready:
             raise RuntimeError("Runner unavailable")
+        scheduler = request.app.state.scheduler
+        if not scheduler.ready:
+            raise RuntimeError("Scheduler unavailable")
     except Exception:
         response.status_code = 503
         return HealthResponse(status="unavailable")
