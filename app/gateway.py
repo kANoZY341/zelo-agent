@@ -50,12 +50,22 @@ class ModelGatewayError(Exception):
 
 
 class ModelRouter:
-    def __init__(self, general_model: str, reasoning_model: str, config_version: str) -> None:
-        self.aliases = {"local_general": general_model, "local_reasoning": reasoning_model}
+    def __init__(
+        self,
+        general_model: str,
+        reasoning_model: str,
+        config_version: str,
+        mind_model: str | None = None,
+    ) -> None:
+        self.aliases = {
+            "local_general": general_model,
+            "local_mind": mind_model or general_model,
+            "local_reasoning": reasoning_model,
+        }
         self.config_version = config_version
 
     def select(self, profile: str) -> tuple[str, str]:
-        if profile not in {"general", "reasoning"}:
+        if profile not in {"general", "mind", "reasoning"}:
             raise ModelGatewayError("invalid_profile")
         alias = f"local_{profile}"
         return alias, self.aliases[alias]
@@ -131,10 +141,20 @@ class OllamaProvider:
 
 class ModelGateway:
     def __init__(
-        self, provider: ModelProvider, general_model: str, reasoning_model: str, config_version: str
+        self,
+        provider: ModelProvider,
+        general_model: str,
+        reasoning_model: str,
+        config_version: str,
+        mind_model: str | None = None,
     ) -> None:
         self.provider = provider
-        self.router = ModelRouter(general_model, reasoning_model, config_version)
+        self.router = ModelRouter(
+            general_model,
+            reasoning_model,
+            config_version,
+            mind_model=mind_model,
+        )
 
     def select(self, profile: str) -> tuple[str, str]:
         return self.router.select(profile)
@@ -163,7 +183,7 @@ class ModelGateway:
         output_schema: dict[str, Any],
         timeout: float,
     ) -> ModelResult:
-        if profile != "general":
+        if profile not in {"general", "mind"}:
             raise ModelGatewayError("invalid_profile")
         _, model = self.select(profile)
         if model != expected_model:
