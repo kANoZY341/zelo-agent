@@ -119,9 +119,6 @@ def create_app(
                 promotion_ci_verifier,
                 promotion_release_runtime,
             )
-            campaign_controls.recover_expired()
-            tasks.recover()
-            tasks.expire_approvals()
             mind = MindService(
                 database,
                 configuration,
@@ -136,6 +133,9 @@ def create_app(
                 mind,
             )
             scheduler.recover()
+            campaign_controls.recover_expired()
+            tasks.recover()
+            tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
