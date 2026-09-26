@@ -545,8 +545,8 @@ def test_conversation_wait_rechecks_authority_before_mind(
         first_authority_check = threading.Event()
         original_require = scheduler._require_live_mind_authority
 
-        def require_and_signal(run_id: str) -> None:
-            original_require(run_id)
+        def require_and_signal(run_id: str, **kwargs) -> None:
+            original_require(run_id, **kwargs)
             first_authority_check.set()
 
         monkeypatch.setattr(
