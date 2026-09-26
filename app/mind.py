@@ -489,7 +489,7 @@ class MindService:
         str,
     ]:
         try:
-            alias, model = self.gateway.select("general")
+            alias, model = self.gateway.select("mind")
         except Exception:
             raise DomainError("Zelo Mind model route unavailable", 503) from None
 
@@ -508,7 +508,7 @@ class MindService:
             for attempt in range(self.settings.max_model_parse_retries + 1):
                 try:
                     result = await self.gateway.generate_action(
-                        profile="general",
+                        profile="mind",
                         expected_model=model,
                         system_prompt=MIND_ROUTER_PROMPT,
                         messages=tuple(route_working),
@@ -543,7 +543,7 @@ class MindService:
             for attempt in range(self.settings.max_model_parse_retries + 1):
                 try:
                     result = await self.gateway.generate_action(
-                        profile="general",
+                        profile="mind",
                         expected_model=model,
                         system_prompt=MIND_TASK_PROMPTS[route.kind],
                         messages=tuple(task_working),

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_general_model: str = "qwen3:4b-instruct"
+    ollama_mind_model: str | None = None
     ollama_reasoning_model: str = "deepseek-r1:7b"
     model_config_version: str = "1"
     model_timeout_seconds: float = Field(default=60.0, ge=0.01, le=600)

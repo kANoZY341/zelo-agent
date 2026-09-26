@@ -19,7 +19,9 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
 }
@@ -40,7 +42,9 @@ button {
 }
 
 .workspace-shell {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr) 330px;
   background:
@@ -124,9 +128,11 @@ button {
 
 .conversation-panel {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .topbar {
@@ -225,7 +231,10 @@ h2 {
 }
 
 .conversation-body {
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
   padding: 38px 10%;
 }
 
@@ -395,6 +404,8 @@ h2 {
 }
 
 .inspector {
+  min-height: 0;
+  height: 100%;
   border-left: 1px solid var(--line);
   padding: 30px 22px;
   background: #090c10;

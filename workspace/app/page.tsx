@@ -107,6 +107,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversationBodyRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
     null,
   );
@@ -179,6 +181,15 @@ export default function Home() {
   );
 
   useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const frame = requestAnimationFrame(() => {
+      const body = conversationBodyRef.current;
+      if (body) body.scrollTo({ top: body.scrollHeight, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages, pendingPrompt]);
+
+  useEffect(() => {
     let cancelled = false;
 
     fetch("/api/health", {
@@ -233,6 +244,7 @@ export default function Home() {
       previousSubmission ?? { prompt, key: crypto.randomUUID() };
     pendingSubmissionRef.current = submission;
 
+    stickToBottomRef.current = true;
     setBusy(true);
     setPendingPrompt(prompt);
     setError(null);
@@ -326,6 +338,7 @@ export default function Home() {
   function newConversation() {
     if (pollRef.current) clearTimeout(pollRef.current);
     pendingSubmissionRef.current = null;
+    stickToBottomRef.current = true;
     setConversationId(null);
     setMessages([]);
     setPendingPrompt(null);
@@ -373,7 +386,16 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="conversation-body">
+        <div
+          className="conversation-body"
+          ref={conversationBodyRef}
+          onScroll={(event) => {
+            const node = event.currentTarget;
+            const distanceFromBottom =
+              node.scrollHeight - node.scrollTop - node.clientHeight;
+            stickToBottomRef.current = distanceFromBottom < 120;
+          }}
+        >
           {messages.length === 0 && !pendingPrompt ? (
             <div className="hero">
               <div className="hero-orb">Z</div>

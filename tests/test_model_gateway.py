@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
-from app.gateway import ModelGatewayError, ModelResult
+from app.gateway import ModelGateway, ModelGatewayError, ModelResult
 from app.main import create_app
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -32,6 +32,25 @@ def ai_task(client: TestClient, prompt: str = "Say hello", profile: str = "gener
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def test_router_supports_dedicated_mind_model() -> None:
+    gateway = ModelGateway(
+        FakeProvider(),
+        "qwen3:4b-instruct",
+        "deepseek-r1:7b",
+        "1",
+        mind_model="qwen3.5:4b",
+    )
+    assert gateway.select("mind") == ("local_mind", "qwen3.5:4b")
+
+    fallback = ModelGateway(
+        FakeProvider(),
+        "qwen3:4b-instruct",
+        "deepseek-r1:7b",
+        "1",
+    )
+    assert fallback.select("mind") == ("local_mind", "qwen3:4b-instruct")
 
 
 def test_router_aliases(settings, database) -> None:

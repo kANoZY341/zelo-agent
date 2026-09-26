@@ -122,9 +122,11 @@ canonical milestones.
 Task -> ModelGateway -> ModelRouter/profile policy -> ModelProvider -> Ollama
 ```
 
-The router is deterministic: `general` selects `local_general` and
-`reasoning` selects `local_reasoning`. The default registry maps those aliases
-to `qwen3:4b-instruct` and `deepseek-r1:7b`. The actual names can be changed
+The router is deterministic: `general` selects `local_general`, `mind` selects
+`local_mind`, and `reasoning` selects `local_reasoning`. By default Mind falls
+back to the general model, so existing installations are unchanged. Set
+`ZELO_OLLAMA_MIND_MODEL` to give Zelo conversation a separate model without
+changing agent/general work. The general and reasoning models remain configurable
 with `ZELO_OLLAMA_GENERAL_MODEL` and `ZELO_OLLAMA_REASONING_MODEL`; the
 configuration version is included in the approval binding.
 
