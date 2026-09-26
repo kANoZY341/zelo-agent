@@ -647,12 +647,79 @@ class CampaignScheduler:
                 ) in rows
             ]
 
+    def _reconcile_restart_budget(self, run_id: str) -> bool:
+        with self.database.transaction() as session:
+            now = self.clock()
+            run = session.get(CampaignScheduleRun, run_id)
+            if run is None:
+                raise DomainError("Campaign schedule run not found", 404)
+            schedule = self._require_schedule(session, run.schedule_id)
+            turn_key = f"schedule:{schedule.id}:{run.sequence}"
+            persisted_turn_id = session.scalar(
+                select(ConversationTurn.id).where(
+                    ConversationTurn.conversation_id == schedule.conversation_id,
+                    ConversationTurn.idempotency_key == turn_key,
+                )
+            )
+            reservation = (
+                session.get(CampaignBudgetReservation, run.budget_reservation_id)
+                if run.budget_reservation_id is not None
+                else None
+            )
+
+            if persisted_turn_id is None:
+                if reservation is not None and reservation.status == "committed":
+                    raise DomainError(
+                        "Interrupted wake has committed budget without a persisted turn",
+                        500,
+                    )
+                return False
+
+            if reservation is None:
+                raise DomainError(
+                    "Persisted scheduled turn is missing its wake budget reservation",
+                    500,
+                )
+            if (
+                reservation.campaign_id != schedule.campaign_id
+                or reservation.resource != WAKE_BUDGET_RESOURCE
+                or reservation.owner_id != run.lease_holder_id
+                or reservation.units != WAKE_BUDGET_UNITS
+            ):
+                raise DomainError("Persisted wake budget binding is invalid", 500)
+
+            if reservation.status == "reserved":
+                reservation.status = "committed"
+                reservation.committed_units = WAKE_BUDGET_UNITS
+                reservation.updated_at = now
+                append_campaign_event(
+                    session,
+                    schedule.campaign_id,
+                    "budget_reconciled",
+                    reservation_id=reservation.id,
+                    resource=reservation.resource,
+                    owner_id=reservation.owner_id,
+                    reserved_units=reservation.units,
+                    committed_units=WAKE_BUDGET_UNITS,
+                    reason="service_restart",
+                )
+            elif not (
+                reservation.status == "committed"
+                and reservation.committed_units == WAKE_BUDGET_UNITS
+            ):
+                raise DomainError(
+                    "Persisted scheduled turn has unrecoverable wake accounting",
+                    500,
+                )
+            return True
+
     def recover(self) -> int:
         """Interrupt unfinished process-local wakes and free their control state."""
 
         rows = self._running_runs()
         for run_id, campaign_id, lease_token, lease_generation, reservation_id in rows:
-            if reservation_id is not None:
+            charge_committed = self._reconcile_restart_budget(run_id)
+            if reservation_id is not None and not charge_committed:
                 try:
                     self.controls.release_budget(campaign_id, reservation_id)
                 except DomainError:
