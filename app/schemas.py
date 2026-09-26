@@ -215,7 +215,7 @@ class AgentRunResult(StrictModel):
 class ResearchSource(StrictModel):
     id: str = Field(pattern=r"^S[1-9][0-9]*$")
     tool: Literal["repo_status", "list_workspace_files", "read_workspace_file"]
-    locator: str = Field(min_length=1, max_length=512)
+    locator: str = Field(min_length=1, max_length=522)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     truncated: bool
 
