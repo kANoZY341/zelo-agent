@@ -28,6 +28,8 @@ from app.models import (
 )
 from app.policy import DomainError, fingerprint
 from app.schemas import (
+    CampaignBudgetCommit,
+    CampaignBudgetReservationResponse,
     CampaignBudgetReserve,
     CampaignLeaseAcquire,
     CampaignLeaseRelease,
@@ -358,11 +360,23 @@ class CampaignScheduler:
                 )
                 session.add(run)
             elif run.status == "interrupted":
+                preserved_budget_id = None
+                if run.budget_reservation_id is not None:
+                    existing_budget = session.get(
+                        CampaignBudgetReservation,
+                        run.budget_reservation_id,
+                    )
+                    if (
+                        existing_budget is not None
+                        and existing_budget.status == "committed"
+                        and existing_budget.committed_units == WAKE_BUDGET_UNITS
+                    ):
+                        preserved_budget_id = existing_budget.id
                 run.status = "running"
                 run.lease_holder_id = holder_id
                 run.lease_token = lease_token
                 run.lease_generation = lease_generation
-                run.budget_reservation_id = None
+                run.budget_reservation_id = preserved_budget_id
                 run.started_at = now
                 run.completed_at = None
                 run.error = None
@@ -381,6 +395,24 @@ class CampaignScheduler:
             session.expunge(run)
             return run
 
+    def _bound_budget(
+        self,
+        run_id: str,
+    ) -> CampaignBudgetReservationResponse | None:
+        with self.database.read() as session:
+            run = session.get(CampaignScheduleRun, run_id)
+            if run is None:
+                raise DomainError("Campaign schedule run not found", 404)
+            if run.budget_reservation_id is None:
+                return None
+            reservation = session.get(
+                CampaignBudgetReservation,
+                run.budget_reservation_id,
+            )
+            if reservation is None:
+                raise DomainError("Campaign schedule budget binding is invalid", 500)
+            return CampaignBudgetReservationResponse.model_validate(reservation)
+
     def _bind_budget(self, run_id: str, reservation_id: str) -> None:
         with self.database.transaction() as session:
             run = session.get(CampaignScheduleRun, run_id)
@@ -390,7 +422,12 @@ class CampaignScheduler:
                 raise DomainError("Campaign schedule budget binding changed", 409)
             run.budget_reservation_id = reservation_id
 
-    def _require_live_mind_authority(self, run_id: str) -> None:
+    def _require_live_mind_authority(
+        self,
+        run_id: str,
+        *,
+        allow_committed_budget: bool = False,
+    ) -> None:
         with self.database.transaction() as session:
             now = self.clock()
             minimum_expiry = now + timedelta(seconds=self.settings.scheduler_mind_window_seconds)
@@ -427,10 +464,19 @@ class CampaignScheduler:
                 or reservation.resource != WAKE_BUDGET_RESOURCE
                 or reservation.owner_id != run.lease_holder_id
                 or reservation.units != WAKE_BUDGET_UNITS
-                or reservation.committed_units != 0
-                or reservation.status != "reserved"
-                or reservation.expires_at < minimum_expiry
             ):
+                raise WakeAuthorityUnavailable("wake_budget_window_unavailable")
+            reserved_window = (
+                reservation.status == "reserved"
+                and reservation.committed_units == 0
+                and reservation.expires_at >= minimum_expiry
+            )
+            committed_reconciliation = (
+                allow_committed_budget
+                and reservation.status == "committed"
+                and reservation.committed_units == WAKE_BUDGET_UNITS
+            )
+            if not (reserved_window or committed_reconciliation):
                 raise WakeAuthorityUnavailable("wake_budget_window_unavailable")
 
     def _finalize_run(
