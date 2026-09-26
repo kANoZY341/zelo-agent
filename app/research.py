@@ -114,50 +114,6 @@ class ResearchRuntime:
         normalized = path if isinstance(path, str) and path else "."
         return f"workspace:{normalized}"
 
-    def _tool_message(
-        self,
-        *,
-        source_id: str,
-        tool: str,
-        result: dict[str, Any],
-    ) -> tuple[ModelMessage, ResearchSource]:
-        serialized = json.dumps(
-            result,
-            ensure_ascii=True,
-            allow_nan=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        limit = self.settings.max_agent_tool_result_chars
-        truncated = len(serialized) > limit
-        digest = hashlib.sha256(serialized.encode("ascii")).hexdigest()
-        source = ResearchSource(
-            id=source_id,
-            tool=tool,
-            locator=self._locator(tool, result if tool == "repo_status" else {}),
-            sha256=digest,
-            truncated=truncated,
-        )
-        return (
-            ModelMessage(
-                "tool",
-                json.dumps(
-                    {
-                        "type": "research_source",
-                        "source_id": source_id,
-                        "tool": tool,
-                        "untrusted": True,
-                        "result_json": serialized[:limit],
-                        "truncated": truncated,
-                    },
-                    ensure_ascii=True,
-                    allow_nan=False,
-                    separators=(",", ":"),
-                ),
-            ),
-            source,
-        )
-
     @staticmethod
     def _source(
         source_id: str,
