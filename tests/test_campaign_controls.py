@@ -125,6 +125,81 @@ def test_campaign_lease_fences_holders_and_advances_generation(database):
     assert second.generation == 2
     assert second.lease_token != first.lease_token
 
+    with pytest.raises(DomainError, match="proof"):
+        controls.release_lease(
+            campaign.id,
+            "execution",
+            CampaignLeaseRelease(
+                holder_id="scheduler-a",
+                lease_token=first.lease_token,
+                generation=1,
+            ),
+        )
+    with pytest.raises(DomainError, match="proof"):
+        controls.renew_lease(
+            campaign.id,
+            "execution",
+            CampaignLeaseRenew(
+                holder_id="scheduler-a",
+                lease_token=first.lease_token,
+                generation=1,
+                ttl_seconds=60,
+            ),
+        )
+
+
+def test_expired_controls_are_recovered_before_reuse(database):
+    campaign = campaign_fixture(database)
+    clock = MutableClock(datetime(2026, 9, 26, 10, 30, tzinfo=UTC))
+    controls = CampaignControlService(database, clock=clock)
+
+    first_lease = controls.acquire_lease(
+        campaign.id,
+        "execution",
+        CampaignLeaseAcquire(holder_id="scheduler-a", ttl_seconds=10),
+    )
+    controls.set_budget(
+        campaign.id,
+        "model_tokens",
+        CampaignBudgetSet(limit_units=100),
+    )
+    first_reservation = controls.reserve_budget(
+        campaign.id,
+        CampaignBudgetReserve(
+            resource="model_tokens",
+            owner_id="wake-1",
+            idempotency_key="wake-1:model",
+            units=60,
+            ttl_seconds=10,
+        ),
+    )
+
+    clock.advance(seconds=11)
+    second_lease = controls.acquire_lease(
+        campaign.id,
+        "execution",
+        CampaignLeaseAcquire(holder_id="scheduler-b", ttl_seconds=60),
+    )
+    assert second_lease.generation == first_lease.generation + 1
+    assert second_lease.lease_token != first_lease.lease_token
+
+    replacement = controls.reserve_budget(
+        campaign.id,
+        CampaignBudgetReserve(
+            resource="model_tokens",
+            owner_id="wake-2",
+            idempotency_key="wake-2:model",
+            units=100,
+            ttl_seconds=60,
+        ),
+    )
+    assert replacement.status == "reserved"
+    assert controls.get_budget(campaign.id, "model_tokens").reserved_units == 100
+
+    reservations = controls.list_reservations(campaign.id, 100, 0)
+    expired = next(item for item in reservations.items if item.id == first_reservation.id)
+    assert expired.status == "expired"
+
 
 def test_campaign_recovery_expires_lease_and_budget_reservation(database):
     campaign = campaign_fixture(database)
