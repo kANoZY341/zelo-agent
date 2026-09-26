@@ -447,7 +447,7 @@ def test_conversation_wait_rechecks_authority_before_mind(
         conversation = create_conversation(client)
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
-        clock = MutableClock(datetime(2026, 9, 26, 13, 0, tzinfo=UTC))
+        clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
         schedule = create_schedule(
@@ -581,7 +581,7 @@ def test_mind_is_not_invoked_without_full_authority_window(
         conversation = create_conversation(client)
         scheduler = client.app.state.scheduler
         controls: CampaignControlService = client.app.state.campaign_controls
-        clock = MutableClock(datetime(2026, 9, 26, 14, 0, tzinfo=UTC))
+        clock = MutableClock(datetime.now(UTC))
         scheduler.clock = clock
         controls.clock = clock
         schedule = create_schedule(
@@ -1525,7 +1525,17 @@ def test_database_rejects_expired_lease_on_run_insert(settings, database):
             "mind-wake",
             CampaignLeaseAcquire(holder_id=holder, ttl_seconds=30),
         )
-        clock.advance(seconds=31)
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    UPDATE campaign_leases
+                    SET expires_at = datetime('now', '-1 second')
+                    WHERE campaign_id = :campaign_id AND scope = 'mind-wake'
+                    """
+                ),
+                {"campaign_id": campaign["id"]},
+            )
 
         with pytest.raises(IntegrityError, match="lease proof is not current"):
             with database.transaction() as session:
