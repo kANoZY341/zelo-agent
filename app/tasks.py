@@ -460,6 +460,31 @@ def _research_result_projection(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _minimal_research_result_projection(result: dict[str, Any]) -> dict[str, Any]:
+    raw_sources = result.get("sources")
+    sources: list[dict[str, Any]] = []
+    if isinstance(raw_sources, list):
+        for item in raw_sources[:4]:
+            if not isinstance(item, dict):
+                continue
+            sources.append(
+                {
+                    "id": _bounded_projection_json_text(item.get("id"), 16),
+                    "tool": _bounded_projection_json_text(item.get("tool"), 64),
+                    "locator": _bounded_projection_json_text(item.get("locator"), 192),
+                    "sha256": _bounded_projection_json_text(item.get("sha256"), 64),
+                    "truncated": item.get("truncated"),
+                }
+            )
+    return {
+        "answer": _bounded_projection_json_text(result.get("answer"), 1536),
+        "sources": sources,
+        "source_count": len(raw_sources) if isinstance(raw_sources, list) else 0,
+        "model_steps": result.get("model_steps"),
+        "tool_calls": result.get("tool_calls"),
+    }
+
+
 def _project_task_result(
     kind: str,
     result: dict[str, Any] | None,
@@ -469,7 +494,23 @@ def _project_task_result(
         return None, False
 
     if kind == "research_run":
-        return _research_result_projection(result), True
+        effective_limit = min(limit, TASK_PROJECTION_RESULT_CHARS)
+        projection = _research_result_projection(result)
+        if _encoded_json_length(projection) <= effective_limit:
+            return projection, True
+
+        minimal = _minimal_research_result_projection(result)
+        if _encoded_json_length(minimal) <= effective_limit:
+            return minimal, True
+
+        return {
+            "summary": "Research result exceeded the conversation projection budget.",
+            "source_count": (
+                len(result["sources"]) if isinstance(result.get("sources"), list) else 0
+            ),
+            "model_steps": result.get("model_steps"),
+            "tool_calls": result.get("tool_calls"),
+        }, True
 
     if kind == "developer_run":
         projection = _developer_result_projection(result)
