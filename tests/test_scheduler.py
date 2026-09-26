@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.campaign_control import CampaignControlService
+from app.config import Settings
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
@@ -166,6 +167,70 @@ def wait_schedule(
             return latest
         time.sleep(0.01)
     pytest.fail(f"Schedule did not reach {expected}: {latest}")
+
+
+def test_scheduler_config_requires_control_headroom():
+    with pytest.raises(ValueError, match="control headroom"):
+        Settings(
+            _env_file=None,
+            scheduler_enabled=True,
+            model_timeout_seconds=10,
+            max_model_parse_retries=0,
+            mind_admission_timeout_seconds=5,
+            scheduler_wake_ttl_seconds=30,
+            scheduler_control_headroom_seconds=30,
+        )
+
+    configured = Settings(
+        _env_file=None,
+        scheduler_enabled=True,
+        model_timeout_seconds=10,
+        max_model_parse_retries=0,
+        mind_admission_timeout_seconds=5,
+        scheduler_wake_ttl_seconds=60,
+        scheduler_control_headroom_seconds=30,
+    )
+    assert configured.scheduler_mind_window_seconds == 30
+    assert configured.scheduler_wake_ttl_seconds == 60
+
+
+def test_due_selection_skips_campaign_with_active_wake_lease(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        first = create_campaign(client, title="Busy campaign")
+        second = create_campaign(client, title="Free campaign")
+        configure_wake_budget(client, first["id"])
+        configure_wake_budget(client, second["id"])
+        first_conversation = create_conversation(client)
+        second_conversation = create_conversation(client)
+        now = datetime.now(UTC)
+
+        first_schedule = create_schedule(
+            client,
+            first["id"],
+            first_conversation["id"],
+            run_at=now - timedelta(seconds=2),
+            idempotency_key="busy-schedule",
+        )
+        second_schedule = create_schedule(
+            client,
+            second["id"],
+            second_conversation["id"],
+            run_at=now - timedelta(seconds=1),
+            idempotency_key="free-schedule",
+        )
+
+        controls: CampaignControlService = client.app.state.campaign_controls
+        controls.acquire_lease(
+            first["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id="external-holder", ttl_seconds=600),
+        )
+
+        scheduler = client.app.state.scheduler
+        assert scheduler._next_due_id() == second_schedule["id"]
+        assert scheduler._next_due_id() != first_schedule["id"]
 
 
 def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database):
