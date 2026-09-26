@@ -128,6 +128,16 @@ def upgrade() -> None:
             "lease_generation >= 1",
             name="ck_campaign_schedule_run_lease_generation",
         ),
+        sa.CheckConstraint(
+            "(status = 'running' AND completed_at IS NULL) OR "
+            "(status IN ('succeeded','failed','interrupted') AND completed_at IS NOT NULL)",
+            name="ck_campaign_schedule_run_completion",
+        ),
+        sa.CheckConstraint(
+            "status <> 'succeeded' OR "
+            "(budget_reservation_id IS NOT NULL AND conversation_turn_id IS NOT NULL)",
+            name="ck_campaign_schedule_run_success_bindings",
+        ),
     )
     op.create_index(
         "ix_campaign_schedule_runs_schedule_id",
@@ -181,6 +191,25 @@ def upgrade() -> None:
     )
     op.execute(
         """
+        CREATE TRIGGER campaign_schedules_terminal_guard
+        BEFORE UPDATE ON campaign_schedules
+        FOR EACH ROW
+        WHEN
+            OLD.status IN ('completed','cancelled')
+            AND (
+                NEW.run_count <> OLD.run_count
+                OR COALESCE(NEW.next_run_at, '') <> COALESCE(OLD.next_run_at, '')
+                OR COALESCE(NEW.last_run_at, '') <> COALESCE(OLD.last_run_at, '')
+                OR COALESCE(NEW.last_error, '') <> COALESCE(OLD.last_error, '')
+                OR NEW.updated_at <> OLD.updated_at
+            )
+        BEGIN
+            SELECT RAISE(ABORT, 'Terminal Campaign schedule is immutable');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER campaign_schedules_no_delete
         BEFORE DELETE ON campaign_schedules
         BEGIN
@@ -189,6 +218,90 @@ def upgrade() -> None:
         """
     )
 
+    op.execute(
+        """
+        CREATE TRIGGER campaign_schedule_runs_lease_insert_guard
+        BEFORE INSERT ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM campaign_schedules AS schedule
+            JOIN campaign_leases AS lease
+              ON lease.campaign_id = schedule.campaign_id
+             AND lease.scope = 'mind-wake'
+            WHERE schedule.id = NEW.schedule_id
+              AND lease.holder_id = NEW.lease_holder_id
+              AND lease.lease_token = NEW.lease_token
+              AND lease.generation = NEW.lease_generation
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'Wake run lease proof is not current');
+        END
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER campaign_schedule_runs_lease_resume_guard
+        BEFORE UPDATE OF lease_holder_id, lease_token, lease_generation, status
+        ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.status = 'running' AND OLD.status = 'interrupted'
+             AND NOT EXISTS (
+                SELECT 1
+                FROM campaign_schedules AS schedule
+                JOIN campaign_leases AS lease
+                  ON lease.campaign_id = schedule.campaign_id
+                 AND lease.scope = 'mind-wake'
+                WHERE schedule.id = NEW.schedule_id
+                  AND lease.holder_id = NEW.lease_holder_id
+                  AND lease.lease_token = NEW.lease_token
+                  AND lease.generation = NEW.lease_generation
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Resumed wake run lease proof is not current');
+        END
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER campaign_schedule_runs_budget_guard
+        BEFORE UPDATE OF budget_reservation_id ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.budget_reservation_id IS NOT NULL
+             AND NOT EXISTS (
+                SELECT 1
+                FROM campaign_schedules AS schedule
+                JOIN campaign_budget_reservations AS reservation
+                  ON reservation.id = NEW.budget_reservation_id
+                WHERE schedule.id = NEW.schedule_id
+                  AND reservation.campaign_id = schedule.campaign_id
+                  AND reservation.resource = 'mind_wakes'
+                  AND reservation.owner_id = NEW.lease_holder_id
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Wake budget reservation binding is invalid');
+        END
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER campaign_schedule_runs_turn_guard
+        BEFORE UPDATE OF conversation_turn_id ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.conversation_turn_id IS NOT NULL
+             AND NOT EXISTS (
+                SELECT 1
+                FROM campaign_schedules AS schedule
+                JOIN conversation_turns AS turn
+                  ON turn.id = NEW.conversation_turn_id
+                WHERE schedule.id = NEW.schedule_id
+                  AND turn.conversation_id = schedule.conversation_id
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Wake conversation turn binding is invalid');
+        END
+        """
+    )
     op.execute(
         """
         CREATE TRIGGER campaign_schedule_runs_update_guard
@@ -221,6 +334,25 @@ def upgrade() -> None:
             OR (
                 OLD.status = 'interrupted'
                 AND NEW.status NOT IN ('interrupted','running')
+            )
+            OR (
+                OLD.status = 'running'
+                AND NEW.status = 'running'
+                AND (
+                    NEW.lease_holder_id <> OLD.lease_holder_id
+                    OR NEW.lease_token <> OLD.lease_token
+                    OR NEW.lease_generation <> OLD.lease_generation
+                    OR NEW.started_at <> OLD.started_at
+                    OR COALESCE(NEW.conversation_turn_id, '') <>
+                       COALESCE(OLD.conversation_turn_id, '')
+                    OR COALESCE(NEW.completed_at, '') <> COALESCE(OLD.completed_at, '')
+                    OR COALESCE(NEW.error, '') <> COALESCE(OLD.error, '')
+                    OR (
+                        OLD.budget_reservation_id IS NOT NULL
+                        AND COALESCE(NEW.budget_reservation_id, '') <>
+                            OLD.budget_reservation_id
+                    )
+                )
             )
         BEGIN
             SELECT RAISE(ABORT, 'Invalid Campaign schedule run transition');
