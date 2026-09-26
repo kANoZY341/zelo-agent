@@ -433,7 +433,11 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
         assert [item["status"] for item in reservations] == ["released", "committed"]
 
 
-def test_conversation_wait_rechecks_authority_before_mind(settings, database):
+def test_conversation_wait_rechecks_authority_before_mind(
+    settings,
+    database,
+    monkeypatch,
+):
     provider = SchedulerMindProvider(reply("This must not run after waiting."))
     configured = settings.model_copy(update={"scheduler_enabled": False})
     with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
@@ -452,28 +456,26 @@ def test_conversation_wait_rechecks_authority_before_mind(settings, database):
             run_at=clock.value,
         )
 
+        first_authority_check = threading.Event()
+        original_require = scheduler._require_live_mind_authority
+
+        def require_and_signal(run_id: str) -> None:
+            original_require(run_id)
+            first_authority_check.set()
+
+        monkeypatch.setattr(
+            scheduler,
+            "_require_live_mind_authority",
+            require_and_signal,
+        )
+
         async def exercise_wait() -> None:
             lock = scheduler.mind._lock(conversation["id"])
             await lock.acquire()
             task = asyncio.create_task(scheduler._execute_due(schedule["id"]))
             try:
-                for _ in range(100):
-                    runs = client.get(
-                        f"/schedules/{schedule['id']}/runs",
-                        headers=AUTH,
-                    ).json()
-                    if runs["total"] == 1:
-                        break
-                    await asyncio.sleep(0.001)
-                else:
-                    pytest.fail("Scheduled wake did not reach the conversation wait")
-
-                age_seconds = int(
-                    configured.scheduler_wake_ttl_seconds
-                    - configured.scheduler_mind_window_seconds
-                    + 1
-                )
-                clock.advance(seconds=age_seconds)
+                assert await asyncio.to_thread(first_authority_check.wait, 1)
+                clock.advance(seconds=configured.scheduler_wake_ttl_seconds + 1)
             finally:
                 lock.release()
             await task
@@ -1215,6 +1217,184 @@ def test_database_rejects_terminal_schedule_run_insert(settings, database):
                         "lease_token": lease.lease_token,
                         "generation": lease.generation,
                         "now": datetime.now(UTC),
+                    },
+                )
+
+
+def test_database_rejects_prebound_running_schedule_run_insert(settings, database):
+    provider = SchedulerMindProvider(reply("Ordinary turn."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        controls: CampaignControlService = client.app.state.campaign_controls
+        holder = f"schedule:{schedule['id']}"
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=600),
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="prebound-insert",
+                units=1,
+                ttl_seconds=600,
+            ),
+        )
+        turn = client.post(
+            f"/conversations/{conversation['id']}/turns",
+            headers={**AUTH, "Idempotency-Key": "ordinary-prebound"},
+            json={"text": "Ordinary turn."},
+        )
+        assert turn.status_code == 201, turn.text
+
+        with pytest.raises(IntegrityError, match="start running and unbound"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO campaign_schedule_runs (
+                            id, schedule_id, sequence, status,
+                            lease_holder_id, lease_token, lease_generation,
+                            budget_reservation_id, conversation_turn_id,
+                            started_at, completed_at
+                        ) VALUES (
+                            '71000000-0000-0000-0000-000000000071',
+                            :schedule_id, 1, 'running',
+                            :holder_id, :lease_token, :generation,
+                            :reservation_id, :turn_id,
+                            :now, NULL
+                        )
+                        """
+                    ),
+                    {
+                        "schedule_id": schedule["id"],
+                        "holder_id": holder,
+                        "lease_token": lease.lease_token,
+                        "generation": lease.generation,
+                        "reservation_id": reservation.id,
+                        "turn_id": turn.json()["id"],
+                        "now": datetime.now(UTC),
+                    },
+                )
+
+
+def test_database_rejects_expired_lease_on_run_insert(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime.now(UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
+        holder = f"schedule:{schedule['id']}"
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=30),
+        )
+        clock.advance(seconds=31)
+
+        with pytest.raises(IntegrityError, match="lease proof is not current"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO campaign_schedule_runs (
+                            id, schedule_id, sequence, status,
+                            lease_holder_id, lease_token, lease_generation,
+                            started_at, completed_at
+                        ) VALUES (
+                            '72000000-0000-0000-0000-000000000072',
+                            :schedule_id, 1, 'running',
+                            :holder_id, :lease_token, :generation,
+                            :now, NULL
+                        )
+                        """
+                    ),
+                    {
+                        "schedule_id": schedule["id"],
+                        "holder_id": holder,
+                        "lease_token": lease.lease_token,
+                        "generation": lease.generation,
+                        "now": clock.value,
+                    },
+                )
+
+
+def test_database_requires_committed_budget_for_success(settings, database):
+    provider = SchedulerMindProvider(reply("Scheduled result."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        holder = f"schedule:{schedule['id']}"
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=600),
+        )
+        run = scheduler._begin_run(
+            schedule["id"],
+            holder_id=holder,
+            lease_token=lease.lease_token,
+            lease_generation=lease.generation,
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="reserved-not-committed",
+                units=1,
+                ttl_seconds=600,
+            ),
+        )
+        scheduler._bind_budget(run.id, reservation.id)
+        turn = asyncio.run(
+            scheduler.mind.send_turn(
+                conversation["id"],
+                schedule["prompt"],
+                f"schedule:{schedule['id']}:1",
+                campaign_id=campaign["id"],
+            )
+        )
+
+        with pytest.raises(IntegrityError, match="budget reservation is stale"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        UPDATE campaign_schedule_runs
+                        SET status = 'succeeded',
+                            conversation_turn_id = :turn_id,
+                            completed_at = :now
+                        WHERE id = :run_id
+                        """
+                    ),
+                    {
+                        "turn_id": turn.id,
+                        "now": datetime.now(UTC),
+                        "run_id": run.id,
                     },
                 )
 
