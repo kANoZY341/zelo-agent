@@ -11,10 +11,10 @@ from app.config import ROOT
 from app.gateway import ModelResult
 from app.main import create_app
 from app.research import RESEARCH_ACTION, ResearchRuntime
+from app.tasks import _project_task_result
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 from tests.test_campaigns import campaign_fixture
-from app.tasks import _project_task_result
 from tests.test_mind import new_conversation, send_turn
 
 
