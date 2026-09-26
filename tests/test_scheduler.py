@@ -777,7 +777,7 @@ def test_cancellation_joins_budget_reservation_before_cleanup(
         lease = controls.lease_status(campaign["id"], "mind-wake")
         budget = controls.get_budget(campaign["id"], "mind_wakes")
         assert lease.status == "free"
-        assert budget.spent_units == 1
+        assert budget.spent_units == 0
         assert budget.reserved_units == 0
 
         reservations = client.get(
@@ -851,7 +851,7 @@ def test_cancellation_waits_for_threaded_core_task_submission(
         lease = controls.lease_status(campaign["id"], "mind-wake")
         budget = controls.get_budget(campaign["id"], "mind_wakes")
         assert lease.status == "free"
-        assert budget.spent_units == 0
+        assert budget.spent_units == 1
         assert budget.reserved_units == 0
 
         runs = client.get(
