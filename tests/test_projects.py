@@ -97,7 +97,6 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "Project context" in sources["core.projects"]["content"]
 
 
-
 def test_context_budget_is_enforced_after_unicode_serialization(database, tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
