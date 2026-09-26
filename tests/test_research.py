@@ -10,10 +10,11 @@ from fastapi.testclient import TestClient
 from app.config import ROOT
 from app.gateway import ModelResult
 from app.main import create_app
-from app.research import RESEARCH_ACTION
+from app.research import RESEARCH_ACTION, ResearchRuntime
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 from tests.test_campaigns import campaign_fixture
+from app.tasks import _project_task_result
 from tests.test_mind import new_conversation, send_turn
 
 
@@ -127,6 +128,75 @@ def test_research_retrieves_real_evidence_and_persists_cited_metadata(
         assert second_source["source_id"] == "S2"
         assert first_source["untrusted"] is True
         assert second_source["untrusted"] is True
+
+
+def test_research_source_locator_accepts_maximum_workspace_path():
+    path = "a/" * 255 + "aa"
+    assert len(path) == 512
+    source = ResearchRuntime._source(
+        "S1",
+        "read_workspace_file",
+        {"path": path},
+        {"path": path, "text": "evidence", "truncated": False},
+        truncated=False,
+    )
+    assert source.locator == f"workspace:{path}"
+    assert len(source.locator) == 522
+
+
+def test_research_preserves_tool_native_truncation(
+    research_settings,
+    database,
+):
+    (research_settings.workspace_root / "second.txt").write_text(
+        "second evidence",
+        encoding="utf-8",
+    )
+    configured = research_settings.model_copy(update={"workspace_max_entries": 1})
+    provider = ResearchProvider(
+        call("list_workspace_files"),
+        final("The listing is incomplete. [S1]", "S1"),
+    )
+    with TestClient(
+        create_app(configured, provider=provider),
+        headers=AUTH,
+    ) as client:
+        created = submit_research(client)
+        completed = wait_for(client, created["id"], "succeeded")
+        source = completed["result"]["sources"][0]
+        assert source["tool"] == "list_workspace_files"
+        assert source["truncated"] is True
+
+        envelope = json.loads(provider.requests[1].messages[-1].content)
+        assert envelope["truncated"] is True
+
+
+def test_research_projection_honors_encoded_budget():
+    result = {
+        "answer": "é" * 3072,
+        "sources": [
+            {
+                "id": f"S{index}",
+                "tool": "read_workspace_file",
+                "locator": "workspace:" + ("é" * 256),
+                "sha256": "a" * 64,
+                "truncated": False,
+            }
+            for index in range(1, 9)
+        ],
+        "model_steps": 3,
+        "tool_calls": 2,
+    }
+    projection, truncated = _project_task_result("research_run", result, 4096)
+    encoded = json.dumps(
+        projection,
+        ensure_ascii=True,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
+    assert truncated is True
+    assert len(encoded) <= 4096
+    assert projection["answer"]
 
 
 def test_research_rejects_non_allowlisted_tool_without_execution(
