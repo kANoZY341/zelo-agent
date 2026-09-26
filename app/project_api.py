@@ -38,7 +38,7 @@ def list_projects(
     limit: Limit = 20,
     offset: Offset = 0,
 ) -> ProjectPage:
-    items, total = projects.list(limit, offset)
+    items, total = projects.list_projects(limit, offset)
     return ProjectPage(items=items, limit=limit, offset=offset, total=total)
 
 
