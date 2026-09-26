@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     Text,
@@ -215,6 +216,87 @@ class CampaignCheckpoint(Base):
     version: Mapped[int] = mapped_column(Integer)
     state: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CampaignLease(Base):
+    __tablename__ = "campaign_leases"
+    __table_args__ = (
+        UniqueConstraint("lease_token", name="uq_campaign_lease_token"),
+        CheckConstraint("generation >= 0", name="ck_campaign_lease_generation"),
+        CheckConstraint("length(scope) BETWEEN 1 AND 64", name="ck_campaign_lease_scope"),
+        CheckConstraint(
+            "(holder_id IS NULL AND lease_token IS NULL AND acquired_at IS NULL "
+            "AND expires_at IS NULL) OR "
+            "(holder_id IS NOT NULL AND lease_token IS NOT NULL AND acquired_at IS NOT NULL "
+            "AND expires_at IS NOT NULL)",
+            name="ck_campaign_lease_shape",
+        ),
+    )
+
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(64), primary_key=True)
+    generation: Mapped[int] = mapped_column(Integer, default=0)
+    holder_id: Mapped[str | None] = mapped_column(String(128))
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    acquired_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, index=True)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CampaignBudgetLimit(Base):
+    __tablename__ = "campaign_budget_limits"
+    __table_args__ = (
+        CheckConstraint("limit_units >= 0", name="ck_campaign_budget_limit_nonnegative"),
+        CheckConstraint("length(resource) BETWEEN 1 AND 64", name="ck_campaign_budget_resource"),
+    )
+
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), primary_key=True)
+    resource: Mapped[str] = mapped_column(String(64), primary_key=True)
+    limit_units: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CampaignBudgetReservation(Base):
+    __tablename__ = "campaign_budget_reservations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["campaign_id", "resource"],
+            ["campaign_budget_limits.campaign_id", "campaign_budget_limits.resource"],
+            name="fk_campaign_budget_reservation_limit",
+        ),
+        UniqueConstraint(
+            "campaign_id",
+            "idempotency_key",
+            name="uq_campaign_budget_reservation_idempotency",
+        ),
+        CheckConstraint("units > 0", name="ck_campaign_budget_reservation_units"),
+        CheckConstraint(
+            "committed_units >= 0 AND committed_units <= units",
+            name="ck_campaign_budget_reservation_committed_units",
+        ),
+        CheckConstraint(
+            "status IN ('reserved','committed','released','expired')",
+            name="ck_campaign_budget_reservation_status",
+        ),
+        CheckConstraint(
+            "status = 'committed' OR committed_units = 0",
+            name="ck_campaign_budget_reservation_terminal_units",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(String(36), index=True)
+    resource: Mapped[str] = mapped_column(String(64), index=True)
+    owner_id: Mapped[str] = mapped_column(String(128))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    units: Mapped[int] = mapped_column(Integer)
+    committed_units: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="reserved", index=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class Conversation(Base):
