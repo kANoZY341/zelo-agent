@@ -648,51 +648,6 @@ class CampaignControlService:
             raise DomainError("Budget reservation expired", 409)
         raise DomainError("Budget commit failed")
 
-    def reconcile_reserved_budget(
-        self,
-        campaign_id: str,
-        reservation_id: str,
-        actual_units: int,
-    ) -> CampaignBudgetReservationResponse:
-        """Commit a still-reserved unit grant after durable recovery proof."""
-
-        if actual_units < 0:
-            raise DomainError("Committed units must be non-negative", 422)
-        with self.database.transaction() as session:
-            now = self.clock()
-            self._require_campaign(session, campaign_id)
-            reservation = session.get(CampaignBudgetReservation, reservation_id)
-            if reservation is None or reservation.campaign_id != campaign_id:
-                raise DomainError("Campaign budget reservation not found", 404)
-            if reservation.status == "committed":
-                if reservation.committed_units != actual_units:
-                    raise DomainError(
-                        "Budget reservation already committed with different usage",
-                        409,
-                    )
-                return self._reservation_response(reservation)
-            if reservation.status != "reserved":
-                raise DomainError(
-                    f"Budget reservation is already {reservation.status}",
-                    409,
-                )
-            if actual_units > reservation.units:
-                raise DomainError("Committed units exceed the reservation", 409)
-            reservation.status = "committed"
-            reservation.committed_units = actual_units
-            reservation.updated_at = now
-            append_campaign_event(
-                session,
-                campaign_id,
-                "budget_reconciled",
-                reservation_id=reservation.id,
-                resource=reservation.resource,
-                owner_id=reservation.owner_id,
-                reserved_units=reservation.units,
-                committed_units=actual_units,
-            )
-            return self._reservation_response(reservation)
-
     def release_budget(
         self,
         campaign_id: str,
