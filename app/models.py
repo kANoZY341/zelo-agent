@@ -357,6 +357,16 @@ class CampaignScheduleRun(Base):
             "lease_generation >= 1",
             name="ck_campaign_schedule_run_lease_generation",
         ),
+        CheckConstraint(
+            "(status = 'running' AND completed_at IS NULL) OR "
+            "(status IN ('succeeded','failed','interrupted') AND completed_at IS NOT NULL)",
+            name="ck_campaign_schedule_run_completion",
+        ),
+        CheckConstraint(
+            "status <> 'succeeded' OR "
+            "(budget_reservation_id IS NOT NULL AND conversation_turn_id IS NOT NULL)",
+            name="ck_campaign_schedule_run_success_bindings",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
