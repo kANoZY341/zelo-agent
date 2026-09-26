@@ -242,8 +242,7 @@ def test_campaign_ownership_and_dependencies_are_database_immutable(settings, da
             {"task_id": dependent.id},
         ),
         (
-            "UPDATE task_dependencies SET depends_on_task_id=:depends_on "
-            "WHERE task_id=:task_id",
+            "UPDATE task_dependencies SET depends_on_task_id=:depends_on WHERE task_id=:task_id",
             {"depends_on": outsider.id, "task_id": dependent.id},
         ),
         (
@@ -291,9 +290,7 @@ def test_campaign_terminal_event_and_activity_follow_pre_execution_cancel(settin
     assert after_cancel.updated_at > after_attach.updated_at
     events = campaigns.events(campaign.id, 100, 0).items
     terminal = [
-        event
-        for event in events
-        if event.event == "task_finished" and event.task_id == task.id
+        event for event in events if event.event == "task_finished" and event.task_id == task.id
     ]
     assert len(terminal) == 1
     assert terminal[0].details["status"] == State.CANCELLED
