@@ -365,6 +365,83 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
         assert [item["status"] for item in reservations] == ["released", "committed"]
 
 
+def test_cancelled_schedule_allows_already_started_wake_to_close(settings, database):
+    provider = SchedulerMindProvider(reply("Finished after cancellation."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        holder = f"schedule:{schedule['id']}"
+
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(holder_id=holder, ttl_seconds=600),
+        )
+        run = scheduler._begin_run(
+            schedule["id"],
+            holder_id=holder,
+            lease_token=lease.lease_token,
+            lease_generation=lease.generation,
+        )
+        reservation = controls.reserve_budget(
+            campaign["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key=f"cancelled:{schedule['id']}:1",
+                units=1,
+                ttl_seconds=600,
+            ),
+        )
+        scheduler._bind_budget(run.id, reservation.id)
+
+        cancelled = client.post(
+            f"/schedules/{schedule['id']}/cancel",
+            headers=AUTH,
+        )
+        assert cancelled.status_code == 200, cancelled.text
+        assert cancelled.json()["status"] == "cancelled"
+
+        turn = asyncio.run(
+            scheduler.mind.send_turn(
+                conversation["id"],
+                schedule["prompt"],
+                f"schedule:{schedule['id']}:1",
+                campaign_id=campaign["id"],
+            )
+        )
+        scheduler._finalize_run(
+            run.id,
+            status="succeeded",
+            conversation_turn_id=turn.id,
+            error=None,
+        )
+
+        final_schedule = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert final_schedule["status"] == "cancelled"
+        assert final_schedule["run_count"] == 0
+        assert final_schedule["next_run_at"] is None
+
+        final_run = scheduler.get_run(run.id)
+        assert final_run.status == "succeeded"
+        assert final_run.conversation_turn_id == turn.id
+
+        budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert budget["spent_units"] == 1
+        assert budget["reserved_units"] == 0
+
+
 def test_schedule_requires_budget_and_bounded_cadence(settings, database):
     provider = SchedulerMindProvider()
     configured = settings.model_copy(update={"scheduler_enabled": False})
