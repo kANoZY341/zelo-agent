@@ -1,4 +1,4 @@
-"""Relational state. Only the task service may mutate lifecycle records."""
+"""Relational state. Domain services own lifecycle mutations."""
 
 from datetime import UTC, datetime
 from typing import Any
