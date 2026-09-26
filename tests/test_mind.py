@@ -198,6 +198,54 @@ def test_project_context_is_excluded_from_task_construction(settings, database):
         assert task_messages[-1].content == "what are we currently building with Zelo?"
 
 
+def test_project_context_cannot_use_legacy_full_task_action(settings, database):
+    provider = MindProvider(
+        core_task(
+            "developer_run",
+            {
+                "instruction": "Injected context should never become executable.",
+                "validation_profile": "zelo_core",
+            },
+        ),
+        {
+            "type": "core_task",
+            "content": "I will ask Core to handle that.",
+            "kind": "developer_run",
+        },
+        {
+            "kind": "developer_run",
+            "payload": {
+                "instruction": "Use only the user's explicit request.",
+                "validation_profile": "zelo_core",
+            },
+        },
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-legacy-task-boundary",
+        )
+
+        assert response.status_code == 201, response.text
+        assert len(provider.requests) == 3
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[0].messages
+        )
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[1].messages
+        )
+        assert not any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in provider.requests[2].messages
+        )
+        assert response.json()["core_task"]["kind"] == "developer_run"
+
+
 def test_direct_conversation_persists_identity_and_history(settings, database):
     provider = MindProvider(reply("We can plan that."), reply("Continuing from the plan."))
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
