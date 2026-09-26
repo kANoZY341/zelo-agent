@@ -38,7 +38,7 @@ class ProjectService:
                 raise DomainError("Project not found", 404)
             return self._project_response(project)
 
-    def list(self, limit: int, offset: int) -> tuple[list[ProjectResponse], int]:
+    def list_projects(self, limit: int, offset: int) -> tuple[list[ProjectResponse], int]:
         with self.database.read() as session:
             total = session.scalar(select(func.count()).select_from(Project)) or 0
             projects = list(
