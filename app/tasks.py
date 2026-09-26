@@ -61,9 +61,7 @@ from app.self_improvement_runtime import (
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
-TERMINAL_STATES = frozenset(
-    {State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED}
-)
+TERMINAL_STATES = frozenset({State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED})
 CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
 CAPACITY_BACKOFF_MAX_SECONDS = 5.0
 
