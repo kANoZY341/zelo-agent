@@ -490,6 +490,7 @@ class CampaignScheduler:
                     reservation.status = "committed"
                     reservation.committed_units = WAKE_BUDGET_UNITS
                     reservation.updated_at = now
+                    session.flush([reservation])
                     append_campaign_event(
                         session,
                         schedule.campaign_id,
