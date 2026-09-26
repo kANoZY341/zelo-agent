@@ -103,6 +103,8 @@ export function ControlDesk({
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [campaignOffset, setCampaignOffset] = useState(0);
   const [campaignTotal, setCampaignTotal] = useState(0);
+  const [budgetOffset, setBudgetOffset] = useState(0);
+  const [scheduleOffset, setScheduleOffset] = useState(0);
   const [overview, setOverview] = useState<CampaignOverview | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -261,6 +263,11 @@ export function ControlDesk({
   }, [campaignOffset, goalId, refreshKey]);
 
   useEffect(() => {
+    setBudgetOffset(0);
+    setScheduleOffset(0);
+  }, [campaignId]);
+
+  useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -277,7 +284,7 @@ export function ControlDesk({
       setDetailLoading(true);
       try {
         const response = await fetch(
-          `/api/campaigns/${encodeURIComponent(campaignId)}/overview`,
+          `/api/campaigns/${encodeURIComponent(campaignId)}/overview?limit=${PAGE_SIZE}&budget_offset=${budgetOffset}&schedule_offset=${scheduleOffset}`,
           {
             headers: WORKSPACE_HEADERS,
             cache: "no-store",
@@ -285,6 +292,22 @@ export function ControlDesk({
         );
         const next = await parseJson<CampaignOverview>(response);
         if (!cancelled && next.campaign.id === campaignId) {
+          if (
+            next.budgets.items.length === 0 &&
+            next.budgets.total > 0 &&
+            budgetOffset > 0
+          ) {
+            setBudgetOffset(Math.max(0, budgetOffset - PAGE_SIZE));
+            return;
+          }
+          if (
+            next.schedules.items.length === 0 &&
+            next.schedules.total > 0 &&
+            scheduleOffset > 0
+          ) {
+            setScheduleOffset(Math.max(0, scheduleOffset - PAGE_SIZE));
+            return;
+          }
           setOverview(next);
           setCampaigns((current) =>
             current.map((campaign) =>
@@ -315,7 +338,7 @@ export function ControlDesk({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [campaignId, refreshKey]);
+  }, [budgetOffset, campaignId, refreshKey, scheduleOffset]);
 
   useEffect(() => {
     const timer = setInterval(
@@ -632,6 +655,11 @@ export function ControlDesk({
                   ))}
                 </div>
               )}
+              <Pager
+                offset={budgetOffset}
+                total={visibleOverview.budgets.total}
+                onOffsetChange={setBudgetOffset}
+              />
             </section>
 
             <section className="desk-inspector-section">
@@ -656,6 +684,11 @@ export function ControlDesk({
                   ))}
                 </div>
               )}
+              <Pager
+                offset={scheduleOffset}
+                total={visibleOverview.schedules.total}
+                onOffsetChange={setScheduleOffset}
+              />
             </section>
 
             <div className="boundary-card">
@@ -753,6 +786,11 @@ export function ControlDesk({
                   ))}
                 </div>
               )}
+              <Pager
+                offset={budgetOffset}
+                total={visibleOverview.budgets.total}
+                onOffsetChange={setBudgetOffset}
+              />
             </section>
 
             <section className="desk-inspector-section">
@@ -777,6 +815,11 @@ export function ControlDesk({
                   ))}
                 </div>
               )}
+              <Pager
+                offset={scheduleOffset}
+                total={visibleOverview.schedules.total}
+                onOffsetChange={setScheduleOffset}
+              />
             </section>
 
             <div className="boundary-card">

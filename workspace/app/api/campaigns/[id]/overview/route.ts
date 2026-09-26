@@ -6,6 +6,23 @@ type CoreRead = {
   body: unknown;
 };
 
+const MAX_PAGE = 100;
+const MAX_OFFSET = 1_000_000;
+
+function boundedInteger(
+  value: string | null,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  if (value === null) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    return fallback;
+  }
+  return parsed;
+}
+
 async function readCoreJson(path: string): Promise<CoreRead> {
   const response = await proxyCore(path);
   let body: unknown;
@@ -46,12 +63,30 @@ export async function GET(
   if (rejected) return rejected;
 
   const { id } = await context.params;
+  const requestUrl = new URL(request.url);
+  const limit = boundedInteger(requestUrl.searchParams.get("limit"), 25, 1, MAX_PAGE);
+  const budgetOffset = boundedInteger(
+    requestUrl.searchParams.get("budget_offset"),
+    0,
+    0,
+    MAX_OFFSET,
+  );
+  const scheduleOffset = boundedInteger(
+    requestUrl.searchParams.get("schedule_offset"),
+    0,
+    0,
+    MAX_OFFSET,
+  );
   const campaignId = encodeURIComponent(id);
   const [campaign, eventMeta, budgets, schedules] = await Promise.all([
     readCoreJson(`/campaigns/${campaignId}`),
     readCoreJson(`/campaigns/${campaignId}/events?limit=1&offset=0`),
-    readCoreJson(`/campaigns/${campaignId}/budgets?limit=100&offset=0`),
-    readCoreJson(`/campaigns/${campaignId}/schedules?limit=100&offset=0`),
+    readCoreJson(
+      `/campaigns/${campaignId}/budgets?limit=${limit}&offset=${budgetOffset}`,
+    ),
+    readCoreJson(
+      `/campaigns/${campaignId}/schedules?limit=${limit}&offset=${scheduleOffset}`,
+    ),
   ]);
 
   for (const result of [campaign, eventMeta, budgets, schedules]) {
