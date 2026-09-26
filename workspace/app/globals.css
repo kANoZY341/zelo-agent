@@ -854,6 +854,29 @@ h2 {
   gap: 18px;
 }
 
+.mobile-project-controls {
+  display: none;
+}
+
+.mobile-project-select,
+.mobile-project-refresh {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.mobile-project-select {
+  max-width: 150px;
+  padding: 8px 10px;
+}
+
+.mobile-project-refresh {
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+}
+
 .desk-status-pill,
 .campaign-state {
   border: 1px solid #34400e;
@@ -1235,7 +1258,18 @@ h2 {
     display: none;
   }
 
+  .mobile-project-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .desk-status-pill {
+    display: none;
+  }
+
   .desk-topbar,
+
   .desk-scroll {
     padding-left: 16px;
     padding-right: 16px;

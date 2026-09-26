@@ -150,7 +150,8 @@ Core state into the workspace:
 - recent Campaign events;
 - Campaign budgets;
 - bounded Mind schedules;
-- periodic read-only refresh from Core.
+- periodic read-only refresh from Core with selection preservation and campaign-card reconciliation;
+- mobile project selection and refresh controls when the desktop project rail is hidden.
 
 The workspace remains presentation and interaction only. It does not create a
 second task, approval, scheduler, budget, project or campaign authority system.

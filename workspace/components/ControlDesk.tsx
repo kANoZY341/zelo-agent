@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   Campaign,
   CampaignOverview,
@@ -13,6 +13,7 @@ import type {
 
 const WORKSPACE_HEADERS = { "X-Zelo-Workspace": "1" };
 const REFRESH_INTERVAL_MS = 5000;
+const HIERARCHY_REFRESH_INTERVAL_MS = 15000;
 
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json();
@@ -66,6 +67,8 @@ export function ControlDesk({
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const goalsProjectRef = useRef<string | null>(null);
+  const campaignsGoalRef = useRef<string | null>(null);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -79,6 +82,8 @@ export function ControlDesk({
     () => campaigns.find((campaign) => campaign.id === campaignId) ?? null,
     [campaigns, campaignId],
   );
+  const visibleOverview =
+    overview?.campaign.id === campaignId ? overview : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -117,11 +122,15 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    setGoals([]);
-    setGoalId(null);
-    setCampaigns([]);
-    setCampaignId(null);
-    setOverview(null);
+    const parentChanged = goalsProjectRef.current !== projectId;
+    if (parentChanged) {
+      goalsProjectRef.current = projectId;
+      setGoals([]);
+      setGoalId(null);
+      setCampaigns([]);
+      setCampaignId(null);
+      setOverview(null);
+    }
     if (!projectId) return () => undefined;
 
     fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=100&offset=0`, {
@@ -132,7 +141,11 @@ export function ControlDesk({
       .then((page) => {
         if (cancelled) return;
         setGoals(page.items);
-        setGoalId(page.items[0]?.id ?? null);
+        setGoalId((current) =>
+          current && page.items.some((item) => item.id === current)
+            ? current
+            : (page.items[0]?.id ?? null),
+        );
       })
       .catch((loadError) => {
         if (!cancelled) {
@@ -149,9 +162,13 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    setCampaigns([]);
-    setCampaignId(null);
-    setOverview(null);
+    const parentChanged = campaignsGoalRef.current !== goalId;
+    if (parentChanged) {
+      campaignsGoalRef.current = goalId;
+      setCampaigns([]);
+      setCampaignId(null);
+      setOverview(null);
+    }
     if (!goalId) return () => undefined;
 
     fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=100&offset=0`, {
@@ -162,7 +179,11 @@ export function ControlDesk({
       .then((page) => {
         if (cancelled) return;
         setCampaigns(page.items);
-        setCampaignId(page.items[0]?.id ?? null);
+        setCampaignId((current) =>
+          current && page.items.some((item) => item.id === current)
+            ? current
+            : (page.items[0]?.id ?? null),
+        );
       })
       .catch((loadError) => {
         if (!cancelled) {
@@ -183,11 +204,16 @@ export function ControlDesk({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
+    if (!campaignId) {
+      setOverview(null);
+      return () => undefined;
+    }
+
+    setOverview((current) =>
+      current?.campaign.id === campaignId ? current : null,
+    );
+
     const load = async () => {
-      if (!campaignId) {
-        setOverview(null);
-        return;
-      }
       setDetailLoading(true);
       try {
         const response = await fetch(
@@ -198,8 +224,13 @@ export function ControlDesk({
           },
         );
         const next = await parseJson<CampaignOverview>(response);
-        if (!cancelled) {
+        if (!cancelled && next.campaign.id === campaignId) {
           setOverview(next);
+          setCampaigns((current) =>
+            current.map((campaign) =>
+              campaign.id === next.campaign.id ? next.campaign : campaign,
+            ),
+          );
           setError(null);
         }
       } catch (loadError) {
@@ -226,8 +257,18 @@ export function ControlDesk({
     };
   }, [campaignId, refreshKey]);
 
-  const recentEvents = overview
-    ? [...overview.events.items].sort((a, b) => b.sequence - a.sequence).slice(0, 8)
+  useEffect(() => {
+    const timer = setInterval(
+      () => setRefreshKey((value) => value + 1),
+      HIERARCHY_REFRESH_INTERVAL_MS,
+    );
+    return () => clearInterval(timer);
+  }, []);
+
+  const recentEvents = visibleOverview
+    ? [...visibleOverview.events.items]
+        .sort((a, b) => b.sequence - a.sequence)
+        .slice(0, 8)
     : [];
 
   return (
@@ -290,6 +331,30 @@ export function ControlDesk({
             <h1>{selectedProject?.name ?? "Control Desk"}</h1>
           </div>
           <div className="desk-topbar-actions">
+            <div className="mobile-project-controls">
+              <select
+                className="mobile-project-select"
+                value={projectId ?? ""}
+                onChange={(event) => setProjectId(event.target.value || null)}
+                aria-label="Select project"
+              >
+                {projects.length === 0 ? <option value="">No projects</option> : null}
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="mobile-project-refresh"
+                onClick={() => setRefreshKey((value) => value + 1)}
+                disabled={loading}
+                title="Refresh canonical Core state"
+                aria-label="Refresh projects"
+              >
+                ↻
+              </button>
+            </div>
             <button className="mobile-view-button" onClick={onShowTalk}>
               Talk
             </button>
@@ -402,28 +467,28 @@ export function ControlDesk({
 
           <div className="desk-inline-inspector">
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
-        <h2>{overview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
+        <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !overview ? (
+        {detailLoading && !visibleOverview ? (
           <div className="desk-empty-card">Loading campaign state…</div>
-        ) : overview ? (
+        ) : visibleOverview ? (
           <>
             <div className="campaign-overview-card">
               <div>
                 <span>Status</span>
-                <strong>{overview.campaign.status}</strong>
+                <strong>{visibleOverview.campaign.status}</strong>
               </div>
               <div>
                 <span>Tasks</span>
-                <strong>{overview.campaign.task_count}</strong>
+                <strong>{visibleOverview.campaign.task_count}</strong>
               </div>
               <div>
                 <span>Events</span>
-                <strong>{overview.events.total}</strong>
+                <strong>{visibleOverview.events.total}</strong>
               </div>
               <div>
                 <span>Schedules</span>
-                <strong>{overview.schedules.total}</strong>
+                <strong>{visibleOverview.schedules.total}</strong>
               </div>
             </div>
 
@@ -455,13 +520,13 @@ export function ControlDesk({
             <section className="desk-inspector-section">
               <div className="desk-inspector-title">
                 <strong>Budgets</strong>
-                <span>{overview.budgets.total}</span>
+                <span>{visibleOverview.budgets.total}</span>
               </div>
-              {overview.budgets.items.length === 0 ? (
+              {visibleOverview.budgets.items.length === 0 ? (
                 <div className="desk-empty-mini">No campaign budgets configured.</div>
               ) : (
                 <div className="budget-list">
-                  {overview.budgets.items.map((budget) => (
+                  {visibleOverview.budgets.items.map((budget) => (
                     <div className="budget-row" key={budget.resource}>
                       <div>
                         <strong>{budget.resource.replaceAll("_", " ")}</strong>
@@ -481,13 +546,13 @@ export function ControlDesk({
             <section className="desk-inspector-section">
               <div className="desk-inspector-title">
                 <strong>Schedules</strong>
-                <span>{overview.schedules.total}</span>
+                <span>{visibleOverview.schedules.total}</span>
               </div>
-              {overview.schedules.items.length === 0 ? (
+              {visibleOverview.schedules.items.length === 0 ? (
                 <div className="desk-empty-mini">No bounded Mind schedules.</div>
               ) : (
                 <div className="schedule-list">
-                  {overview.schedules.items.map((schedule) => (
+                  {visibleOverview.schedules.items.map((schedule) => (
                     <div className="schedule-row" key={schedule.id}>
                       <div>
                         <strong>{schedule.status}</strong>
@@ -523,28 +588,28 @@ export function ControlDesk({
 
       <aside className="desk-inspector">
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
-        <h2>{overview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
+        <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !overview ? (
+        {detailLoading && !visibleOverview ? (
           <div className="desk-empty-card">Loading campaign state…</div>
-        ) : overview ? (
+        ) : visibleOverview ? (
           <>
             <div className="campaign-overview-card">
               <div>
                 <span>Status</span>
-                <strong>{overview.campaign.status}</strong>
+                <strong>{visibleOverview.campaign.status}</strong>
               </div>
               <div>
                 <span>Tasks</span>
-                <strong>{overview.campaign.task_count}</strong>
+                <strong>{visibleOverview.campaign.task_count}</strong>
               </div>
               <div>
                 <span>Events</span>
-                <strong>{overview.events.total}</strong>
+                <strong>{visibleOverview.events.total}</strong>
               </div>
               <div>
                 <span>Schedules</span>
-                <strong>{overview.schedules.total}</strong>
+                <strong>{visibleOverview.schedules.total}</strong>
               </div>
             </div>
 
@@ -576,13 +641,13 @@ export function ControlDesk({
             <section className="desk-inspector-section">
               <div className="desk-inspector-title">
                 <strong>Budgets</strong>
-                <span>{overview.budgets.total}</span>
+                <span>{visibleOverview.budgets.total}</span>
               </div>
-              {overview.budgets.items.length === 0 ? (
+              {visibleOverview.budgets.items.length === 0 ? (
                 <div className="desk-empty-mini">No campaign budgets configured.</div>
               ) : (
                 <div className="budget-list">
-                  {overview.budgets.items.map((budget) => (
+                  {visibleOverview.budgets.items.map((budget) => (
                     <div className="budget-row" key={budget.resource}>
                       <div>
                         <strong>{budget.resource.replaceAll("_", " ")}</strong>
@@ -602,13 +667,13 @@ export function ControlDesk({
             <section className="desk-inspector-section">
               <div className="desk-inspector-title">
                 <strong>Schedules</strong>
-                <span>{overview.schedules.total}</span>
+                <span>{visibleOverview.schedules.total}</span>
               </div>
-              {overview.schedules.items.length === 0 ? (
+              {visibleOverview.schedules.items.length === 0 ? (
                 <div className="desk-empty-mini">No bounded Mind schedules.</div>
               ) : (
                 <div className="schedule-list">
-                  {overview.schedules.items.map((schedule) => (
+                  {visibleOverview.schedules.items.map((schedule) => (
                     <div className="schedule-row" key={schedule.id}>
                       <div>
                         <strong>{schedule.status}</strong>
