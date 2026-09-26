@@ -608,10 +608,7 @@ def test_campaign_control_migration_preserves_existing_campaign_state(settings):
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_checkpoints")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_leases")) == 0
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 0
-            assert (
-                session.scalar(text("SELECT COUNT(*) FROM campaign_budget_reservations"))
-                == 0
-            )
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_reservations")) == 0
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
         database.close()
