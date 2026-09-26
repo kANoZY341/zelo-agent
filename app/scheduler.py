@@ -406,12 +406,12 @@ class CampaignScheduler:
             run.conversation_turn_id = conversation_turn_id
             run.completed_at = now
             run.error = error
-            schedule.run_count += 1
-            schedule.last_run_at = now
-            schedule.last_error = error
-            schedule.updated_at = now
 
             if schedule.status == "active":
+                schedule.run_count += 1
+                schedule.last_run_at = now
+                schedule.last_error = error
+                schedule.updated_at = now
                 if schedule.run_count >= schedule.max_runs:
                     schedule.status = "completed"
                     schedule.next_run_at = None
@@ -419,6 +419,8 @@ class CampaignScheduler:
                     if schedule.interval_seconds is None:
                         raise DomainError("Recurring Campaign schedule cadence is unavailable", 500)
                     schedule.next_run_at = now + timedelta(seconds=schedule.interval_seconds)
+            elif schedule.status != "cancelled":
+                raise DomainError("Campaign schedule cannot finalize a wake in this state", 409)
 
             append_campaign_event(
                 session,
@@ -445,9 +447,9 @@ class CampaignScheduler:
             run.status = "interrupted"
             run.completed_at = now
             run.error = reason[:SCHEDULE_ERROR_CHARS]
-            schedule.last_error = run.error
-            schedule.updated_at = now
             if schedule.status == "active":
+                schedule.last_error = run.error
+                schedule.updated_at = now
                 schedule.next_run_at = now
             append_campaign_event(
                 session,
