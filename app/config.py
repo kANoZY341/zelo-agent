@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
+    scheduler_enabled: bool = True
+    scheduler_poll_seconds: float = Field(default=1.0, ge=0.01, le=60.0, allow_inf_nan=False)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_general_model: str = "qwen3:4b-instruct"
     ollama_mind_model: str | None = None
