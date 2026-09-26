@@ -48,3 +48,19 @@ export type Conversation = {
   turn_offset: number;
   turn_total: number;
 };
+
+
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  turn_count: number;
+};
+
+export type ConversationPage = {
+  items: ConversationSummary[];
+  limit: number;
+  offset: number;
+  total: number;
+};
