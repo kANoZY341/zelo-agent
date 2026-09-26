@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -234,11 +235,12 @@ class ResearchRuntime:
 
             if isinstance(action, ResearchFinalAction):
                 unique_ids = list(dict.fromkeys(action.source_ids))
+                cited_ids = re.findall(r"\[(S[1-9][0-9]*)\]", action.content)
                 citations_valid = (
                     bool(sources)
                     and len(unique_ids) == len(action.source_ids)
+                    and set(cited_ids) == set(unique_ids)
                     and all(source_id in source_lookup for source_id in unique_ids)
-                    and all(f"[{source_id}]" in action.content for source_id in unique_ids)
                 )
                 if not citations_valid:
                     parse_failures += 1
