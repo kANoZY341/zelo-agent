@@ -4,9 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
+from alembic import command
 from sqlalchemy.exc import IntegrityError
 
 from app.campaign_control import CampaignControlService
+from app.database import Database, migration_config
 from app.campaigns import CampaignService
 from app.policy import DomainError
 from app.projects import ProjectService
@@ -410,3 +412,131 @@ def test_campaign_control_api_round_trip(client):
     )
     assert status.status_code == 200, status.text
     assert status.json()["status"] == "held"
+
+
+def test_campaign_control_migration_preserves_existing_campaign_state(settings):
+    database = Database(settings.database_path)
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0014_campaign_state")
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO projects (
+                        id, name, summary, status, created_at, updated_at
+                    ) VALUES (
+                        '10000000-0000-0000-0000-000000000001',
+                        'Existing project', '', 'active',
+                        '2026-09-26 00:00:00', '2026-09-26 00:00:00'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO goals (
+                        id, project_id, title, spec, status, created_at, updated_at
+                    ) VALUES (
+                        '20000000-0000-0000-0000-000000000002',
+                        '10000000-0000-0000-0000-000000000001',
+                        'Existing goal', '{"objective":"preserve"}', 'active',
+                        '2026-09-26 00:00:00', '2026-09-26 00:00:00'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaigns (
+                        id, goal_id, title, summary, status, created_at, updated_at
+                    ) VALUES (
+                        '30000000-0000-0000-0000-000000000003',
+                        '20000000-0000-0000-0000-000000000002',
+                        'Existing campaign', '', 'active',
+                        '2026-09-26 00:00:00', '2026-09-26 00:00:00'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, kind, payload, timeout_seconds, status, action_version,
+                        action_hash, request_hash, cancel_requested, created_at, updated_at
+                    ) VALUES (
+                        '40000000-0000-0000-0000-000000000004',
+                        'echo', '{"text":"existing"}', 10, 'succeeded', 1,
+                        :action_hash, :request_hash, 0,
+                        '2026-09-26 00:00:00', '2026-09-26 00:00:00'
+                    )
+                    """
+                ),
+                {"action_hash": "a" * 64, "request_hash": "b" * 64},
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaign_task_links (task_id, campaign_id, created_at)
+                    VALUES (
+                        '40000000-0000-0000-0000-000000000004',
+                        '30000000-0000-0000-0000-000000000003',
+                        '2026-09-26 00:00:00'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaign_events (
+                        id, campaign_id, sequence, task_id, event, created_at, details
+                    ) VALUES (
+                        '50000000-0000-0000-0000-000000000005',
+                        '30000000-0000-0000-0000-000000000003',
+                        1, '40000000-0000-0000-0000-000000000004',
+                        'task_attached', '2026-09-26 00:00:00', '{}'
+                    )
+                    """
+                )
+            )
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaign_checkpoints (
+                        id, campaign_id, version, state, created_at
+                    ) VALUES (
+                        '60000000-0000-0000-0000-000000000006',
+                        '30000000-0000-0000-0000-000000000003',
+                        1, '{"phase":"existing"}', '2026-09-26 00:00:00'
+                    )
+                    """
+                )
+            )
+
+        database.migrate()
+
+        with database.read() as session:
+            assert (
+                session.scalar(text("SELECT version_num FROM alembic_version"))
+                == "0015_campaign_controls"
+            )
+            assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_task_links")) == 1
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_events")) == 1
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_checkpoints")) == 1
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_leases")) == 0
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 0
+            assert (
+                session.scalar(text("SELECT COUNT(*) FROM campaign_budget_reservations"))
+                == 0
+            )
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    finally:
+        database.close()
