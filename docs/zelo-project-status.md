@@ -100,35 +100,36 @@ remaining gap was grounded persistent project context: Mind could converse but
 could not reliably answer what Zelo is currently building without explicit
 context.
 
-## Active increment: v0.12 Campaign execution controls
+## Active increment: v0.12 Bounded scheduler and Mind wake cycles
 
-The Project/Goal + Context Resolver seed is merged through PR #28, workspace
-conversation history through PR #29, and Campaign ownership/state through PR #30.
-The Campaign/state merge commit on main is:
+Campaign leases/recovery/shared budgets are merged through PR #31. The current
+main baseline for this slice is:
 
-`41aacf52a69038c387f0d34d92a987216aafffb5`
+`e74e9e52092e66313cbd36b878462b1ef881897f`
 
 Active branch:
 
-`feat/v0.12-leases-budget`
+`feat/v0.12-scheduler-wake`
 
 Design:
 
-`docs/v0.12-campaign-controls.md`
+`docs/v0.12-scheduler-wakes.md`
 
-This slice adds the authority controls required before scheduling:
+This slice adds:
 
-- Campaign-scoped execution leases with monotonic fencing generations;
-- exact holder/token/generation proof for renew and release;
-- deterministic recovery of expired leases;
-- shared named integer budget limits;
-- idempotent budget reservations;
-- bounded reservation expiry plus commit/release/recovery accounting;
-- startup recovery before ordinary task recovery.
+- durable Campaign-owned one-shot and fixed-interval schedules;
+- minimum recurrence and maximum-run bounds;
+- one Campaign-wide `mind-wake` lease for every wake;
+- required `mind_wakes` budget reservation before Mind execution;
+- deterministic scheduled Mind turn idempotency;
+- forced same-Campaign ownership for any task created by a scheduled Mind wake;
+- durable schedule-run records with restart interruption/resume semantics;
+- atomic successful wake budget charging plus schedule progress;
+- no catch-up burst of missed recurring intervals.
 
-This slice does not add a scheduler, autonomous Mind wake cycles, Research
-specialist execution, workspace project/progress views, persistent v0.13 memory,
-or new merge/release authority.
+This slice does not add free-running autonomy, cron expressions, self-created
+schedules, Research specialist execution, workspace project/progress views,
+voice, persistent v0.13 memory, or new merge/release authority.
 
 ## Parked work
 
@@ -137,9 +138,9 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify leases/recovery plus shared Campaign budget accounting.
-2. Add bounded scheduling and Mind wake cycles on top of those Core controls.
-3. Add the first fixed Research specialist and workspace project/progress views.
+1. Land and verify bounded scheduling plus restart-safe Mind wake cycles.
+2. Add the first fixed Research specialist with narrow read-only retrieval.
+3. Add workspace project/progress views backed only by Core state.
 4. Add push-to-talk voice through the existing conversation/action contracts.
 5. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.
