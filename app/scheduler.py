@@ -538,21 +538,21 @@ class CampaignScheduler:
                     reservation.committed_units = WAKE_BUDGET_UNITS
                     reservation.updated_at = now
                     session.flush([reservation])
-                    append_campaign_event(
-                        session,
-                        schedule.campaign_id,
-                        "budget_reconciled",
-                        reservation_id=reservation.id,
-                        resource=reservation.resource,
-                        owner_id=reservation.owner_id,
-                        reserved_units=reservation.units,
-                        committed_units=WAKE_BUDGET_UNITS,
-                    )
                 elif not (
                     reservation.status == "committed"
                     and reservation.committed_units == WAKE_BUDGET_UNITS
                 ):
                     raise WakeAuthorityUnavailable("wake_budget_finalization_stale")
+                append_campaign_event(
+                    session,
+                    schedule.campaign_id,
+                    "budget_reconciled",
+                    reservation_id=reservation.id,
+                    resource=reservation.resource,
+                    owner_id=reservation.owner_id,
+                    reserved_units=reservation.units,
+                    committed_units=WAKE_BUDGET_UNITS,
+                )
 
             run.status = status
             run.conversation_turn_id = conversation_turn_id
