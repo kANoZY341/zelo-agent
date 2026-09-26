@@ -55,23 +55,24 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Campaign execution controls
+## Current scope: v0.12 Bounded scheduler and Mind wake cycles
 
 The released base remains Zelo Core v0.11.0. Early Zelo Chat, the first
-Zelo-owned workspace, Project/Goal ownership, and the Campaign/state foundation
-are complete on main. The active implementation slice is documented in
-`docs/v0.12-campaign-controls.md`.
+Zelo-owned workspace, Project/Goal ownership, Campaign/state, and Campaign
+leases/shared budgets are complete on main. The active implementation slice is
+documented in `docs/v0.12-scheduler-wakes.md`.
 
-Build the minimum Core authority needed before scheduling: Campaign-scoped leases
-with monotonic fencing generations, deterministic expiry recovery, shared named
-integer budgets, and idempotent reserve/commit/release accounting. Recovery must
-free expired control state without silently creating, retrying or claiming work.
+Build only the bounded Core scheduler: durable Campaign-owned one-shot/fixed-
+interval schedules, maximum run counts, Campaign-wide wake leases, required
+`mind_wakes` budget reservations, restart-safe logical occurrences, and
+deterministic scheduled Mind turns. Any Core task created by a scheduled Mind
+wake must remain owned by the same Campaign.
 
-Do not silently add the later v0.12 scheduler, autonomous Mind wake cycles,
-Research specialist, workspace project/progress views, or new merge/release
-authority in this slice. Persistent personal/project/agent memory remains v0.13.
-Agent Factory remains v0.14, broad tools/capabilities remain v0.15, and external
-channels remain v0.16.
+Do not add free-running autonomy, cron expressions, self-created schedules,
+Research specialist execution, workspace project/progress views, voice, or new
+merge/release authority in this slice. Persistent personal/project/agent memory
+remains v0.13. Agent Factory remains v0.14, broad tools/capabilities remain
+v0.15, and external channels remain v0.16.
 
 ## Workspace decision
 

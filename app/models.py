@@ -299,6 +299,99 @@ class CampaignBudgetReservation(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class CampaignSchedule(Base):
+    __tablename__ = "campaign_schedules"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_id",
+            "idempotency_key",
+            name="uq_campaign_schedule_idempotency",
+        ),
+        CheckConstraint(
+            "status IN ('active','completed','cancelled')",
+            name="ck_campaign_schedule_status",
+        ),
+        CheckConstraint(
+            "max_runs BETWEEN 1 AND 100",
+            name="ck_campaign_schedule_max_runs",
+        ),
+        CheckConstraint(
+            "run_count >= 0 AND run_count <= max_runs",
+            name="ck_campaign_schedule_run_count",
+        ),
+        CheckConstraint(
+            "(interval_seconds IS NULL AND max_runs = 1) OR "
+            "(interval_seconds BETWEEN 60 AND 86400 AND max_runs > 1)",
+            name="ck_campaign_schedule_cadence",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), index=True)
+    prompt: Mapped[str] = mapped_column(String(16384))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime, index=True)
+    interval_seconds: Mapped[int | None] = mapped_column(Integer)
+    max_runs: Mapped[int] = mapped_column(Integer, default=1)
+    run_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_error: Mapped[str | None] = mapped_column(String(256))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CampaignScheduleRun(Base):
+    __tablename__ = "campaign_schedule_runs"
+    __table_args__ = (
+        UniqueConstraint("schedule_id", "sequence", name="uq_campaign_schedule_run_sequence"),
+        UniqueConstraint(
+            "budget_reservation_id",
+            name="uq_campaign_schedule_run_budget_reservation",
+        ),
+        UniqueConstraint(
+            "conversation_turn_id",
+            name="uq_campaign_schedule_run_conversation_turn",
+        ),
+        CheckConstraint("sequence >= 1", name="ck_campaign_schedule_run_sequence"),
+        CheckConstraint(
+            "status IN ('running','succeeded','failed','interrupted')",
+            name="ck_campaign_schedule_run_status",
+        ),
+        CheckConstraint(
+            "lease_generation >= 1",
+            name="ck_campaign_schedule_run_lease_generation",
+        ),
+        CheckConstraint(
+            "(status = 'running' AND completed_at IS NULL) OR "
+            "(status IN ('succeeded','failed','interrupted') AND completed_at IS NOT NULL)",
+            name="ck_campaign_schedule_run_completion",
+        ),
+        CheckConstraint(
+            "status <> 'succeeded' OR "
+            "(budget_reservation_id IS NOT NULL AND conversation_turn_id IS NOT NULL)",
+            name="ck_campaign_schedule_run_success_bindings",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    schedule_id: Mapped[str] = mapped_column(ForeignKey("campaign_schedules.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)
+    lease_holder_id: Mapped[str] = mapped_column(String(128))
+    lease_token: Mapped[str] = mapped_column(String(36))
+    lease_generation: Mapped[int] = mapped_column(Integer)
+    budget_reservation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("campaign_budget_reservations.id")
+    )
+    conversation_turn_id: Mapped[str | None] = mapped_column(ForeignKey("conversation_turns.id"))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    error: Mapped[str | None] = mapped_column(String(256))
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

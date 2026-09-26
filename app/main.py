@@ -33,6 +33,8 @@ from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
 from app.runner import Runner
+from app.scheduler import CampaignScheduler
+from app.scheduler_api import router as scheduler_router
 from app.self_improvement import RepositoryInspector
 from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
@@ -59,6 +61,7 @@ def create_app(
         configure_logging()
         database = Database(configuration.database_path)
         runner = None
+        scheduler = None
         try:
             database.acquire_runner()
             database.check_schema()
@@ -116,9 +119,6 @@ def create_app(
                 promotion_ci_verifier,
                 promotion_release_runtime,
             )
-            campaign_controls.recover_expired()
-            tasks.recover()
-            tasks.expire_approvals()
             mind = MindService(
                 database,
                 configuration,
@@ -126,6 +126,16 @@ def create_app(
                 tasks,
                 context_resolver=context_resolver,
             )
+            scheduler = CampaignScheduler(
+                database,
+                configuration,
+                campaign_controls,
+                mind,
+            )
+            scheduler.recover()
+            campaign_controls.recover_expired()
+            tasks.recover()
+            tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
@@ -144,11 +154,15 @@ def create_app(
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
             application.state.mind = mind
+            application.state.scheduler = scheduler
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()
+            scheduler.start()
             yield
         finally:
+            if scheduler:
+                await scheduler.stop()
             if runner:
                 await runner.stop()
             database.close()
@@ -160,6 +174,7 @@ def create_app(
     application.include_router(project_router)
     application.include_router(campaign_router)
     application.include_router(campaign_control_router)
+    application.include_router(scheduler_router)
     application.include_router(mind_router)
 
     @application.exception_handler(DomainError)

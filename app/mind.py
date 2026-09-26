@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Annotated, Any, Literal
 from uuid import NAMESPACE_URL, uuid5
 
@@ -471,6 +471,31 @@ class MindService:
             raise DomainError("Stored Zelo Mind action is invalid", 500) from None
 
     @staticmethod
+    def _bind_campaign_action(
+        action: MindReplyAction | MindCoreTaskAction,
+        campaign_id: str | None,
+    ) -> MindReplyAction | MindCoreTaskAction:
+        if campaign_id is None or isinstance(action, MindReplyAction):
+            return action
+        if action.task.campaign_id not in {None, campaign_id}:
+            raise DomainError("Zelo Mind task attempted to change Campaign ownership", 409)
+        return action.model_copy(
+            update={"task": action.task.model_copy(update={"campaign_id": campaign_id})}
+        )
+
+    @classmethod
+    def _require_saved_campaign_binding(
+        cls,
+        turn: ConversationTurn,
+        campaign_id: str | None,
+    ) -> None:
+        if campaign_id is None:
+            return
+        action = cls._saved_action(turn)
+        if isinstance(action, MindCoreTaskAction) and action.task.campaign_id != campaign_id:
+            raise DomainError("Stored Zelo Mind Campaign binding changed", 409)
+
+    @staticmethod
     def _result_usage(result) -> dict[str, int | None]:
         return {
             "prompt_tokens": result.prompt_tokens,
@@ -670,13 +695,31 @@ class MindService:
             session.flush()
             return self._turn_response(turn)
 
-    async def _complete_turn(self, turn: ConversationTurn) -> ConversationTurnResponse:
+    async def _complete_turn(
+        self,
+        turn: ConversationTurn,
+        *,
+        before_side_effect: Callable[[], Awaitable[None]] | None = None,
+    ) -> ConversationTurnResponse:
         action = self._saved_action(turn)
         if isinstance(action, MindReplyAction):
             return self._turn_response(turn)
 
+        if before_side_effect is not None:
+            await before_side_effect()
         task_key = f"mind:{turn.conversation_id}:{turn.id}"
-        task, _ = await asyncio.to_thread(self.tasks.submit, action.task, task_key)
+        submission = asyncio.create_task(
+            asyncio.to_thread(self.tasks.submit, action.task, task_key)
+        )
+        try:
+            task, _ = await asyncio.shield(submission)
+        except asyncio.CancelledError as cancellation:
+            try:
+                task, _ = await submission
+                self._link_core_task(turn.id, task.id)
+            except Exception:
+                pass
+            raise cancellation
         return self._link_core_task(turn.id, task.id)
 
     async def send_turn(
@@ -684,11 +727,23 @@ class MindService:
         conversation_id: str,
         text: str,
         idempotency_key: str,
+        *,
+        campaign_id: str | None = None,
+        before_side_effect: Callable[[], Awaitable[None]] | None = None,
+        after_persist: Callable[[ConversationTurn], Awaitable[None]] | None = None,
     ) -> ConversationTurnResponse:
         async with self._lock(conversation_id):
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
-                return await self._complete_turn(existing)
+                self._require_saved_campaign_binding(existing, campaign_id)
+                if before_side_effect is not None:
+                    await before_side_effect()
+                if after_persist is not None:
+                    await after_persist(existing)
+                return await self._complete_turn(
+                    existing,
+                    before_side_effect=before_side_effect,
+                )
 
             with self.database.read() as session:
                 conversation = session.get(Conversation, conversation_id)
@@ -705,10 +760,15 @@ class MindService:
             user_message = ModelMessage("user", text)
             messages.append(user_message)
             task_messages.append(user_message)
+            if before_side_effect is not None:
+                await before_side_effect()
             action, usage, alias, model = await self._generate_action(
                 messages,
                 task_messages=task_messages,
             )
+            action = self._bind_campaign_action(action, campaign_id)
+            if before_side_effect is not None:
+                await before_side_effect()
 
             turn_id = str(uuid5(NAMESPACE_URL, f"zelo-mind:{conversation_id}:{idempotency_key}"))
             turn = self._persist_turn(
@@ -721,4 +781,9 @@ class MindService:
                 model=model,
                 usage=usage,
             )
-            return await self._complete_turn(turn)
+            if after_persist is not None:
+                await after_persist(turn)
+            return await self._complete_turn(
+                turn,
+                before_side_effect=before_side_effect,
+            )

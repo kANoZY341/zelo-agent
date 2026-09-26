@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
+    scheduler_enabled: bool = True
+    scheduler_poll_seconds: float = Field(default=1.0, ge=0.01, le=60.0, allow_inf_nan=False)
+    scheduler_wake_ttl_seconds: int = Field(default=600, ge=30, le=86400)
+    scheduler_control_headroom_seconds: int = Field(default=30, ge=1, le=300)
+    scheduler_max_active_per_campaign: int = Field(default=32, ge=1, le=1000)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_general_model: str = "qwen3:4b-instruct"
     ollama_mind_model: str | None = None
@@ -89,6 +94,23 @@ class Settings(BaseSettings):
         max_length=128,
         pattern=r"^[a-z0-9][a-z0-9-]*$",
     )
+
+    @property
+    def scheduler_mind_window_seconds(self) -> float:
+        return (
+            self.model_timeout_seconds * (self.max_model_parse_retries + 1) * 2
+            + self.mind_admission_timeout_seconds
+            + 5
+        )
+
+    @model_validator(mode="after")
+    def validate_scheduler_wake_ttl(self) -> "Settings":
+        minimum_ttl = self.scheduler_mind_window_seconds + self.scheduler_control_headroom_seconds
+        if self.scheduler_enabled and self.scheduler_wake_ttl_seconds < minimum_ttl:
+            raise ValueError(
+                "Scheduler wake TTL must cover the bounded Mind window plus control headroom"
+            )
+        return self
 
     @field_validator("ollama_url")
     @classmethod

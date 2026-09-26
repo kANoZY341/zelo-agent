@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
@@ -580,6 +580,72 @@ class CampaignRecoveryResponse(StrictModel):
     campaign_id: TaskId | None = None
     recovered_leases: int = Field(ge=0)
     expired_budget_reservations: int = Field(ge=0)
+
+
+CampaignScheduleStatus = Literal["active", "completed", "cancelled"]
+CampaignScheduleRunStatus = Literal["running", "succeeded", "failed", "interrupted"]
+
+
+class CampaignScheduleCreate(StrictModel):
+    conversation_id: TaskId
+    prompt: str = Field(min_length=1, max_length=16384)
+    run_at: datetime
+    interval_seconds: int | None = Field(default=None, ge=60, le=86400)
+    max_runs: int = Field(default=1, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def validate_cadence(self) -> "CampaignScheduleCreate":
+        if self.run_at.tzinfo is None or self.run_at.utcoffset() is None:
+            raise ValueError("run_at must include a timezone")
+        if self.max_runs == 1 and self.interval_seconds is not None:
+            raise ValueError("one-shot schedules cannot set interval_seconds")
+        if self.max_runs > 1 and self.interval_seconds is None:
+            raise ValueError("recurring schedules require interval_seconds")
+        return self
+
+
+class CampaignScheduleResponse(StrictModel):
+    id: TaskId
+    campaign_id: TaskId
+    conversation_id: TaskId
+    prompt: str = Field(min_length=1, max_length=16384)
+    status: CampaignScheduleStatus
+    next_run_at: datetime | None = None
+    interval_seconds: int | None = None
+    max_runs: int = Field(ge=1, le=100)
+    run_count: int = Field(ge=0, le=100)
+    last_run_at: datetime | None = None
+    last_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignSchedulePage(StrictModel):
+    items: list[CampaignScheduleResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class CampaignScheduleRunResponse(StrictModel):
+    id: TaskId
+    schedule_id: TaskId
+    sequence: int = Field(ge=1)
+    status: CampaignScheduleRunStatus
+    lease_holder_id: str = Field(min_length=1, max_length=128)
+    lease_generation: int = Field(ge=1)
+    budget_reservation_id: TaskId | None = None
+    conversation_turn_id: TaskId | None = None
+    started_at: datetime
+    completed_at: datetime | None = None
+    error: str | None = None
+
+
+class CampaignScheduleRunPage(StrictModel):
+    items: list[CampaignScheduleRunResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
 
 
 class ConversationCreate(StrictModel):

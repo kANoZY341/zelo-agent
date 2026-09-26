@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth import require_operator
 from app.mind import MindService
+from app.policy import DomainError
 from app.schemas import (
     ConversationCreate,
     ConversationPage,
@@ -63,4 +64,6 @@ async def send_turn(
     mind: Mind,
     idempotency_key: IdempotencyKey,
 ) -> ConversationTurnResponse:
+    if idempotency_key.startswith("schedule:"):
+        raise DomainError("Reserved conversation idempotency namespace", 422)
     return await mind.send_turn(conversation_id, body.text, idempotency_key)
