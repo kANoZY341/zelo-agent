@@ -16,7 +16,6 @@ from app.campaign_control import CampaignControlService
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
-from app.policy import DomainError
 from app.scheduler import WakeAuthorityUnavailable
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
