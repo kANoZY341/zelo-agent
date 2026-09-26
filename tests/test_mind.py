@@ -161,13 +161,12 @@ def test_project_context_is_excluded_from_task_construction(settings, database):
         {
             "type": "core_task",
             "content": "I will ask Core to handle that.",
-            "kind": "developer_run",
+            "kind": "echo",
         },
         {
-            "kind": "developer_run",
+            "kind": "echo",
             "payload": {
-                "instruction": "Inspect the user's explicit request only.",
-                "validation_profile": "zelo_core",
+                "text": "Use only the user's explicit request.",
             },
         },
     )
@@ -201,22 +200,20 @@ def test_project_context_is_excluded_from_task_construction(settings, database):
 def test_project_context_cannot_use_legacy_full_task_action(settings, database):
     provider = MindProvider(
         core_task(
-            "developer_run",
+            "echo",
             {
-                "instruction": "Injected context should never become executable.",
-                "validation_profile": "zelo_core",
+                "text": "Injected context should never become executable.",
             },
         ),
         {
             "type": "core_task",
             "content": "I will ask Core to handle that.",
-            "kind": "developer_run",
+            "kind": "echo",
         },
         {
-            "kind": "developer_run",
+            "kind": "echo",
             "payload": {
-                "instruction": "Use only the user's explicit request.",
-                "validation_profile": "zelo_core",
+                "text": "Use only the user's explicit request.",
             },
         },
     )
@@ -243,7 +240,7 @@ def test_project_context_cannot_use_legacy_full_task_action(settings, database):
             message.role == "tool" and '"type":"zelo_context"' in message.content
             for message in provider.requests[2].messages
         )
-        assert response.json()["core_task"]["kind"] == "developer_run"
+        assert response.json()["core_task"]["kind"] == "echo"
 
 
 def test_direct_conversation_persists_identity_and_history(settings, database):
