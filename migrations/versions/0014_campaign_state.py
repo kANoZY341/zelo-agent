@@ -30,7 +30,12 @@ def upgrade() -> None:
     op.create_table(
         "campaign_task_links",
         sa.Column("task_id", sa.String(length=36), sa.ForeignKey("tasks.id"), primary_key=True),
-        sa.Column("campaign_id", sa.String(length=36), sa.ForeignKey("campaigns.id"), nullable=False),
+        sa.Column(
+            "campaign_id",
+            sa.String(length=36),
+            sa.ForeignKey("campaigns.id"),
+            nullable=False,
+        ),
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_campaign_task_links_campaign_id", "campaign_task_links", ["campaign_id"])
@@ -57,7 +62,12 @@ def upgrade() -> None:
     op.create_table(
         "campaign_events",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("campaign_id", sa.String(length=36), sa.ForeignKey("campaigns.id"), nullable=False),
+        sa.Column(
+            "campaign_id",
+            sa.String(length=36),
+            sa.ForeignKey("campaigns.id"),
+            nullable=False,
+        ),
         sa.Column("sequence", sa.Integer(), nullable=False),
         sa.Column("task_id", sa.String(length=36), sa.ForeignKey("tasks.id"), nullable=True),
         sa.Column("event", sa.String(length=64), nullable=False),
@@ -71,7 +81,12 @@ def upgrade() -> None:
     op.create_table(
         "campaign_checkpoints",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("campaign_id", sa.String(length=36), sa.ForeignKey("campaigns.id"), nullable=False),
+        sa.Column(
+            "campaign_id",
+            sa.String(length=36),
+            sa.ForeignKey("campaigns.id"),
+            nullable=False,
+        ),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("state", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
