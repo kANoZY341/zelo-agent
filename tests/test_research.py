@@ -1,6 +1,7 @@
 """v0.12 fixed Research specialist tests."""
 
 import json
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -53,7 +54,7 @@ def final(content: str, *source_ids: str) -> dict:
 def research_settings(settings):
     (ROOT / "workspaces").mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="test-research-", dir=ROOT / "workspaces") as directory:
-        root = ROOT / "workspaces" / directory.rsplit("/", 1)[-1]
+        root = Path(directory)
         (root / "facts.txt").write_text(
             "Zelo research evidence: the workspace proof is green.",
             encoding="utf-8",
@@ -147,6 +148,24 @@ def test_research_rejects_non_allowlisted_tool_without_execution(
 
         assert failed["error"] == "research_tool_not_allowed"
         assert executions == []
+
+
+def test_research_rejects_undeclared_citation(
+    research_settings,
+    database,
+):
+    provider = ResearchProvider(
+        call("read_workspace_file", path="facts.txt"),
+        final("One real source [S1] plus an invented source [S9].", "S1"),
+        final("Still invalid [S1] [S9].", "S1"),
+    )
+    with TestClient(
+        create_app(research_settings, provider=provider),
+        headers=AUTH,
+    ) as client:
+        created = submit_research(client)
+        failed = wait_for(client, created["id"], "failed")
+        assert failed["error"] == "research_citation_invalid"
 
 
 def test_research_cannot_finish_with_invented_or_missing_evidence(
