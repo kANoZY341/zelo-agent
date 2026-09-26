@@ -254,7 +254,7 @@ def test_parse_retry_budget_is_shared_across_the_run(settings):
 
 def test_overall_deadline_includes_previous_model_and_tool_steps(settings):
     configured = settings.model_copy(update={"agent_timeout_seconds": 1.0})
-    provider = ScriptedProvider(Delay(0.2, call("system_info")), Delay(2.0, FINAL))
+    provider = ScriptedProvider(Delay(0.7, call("system_info")), Delay(0.7, FINAL))
     execute, events = run(configured, provider)
     with pytest.raises(AgentRuntimeError, match="agent_timeout"):
         asyncio.run(execute())
