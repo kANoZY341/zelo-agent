@@ -22,7 +22,6 @@ from app.models import (
     CampaignSchedule,
     CampaignScheduleRun,
     Conversation,
-    new_id,
     utcnow,
 )
 from app.policy import DomainError
