@@ -687,11 +687,15 @@ class CampaignScheduler:
                 raise WakeAuthorityUnavailable("wake_lease_renewal_failed") from error
             await asyncio.to_thread(self._require_live_mind_authority, run.id)
 
+            async def require_authority_after_admission() -> None:
+                await asyncio.to_thread(self._require_live_mind_authority, run.id)
+
             turn = await self.mind.send_turn(
                 conversation_id,
                 prompt,
                 f"schedule:{schedule_id}:{run.sequence}",
                 campaign_id=campaign_id,
+                before_side_effect=require_authority_after_admission,
             )
             await asyncio.to_thread(
                 self._finalize_run,
