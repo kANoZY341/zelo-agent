@@ -471,6 +471,31 @@ class MindService:
             raise DomainError("Stored Zelo Mind action is invalid", 500) from None
 
     @staticmethod
+    def _bind_campaign_action(
+        action: MindReplyAction | MindCoreTaskAction,
+        campaign_id: str | None,
+    ) -> MindReplyAction | MindCoreTaskAction:
+        if campaign_id is None or isinstance(action, MindReplyAction):
+            return action
+        if action.task.campaign_id not in {None, campaign_id}:
+            raise DomainError("Zelo Mind task attempted to change Campaign ownership", 409)
+        return action.model_copy(
+            update={"task": action.task.model_copy(update={"campaign_id": campaign_id})}
+        )
+
+    @classmethod
+    def _require_saved_campaign_binding(
+        cls,
+        turn: ConversationTurn,
+        campaign_id: str | None,
+    ) -> None:
+        if campaign_id is None:
+            return
+        action = cls._saved_action(turn)
+        if isinstance(action, MindCoreTaskAction) and action.task.campaign_id != campaign_id:
+            raise DomainError("Stored Zelo Mind Campaign binding changed", 409)
+
+    @staticmethod
     def _result_usage(result) -> dict[str, int | None]:
         return {
             "prompt_tokens": result.prompt_tokens,
@@ -684,10 +709,13 @@ class MindService:
         conversation_id: str,
         text: str,
         idempotency_key: str,
+        *,
+        campaign_id: str | None = None,
     ) -> ConversationTurnResponse:
         async with self._lock(conversation_id):
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
+                self._require_saved_campaign_binding(existing, campaign_id)
                 return await self._complete_turn(existing)
 
             with self.database.read() as session:
@@ -709,6 +737,7 @@ class MindService:
                 messages,
                 task_messages=task_messages,
             )
+            action = self._bind_campaign_action(action, campaign_id)
 
             turn_id = str(uuid5(NAMESPACE_URL, f"zelo-mind:{conversation_id}:{idempotency_key}"))
             turn = self._persist_turn(
