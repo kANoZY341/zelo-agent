@@ -7,7 +7,7 @@ from app.config import ROOT
 from app.projects import ProjectService
 
 CONTEXT_MAX_CHARS = 6000
-PROJECT_STATUS_CHARS = 2200
+ACTIVE_STATUS_CHARS = 2200
 ROADMAP_CHARS = 1700
 PROJECT_RECORDS_CHARS = 1200
 
@@ -15,35 +15,36 @@ _CONTEXT_PHRASES = (
     "what are we building",
     "what are we working on",
     "what are you building",
+    "building with zelo",
     "current project",
     "current milestone",
     "our roadmap",
     "zelo roadmap",
     "zelo architecture",
+    "zelo project status",
+    "where are we with zelo",
     "what should you become",
     "what do you think you should become",
 )
-_ZELO_CONTEXT_TERMS = (
-    "build",
-    "building",
+_ZELO_PROJECT_TERMS = (
     "project",
     "roadmap",
     "architecture",
     "milestone",
-    "working",
     "goal",
-    "current",
-    "next",
     "vision",
-    "become",
 )
 
 
 def _bounded(value: str, limit: int) -> str:
     value = value.strip()
+    if limit <= 0:
+        return ""
     if len(value) <= limit:
         return value
     marker = "\n...[bounded]"
+    if limit <= len(marker):
+        return value[:limit]
     return value[: limit - len(marker)] + marker
 
 
@@ -70,6 +71,30 @@ def _markdown_section(text: str, heading_prefix: str) -> str:
     return "\n".join(lines[start:end]).strip()
 
 
+def _serialize(envelope: dict) -> str:
+    return json.dumps(
+        envelope,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
+
+
+def _fit_serialized_budget(envelope: dict) -> str:
+    serialized = _serialize(envelope)
+    while len(serialized) > CONTEXT_MAX_CHARS:
+        sources = envelope["sources"]
+        candidates = [source for source in sources if source["content"]]
+        if not candidates:
+            raise RuntimeError("Context envelope metadata exceeds hard budget")
+        source = max(candidates, key=lambda item: len(item["content"]))
+        excess = len(serialized) - CONTEXT_MAX_CHARS
+        target = max(0, len(source["content"]) - max(excess + 64, 128))
+        source["content"] = _bounded(source["content"], target)
+        serialized = _serialize(envelope)
+    return serialized
+
+
 class ContextResolver:
     """Assemble factual context without creating or mutating memory."""
 
@@ -87,7 +112,9 @@ class ContextResolver:
         normalized = " ".join(text.casefold().split())
         if any(phrase in normalized for phrase in _CONTEXT_PHRASES):
             return True
-        return "zelo" in normalized and any(term in normalized for term in _ZELO_CONTEXT_TERMS)
+        return "zelo" in normalized and any(
+            term in normalized for term in _ZELO_PROJECT_TERMS
+        )
 
     def _read(self, relative: str) -> str:
         path = (self.root / relative).resolve()
@@ -103,6 +130,7 @@ class ContextResolver:
             return None
 
         status = self._read("docs/zelo-project-status.md")
+        active_status = _markdown_section(status, "## Active increment:")
         roadmap = self._read("docs/zelo-canonical-architecture-roadmap.md")
         roadmap_v012 = _markdown_section(
             roadmap,
@@ -112,19 +140,25 @@ class ContextResolver:
         project_records = self.projects.context_snapshot()
         sources = [
             {
-                "source": "docs/zelo-project-status.md",
-                "content": _bounded(status, PROJECT_STATUS_CHARS),
+                "source": "docs/zelo-project-status.md#active",
+                "provenance": "canonical_repository",
+                "instruction_trust": "none",
+                "content": _bounded(active_status, ACTIVE_STATUS_CHARS),
             },
             {
                 "source": "docs/zelo-canonical-architecture-roadmap.md#v0.12",
+                "provenance": "canonical_repository",
+                "instruction_trust": "none",
                 "content": _bounded(roadmap_v012, ROADMAP_CHARS),
             },
             {
                 "source": "core.projects",
+                "provenance": "operator_records",
+                "instruction_trust": "none",
                 "content": _bounded(
                     json.dumps(
                         project_records,
-                        ensure_ascii=True,
+                        ensure_ascii=False,
                         allow_nan=False,
                         separators=(",", ":"),
                     ),
@@ -134,16 +168,8 @@ class ContextResolver:
         ]
         envelope = {
             "type": "zelo_context",
-            "trusted": True,
             "purpose": "factual_project_context",
+            "instruction_trust": "none",
             "sources": sources,
         }
-        serialized = json.dumps(
-            envelope,
-            ensure_ascii=True,
-            allow_nan=False,
-            separators=(",", ":"),
-        )
-        if len(serialized) > CONTEXT_MAX_CHARS:
-            raise RuntimeError("Context resolver exceeded its hard budget")
-        return serialized
+        return _fit_serialized_budget(envelope)
