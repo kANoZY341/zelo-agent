@@ -320,7 +320,10 @@ class ResearchRuntime:
                 separators=(",", ":"),
             )
             source_id = f"S{len(sources) + 1}"
-            truncated = len(serialized) > self.settings.max_agent_tool_result_chars
+            truncated = (
+                len(serialized) > self.settings.max_agent_tool_result_chars
+                or output.get("truncated") is True
+            )
             source = self._source(
                 source_id,
                 action.tool,
