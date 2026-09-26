@@ -10,6 +10,8 @@ from app import __version__
 from app.agent import AgentRuntime
 from app.api import router
 from app.campaign_api import router as campaign_router
+from app.campaign_control import CampaignControlService
+from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.config import ROOT, Settings
 from app.context import ContextResolver
@@ -72,6 +74,7 @@ def create_app(
             tool_gateway = ToolGateway(configuration)
             projects = ProjectService(database)
             campaigns = CampaignService(database)
+            campaign_controls = CampaignControlService(database)
             context_resolver = ContextResolver(projects)
             self_improvement_runtime = SelfImprovementRuntime(
                 RepositoryInspector(ROOT),
@@ -113,6 +116,7 @@ def create_app(
                 promotion_ci_verifier,
                 promotion_release_runtime,
             )
+            campaign_controls.recover_expired()
             tasks.recover()
             tasks.expire_approvals()
             mind = MindService(
@@ -138,6 +142,7 @@ def create_app(
             application.state.tasks = tasks
             application.state.projects = projects
             application.state.campaigns = campaigns
+            application.state.campaign_controls = campaign_controls
             application.state.mind = mind
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
@@ -154,6 +159,7 @@ def create_app(
     application.include_router(task_router)
     application.include_router(project_router)
     application.include_router(campaign_router)
+    application.include_router(campaign_control_router)
     application.include_router(mind_router)
 
     @application.exception_handler(DomainError)
