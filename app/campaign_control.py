@@ -614,7 +614,10 @@ class CampaignControlService:
                 raise DomainError("Campaign budget reservation not found", 404)
             if reservation.status == "committed":
                 if reservation.committed_units != body.actual_units:
-                    raise DomainError("Budget reservation already committed with different usage", 409)
+                    raise DomainError(
+                        "Budget reservation already committed with different usage",
+                        409,
+                    )
                 return self._reservation_response(reservation)
             if reservation.status != "reserved":
                 raise DomainError(
