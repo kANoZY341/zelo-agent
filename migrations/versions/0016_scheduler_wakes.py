@@ -318,6 +318,39 @@ def upgrade() -> None:
     )
     op.execute(
         """
+        CREATE TRIGGER campaign_schedule_runs_success_budget_guard
+        BEFORE UPDATE OF status ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.status = 'succeeded'
+             AND NOT EXISTS (
+                SELECT 1
+                FROM campaign_schedules AS schedule
+                JOIN campaign_budget_reservations AS reservation
+                  ON reservation.id = NEW.budget_reservation_id
+                WHERE schedule.id = NEW.schedule_id
+                  AND reservation.campaign_id = schedule.campaign_id
+                  AND reservation.resource = 'mind_wakes'
+                  AND reservation.owner_id = NEW.lease_holder_id
+                  AND reservation.units = 1
+                  AND (
+                      (
+                          reservation.status = 'reserved'
+                          AND reservation.committed_units = 0
+                          AND reservation.expires_at > CURRENT_TIMESTAMP
+                      )
+                      OR (
+                          reservation.status = 'committed'
+                          AND reservation.committed_units = 1
+                      )
+                  )
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Successful wake budget reservation is stale');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER campaign_schedule_runs_success_lease_guard
         BEFORE UPDATE OF status ON campaign_schedule_runs
         FOR EACH ROW
