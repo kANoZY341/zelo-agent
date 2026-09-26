@@ -94,14 +94,20 @@ class Settings(BaseSettings):
         pattern=r"^[a-z0-9][a-z0-9-]*$",
     )
 
-    @model_validator(mode="after")
-    def validate_scheduler_wake_ttl(self) -> "Settings":
-        worst_case_mind_seconds = (
+    @property
+    def scheduler_mind_window_seconds(self) -> float:
+        return (
             self.model_timeout_seconds * (self.max_model_parse_retries + 1) * 2
             + self.mind_admission_timeout_seconds
             + 5
         )
-        if self.scheduler_enabled and self.scheduler_wake_ttl_seconds < worst_case_mind_seconds:
+
+    @model_validator(mode="after")
+    def validate_scheduler_wake_ttl(self) -> "Settings":
+        if (
+            self.scheduler_enabled
+            and self.scheduler_wake_ttl_seconds < self.scheduler_mind_window_seconds
+        ):
             raise ValueError(
                 "Scheduler wake TTL must cover the maximum bounded Mind execution window"
             )
