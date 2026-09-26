@@ -135,8 +135,10 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert "customer-support bot" in first_request.system_prompt
         assert "Do not automatically end replies" in first_request.system_prompt
         assert "Avoid repeating stock phrases" in first_request.system_prompt
+        assert 'hi -> "Hey Ahmad."' in first_request.system_prompt
+        assert 'stop repeating -> "Yeah. I\'ll stop."' in first_request.system_prompt
         assert "$defs" not in first_request.system_prompt
-        assert len(first_request.system_prompt) < 1200
+        assert len(first_request.system_prompt) < 1500
         assert first_request.output_schema is not None
         assert "$defs" in first_request.output_schema
 
@@ -144,6 +146,32 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert stored["title"] == "Help me plan the next Zelo step."
         assert stored["turn_total"] == 2
         assert [turn["number"] for turn in stored["turns"]] == [1, 2]
+
+
+def test_direct_reply_strips_repetitive_help_suffix(settings, database):
+    provider = MindProvider(
+        reply("I'm doing well. How can I help you today?"),
+        reply("Got it. How can I assist you today?"),
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+
+        first = send_turn(client, conversation["id"], "how are you", "style-1")
+        assert first.status_code == 201, first.text
+        assert first.json()["assistant_content"] == "I'm doing well."
+
+        second = send_turn(
+            client,
+            conversation["id"],
+            "stop repeating that question",
+            "style-2",
+        )
+        assert second.status_code == 201, second.text
+        assert second.json()["assistant_content"] == "Got it."
+
+        stored = client.get(f"/conversations/{conversation['id']}").json()
+        assert stored["turns"][0]["assistant_content"] == "I'm doing well."
+        assert stored["turns"][1]["assistant_content"] == "Got it."
 
 
 def test_core_task_route_uses_second_task_specific_model_call(settings, database):
