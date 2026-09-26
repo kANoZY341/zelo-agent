@@ -100,30 +100,35 @@ remaining gap was grounded persistent project context: Mind could converse but
 could not reliably answer what Zelo is currently building without explicit
 context.
 
-## Active increment: v0.12 Campaign ownership and operational state
+## Active increment: v0.12 Campaign execution controls
 
-The Project/Goal + Context Resolver seed is merged on main through PR #28. The
-workspace conversation-history follow-up is merged through PR #29.
+The Project/Goal + Context Resolver seed is merged through PR #28, workspace
+conversation history through PR #29, and Campaign ownership/state through PR #30.
+The Campaign/state merge commit on main is:
+
+`41aacf52a69038c387f0d34d92a987216aafffb5`
 
 Active branch:
 
-`feat/v0.12-campaign-state`
+`feat/v0.12-leases-budget`
 
 Design:
 
-`docs/v0.12-campaign-state.md`
+`docs/v0.12-campaign-controls.md`
 
-This slice adds the next ownership/state boundary:
+This slice adds the authority controls required before scheduling:
 
-- durable Campaign records owned by Goals;
-- Core tasks optionally owned by one Campaign;
-- immutable task dependency edges within that Campaign;
-- runner gating so a dependent task cannot be claimed before all dependencies succeed;
-- append-only campaign events;
-- immutable versioned campaign checkpoints.
+- Campaign-scoped execution leases with monotonic fencing generations;
+- exact holder/token/generation proof for renew and release;
+- deterministic recovery of expired leases;
+- shared named integer budget limits;
+- idempotent budget reservations;
+- bounded reservation expiry plus commit/release/recovery accounting;
+- startup recovery before ordinary task recovery.
 
-This slice does not add scheduling, leases, budgets, automatic wake cycles,
-persistent v0.13 memory, or the Research specialist.
+This slice does not add a scheduler, autonomous Mind wake cycles, Research
+specialist execution, workspace project/progress views, persistent v0.13 memory,
+or new merge/release authority.
 
 ## Parked work
 
@@ -132,9 +137,9 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and live-prove Campaign ownership, dependency gating, events and checkpoints.
-2. Add leases/recovery and shared budget accounting on top of Campaign state.
-3. Add bounded scheduling and Mind wake cycles without weakening Core authority.
-4. Add the first fixed Research specialist and workspace project/progress views.
+1. Land and verify leases/recovery plus shared Campaign budget accounting.
+2. Add bounded scheduling and Mind wake cycles on top of those Core controls.
+3. Add the first fixed Research specialist and workspace project/progress views.
+4. Add push-to-talk voice through the existing conversation/action contracts.
 5. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.
