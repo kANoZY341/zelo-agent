@@ -229,6 +229,17 @@ def upgrade() -> None:
 
     op.execute(
         """
+        CREATE TRIGGER campaign_schedule_runs_status_insert_guard
+        BEFORE INSERT ON campaign_schedule_runs
+        FOR EACH ROW
+        WHEN NEW.status <> 'running'
+        BEGIN
+            SELECT RAISE(ABORT, 'Campaign schedule runs must start as running');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER campaign_schedule_runs_lease_insert_guard
         BEFORE INSERT ON campaign_schedule_runs
         FOR EACH ROW
