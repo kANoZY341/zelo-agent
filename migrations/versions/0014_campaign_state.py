@@ -98,17 +98,37 @@ def upgrade() -> None:
         ["campaign_id"],
     )
 
-    for operation in ("UPDATE", "DELETE"):
-        op.execute(
-            f"CREATE TRIGGER campaign_events_no_{operation.lower()} "
-            f"BEFORE {operation} ON campaign_events "
-            "BEGIN SELECT RAISE(ABORT, 'Campaign events are append-only'); END"
-        )
-        op.execute(
-            f"CREATE TRIGGER campaign_checkpoints_no_{operation.lower()} "
-            f"BEFORE {operation} ON campaign_checkpoints "
-            "BEGIN SELECT RAISE(ABORT, 'Campaign checkpoints are immutable'); END"
-        )
+    op.execute(
+        """
+        CREATE TRIGGER task_dependencies_same_campaign
+        BEFORE INSERT ON task_dependencies
+        FOR EACH ROW
+        WHEN
+            (SELECT campaign_id FROM campaign_task_links WHERE task_id = NEW.task_id) IS NULL
+            OR (SELECT campaign_id FROM campaign_task_links
+                WHERE task_id = NEW.depends_on_task_id) IS NULL
+            OR (SELECT campaign_id FROM campaign_task_links WHERE task_id = NEW.task_id)
+                <> (SELECT campaign_id FROM campaign_task_links
+                    WHERE task_id = NEW.depends_on_task_id)
+        BEGIN
+            SELECT RAISE(ABORT, 'Task dependencies must belong to the same campaign');
+        END
+        """
+    )
+
+    immutable_tables = (
+        ("campaign_task_links", "Campaign task ownership is immutable"),
+        ("task_dependencies", "Task dependencies are immutable"),
+        ("campaign_events", "Campaign events are append-only"),
+        ("campaign_checkpoints", "Campaign checkpoints are immutable"),
+    )
+    for table, message in immutable_tables:
+        for operation in ("UPDATE", "DELETE"):
+            op.execute(
+                f"CREATE TRIGGER {table}_no_{operation.lower()} "
+                f"BEFORE {operation} ON {table} "
+                f"BEGIN SELECT RAISE(ABORT, '{message}'); END"
+            )
 
 
 def downgrade() -> None:
