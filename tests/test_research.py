@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import ROOT
-from app.gateway import ModelResult
+from app.gateway import ModelGatewayError, ModelResult
 from app.main import create_app
 from app.research import RESEARCH_ACTION, ResearchRuntime
 from app.tasks import _project_task_result
@@ -26,6 +26,8 @@ class ResearchProvider:
     async def generate(self, request):
         self.requests.append(request)
         action = self.actions.pop(0)
+        if isinstance(action, Exception):
+            raise action
         return ModelResult(
             text=action if isinstance(action, str) else json.dumps(action),
             provider="fake",
@@ -256,6 +258,47 @@ def test_research_cannot_finish_with_invented_or_missing_evidence(
         assert failed["error"] == "research_citation_invalid"
         events = client.get(f"/tasks/{created['id']}/events", headers=AUTH).json()
         assert sum(event["event"] == "research_evidence_rejected" for event in events) == 2
+
+
+def test_research_retry_preserves_bound_model_and_starts_fresh_evidence_loop(
+    research_settings,
+    database,
+):
+    provider = ResearchProvider(
+        call("read_workspace_file", path="facts.txt"),
+        ModelGatewayError("model_unavailable"),
+        call("read_workspace_file", path="facts.txt"),
+        final("Recovered research result. [S1]", "S1"),
+    )
+    with TestClient(
+        create_app(research_settings, provider=provider),
+        headers=AUTH,
+    ) as client:
+        created = submit_research(client)
+        failed = wait_for(client, created["id"], "failed")
+        assert failed["error"] == "model_unavailable"
+        assert failed["selected_alias"] == "local_general"
+        assert failed["selected_model"] == "qwen3:4b-instruct"
+
+        retry = client.post(f"/tasks/{created['id']}/retry", headers=AUTH)
+        assert retry.status_code == 202, retry.text
+
+        completed = wait_for(client, created["id"], "succeeded")
+        assert [attempt["number"] for attempt in completed["attempts"]] == [1, 2]
+        assert completed["selected_alias"] == failed["selected_alias"]
+        assert completed["selected_model"] == failed["selected_model"]
+        assert completed["result"]["answer"] == "Recovered research result. [S1]"
+        assert completed["result"]["sources"][0]["id"] == "S1"
+        assert len(provider.requests) == 4
+
+        first_attempt_first_request = provider.requests[0]
+        second_attempt_first_request = provider.requests[2]
+        assert first_attempt_first_request.messages == second_attempt_first_request.messages
+
+        events = client.get(f"/tasks/{created['id']}/events", headers=AUTH).json()
+        assert sum(event["event"] == "research_started" for event in events) == 2
+        assert sum(event["event"] == "research_failed" for event in events) == 1
+        assert sum(event["event"] == "research_completed" for event in events) == 1
 
 
 def test_research_task_keeps_campaign_ownership(
