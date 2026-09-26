@@ -367,6 +367,76 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
         assert [item["status"] for item in reservations] == ["released", "committed"]
 
 
+def test_conversation_wait_rechecks_authority_before_mind(settings, database):
+    provider = SchedulerMindProvider(reply("This must not run after waiting."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime(2026, 9, 26, 13, 0, tzinfo=UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
+
+        async def exercise_wait() -> None:
+            lock = scheduler.mind._lock(conversation["id"])
+            await lock.acquire()
+            task = asyncio.create_task(scheduler._execute_due(schedule["id"]))
+            try:
+                for _ in range(100):
+                    runs = client.get(
+                        f"/schedules/{schedule['id']}/runs",
+                        headers=AUTH,
+                    ).json()
+                    if runs["total"] == 1:
+                        break
+                    await asyncio.sleep(0.001)
+                else:
+                    pytest.fail("Scheduled wake did not reach the conversation wait")
+
+                age_seconds = int(
+                    configured.scheduler_wake_ttl_seconds
+                    - configured.scheduler_mind_window_seconds
+                    + 1
+                )
+                clock.advance(seconds=age_seconds)
+            finally:
+                lock.release()
+            await task
+
+        asyncio.run(exercise_wait())
+
+        assert provider.requests == []
+        runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["status"] == "interrupted"
+
+        current = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert current["status"] == "active"
+        assert current["run_count"] == 0
+
+        budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert budget["spent_units"] == 0
+        assert budget["reserved_units"] == 0
+
+
 def test_mind_is_not_invoked_without_full_authority_window(
     settings,
     database,
