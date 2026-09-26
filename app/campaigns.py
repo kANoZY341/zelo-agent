@@ -38,6 +38,10 @@ def append_campaign_event(
     task_id: str | None = None,
     **details: object,
 ) -> CampaignEvent:
+    campaign = session.get(Campaign, campaign_id)
+    if campaign is None:
+        raise DomainError("Campaign not found", 404)
+    campaign.updated_at = utcnow()
     latest = (
         session.scalar(
             select(func.max(CampaignEvent.sequence)).where(CampaignEvent.campaign_id == campaign_id)
