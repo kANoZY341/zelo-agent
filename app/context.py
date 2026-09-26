@@ -112,9 +112,7 @@ class ContextResolver:
         normalized = " ".join(text.casefold().split())
         if any(phrase in normalized for phrase in _CONTEXT_PHRASES):
             return True
-        return "zelo" in normalized and any(
-            term in normalized for term in _ZELO_PROJECT_TERMS
-        )
+        return "zelo" in normalized and any(term in normalized for term in _ZELO_PROJECT_TERMS)
 
     def _read(self, relative: str) -> str:
         path = (self.root / relative).resolve()
