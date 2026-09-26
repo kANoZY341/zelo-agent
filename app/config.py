@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -92,6 +92,21 @@ class Settings(BaseSettings):
         max_length=128,
         pattern=r"^[a-z0-9][a-z0-9-]*$",
     )
+
+    @model_validator(mode="after")
+    def validate_scheduler_wake_ttl(self) -> "Settings":
+        worst_case_mind_seconds = (
+            self.model_timeout_seconds
+            * (self.max_model_parse_retries + 1)
+            * 2
+            + self.mind_admission_timeout_seconds
+            + 5
+        )
+        if self.scheduler_wake_ttl_seconds < worst_case_mind_seconds:
+            raise ValueError(
+                "Scheduler wake TTL must cover the maximum bounded Mind execution window"
+            )
+        return self
 
     @field_validator("ollama_url")
     @classmethod
