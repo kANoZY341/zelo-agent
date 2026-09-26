@@ -23,6 +23,7 @@ from app.models import (
     CampaignSchedule,
     CampaignScheduleRun,
     Conversation,
+    ConversationTurn,
     utcnow,
 )
 from app.policy import DomainError, fingerprint
@@ -633,6 +634,19 @@ class CampaignScheduler:
                 raise DomainError("Campaign schedule run not found", 404)
             return self._run_response(run)
 
+    def _persisted_turn_id(
+        self,
+        conversation_id: str,
+        idempotency_key: str,
+    ) -> str | None:
+        with self.database.read() as session:
+            return session.scalar(
+                select(ConversationTurn.id).where(
+                    ConversationTurn.conversation_id == conversation_id,
+                    ConversationTurn.idempotency_key == idempotency_key,
+                )
+            )
+
     async def _thread_mutation(
         self,
         operation: Callable[..., object],
@@ -661,6 +675,7 @@ class CampaignScheduler:
             return
         campaign_id, conversation_id, prompt, sequence = snapshot
         holder_id = f"schedule:{schedule_id}"
+        turn_key = f"schedule:{schedule_id}:{sequence}"
         lease = None
         run = None
         reservation = None
@@ -738,7 +753,7 @@ class CampaignScheduler:
             turn = await self.mind.send_turn(
                 conversation_id,
                 prompt,
-                f"schedule:{schedule_id}:{run.sequence}",
+                turn_key,
                 campaign_id=campaign_id,
                 before_side_effect=require_authority_after_admission,
             )
@@ -779,6 +794,13 @@ class CampaignScheduler:
                     pass
             raise
         except DomainError as error:
+            persisted_turn_id = None
+            if run is not None:
+                persisted_turn_id = await asyncio.to_thread(
+                    self._persisted_turn_id,
+                    conversation_id,
+                    turn_key,
+                )
             if reservation is not None:
                 try:
                     await asyncio.to_thread(
@@ -789,15 +811,29 @@ class CampaignScheduler:
                 except DomainError:
                     pass
             if run is not None:
-                await asyncio.to_thread(
-                    self._finalize_run,
-                    run.id,
-                    status="failed",
-                    conversation_turn_id=None,
-                    error=self._error_text(error),
-                )
+                if persisted_turn_id is not None:
+                    await asyncio.to_thread(
+                        self._interrupt_run,
+                        run.id,
+                        "wake_post_persist_failure",
+                    )
+                else:
+                    await asyncio.to_thread(
+                        self._finalize_run,
+                        run.id,
+                        status="failed",
+                        conversation_turn_id=None,
+                        error=self._error_text(error),
+                    )
         except Exception as error:
             logger.exception("campaign_schedule_wake_failed")
+            persisted_turn_id = None
+            if run is not None:
+                persisted_turn_id = await asyncio.to_thread(
+                    self._persisted_turn_id,
+                    conversation_id,
+                    turn_key,
+                )
             if reservation is not None:
                 try:
                     await asyncio.to_thread(
@@ -808,13 +844,20 @@ class CampaignScheduler:
                 except DomainError:
                     pass
             if run is not None:
-                await asyncio.to_thread(
-                    self._finalize_run,
-                    run.id,
-                    status="failed",
-                    conversation_turn_id=None,
-                    error=self._error_text(error),
-                )
+                if persisted_turn_id is not None:
+                    await asyncio.to_thread(
+                        self._interrupt_run,
+                        run.id,
+                        "wake_post_persist_failure",
+                    )
+                else:
+                    await asyncio.to_thread(
+                        self._finalize_run,
+                        run.id,
+                        status="failed",
+                        conversation_turn_id=None,
+                        error=self._error_text(error),
+                    )
         finally:
             if lease is not None:
                 try:
