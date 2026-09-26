@@ -1372,7 +1372,12 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
-            if request.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
+            if request.kind in {
+                "ai_prompt",
+                "agent_run",
+                "research_run",
+                "self_improvement_run",
+            }:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
                 profile = (
