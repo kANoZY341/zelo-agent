@@ -695,11 +695,18 @@ class MindService:
             session.flush()
             return self._turn_response(turn)
 
-    async def _complete_turn(self, turn: ConversationTurn) -> ConversationTurnResponse:
+    async def _complete_turn(
+        self,
+        turn: ConversationTurn,
+        *,
+        before_side_effect: Callable[[], Awaitable[None]] | None = None,
+    ) -> ConversationTurnResponse:
         action = self._saved_action(turn)
         if isinstance(action, MindReplyAction):
             return self._turn_response(turn)
 
+        if before_side_effect is not None:
+            await before_side_effect()
         task_key = f"mind:{turn.conversation_id}:{turn.id}"
         submission = asyncio.create_task(
             asyncio.to_thread(self.tasks.submit, action.task, task_key)
@@ -728,9 +735,10 @@ class MindService:
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 self._require_saved_campaign_binding(existing, campaign_id)
-                if before_side_effect is not None:
-                    await before_side_effect()
-                return await self._complete_turn(existing)
+                return await self._complete_turn(
+                    existing,
+                    before_side_effect=before_side_effect,
+                )
 
             with self.database.read() as session:
                 conversation = session.get(Conversation, conversation_id)
@@ -754,6 +762,8 @@ class MindService:
                 task_messages=task_messages,
             )
             action = self._bind_campaign_action(action, campaign_id)
+            if before_side_effect is not None:
+                await before_side_effect()
 
             turn_id = str(uuid5(NAMESPACE_URL, f"zelo-mind:{conversation_id}:{idempotency_key}"))
             turn = self._persist_turn(
@@ -766,4 +776,7 @@ class MindService:
                 model=model,
                 usage=usage,
             )
-            return await self._complete_turn(turn)
+            return await self._complete_turn(
+                turn,
+                before_side_effect=before_side_effect,
+            )
