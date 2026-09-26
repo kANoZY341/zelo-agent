@@ -117,6 +117,19 @@ class CampaignScheduler:
                     "Campaign must configure the mind_wakes budget before scheduling",
                     409,
                 )
+            active_count = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(CampaignSchedule)
+                    .where(
+                        CampaignSchedule.campaign_id == campaign.id,
+                        CampaignSchedule.status == "active",
+                    )
+                )
+                or 0
+            )
+            if active_count >= self.settings.scheduler_max_active_per_campaign:
+                raise DomainError("Campaign active schedule capacity reached", 503)
 
             schedule = CampaignSchedule(
                 campaign_id=campaign.id,
@@ -354,6 +367,8 @@ class CampaignScheduler:
         conversation_turn_id: str | None,
         error: str | None,
     ) -> None:
+        if status not in {"succeeded", "failed"}:
+            raise DomainError("Invalid Campaign schedule run outcome", 422)
         with self.database.transaction() as session:
             now = self.clock()
             run = session.get(CampaignScheduleRun, run_id)
