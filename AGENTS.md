@@ -55,21 +55,21 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: Zelo Workspace Foundation
+## Current scope: v0.12 Project foundation and context seed
 
-The released base remains Zelo Core v0.11.0. The post-v0.11 Early Zelo Chat
-prerequisite is complete and live-proven on main commit
-`f920036d9c1631b8ddf999554b3c10437602cbf5`, with main CI #695 green.
+The released base remains Zelo Core v0.11.0. Early Zelo Chat and the first
+Zelo-owned workspace are complete on main. The active implementation slice is
+documented in `docs/v0.12-project-context-seed.md`.
 
-The active increment is now the first Zelo-owned workspace slice. Build a thin
-presentation/interaction layer over the existing authenticated conversation and
-Core task projection contracts. Browser code must not receive the operator token,
-and UI code must not create a parallel task, approval, scheduler, memory, worker
-authority or operational state system.
+Build the minimum durable Project/Goal ownership boundary needed by v0.12 and a
+bounded read-only Context Resolver for canonical Zelo/project state. Do not
+silently implement the rest of v0.12 in this slice: campaigns, scheduling,
+budgets and autonomous wake cycles remain later v0.12 work.
 
-Do not pull v0.12 durability/wake cycles/campaigns forward wholesale. Memory
-remains v0.13, Agent Factory remains v0.14, broad tools/capabilities remain
-v0.15, and WhatsApp/email/live voice remain v0.16.
+Persistent personal/project/agent memory remains v0.13. The context seed may
+read canonical repository state and Project/Goal records, but it must not create
+a parallel memory system or automatic memory writes. Agent Factory remains
+v0.14, broad tools/capabilities remain v0.15, and external channels remain v0.16.
 
 ## Workspace decision
 
