@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import threading
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -16,6 +17,7 @@ from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
 from app.policy import DomainError
+from app.scheduler import WakeAuthorityUnavailable
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -465,9 +467,7 @@ def test_mind_is_not_invoked_without_full_authority_window(
         def bind_then_age(run_id: str, reservation_id: str) -> None:
             original_bind(run_id, reservation_id)
             age_seconds = int(
-                configured.scheduler_wake_ttl_seconds
-                - configured.scheduler_mind_window_seconds
-                + 1
+                configured.scheduler_wake_ttl_seconds - configured.scheduler_mind_window_seconds + 1
             )
             clock.advance(seconds=age_seconds)
 
@@ -495,6 +495,184 @@ def test_mind_is_not_invoked_without_full_authority_window(
         ).json()
         assert budget["spent_units"] == 0
         assert budget["reserved_units"] == 0
+
+
+def test_post_mind_authority_failure_retries_same_occurrence_without_double_charge(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(scheduled_echo("reconciled scheduled echo"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=3)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        clock = MutableClock(datetime(2026, 9, 26, 14, 30, tzinfo=UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
+
+        original_send_turn = scheduler.mind.send_turn
+        aged = False
+
+        async def send_then_expire(*args, **kwargs):
+            nonlocal aged
+            result = await original_send_turn(*args, **kwargs)
+            if not aged:
+                clock.advance(seconds=configured.scheduler_wake_ttl_seconds + 1)
+                aged = True
+            return result
+
+        monkeypatch.setattr(scheduler.mind, "send_turn", send_then_expire)
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        first_runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert first_runs["total"] == 1
+        assert first_runs["items"][0]["status"] == "interrupted"
+        run_id = first_runs["items"][0]["id"]
+
+        first_schedule = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert first_schedule["run_count"] == 0
+        assert first_schedule["status"] == "active"
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert stored["turn_total"] == 1
+        task = stored["turns"][0]["core_task"]
+        assert task is not None
+        assert task["campaign_id"] == campaign["id"]
+        assert len(provider.requests) == 1
+
+        first_budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert first_budget["spent_units"] == 0
+        assert first_budget["reserved_units"] == 0
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        completed = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert completed["status"] == "completed"
+        assert completed["run_count"] == 1
+
+        final_runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert final_runs["total"] == 1
+        assert final_runs["items"][0]["id"] == run_id
+        assert final_runs["items"][0]["sequence"] == 1
+        assert final_runs["items"][0]["status"] == "succeeded"
+
+        final_stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert final_stored["turn_total"] == 1
+        assert final_stored["turns"][0]["core_task"]["id"] == task["id"]
+        assert len(provider.requests) == 1
+
+        final_budget = client.get(
+            f"/campaigns/{campaign['id']}/budgets/mind_wakes",
+            headers=AUTH,
+        ).json()
+        assert final_budget["spent_units"] == 1
+        assert final_budget["reserved_units"] == 0
+
+
+def test_cancellation_waits_for_threaded_core_task_submission(
+    settings,
+    database,
+    monkeypatch,
+):
+    provider = SchedulerMindProvider(scheduled_echo("threaded scheduled echo"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls: CampaignControlService = client.app.state.campaign_controls
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+
+        started = threading.Event()
+        release = threading.Event()
+        original_submit = scheduler.mind.tasks.submit
+
+        def slow_submit(request, key):
+            started.set()
+            if not release.wait(timeout=2):
+                raise AssertionError("Timed out waiting to release task submission")
+            return original_submit(request, key)
+
+        monkeypatch.setattr(scheduler.mind.tasks, "submit", slow_submit)
+
+        async def exercise_cancellation() -> None:
+            operation = asyncio.create_task(scheduler._execute_due(schedule["id"]))
+            assert await asyncio.to_thread(started.wait, 1)
+            operation.cancel()
+            await asyncio.sleep(0.01)
+
+            lease = controls.lease_status(campaign["id"], "mind-wake")
+            budget = controls.get_budget(campaign["id"], "mind_wakes")
+            assert lease.status == "held"
+            assert budget.reserved_units == 1
+            assert not operation.done()
+
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+
+        asyncio.run(exercise_cancellation())
+
+        lease = controls.lease_status(campaign["id"], "mind-wake")
+        budget = controls.get_budget(campaign["id"], "mind_wakes")
+        assert lease.status == "free"
+        assert budget.spent_units == 0
+        assert budget.reserved_units == 0
+
+        runs = client.get(
+            f"/schedules/{schedule['id']}/runs",
+            headers=AUTH,
+        ).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["status"] == "interrupted"
+
+        current = client.get(
+            f"/schedules/{schedule['id']}",
+            headers=AUTH,
+        ).json()
+        assert current["status"] == "active"
+        assert current["run_count"] == 0
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        assert stored["turn_total"] == 1
+        assert stored["turns"][0]["core_task"] is not None
+        assert stored["turns"][0]["core_task"]["campaign_id"] == campaign["id"]
 
 
 def test_success_fails_closed_after_wake_lease_is_replaced(settings, database):
@@ -551,7 +729,7 @@ def test_success_fails_closed_after_wake_lease_is_replaced(settings, database):
         )
         assert replacement.generation == lease.generation + 1
 
-        with pytest.raises(DomainError, match="lease proof"):
+        with pytest.raises(WakeAuthorityUnavailable, match="wake_lease_finalization_stale"):
             scheduler._finalize_run(
                 run.id,
                 status="succeeded",
@@ -610,7 +788,7 @@ def test_success_fails_closed_after_wake_budget_expires(settings, database):
         )
 
         clock.advance(seconds=31)
-        with pytest.raises(DomainError, match="reservation expired"):
+        with pytest.raises(WakeAuthorityUnavailable, match="wake_budget_finalization_expired"):
             scheduler._finalize_run(
                 run.id,
                 status="succeeded",
