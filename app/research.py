@@ -228,7 +228,10 @@ class ResearchRuntime:
                 messages.append(
                     ModelMessage(
                         "user",
-                        "Invalid action. Return exactly one JSON action using the research protocol.",
+                        (
+                            "Invalid action. Return exactly one JSON action "
+                            "using the research protocol."
+                        ),
                     )
                 )
                 continue
@@ -253,7 +256,10 @@ class ResearchRuntime:
                     messages.append(
                         ModelMessage(
                             "user",
-                            "Final answers require observed unique source_ids and matching [S#] citations.",
+                            (
+                                "Final answers require observed unique source_ids "
+                                "and matching [S#] citations."
+                            ),
                         )
                     )
                     continue
