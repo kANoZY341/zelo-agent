@@ -1112,6 +1112,51 @@ def test_external_chat_cannot_preempt_scheduled_turn_namespace(settings, databas
         assert provider.requests == []
 
 
+def test_database_rejects_terminal_schedule_run_insert(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"])
+        conversation = create_conversation(client)
+        schedule = create_schedule(client, campaign["id"], conversation["id"])
+        controls: CampaignControlService = client.app.state.campaign_controls
+        lease = controls.acquire_lease(
+            campaign["id"],
+            "mind-wake",
+            CampaignLeaseAcquire(
+                holder_id=f"schedule:{schedule['id']}",
+                ttl_seconds=600,
+            ),
+        )
+
+        with pytest.raises(IntegrityError, match="must start as running"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO campaign_schedule_runs (
+                            id, schedule_id, sequence, status,
+                            lease_holder_id, lease_token, lease_generation,
+                            started_at, completed_at
+                        ) VALUES (
+                            '70000000-0000-0000-0000-000000000007',
+                            :schedule_id, 1, 'failed',
+                            :holder_id, :lease_token, :generation,
+                            :now, :now
+                        )
+                        """
+                    ),
+                    {
+                        "schedule_id": schedule["id"],
+                        "holder_id": lease.holder_id,
+                        "lease_token": lease.lease_token,
+                        "generation": lease.generation,
+                        "now": datetime.now(UTC),
+                    },
+                )
+
+
 def test_database_rejects_cross_campaign_wake_budget_binding(settings, database):
     provider = SchedulerMindProvider(reply("Ordinary turn."))
     configured = settings.model_copy(update={"scheduler_enabled": False})
