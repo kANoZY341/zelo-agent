@@ -736,6 +736,8 @@ class MindService:
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 self._require_saved_campaign_binding(existing, campaign_id)
+                if before_side_effect is not None:
+                    await before_side_effect()
                 if after_persist is not None:
                     await after_persist(existing)
                 return await self._complete_turn(
