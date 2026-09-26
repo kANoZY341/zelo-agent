@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     scheduler_poll_seconds: float = Field(default=1.0, ge=0.01, le=60.0, allow_inf_nan=False)
     scheduler_wake_ttl_seconds: int = Field(default=600, ge=30, le=86400)
+    scheduler_control_headroom_seconds: int = Field(default=30, ge=1, le=300)
     scheduler_max_active_per_campaign: int = Field(default=32, ge=1, le=1000)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_general_model: str = "qwen3:4b-instruct"
@@ -104,12 +105,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_scheduler_wake_ttl(self) -> "Settings":
-        if (
-            self.scheduler_enabled
-            and self.scheduler_wake_ttl_seconds < self.scheduler_mind_window_seconds
-        ):
+        minimum_ttl = (
+            self.scheduler_mind_window_seconds + self.scheduler_control_headroom_seconds
+        )
+        if self.scheduler_enabled and self.scheduler_wake_ttl_seconds < minimum_ttl:
             raise ValueError(
-                "Scheduler wake TTL must cover the maximum bounded Mind execution window"
+                "Scheduler wake TTL must cover the bounded Mind window plus control headroom"
             )
         return self
 
