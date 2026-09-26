@@ -156,6 +156,48 @@ def test_project_question_receives_context_but_casual_chat_does_not(settings, da
         assert messages[-1].content == "what are we currently building with Zelo?"
 
 
+def test_project_context_is_excluded_from_task_construction(settings, database):
+    provider = MindProvider(
+        {
+            "type": "core_task",
+            "content": "I will ask Core to handle that.",
+            "kind": "developer_run",
+        },
+        {
+            "kind": "developer_run",
+            "payload": {
+                "instruction": "Inspect the user's explicit request only.",
+                "validation_profile": "zelo_core",
+            },
+        },
+    )
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo?",
+            "context-task-boundary",
+        )
+
+        assert response.status_code == 201, response.text
+        assert len(provider.requests) == 2
+
+        route_messages = provider.requests[0].messages
+        assert any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in route_messages
+        )
+
+        task_messages = provider.requests[1].messages
+        assert not any(
+            message.role == "tool" and '"type":"zelo_context"' in message.content
+            for message in task_messages
+        )
+        assert task_messages[-1].role == "user"
+        assert task_messages[-1].content == "what are we currently building with Zelo?"
+
+
 def test_direct_conversation_persists_identity_and_history(settings, database):
     provider = MindProvider(reply("We can plan that."), reply("Continuing from the plan."))
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
