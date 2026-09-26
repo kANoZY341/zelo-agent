@@ -232,9 +232,15 @@ def upgrade() -> None:
         CREATE TRIGGER campaign_schedule_runs_status_insert_guard
         BEFORE INSERT ON campaign_schedule_runs
         FOR EACH ROW
-        WHEN NEW.status <> 'running'
+        WHEN
+            NEW.status <> 'running'
+            OR NEW.budget_reservation_id IS NOT NULL
+            OR NEW.conversation_turn_id IS NOT NULL
         BEGIN
-            SELECT RAISE(ABORT, 'Campaign schedule runs must start as running');
+            SELECT RAISE(
+                ABORT,
+                'Campaign schedule runs must start running and unbound'
+            );
         END
         """
     )
@@ -253,6 +259,7 @@ def upgrade() -> None:
               AND lease.holder_id = NEW.lease_holder_id
               AND lease.lease_token = NEW.lease_token
               AND lease.generation = NEW.lease_generation
+              AND lease.expires_at > CURRENT_TIMESTAMP
         )
         BEGIN
             SELECT RAISE(ABORT, 'Wake run lease proof is not current');
@@ -276,6 +283,7 @@ def upgrade() -> None:
                   AND lease.holder_id = NEW.lease_holder_id
                   AND lease.lease_token = NEW.lease_token
                   AND lease.generation = NEW.lease_generation
+                  AND lease.expires_at > CURRENT_TIMESTAMP
              )
         BEGIN
             SELECT RAISE(ABORT, 'Resumed wake run lease proof is not current');
@@ -343,17 +351,8 @@ def upgrade() -> None:
                   AND reservation.resource = 'mind_wakes'
                   AND reservation.owner_id = NEW.lease_holder_id
                   AND reservation.units = 1
-                  AND (
-                      (
-                          reservation.status = 'reserved'
-                          AND reservation.committed_units = 0
-                          AND reservation.expires_at > CURRENT_TIMESTAMP
-                      )
-                      OR (
-                          reservation.status = 'committed'
-                          AND reservation.committed_units = 1
-                      )
-                  )
+                  AND reservation.status = 'committed'
+                  AND reservation.committed_units = 1
              )
         BEGIN
             SELECT RAISE(ABORT, 'Successful wake budget reservation is stale');
