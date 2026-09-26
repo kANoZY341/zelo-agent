@@ -533,7 +533,7 @@ def test_external_chat_cannot_preempt_scheduled_turn_namespace(settings, databas
 
 
 def test_database_rejects_cross_campaign_wake_budget_binding(settings, database):
-    provider = SchedulerMindProvider()
+    provider = SchedulerMindProvider(reply("Ordinary turn."))
     configured = settings.model_copy(update={"scheduler_enabled": False})
     with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
         first = create_campaign(client, title="First")
@@ -570,6 +570,39 @@ def test_database_rejects_cross_campaign_wake_budget_binding(settings, database)
 
         with pytest.raises(IntegrityError):
             scheduler._bind_budget(run.id, wrong.id)
+
+        correct = controls.reserve_budget(
+            first["id"],
+            CampaignBudgetReserve(
+                resource="mind_wakes",
+                owner_id=holder,
+                idempotency_key="correct-campaign-wake",
+                units=1,
+                ttl_seconds=600,
+            ),
+        )
+        scheduler._bind_budget(run.id, correct.id)
+
+        ordinary = client.post(
+            f"/conversations/{conversation['id']}/turns",
+            headers={**AUTH, "Idempotency-Key": "ordinary-turn"},
+            json={"text": "This is not the scheduled occurrence."},
+        )
+        assert ordinary.status_code == 201, ordinary.text
+        ordinary_turn_id = ordinary.json()["id"]
+
+        with pytest.raises(IntegrityError):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        UPDATE campaign_schedule_runs
+                        SET conversation_turn_id = :turn_id
+                        WHERE id = :run_id
+                        """
+                    ),
+                    {"turn_id": ordinary_turn_id, "run_id": run.id},
+                )
 
 
 def test_scheduler_migration_preserves_existing_control_state(settings):
