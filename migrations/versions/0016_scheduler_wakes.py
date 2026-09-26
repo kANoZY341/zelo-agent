@@ -277,6 +277,9 @@ def upgrade() -> None:
                   AND reservation.campaign_id = schedule.campaign_id
                   AND reservation.resource = 'mind_wakes'
                   AND reservation.owner_id = NEW.lease_holder_id
+                  AND reservation.status = 'reserved'
+                  AND reservation.units = 1
+                  AND reservation.committed_units = 0
              )
         BEGIN
             SELECT RAISE(ABORT, 'Wake budget reservation binding is invalid');
@@ -296,6 +299,8 @@ def upgrade() -> None:
                   ON turn.id = NEW.conversation_turn_id
                 WHERE schedule.id = NEW.schedule_id
                   AND turn.conversation_id = schedule.conversation_id
+                  AND turn.idempotency_key =
+                      'schedule:' || schedule.id || ':' || NEW.sequence
              )
         BEGIN
             SELECT RAISE(ABORT, 'Wake conversation turn binding is invalid');
