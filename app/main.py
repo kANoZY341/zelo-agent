@@ -62,6 +62,7 @@ def create_app(
                 configuration.ollama_general_model,
                 configuration.ollama_reasoning_model,
                 configuration.model_config_version,
+                mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
             self_improvement_runtime = SelfImprovementRuntime(
