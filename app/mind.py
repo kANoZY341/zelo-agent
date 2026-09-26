@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Annotated, Any, Literal
 from uuid import NAMESPACE_URL, uuid5
 
@@ -711,11 +711,14 @@ class MindService:
         idempotency_key: str,
         *,
         campaign_id: str | None = None,
+        before_side_effect: Callable[[], Awaitable[None]] | None = None,
     ) -> ConversationTurnResponse:
         async with self._lock(conversation_id):
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 self._require_saved_campaign_binding(existing, campaign_id)
+                if before_side_effect is not None:
+                    await before_side_effect()
                 return await self._complete_turn(existing)
 
             with self.database.read() as session:
@@ -733,6 +736,8 @@ class MindService:
             user_message = ModelMessage("user", text)
             messages.append(user_message)
             task_messages.append(user_message)
+            if before_side_effect is not None:
+                await before_side_effect()
             action, usage, alias, model = await self._generate_action(
                 messages,
                 task_messages=task_messages,
