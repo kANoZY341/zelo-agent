@@ -100,6 +100,19 @@ def send_turn(
     )
 
 
+def test_conversation_uses_dedicated_mind_model(settings, database):
+    provider = MindProvider(reply("Dedicated Mind response."))
+    configured = settings.model_copy(update={"ollama_mind_model": "qwen3.5:4b"})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        response = send_turn(client, conversation["id"], "hi", "mind-model-route")
+
+        assert response.status_code == 201, response.text
+        assert response.json()["selected_alias"] == "local_mind"
+        assert response.json()["selected_model"] == "qwen3.5:4b"
+        assert provider.requests[0].model_id == "qwen3.5:4b"
+
+
 def test_direct_conversation_persists_identity_and_history(settings, database):
     provider = MindProvider(reply("We can plan that."), reply("Continuing from the plan."))
     with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
