@@ -3,13 +3,13 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import text
 from alembic import command
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.campaign_control import CampaignControlService
-from app.database import Database, migration_config
 from app.campaigns import CampaignService
+from app.database import Database, migration_config
 from app.policy import DomainError
 from app.projects import ProjectService
 from app.schemas import (
