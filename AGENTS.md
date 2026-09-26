@@ -55,20 +55,22 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Project foundation and context seed
+## Current scope: v0.12 Campaign ownership and operational state
 
-The released base remains Zelo Core v0.11.0. Early Zelo Chat and the first
-Zelo-owned workspace are complete on main. The active implementation slice is
-documented in `docs/v0.12-project-context-seed.md`.
+The released base remains Zelo Core v0.11.0. Early Zelo Chat, the first
+Zelo-owned workspace, and the v0.12 Project/Goal + Context Resolver seed are
+complete on main. The active implementation slice is documented in
+`docs/v0.12-campaign-state.md`.
 
-Build the minimum durable Project/Goal ownership boundary needed by v0.12 and a
-bounded read-only Context Resolver for canonical Zelo/project state. Do not
-silently implement the rest of v0.12 in this slice: campaigns, scheduling,
-budgets and autonomous wake cycles remain later v0.12 work.
+Build the minimum durable Campaign ownership and operational state boundary:
+campaign records owned by Goals, campaign-owned Core tasks, acyclic-by-construction
+task dependencies, durable campaign events, and immutable checkpoints. Dependency
+records are execution constraints and the runner must not claim a task before its
+dependencies succeed.
 
-Persistent personal/project/agent memory remains v0.13. The context seed may
-read canonical repository state and Project/Goal records, but it must not create
-a parallel memory system or automatic memory writes. Agent Factory remains
+Do not silently add the later v0.12 scheduler, budgets, leases, autonomous Mind
+wake cycles, Research specialist, or full workspace project views in this slice.
+Persistent personal/project/agent memory remains v0.13. Agent Factory remains
 v0.14, broad tools/capabilities remain v0.15, and external channels remain v0.16.
 
 ## Workspace decision

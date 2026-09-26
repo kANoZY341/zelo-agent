@@ -10,11 +10,21 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.database import Database
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
-from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
+from app.models import (
+    Approval,
+    AuditEvent,
+    Campaign,
+    CampaignTaskLink,
+    Task,
+    TaskAttempt,
+    TaskDependency,
+    utcnow,
+)
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_contracts import (
@@ -135,6 +145,21 @@ def require_task(session: Session, task_id: str) -> Task:
     if task is None:
         raise DomainError("Task not found", 404)
     return task
+
+
+def _task_campaign_id(session: Session, task: Task) -> str | None:
+    link = session.get(CampaignTaskLink, task.id)
+    return link.campaign_id if link is not None else None
+
+
+def _task_dependency_ids(session: Session, task: Task) -> list[str]:
+    return list(
+        session.scalars(
+            select(TaskDependency.depends_on_task_id)
+            .where(TaskDependency.task_id == task.id)
+            .order_by(TaskDependency.depends_on_task_id)
+        )
+    )
 
 
 TASK_PROJECTION_RESULT_CHARS = 4096
@@ -456,6 +481,8 @@ def _project_task_result(
 def snapshot(session: Session, task: Task) -> TaskResponse:
     values = {
         "id": task.id,
+        "campaign_id": _task_campaign_id(session, task),
+        "depends_on_task_ids": _task_dependency_ids(session, task),
         "kind": task.kind,
         "payload": task.payload,
         "timeout_seconds": task.timeout_seconds,
@@ -510,6 +537,40 @@ class TaskService:
         self.promotion_reviewer = promotion_reviewer
         self.promotion_ci_verifier = promotion_ci_verifier
         self.promotion_release_runtime = promotion_release_runtime
+
+    def _bind_campaign_task(self, session: Session, task: Task, request: TaskCreate) -> None:
+        dependency_ids = list(request.depends_on_task_ids)
+        if len(set(dependency_ids)) != len(dependency_ids):
+            raise DomainError("Task dependencies must be unique", 422)
+        if request.campaign_id is None:
+            if dependency_ids:
+                raise DomainError("Task dependencies require campaign ownership", 422)
+            return
+
+        campaign = session.get(Campaign, request.campaign_id)
+        if campaign is None:
+            raise DomainError("Campaign not found", 404)
+        if campaign.status != "active":
+            raise DomainError("Campaign is not active", 409)
+
+        session.add(CampaignTaskLink(task_id=task.id, campaign_id=campaign.id))
+        for dependency_id in dependency_ids:
+            if dependency_id == task.id:
+                raise DomainError("Task cannot depend on itself", 422)
+            dependency = require_task(session, dependency_id)
+            dependency_link = session.get(CampaignTaskLink, dependency.id)
+            if dependency_link is None or dependency_link.campaign_id != campaign.id:
+                raise DomainError("Task dependency must belong to the same campaign", 422)
+            session.add(TaskDependency(task_id=task.id, depends_on_task_id=dependency.id))
+
+        append_campaign_event(
+            session,
+            campaign.id,
+            "task_attached",
+            task_id=task.id,
+            kind=task.kind,
+            depends_on_task_ids=dependency_ids,
+        )
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -907,6 +968,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1058,6 +1120,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1209,6 +1272,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1316,6 +1380,7 @@ class TaskService:
                 )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             if task.kind == "developer_run":
                 if developer_request is None:
@@ -1557,6 +1622,8 @@ class TaskService:
             )
             return TaskProjection(
                 id=task.id,
+                campaign_id=_task_campaign_id(session, task),
+                depends_on_task_ids=_task_dependency_ids(session, task),
                 kind=task.kind,
                 status=task.status,
                 created_at=task.created_at,
@@ -2001,6 +2068,16 @@ class TaskService:
                     )
             return snapshot(session, task)
 
+    @staticmethod
+    def _dependencies_satisfied(session: Session, task: Task) -> bool:
+        dependency_ids = _task_dependency_ids(session, task)
+        if not dependency_ids:
+            return True
+        states = list(session.scalars(select(Task.status).where(Task.id.in_(dependency_ids))))
+        return len(states) == len(dependency_ids) and all(
+            state == State.SUCCEEDED for state in states
+        )
+
     def _claimable_task(self, session: Session) -> Task | None:
         running = list(session.scalars(select(Task).where(Task.status == State.RUNNING)))
         pending = list(
@@ -2018,6 +2095,7 @@ class TaskService:
                 .limit(self.settings.max_waiting_tasks)
             )
         )
+        pending = [task for task in pending if self._dependencies_satisfied(session, task)]
         if not pending:
             return None
 
@@ -2316,6 +2394,16 @@ class TaskService:
                 State.INTERRUPTED: "execution_interrupted",
             }[outcome]
             audit(session, task, event, attempt_id=attempt.id, reason=error)
+            campaign_id = _task_campaign_id(session, task)
+            if campaign_id is not None:
+                append_campaign_event(
+                    session,
+                    campaign_id,
+                    "task_finished",
+                    task_id=task.id,
+                    status=outcome,
+                    reason=error,
+                )
             if task.kind == "developer_run":
                 audit(
                     session,

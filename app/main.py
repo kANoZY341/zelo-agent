@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.agent import AgentRuntime
 from app.api import router
+from app.campaign_api import router as campaign_router
+from app.campaigns import CampaignService
 from app.config import ROOT, Settings
 from app.context import ContextResolver
 from app.database import Database
@@ -69,6 +71,7 @@ def create_app(
             )
             tool_gateway = ToolGateway(configuration)
             projects = ProjectService(database)
+            campaigns = CampaignService(database)
             context_resolver = ContextResolver(projects)
             self_improvement_runtime = SelfImprovementRuntime(
                 RepositoryInspector(ROOT),
@@ -134,6 +137,7 @@ def create_app(
             application.state.database = database
             application.state.tasks = tasks
             application.state.projects = projects
+            application.state.campaigns = campaigns
             application.state.mind = mind
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
@@ -149,6 +153,7 @@ def create_app(
     application.include_router(router)
     application.include_router(task_router)
     application.include_router(project_router)
+    application.include_router(campaign_router)
     application.include_router(mind_router)
 
     @application.exception_handler(DomainError)
