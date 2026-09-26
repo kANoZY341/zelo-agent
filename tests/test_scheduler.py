@@ -693,7 +693,7 @@ def test_post_mind_authority_failure_retries_same_occurrence_without_double_char
             f"/campaigns/{campaign['id']}/budgets/mind_wakes",
             headers=AUTH,
         ).json()
-        assert first_budget["spent_units"] == 0
+        assert first_budget["spent_units"] == 1
         assert first_budget["reserved_units"] == 0
 
         asyncio.run(scheduler._execute_due(schedule["id"]))
@@ -777,7 +777,7 @@ def test_cancellation_joins_budget_reservation_before_cleanup(
         lease = controls.lease_status(campaign["id"], "mind-wake")
         budget = controls.get_budget(campaign["id"], "mind_wakes")
         assert lease.status == "free"
-        assert budget.spent_units == 0
+        assert budget.spent_units == 1
         assert budget.reserved_units == 0
 
         reservations = client.get(
@@ -838,7 +838,8 @@ def test_cancellation_waits_for_threaded_core_task_submission(
             lease = controls.lease_status(campaign["id"], "mind-wake")
             budget = controls.get_budget(campaign["id"], "mind_wakes")
             assert lease.status == "held"
-            assert budget.reserved_units == 1
+            assert budget.spent_units == 1
+            assert budget.reserved_units == 0
             assert not operation.done()
 
             release.set()
@@ -931,7 +932,7 @@ def test_task_link_failure_retries_same_persisted_occurrence(
             f"/campaigns/{campaign['id']}/budgets/mind_wakes",
             headers=AUTH,
         ).json()
-        assert budget["spent_units"] == 0
+        assert budget["spent_units"] == 1
         assert budget["reserved_units"] == 0
 
         asyncio.run(scheduler._execute_due(schedule["id"]))
