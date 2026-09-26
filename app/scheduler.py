@@ -725,6 +725,7 @@ class CampaignScheduler:
         lease = None
         run = None
         reservation = None
+        budget_committed = False
 
         def remember_lease(value: object) -> None:
             nonlocal lease
@@ -760,21 +761,35 @@ class CampaignScheduler:
             if run.sequence != sequence:
                 raise DomainError("Campaign schedule occurrence changed", 409)
 
-            reservation = await self._thread_mutation(
-                self.controls.reserve_budget,
-                campaign_id,
-                CampaignBudgetReserve(
-                    resource=WAKE_BUDGET_RESOURCE,
-                    owner_id=holder_id,
-                    idempotency_key=(
-                        f"schedule:{schedule_id}:{run.sequence}:lease:{lease.generation}"
-                    ),
-                    units=WAKE_BUDGET_UNITS,
-                    ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
-                ),
-                remember=remember_reservation,
+            reservation = await asyncio.to_thread(self._bound_budget, run.id)
+            persisted_turn_id = await asyncio.to_thread(
+                self._persisted_turn_id,
+                conversation_id,
+                turn_key,
             )
-            await self._thread_mutation(self._bind_budget, run.id, reservation.id)
+            if reservation is not None:
+                budget_committed = (
+                    reservation.status == "committed"
+                    and reservation.committed_units == WAKE_BUDGET_UNITS
+                )
+                if not budget_committed or persisted_turn_id is None:
+                    raise DomainError("Interrupted wake accounting is inconsistent", 500)
+            else:
+                reservation = await self._thread_mutation(
+                    self.controls.reserve_budget,
+                    campaign_id,
+                    CampaignBudgetReserve(
+                        resource=WAKE_BUDGET_RESOURCE,
+                        owner_id=holder_id,
+                        idempotency_key=(
+                            f"schedule:{schedule_id}:{run.sequence}:lease:{lease.generation}"
+                        ),
+                        units=WAKE_BUDGET_UNITS,
+                        ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
+                    ),
+                    remember=remember_reservation,
+                )
+                await self._thread_mutation(self._bind_budget, run.id, reservation.id)
 
             try:
                 lease = await self._thread_mutation(
@@ -791,10 +806,31 @@ class CampaignScheduler:
                 )
             except DomainError as error:
                 raise WakeAuthorityUnavailable("wake_lease_renewal_failed") from error
-            await asyncio.to_thread(self._require_live_mind_authority, run.id)
+            await asyncio.to_thread(
+                self._require_live_mind_authority,
+                run.id,
+                allow_committed_budget=budget_committed,
+            )
 
             async def require_authority_after_admission() -> None:
-                await asyncio.to_thread(self._require_live_mind_authority, run.id)
+                await asyncio.to_thread(
+                    self._require_live_mind_authority,
+                    run.id,
+                    allow_committed_budget=budget_committed,
+                )
+
+            async def commit_budget_after_persist(_: ConversationTurn) -> None:
+                nonlocal budget_committed
+                if reservation is None:
+                    raise DomainError("Wake budget reservation is unavailable", 500)
+                await self._thread_mutation(
+                    self.controls.commit_budget,
+                    campaign_id,
+                    reservation.id,
+                    CampaignBudgetCommit(actual_units=WAKE_BUDGET_UNITS),
+                    remember=remember_reservation,
+                )
+                budget_committed = True
 
             turn = await self.mind.send_turn(
                 conversation_id,
@@ -802,6 +838,7 @@ class CampaignScheduler:
                 turn_key,
                 campaign_id=campaign_id,
                 before_side_effect=require_authority_after_admission,
+                after_persist=commit_budget_after_persist,
             )
             await self._thread_mutation(
                 self._finalize_run,
@@ -811,7 +848,7 @@ class CampaignScheduler:
                 error=None,
             )
         except WakeAuthorityUnavailable as error:
-            if reservation is not None:
+            if reservation is not None and not budget_committed:
                 try:
                     await asyncio.to_thread(
                         self.controls.release_budget,
@@ -829,7 +866,7 @@ class CampaignScheduler:
         except asyncio.CancelledError:
             if run is not None:
                 await asyncio.to_thread(self._interrupt_run, run.id, "service_shutdown")
-            if reservation is not None:
+            if reservation is not None and not budget_committed:
                 try:
                     await asyncio.to_thread(
                         self.controls.release_budget,
@@ -847,7 +884,7 @@ class CampaignScheduler:
                     conversation_id,
                     turn_key,
                 )
-            if reservation is not None:
+            if reservation is not None and not budget_committed:
                 try:
                     await asyncio.to_thread(
                         self.controls.release_budget,
@@ -880,7 +917,7 @@ class CampaignScheduler:
                     conversation_id,
                     turn_key,
                 )
-            if reservation is not None:
+            if reservation is not None and not budget_committed:
                 try:
                     await asyncio.to_thread(
                         self.controls.release_budget,
