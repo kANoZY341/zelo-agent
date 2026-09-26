@@ -82,9 +82,7 @@ class ProjectService:
                 raise DomainError("Project not found", 404)
             total = (
                 session.scalar(
-                    select(func.count())
-                    .select_from(Goal)
-                    .where(Goal.project_id == project_id)
+                    select(func.count()).select_from(Goal).where(Goal.project_id == project_id)
                 )
                 or 0
             )
