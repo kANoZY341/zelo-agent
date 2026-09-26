@@ -12,6 +12,7 @@ from app.schemas import (
     ApprovalDemoResult,
     DeveloperRunResult,
     EchoResult,
+    ResearchRunResult,
     TextPayload,
     TextStatsResult,
 )
@@ -25,6 +26,7 @@ RESULT_MODELS = {
     "approval_demo": ApprovalDemoResult,
     "ai_prompt": AIPromptResult,
     "agent_run": AgentRunResult,
+    "research_run": ResearchRunResult,
     "self_improvement_run": SelfImprovementPreparation,
     "developer_run": DeveloperRunResult,
     "promotion_run": PromotionRunResult,

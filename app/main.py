@@ -32,6 +32,7 @@ from app.promotion_github import GitHubPromotionPublisher
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
+from app.research import ResearchRuntime
 from app.runner import Runner
 from app.scheduler import CampaignScheduler
 from app.scheduler_api import router as scheduler_router
@@ -137,6 +138,7 @@ def create_app(
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
+            research_runtime = ResearchRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
                 worker,
@@ -147,6 +149,7 @@ def create_app(
                 promotion_merge_runtime,
                 promotion_release_runtime,
                 self_improvement_runtime,
+                research_runtime=research_runtime,
             )
             application.state.database = database
             application.state.tasks = tasks
@@ -155,6 +158,7 @@ def create_app(
             application.state.campaign_controls = campaign_controls
             application.state.mind = mind
             application.state.scheduler = scheduler
+            application.state.research_runtime = research_runtime
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()

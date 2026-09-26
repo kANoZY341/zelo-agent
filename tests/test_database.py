@@ -68,6 +68,7 @@ def test_migration_from_empty_database(settings) -> None:
         "0006_promotion_review",
         "0007_merge_approval",
         "0008_release_approval",
+        "0016_scheduler_wakes",
     ],
 )
 def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
@@ -182,7 +183,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0016_scheduler_wakes"
+                == "0017_research_specialist"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -215,6 +216,11 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 if constraint["name"] == "ck_task_kind"
             )
             assert "self_improvement_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
+            assert "research_run" in next(
                 constraint["sqltext"]
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
@@ -390,7 +396,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0016_scheduler_wakes"
+                "0017_research_specialist"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
@@ -399,6 +405,47 @@ def test_failed_migration_rolls_back_and_can_retry(
             table.startswith("_alembic_tmp_")
             for table in inspect(database.engine).get_table_names()
         )
+    finally:
+        database.close()
+
+
+def test_research_task_kind_is_database_allowlisted_only(settings) -> None:
+    database = Database(settings.database_path)
+    try:
+        database.migrate()
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO tasks (
+                        id, kind, payload, timeout_seconds, status, action_version,
+                        action_hash, request_hash, cancel_requested, created_at, updated_at
+                    ) VALUES (
+                        'research-db-kind', 'research_run', '{"query":"proof"}', 120,
+                        'pending', 1, :action_hash, :request_hash, 0,
+                        '2026-01-01 00:00:00', '2026-01-01 00:00:00'
+                    )
+                    """
+                ),
+                {"action_hash": "a" * 64, "request_hash": "b" * 64},
+            )
+        with pytest.raises(IntegrityError, match="ck_task_kind"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        """
+                        INSERT INTO tasks (
+                            id, kind, payload, timeout_seconds, status, action_version,
+                            action_hash, request_hash, cancel_requested, created_at, updated_at
+                        ) VALUES (
+                            'unknown-db-kind', 'research_write', '{}', 120,
+                            'pending', 1, :action_hash, :request_hash, 0,
+                            '2026-01-01 00:00:00', '2026-01-01 00:00:00'
+                        )
+                        """
+                    ),
+                    {"action_hash": "c" * 64, "request_hash": "d" * 64},
+                )
     finally:
         database.close()
 

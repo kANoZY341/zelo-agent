@@ -64,6 +64,16 @@ class AgentRunInput(TaskInput):
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
 
 
+class ResearchPayload(StrictModel):
+    query: str = Field(min_length=1, max_length=16384)
+
+
+class ResearchRunInput(TaskInput):
+    kind: Literal["research_run"]
+    payload: ResearchPayload
+    timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
+
+
 class SelfImprovementPayload(StrictModel):
     goal: str = Field(min_length=1, max_length=1024)
 
@@ -156,6 +166,7 @@ TaskCreate = Annotated[
     | AIPromptInput
     | ToolCallInput
     | AgentRunInput
+    | ResearchRunInput
     | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
@@ -197,6 +208,25 @@ class AgentRunResult(StrictModel):
     model_steps: int = Field(ge=1)
     tool_calls: int = Field(ge=0)
     tools_used: list[str]
+    usage: list[dict[str, int | None]]
+    completed_at: datetime
+
+
+class ResearchSource(StrictModel):
+    id: str = Field(pattern=r"^S[1-9][0-9]*$")
+    tool: Literal["repo_status", "list_workspace_files", "read_workspace_file"]
+    locator: str = Field(min_length=1, max_length=522)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    truncated: bool
+
+
+class ResearchRunResult(StrictModel):
+    answer: str = Field(min_length=1, max_length=16384)
+    sources: list[ResearchSource] = Field(min_length=1, max_length=16)
+    alias: Literal["local_general"]
+    actual_model: str
+    model_steps: int = Field(ge=1)
+    tool_calls: int = Field(ge=1)
     usage: list[dict[str, int | None]]
     completed_at: datetime
 
@@ -281,6 +311,7 @@ class TaskResponse(StrictModel):
         "ai_prompt",
         "tool_call",
         "agent_run",
+        "research_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -292,6 +323,7 @@ class TaskResponse(StrictModel):
         | AIPromptPayload
         | ToolCallPayload
         | AgentRunPayload
+        | ResearchPayload
         | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
@@ -335,6 +367,7 @@ class TaskProjection(StrictModel):
         "ai_prompt",
         "tool_call",
         "agent_run",
+        "research_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",

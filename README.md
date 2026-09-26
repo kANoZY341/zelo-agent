@@ -110,9 +110,47 @@ process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
 A linked task is projected back into the conversation from canonical TaskService
 state, so a workspace can show pending/running/approval/result state without
 duplicating it. The first proof path is documented in
-`docs/early-zelo-chat.md`. Autonomous events, wake cycles, campaigns, memory,
-Agent Factory, broad capabilities, and external channels remain in their later
-canonical milestones.
+`docs/early-zelo-chat.md`. Persistent memory, Agent Factory, broad capabilities, and external channels
+remain in their later canonical milestones.
+
+## Fixed Research specialist
+
+v0.12 adds a fixed `research_run` specialist on top of the same Core task
+lifecycle. It is intentionally narrower than the generic Agent Runtime and does
+not introduce the later Agent Factory or Browser/Research workers.
+
+```text
+research_run
+  -> fixed ResearchRuntime
+  -> local_general model
+  -> repo_status / list_workspace_files / read_workspace_file only
+  -> Core-generated evidence IDs
+  -> cited bounded answer
+```
+
+Example:
+
+```json
+{
+  "kind": "research_run",
+  "payload": {
+    "query": "Inspect the workspace evidence and summarize what it shows."
+  },
+  "timeout_seconds": 120
+}
+```
+
+Research must execute at least one real retrieval tool before it can finish.
+Every final answer declares observed Core-generated source IDs and cites them as
+`[S1]`, `[S2]`, and so on. Persisted source metadata contains the tool, a safe
+locator and a SHA-256 digest of the canonical typed result; raw retrieved file
+contents and internal model/tool transcripts are not copied into a new memory
+store.
+
+The specialist can be Campaign-owned and can be selected by Zelo Mind. It cannot
+use `system_info`, public web/browser/API access, shell/Python execution, write
+tools, secrets, task creation, approvals or external channels. Those capabilities
+remain in later roadmap milestones. See `docs/v0.12-research-specialist.md`.
 
 ## Local Model Gateway
 

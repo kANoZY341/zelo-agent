@@ -11,6 +11,7 @@ from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
+from app.research import ResearchRuntime, ResearchRuntimeError
 from app.self_improvement import SelfImprovementError
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
@@ -36,11 +37,13 @@ class Runner:
         promotion_merge_runtime: PromotionMergeRuntime | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         self_improvement_runtime: SelfImprovementRuntime | None = None,
+        research_runtime: ResearchRuntime | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
+        self.research_runtime = research_runtime
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -177,6 +180,8 @@ class Runner:
             operation = asyncio.create_task(self._tool_worker(execution))
         elif execution.kind == "agent_run":
             operation = asyncio.create_task(self._agent_worker(execution))
+        elif execution.kind == "research_run":
+            operation = asyncio.create_task(self._research_worker(execution))
         elif execution.kind == "self_improvement_run":
             operation = asyncio.create_task(self._self_improvement_worker(execution))
         elif execution.kind == "developer_run":
@@ -193,7 +198,7 @@ class Runner:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
                 await operation
-                if execution.kind in {"agent_run", "developer_run"}
+                if execution.kind in {"agent_run", "research_run", "developer_run"}
                 else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
@@ -255,6 +260,8 @@ class Runner:
                     reason="tool_timeout",
                 )
         except AgentRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except ResearchRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DomainError as error:
             if execution.kind != "self_improvement_run":
@@ -381,6 +388,21 @@ class Runner:
         return await self.agent_runtime.run(
             prompt=execution.payload["prompt"],
             profile=execution.profile or "",
+            selected_alias=execution.selected_alias or "",
+            selected_model=execution.selected_model or "",
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
+        )
+
+    async def _research_worker(self, execution: Execution) -> dict[str, Any]:
+        if self.research_runtime is None:
+            raise ResearchRuntimeError("research_runtime_unavailable")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await self.research_runtime.run(
+            query=execution.payload["query"],
             selected_alias=execution.selected_alias or "",
             selected_model=execution.selected_model or "",
             timeout_seconds=execution.timeout_seconds,

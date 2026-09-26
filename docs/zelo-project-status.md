@@ -100,36 +100,49 @@ remaining gap was grounded persistent project context: Mind could converse but
 could not reliably answer what Zelo is currently building without explicit
 context.
 
-## Active increment: v0.12 Bounded scheduler and Mind wake cycles
+## Completed increment: v0.12 Bounded scheduler and Mind wake cycles
 
-Campaign leases/recovery/shared budgets are merged through PR #31. The current
-main baseline for this slice is:
+PR #32 is merged on main.
 
-`e74e9e52092e66313cbd36b878462b1ef881897f`
+Verified main commit:
+
+`1ad8d7582713651dd5b2804ef88f8f78bba7f934`
+
+Post-merge main CI run `36265138834` succeeded with diff check, Ruff lint,
+Ruff format and the full pytest suite green.
+
+The merged scheduler provides durable Campaign-owned one-shot/fixed-interval
+schedules, Campaign-wide wake leases, `mind_wakes` accounting, deterministic
+scheduled Mind turns, restart reconciliation, cancellation/recovery and forced
+same-Campaign ownership for Core tasks produced by scheduled wakes.
+
+## Active increment: v0.12 Fixed Research specialist
+
+Current main baseline:
+
+`1ad8d7582713651dd5b2804ef88f8f78bba7f934`
 
 Active branch:
 
-`feat/v0.12-scheduler-wake`
+`feat/v0.12-research-specialist`
 
 Design:
 
-`docs/v0.12-scheduler-wakes.md`
+`docs/v0.12-research-specialist.md`
 
 This slice adds:
 
-- durable Campaign-owned one-shot and fixed-interval schedules;
-- minimum recurrence and maximum-run bounds;
-- one Campaign-wide `mind-wake` lease for every wake;
-- required `mind_wakes` budget reservation before Mind execution;
-- deterministic scheduled Mind turn idempotency;
-- forced same-Campaign ownership for any task created by a scheduled Mind wake;
-- durable schedule-run records with restart interruption/resume semantics;
-- atomic successful wake budget charging plus schedule progress;
-- no catch-up burst of missed recurring intervals.
+- one typed `research_run` Core task;
+- one fixed Research specialist using `local_general`;
+- an explicit read-only allowlist limited to repository/workspace retrieval;
+- Core-generated source IDs and required final-answer citations;
+- persisted source locators and SHA-256 result digests without raw evidence copies;
+- normal Campaign ownership, dependencies, retry, recovery and audit behavior;
+- Mind routing into the Research specialist.
 
-This slice does not add free-running autonomy, cron expressions, self-created
-schedules, Research specialist execution, workspace project/progress views,
-voice, persistent v0.13 memory, or new merge/release authority.
+This slice deliberately does not add live web/browser/API retrieval, write tools,
+specialist memory, recursive subagents, Agent Factory generalization or broad
+capability registration. Those remain in later canonical milestones.
 
 ## Parked work
 
@@ -138,9 +151,9 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify bounded scheduling plus restart-safe Mind wake cycles.
-2. Add the first fixed Research specialist with narrow read-only retrieval.
-3. Add workspace project/progress views backed only by Core state.
-4. Add push-to-talk voice through the existing conversation/action contracts.
+1. Land and verify the fixed Research specialist.
+2. Add workspace project/progress views backed only by Core state.
+3. Add push-to-talk voice through the existing conversation/action contracts.
+4. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
 5. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.

@@ -435,6 +435,56 @@ def _emergency_developer_result_projection(
     }
 
 
+def _research_result_projection(result: dict[str, Any]) -> dict[str, Any]:
+    raw_sources = result.get("sources")
+    sources: list[dict[str, Any]] = []
+    if isinstance(raw_sources, list):
+        for item in raw_sources[:8]:
+            if not isinstance(item, dict):
+                continue
+            sources.append(
+                {
+                    "id": _bounded_projection_text(item.get("id"), 16),
+                    "tool": _bounded_projection_text(item.get("tool"), 64),
+                    "locator": _bounded_projection_text(item.get("locator"), 256),
+                    "sha256": _bounded_projection_text(item.get("sha256"), 64),
+                    "truncated": item.get("truncated"),
+                }
+            )
+    return {
+        "answer": _bounded_projection_text(result.get("answer"), 3072),
+        "sources": sources,
+        "source_count": len(raw_sources) if isinstance(raw_sources, list) else 0,
+        "model_steps": result.get("model_steps"),
+        "tool_calls": result.get("tool_calls"),
+    }
+
+
+def _minimal_research_result_projection(result: dict[str, Any]) -> dict[str, Any]:
+    raw_sources = result.get("sources")
+    sources: list[dict[str, Any]] = []
+    if isinstance(raw_sources, list):
+        for item in raw_sources[:4]:
+            if not isinstance(item, dict):
+                continue
+            sources.append(
+                {
+                    "id": _bounded_projection_json_text(item.get("id"), 16),
+                    "tool": _bounded_projection_json_text(item.get("tool"), 64),
+                    "locator": _bounded_projection_json_text(item.get("locator"), 192),
+                    "sha256": _bounded_projection_json_text(item.get("sha256"), 64),
+                    "truncated": item.get("truncated"),
+                }
+            )
+    return {
+        "answer": _bounded_projection_json_text(result.get("answer"), 1536),
+        "sources": sources,
+        "source_count": len(raw_sources) if isinstance(raw_sources, list) else 0,
+        "model_steps": result.get("model_steps"),
+        "tool_calls": result.get("tool_calls"),
+    }
+
+
 def _project_task_result(
     kind: str,
     result: dict[str, Any] | None,
@@ -442,6 +492,25 @@ def _project_task_result(
 ) -> tuple[dict[str, Any] | None, bool]:
     if result is None:
         return None, False
+
+    if kind == "research_run":
+        effective_limit = min(limit, TASK_PROJECTION_RESULT_CHARS)
+        projection = _research_result_projection(result)
+        if _encoded_json_length(projection) <= effective_limit:
+            return projection, True
+
+        minimal = _minimal_research_result_projection(result)
+        if _encoded_json_length(minimal) <= effective_limit:
+            return minimal, True
+
+        return {
+            "summary": "Research result exceeded the conversation projection budget.",
+            "source_count": (
+                len(result["sources"]) if isinstance(result.get("sources"), list) else 0
+            ),
+            "model_steps": result.get("model_steps"),
+            "tool_calls": result.get("tool_calls"),
+        }, True
 
     if kind == "developer_run":
         projection = _developer_result_projection(result)
@@ -1344,12 +1413,17 @@ class TaskService:
                 idempotency_key=key,
                 request_hash=request_hash,
             )
-            if request.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
+            if request.kind in {
+                "ai_prompt",
+                "agent_run",
+                "research_run",
+                "self_improvement_run",
+            }:
                 if self.gateway is None:
                     raise DomainError("Model gateway unavailable", 503)
-                profile = (
-                    payload["profile"] if request.kind != "self_improvement_run" else "general"
-                )
+                profile = "general"
+                if request.kind in {"ai_prompt", "agent_run"}:
+                    profile = payload["profile"]
                 try:
                     alias, model = self.gateway.select(profile)
                 except Exception:
@@ -1404,7 +1478,7 @@ class TaskService:
                     developer_request,
                     developer_running_counts,
                 )
-            if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
+            if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
                 audit(
                     session,
                     task,
@@ -1714,14 +1788,14 @@ class TaskService:
 
     def _valid_action(self, task: Task, approval: Approval, *, live: bool = True) -> bool:
         selection = None
-        if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
+        if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
             selection = {
                 "alias": task.selected_alias,
                 "model": task.selected_model,
                 "config_version": task.config_version,
                 "profile": (
                     "general"
-                    if task.kind == "self_improvement_run"
+                    if task.kind in {"research_run", "self_improvement_run"}
                     else task.payload.get("profile")
                 ),
             }
@@ -2033,14 +2107,14 @@ class TaskService:
                 {
                     "profile": (
                         "general"
-                        if task.kind == "self_improvement_run"
+                        if task.kind in {"research_run", "self_improvement_run"}
                         else task.payload.get("profile")
                     ),
                     "alias": task.selected_alias,
                     "model": task.selected_model,
                     "config_version": task.config_version,
                 }
-                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
+                if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -2235,11 +2309,11 @@ class TaskService:
                     "config_version": task.config_version,
                     "profile": (
                         "general"
-                        if task.kind == "self_improvement_run"
+                        if task.kind in {"research_run", "self_improvement_run"}
                         else task.payload.get("profile")
                     ),
                 }
-                if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}
+                if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}
                 else (
                     task.developer_spec
                     if task.kind == "developer_run"
@@ -2505,6 +2579,23 @@ class TaskService:
                     attempt_id=attempt.id,
                     **details,
                 )
+            if task.kind == "research_run":
+                details = (
+                    {
+                        "model_steps": result["model_steps"],
+                        "tool_calls": result["tool_calls"],
+                        "source_count": len(result["sources"]),
+                    }
+                    if outcome == State.SUCCEEDED and result is not None
+                    else {"reason": error}
+                )
+                audit(
+                    session,
+                    task,
+                    "research_completed" if outcome == State.SUCCEEDED else "research_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
             if task.kind == "self_improvement_run":
                 details = (
                     {
@@ -2679,6 +2770,14 @@ class TaskService:
                         session,
                         task,
                         "agent_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "research_run":
+                    audit(
+                        session,
+                        task,
+                        "research_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )
