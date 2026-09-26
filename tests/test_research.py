@@ -327,14 +327,12 @@ def test_research_task_keeps_campaign_ownership(
         attached = [
             event
             for event in events
-            if event["event"] == "task_attached"
-            and event["details"].get("task_id") == created["id"]
+            if event["event"] == "task_attached" and event["task_id"] == created["id"]
         ]
         finished = [
             event
             for event in events
-            if event["event"] == "task_finished"
-            and event["details"].get("task_id") == created["id"]
+            if event["event"] == "task_finished" and event["task_id"] == created["id"]
         ]
         assert len(attached) == 1
         assert len(finished) == 1
@@ -372,7 +370,13 @@ def test_zelo_mind_can_delegate_to_research_specialist(
         assert response.status_code == 201, response.text
         task = response.json()["core_task"]
         assert task["kind"] == "research_run"
-        assert task["payload"]["query"] == "Inspect the workspace proof and report the evidence."
+        assert "payload" not in task
+        full_task = client.get(f"/tasks/{task['id']}", headers=AUTH)
+        assert full_task.status_code == 200, full_task.text
+        assert (
+            full_task.json()["payload"]["query"]
+            == "Inspect the workspace proof and report the evidence."
+        )
 
         completed = wait_for(client, task["id"], "succeeded")
         assert completed["result"]["answer"] == "Research found the workspace proof. [S1]"
