@@ -30,6 +30,7 @@ from app.schemas import (
     CampaignBudgetReserve,
     CampaignLeaseAcquire,
     CampaignLeaseRelease,
+    CampaignLeaseRenew,
     CampaignScheduleCreate,
     CampaignSchedulePage,
     CampaignScheduleResponse,
@@ -381,6 +382,51 @@ class CampaignScheduler:
                 raise DomainError("Campaign schedule budget binding changed", 409)
             run.budget_reservation_id = reservation_id
 
+    def _require_live_mind_authority(self, run_id: str) -> None:
+        with self.database.transaction() as session:
+            now = self.clock()
+            minimum_expiry = now + timedelta(
+                seconds=self.settings.scheduler_mind_window_seconds
+            )
+            run = session.get(CampaignScheduleRun, run_id)
+            if run is None or run.status != "running":
+                raise WakeAuthorityUnavailable("wake_run_not_active")
+            schedule = self._require_schedule(session, run.schedule_id)
+            if schedule.status != "active":
+                raise WakeAuthorityUnavailable("schedule_not_active")
+
+            lease = session.get(
+                CampaignLease,
+                (schedule.campaign_id, WAKE_LEASE_SCOPE),
+            )
+            if (
+                lease is None
+                or lease.holder_id != run.lease_holder_id
+                or lease.lease_token != run.lease_token
+                or lease.generation != run.lease_generation
+                or lease.expires_at is None
+                or lease.expires_at < minimum_expiry
+            ):
+                raise WakeAuthorityUnavailable("wake_lease_window_unavailable")
+
+            if run.budget_reservation_id is None:
+                raise WakeAuthorityUnavailable("wake_budget_not_bound")
+            reservation = session.get(
+                CampaignBudgetReservation,
+                run.budget_reservation_id,
+            )
+            if (
+                reservation is None
+                or reservation.campaign_id != schedule.campaign_id
+                or reservation.resource != WAKE_BUDGET_RESOURCE
+                or reservation.owner_id != run.lease_holder_id
+                or reservation.units != WAKE_BUDGET_UNITS
+                or reservation.committed_units != 0
+                or reservation.status != "reserved"
+                or reservation.expires_at < minimum_expiry
+            ):
+                raise WakeAuthorityUnavailable("wake_budget_window_unavailable")
+
     def _finalize_run(
         self,
         run_id: str,
@@ -625,6 +671,22 @@ class CampaignScheduler:
             )
             await asyncio.to_thread(self._bind_budget, run.id, reservation.id)
 
+            try:
+                lease = await asyncio.to_thread(
+                    self.controls.renew_lease,
+                    campaign_id,
+                    WAKE_LEASE_SCOPE,
+                    CampaignLeaseRenew(
+                        holder_id=holder_id,
+                        lease_token=lease.lease_token,
+                        generation=lease.generation,
+                        ttl_seconds=self.settings.scheduler_wake_ttl_seconds,
+                    ),
+                )
+            except DomainError as error:
+                raise WakeAuthorityUnavailable("wake_lease_renewal_failed") from error
+            await asyncio.to_thread(self._require_live_mind_authority, run.id)
+
             turn = await self.mind.send_turn(
                 conversation_id,
                 prompt,
@@ -638,6 +700,22 @@ class CampaignScheduler:
                 conversation_turn_id=turn.id,
                 error=None,
             )
+        except WakeAuthorityUnavailable as error:
+            if reservation is not None:
+                try:
+                    await asyncio.to_thread(
+                        self.controls.release_budget,
+                        campaign_id,
+                        reservation.id,
+                    )
+                except DomainError:
+                    pass
+            if run is not None:
+                await asyncio.to_thread(
+                    self._interrupt_run,
+                    run.id,
+                    str(error),
+                )
         except asyncio.CancelledError:
             if run is not None:
                 await asyncio.to_thread(self._interrupt_run, run.id, "service_shutdown")
