@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.campaign_control import CampaignControlService
@@ -280,6 +280,13 @@ class CampaignScheduler:
                     CampaignSchedule.next_run_at <= now,
                     CampaignSchedule.run_count < CampaignSchedule.max_runs,
                     Campaign.status == "active",
+                    ~exists().where(
+                        CampaignLease.campaign_id == CampaignSchedule.campaign_id,
+                        CampaignLease.scope == WAKE_LEASE_SCOPE,
+                        CampaignLease.holder_id.is_not(None),
+                        CampaignLease.expires_at.is_not(None),
+                        CampaignLease.expires_at > now,
+                    ),
                 )
                 .order_by(CampaignSchedule.next_run_at, CampaignSchedule.id)
                 .limit(1)
