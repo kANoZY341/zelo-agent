@@ -18,9 +18,17 @@ class TextPayload(StrictModel):
     text: str = Field(max_length=65536)
 
 
+TaskId = Annotated[
+    str,
+    Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+]
+
+
 class TaskInput(StrictModel):
     payload: TextPayload
     timeout_seconds: float = Field(default=10.0, ge=0.01, le=60, allow_inf_nan=False)
+    campaign_id: TaskId | None = None
+    depends_on_task_ids: list[TaskId] = Field(default_factory=list, max_length=32)
 
 
 class EchoInput(TaskInput):
@@ -264,6 +272,8 @@ class ApprovalResponse(StrictModel):
 
 class TaskResponse(StrictModel):
     id: str
+    campaign_id: TaskId | None = None
+    depends_on_task_ids: list[TaskId] = Field(default_factory=list, max_length=32)
     kind: Literal[
         "echo",
         "text_stats",
@@ -316,6 +326,8 @@ class TaskPage(StrictModel):
 
 class TaskProjection(StrictModel):
     id: str
+    campaign_id: TaskId | None = None
+    depends_on_task_ids: list[TaskId] = Field(default_factory=list, max_length=32)
     kind: Literal[
         "echo",
         "text_stats",
@@ -396,6 +408,68 @@ class GoalResponse(StrictModel):
 
 class GoalPage(StrictModel):
     items: list[GoalResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+CampaignStatus = Literal["active", "paused", "completed", "cancelled"]
+
+
+class CampaignCreate(StrictModel):
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(default="", max_length=4096)
+
+
+class CampaignResponse(StrictModel):
+    id: str
+    goal_id: str
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(max_length=4096)
+    status: CampaignStatus
+    task_count: int = Field(ge=0)
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignPage(StrictModel):
+    items: list[CampaignResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class CampaignEventResponse(StrictModel):
+    id: str
+    campaign_id: str
+    sequence: int = Field(ge=1)
+    task_id: TaskId | None = None
+    event: str = Field(min_length=1, max_length=64)
+    created_at: datetime
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class CampaignEventPage(StrictModel):
+    items: list[CampaignEventResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class CampaignCheckpointCreate(StrictModel):
+    state: dict[str, Any]
+
+
+class CampaignCheckpointResponse(StrictModel):
+    id: str
+    campaign_id: str
+    version: int = Field(ge=1)
+    state: dict[str, Any]
+    created_at: datetime
+
+
+class CampaignCheckpointPage(StrictModel):
+    items: list[CampaignCheckpointResponse]
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)

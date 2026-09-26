@@ -111,12 +111,33 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         create_app(settings, provider=provider, developer_worker=developer_worker),
         headers=AUTH,
     ) as client:
+        project = client.post(
+            "/projects",
+            json={"name": "Zelo", "summary": "Persistent personal AI."},
+        ).json()
+        goal = client.post(
+            f"/projects/{project['id']}/goals",
+            json={
+                "title": "Safe self-improvement",
+                "spec": {
+                    "objective": "Improve Zelo through bounded campaign work.",
+                    "success_criteria": ["Generated developer work keeps Campaign ownership."],
+                    "constraints": ["No scheduler yet."],
+                },
+            },
+        ).json()
+        campaign = client.post(
+            f"/goals/{goal['id']}/campaigns",
+            json={"title": "Self-improvement campaign", "summary": "Ownership continuity proof."},
+        ).json()
+
         response = client.post(
             "/tasks",
             json={
                 "kind": "self_improvement_run",
                 "payload": {"goal": "Improve Zelo safely."},
                 "timeout_seconds": 120,
+                "campaign_id": campaign["id"],
             },
         )
         assert response.status_code == 201, response.text
@@ -143,6 +164,8 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         assert "Canonical Architecture" not in serialized
 
         child = client.get(f"/tasks/{result['developer_task_id']}").json()
+        assert submitted["campaign_id"] == campaign["id"]
+        assert child["campaign_id"] == campaign["id"]
         assert child["kind"] == "developer_run"
         assert child["status"] == "awaiting_approval"
         assert child["approvals"][0]["id"] == result["developer_approval_id"]
@@ -168,6 +191,19 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         assert "self_improvement_inspection_completed" in names
         assert "self_improvement_proposal_created" in names
         assert "self_improvement_developer_prepared" in names
+
+        campaign_events = client.get(f"/campaigns/{campaign['id']}/events").json()["items"]
+        attached_ids = [
+            event["task_id"] for event in campaign_events if event["event"] == "task_attached"
+        ]
+        assert attached_ids == [submitted["id"], child["id"]]
+        parent_terminal = [
+            event
+            for event in campaign_events
+            if event["event"] == "task_finished" and event["task_id"] == submitted["id"]
+        ]
+        assert len(parent_terminal) == 1
+        assert parent_terminal[0]["details"]["status"] == "succeeded"
         assert len(provider.requests) == 1
 
 

@@ -152,6 +152,71 @@ class Goal(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active','paused','completed','cancelled')",
+            name="ck_campaign_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    goal_id: Mapped[str] = mapped_column(ForeignKey("goals.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    summary: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CampaignTaskLink(Base):
+    __tablename__ = "campaign_task_links"
+
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class TaskDependency(Base):
+    __tablename__ = "task_dependencies"
+    __table_args__ = (
+        UniqueConstraint("task_id", "depends_on_task_id", name="uq_task_dependency"),
+        CheckConstraint("task_id <> depends_on_task_id", name="ck_task_dependency_not_self"),
+    )
+
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    depends_on_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+
+
+class CampaignEvent(Base):
+    __tablename__ = "campaign_events"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "sequence", name="uq_campaign_event_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    event: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class CampaignCheckpoint(Base):
+    __tablename__ = "campaign_checkpoints"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "version", name="uq_campaign_checkpoint_version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    state: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

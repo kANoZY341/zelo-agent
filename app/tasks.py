@@ -10,11 +10,21 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.database import Database
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
-from app.models import Approval, AuditEvent, Task, TaskAttempt, utcnow
+from app.models import (
+    Approval,
+    AuditEvent,
+    Campaign,
+    CampaignTaskLink,
+    Task,
+    TaskAttempt,
+    TaskDependency,
+    utcnow,
+)
 from app.policy import DomainError, State, action_hash, fingerprint, validate_transition
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_contracts import (
@@ -51,6 +61,7 @@ from app.self_improvement_runtime import (
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
+TERMINAL_STATES = frozenset({State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED})
 CAPACITY_BACKOFF_INITIAL_SECONDS = 0.25
 CAPACITY_BACKOFF_MAX_SECONDS = 5.0
 
@@ -111,6 +122,18 @@ def transition(session: Session, task: Task, target: State) -> None:
     task.status = target
     task.updated_at = utcnow()
     audit(session, task, "state_transition", previous=previous, target=target)
+    if target in TERMINAL_STATES:
+        campaign_id = _task_campaign_id(session, task)
+        if campaign_id is not None:
+            append_campaign_event(
+                session,
+                campaign_id,
+                "task_finished",
+                task_id=task.id,
+                previous=previous,
+                status=target,
+                reason=task.error,
+            )
 
 
 def defer_transition(session: Session, task: Task) -> None:
@@ -135,6 +158,21 @@ def require_task(session: Session, task_id: str) -> Task:
     if task is None:
         raise DomainError("Task not found", 404)
     return task
+
+
+def _task_campaign_id(session: Session, task: Task) -> str | None:
+    link = session.get(CampaignTaskLink, task.id)
+    return link.campaign_id if link is not None else None
+
+
+def _task_dependency_ids(session: Session, task: Task) -> list[str]:
+    return list(
+        session.scalars(
+            select(TaskDependency.depends_on_task_id)
+            .where(TaskDependency.task_id == task.id)
+            .order_by(TaskDependency.depends_on_task_id)
+        )
+    )
 
 
 TASK_PROJECTION_RESULT_CHARS = 4096
@@ -456,6 +494,8 @@ def _project_task_result(
 def snapshot(session: Session, task: Task) -> TaskResponse:
     values = {
         "id": task.id,
+        "campaign_id": _task_campaign_id(session, task),
+        "depends_on_task_ids": _task_dependency_ids(session, task),
         "kind": task.kind,
         "payload": task.payload,
         "timeout_seconds": task.timeout_seconds,
@@ -510,6 +550,40 @@ class TaskService:
         self.promotion_reviewer = promotion_reviewer
         self.promotion_ci_verifier = promotion_ci_verifier
         self.promotion_release_runtime = promotion_release_runtime
+
+    def _bind_campaign_task(self, session: Session, task: Task, request: TaskCreate) -> None:
+        dependency_ids = list(request.depends_on_task_ids)
+        if len(set(dependency_ids)) != len(dependency_ids):
+            raise DomainError("Task dependencies must be unique", 422)
+        if request.campaign_id is None:
+            if dependency_ids:
+                raise DomainError("Task dependencies require campaign ownership", 422)
+            return
+
+        campaign = session.get(Campaign, request.campaign_id)
+        if campaign is None:
+            raise DomainError("Campaign not found", 404)
+        if campaign.status != "active":
+            raise DomainError("Campaign is not active", 409)
+
+        session.add(CampaignTaskLink(task_id=task.id, campaign_id=campaign.id))
+        for dependency_id in dependency_ids:
+            if dependency_id == task.id:
+                raise DomainError("Task cannot depend on itself", 422)
+            dependency = require_task(session, dependency_id)
+            dependency_link = session.get(CampaignTaskLink, dependency.id)
+            if dependency_link is None or dependency_link.campaign_id != campaign.id:
+                raise DomainError("Task dependency must belong to the same campaign", 422)
+            session.add(TaskDependency(task_id=task.id, depends_on_task_id=dependency.id))
+
+        append_campaign_event(
+            session,
+            campaign.id,
+            "task_attached",
+            task_id=task.id,
+            kind=task.kind,
+            depends_on_task_ids=dependency_ids,
+        )
 
     def _check_capacity(self, session: Session) -> None:
         count = session.scalar(
@@ -907,6 +981,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1058,6 +1133,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1209,6 +1285,7 @@ class TaskService:
             )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             audit(
                 session,
@@ -1316,6 +1393,7 @@ class TaskService:
                 )
             session.add(task)
             session.flush()
+            self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
             if task.kind == "developer_run":
                 if developer_request is None:
@@ -1404,9 +1482,9 @@ class TaskService:
             if parent.cancel_requested:
                 parent.capacity_backoff_attempts = 0
                 parent.capacity_backoff_until = None
-                transition(session, parent, State.CANCELLED)
                 parent.result = None
                 parent.error = "cancelled_by_operator"
+                transition(session, parent, State.CANCELLED)
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
@@ -1460,6 +1538,23 @@ class TaskService:
             )
             session.add(child)
             session.flush()
+            parent_campaign_id = _task_campaign_id(session, parent)
+            if parent_campaign_id is not None:
+                session.add(
+                    CampaignTaskLink(
+                        task_id=child.id,
+                        campaign_id=parent_campaign_id,
+                    )
+                )
+                append_campaign_event(
+                    session,
+                    parent_campaign_id,
+                    "task_attached",
+                    task_id=child.id,
+                    kind=child.kind,
+                    depends_on_task_ids=[],
+                    inherited_from_task_id=parent.id,
+                )
             audit(session, child, "task_submitted")
             self._audit_developer_binding(session, child, developer_request, running_counts)
             audit(
@@ -1481,9 +1576,9 @@ class TaskService:
 
             parent.capacity_backoff_attempts = 0
             parent.capacity_backoff_until = None
-            transition(session, parent, State.SUCCEEDED)
             parent.result = result_json
             parent.error = None
+            transition(session, parent, State.SUCCEEDED)
             attempt.outcome = State.SUCCEEDED
             attempt.result = result_json
             attempt.error = None
@@ -1557,6 +1652,8 @@ class TaskService:
             )
             return TaskProjection(
                 id=task.id,
+                campaign_id=_task_campaign_id(session, task),
+                depends_on_task_ids=_task_dependency_ids(session, task),
                 kind=task.kind,
                 status=task.status,
                 created_at=task.created_at,
@@ -2001,6 +2098,16 @@ class TaskService:
                     )
             return snapshot(session, task)
 
+    @staticmethod
+    def _dependencies_satisfied(session: Session, task: Task) -> bool:
+        dependency_ids = _task_dependency_ids(session, task)
+        if not dependency_ids:
+            return True
+        states = list(session.scalars(select(Task.status).where(Task.id.in_(dependency_ids))))
+        return len(states) == len(dependency_ids) and all(
+            state == State.SUCCEEDED for state in states
+        )
+
     def _claimable_task(self, session: Session) -> Task | None:
         running = list(session.scalars(select(Task).where(Task.status == State.RUNNING)))
         pending = list(
@@ -2018,6 +2125,7 @@ class TaskService:
                 .limit(self.settings.max_waiting_tasks)
             )
         )
+        pending = [task for task in pending if self._dependencies_satisfied(session, task)]
         if not pending:
             return None
 
@@ -2304,8 +2412,8 @@ class TaskService:
                     result = None
             task.capacity_backoff_attempts = 0
             task.capacity_backoff_until = None
-            transition(session, task, outcome)
             task.result, task.error = result, error
+            transition(session, task, outcome)
             attempt.outcome = outcome
             attempt.result, attempt.error = result, error
             attempt.ended_at = utcnow()
@@ -2429,9 +2537,9 @@ class TaskService:
             if task.cancel_requested:
                 task.capacity_backoff_attempts = 0
                 task.capacity_backoff_until = None
-                transition(session, task, State.CANCELLED)
                 task.error = "cancelled_by_operator"
                 task.result = None
+                transition(session, task, State.CANCELLED)
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
@@ -2508,9 +2616,9 @@ class TaskService:
                         TaskAttempt.task_id == task.id, TaskAttempt.outcome == State.RUNNING
                     )
                 )
-                transition(session, task, State.INTERRUPTED)
                 task.error = "process_interrupted"
                 task.result = None
+                transition(session, task, State.INTERRUPTED)
                 if attempt:
                     attempt.outcome = State.INTERRUPTED
                     attempt.ended_at = utcnow()

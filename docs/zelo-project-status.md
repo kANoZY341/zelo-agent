@@ -100,30 +100,30 @@ remaining gap was grounded persistent project context: Mind could converse but
 could not reliably answer what Zelo is currently building without explicit
 context.
 
-## Active increment: v0.12 Project foundation and context seed
+## Active increment: v0.12 Campaign ownership and operational state
+
+The Project/Goal + Context Resolver seed is merged on main through PR #28. The
+workspace conversation-history follow-up is merged through PR #29.
 
 Active branch:
 
-`feat/v0.12-project-context-seed`
+`feat/v0.12-campaign-state`
 
 Design:
 
-`docs/v0.12-project-context-seed.md`
+`docs/v0.12-campaign-state.md`
 
-This first v0.12 slice is intentionally bounded:
+This slice adds the next ownership/state boundary:
 
-- durable Core-owned Project records;
-- durable typed GoalSpec records owned by a Project;
-- authenticated Project/Goal create/read/list APIs;
-- a bounded read-only Context Resolver for canonical Zelo/project state;
-- selective Mind context injection only for relevant project-state questions.
+- durable Campaign records owned by Goals;
+- Core tasks optionally owned by one Campaign;
+- immutable task dependency edges within that Campaign;
+- runner gating so a dependent task cannot be claimed before all dependencies succeed;
+- append-only campaign events;
+- immutable versioned campaign checkpoints.
 
-The resolver reads canonical repository status/roadmap plus active Core
-Project/Goal records. It does not write persistent memory, store hidden
-reasoning, create embeddings, schedule work, or grant execution authority.
-
-Full persistent personal/project/agent memory remains v0.13 after v0.12 has the
-ownership/state boundaries it needs.
+This slice does not add scheduling, leases, budgets, automatic wake cycles,
+persistent v0.13 memory, or the Research specialist.
 
 ## Parked work
 
@@ -132,11 +132,9 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and live-prove the v0.12 Project/Goal + Context Resolver seed.
-2. Create the canonical Zelo Project and its active Goal records through Core.
-3. Continue v0.12 with campaign/task ownership, durable events/checkpoints,
-   shared budget accounting, cancellation/recovery and bounded scheduling.
-4. Add the first fixed Research specialist only within the v0.12 capability
-   boundary.
+1. Land and live-prove Campaign ownership, dependency gating, events and checkpoints.
+2. Add leases/recovery and shared budget accounting on top of Campaign state.
+3. Add bounded scheduling and Mind wake cycles without weakening Core authority.
+4. Add the first fixed Research specialist and workspace project/progress views.
 5. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.
