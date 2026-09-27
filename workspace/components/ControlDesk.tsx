@@ -434,20 +434,24 @@ export function ControlDesk({
         );
         const next = await parseJson<CampaignOverview>(response);
         if (!cancelled && next.campaign.id === campaignId) {
-          if (
-            next.budgets.items.length === 0 &&
-            next.budgets.total > 0 &&
-            budgetOffset > 0
-          ) {
-            setBudgetOffset(Math.max(0, budgetOffset - PAGE_SIZE));
+          const budgetFallbackOffset = recoverPreviousPageOffset(
+            budgetOffset,
+            next.budgets.total,
+            next.budgets.items.length,
+            PAGE_SIZE,
+          );
+          if (budgetFallbackOffset !== null) {
+            setBudgetOffset(budgetFallbackOffset);
             return;
           }
-          if (
-            next.schedules.items.length === 0 &&
-            next.schedules.total > 0 &&
-            scheduleOffset > 0
-          ) {
-            setScheduleOffset(Math.max(0, scheduleOffset - PAGE_SIZE));
+          const scheduleFallbackOffset = recoverPreviousPageOffset(
+            scheduleOffset,
+            next.schedules.total,
+            next.schedules.items.length,
+            PAGE_SIZE,
+          );
+          if (scheduleFallbackOffset !== null) {
+            setScheduleOffset(scheduleFallbackOffset);
             return;
           }
           setOverview(next);

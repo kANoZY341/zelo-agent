@@ -38,3 +38,32 @@ test("responsive navigation keeps constrained titles and narrow controls", async
     /grid-template-columns:\s*34px minmax\(0, 1fr\) 34px 34px/,
   );
 });
+
+test("empty parents allocate no deadline and empty campaign clears loading", async () => {
+  const desk = await source("../components/ControlDesk.tsx");
+
+  const goalParentCheck = desk.indexOf("if (!projectId) return () => undefined;");
+  const goalDeadline = desk.indexOf(
+    "const deadline = requestDeadline(controller);",
+    goalParentCheck,
+  );
+  assert.ok(goalParentCheck >= 0 && goalDeadline > goalParentCheck);
+
+  const campaignParentCheck = desk.indexOf("if (!goalId) return () => undefined;");
+  const campaignDeadline = desk.indexOf(
+    "const deadline = requestDeadline(controller);",
+    campaignParentCheck,
+  );
+  assert.ok(campaignParentCheck >= 0 && campaignDeadline > campaignParentCheck);
+
+  assert.match(
+    desk,
+    /if \(!campaignId\) \{[\s\S]*setOverview\(null\);[\s\S]*setDetailLoading\(false\);/,
+  );
+});
+
+test("all hierarchy and detail page fallbacks share the tested recovery helper", async () => {
+  const desk = await source("../components/ControlDesk.tsx");
+  const uses = desk.match(/recoverPreviousPageOffset\(/g) ?? [];
+  assert.equal(uses.length, 5);
+});
