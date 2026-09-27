@@ -1,0 +1,4 @@
+-r requirements.txt
+# Optional local voice stack. Kept separate from Core runtime dependencies.
+faster-whisper>=1.1,<2
+sherpa-onnx==1.13.8
