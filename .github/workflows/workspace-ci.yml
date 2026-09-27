@@ -37,6 +37,13 @@ jobs:
           node-version: '24'
       - name: Install workspace dependencies
         run: npm install --ignore-scripts
+      - name: Export generated workspace lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-lockfile
+          path: workspace/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Audit workspace dependencies
         run: npm run audit
       - name: Test workspace hardening contracts
