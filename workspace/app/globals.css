@@ -1290,17 +1290,40 @@ h2 {
     display: none;
   }
 
+  .desk-topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .desk-topbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .mobile-view-button {
+    margin-left: auto;
+    order: 1;
+  }
+
   .mobile-project-controls {
-    display: flex;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px 34px;
     align-items: center;
     gap: 6px;
+    order: 2;
+  }
+
+  .mobile-project-select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 
   .desk-status-pill {
     display: none;
   }
-
-  .desk-topbar,
 
   .desk-scroll {
     padding-left: 16px;

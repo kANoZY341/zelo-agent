@@ -112,6 +112,9 @@ export function ControlDesk({
   const [error, setError] = useState<string | null>(null);
   const goalsProjectRef = useRef<string | null>(null);
   const campaignsGoalRef = useRef<string | null>(null);
+  const loadedProjectOffsetRef = useRef<number | null>(null);
+  const loadedGoalOffsetRef = useRef<number | null>(null);
+  const loadedCampaignOffsetRef = useRef<number | null>(null);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -134,6 +137,16 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
+    const pageChanged = loadedProjectOffsetRef.current !== projectOffset;
+    if (pageChanged) {
+      setProjects([]);
+      setProjectId(null);
+      setGoals([]);
+      setGoalId(null);
+      setCampaigns([]);
+      setCampaignId(null);
+      setOverview(null);
+    }
     setLoading(true);
     setError(null);
 
@@ -148,6 +161,7 @@ export function ControlDesk({
           setProjectOffset(Math.max(0, projectOffset - PAGE_SIZE));
           return;
         }
+        loadedProjectOffsetRef.current = page.offset;
         setProjects(page.items);
         setProjectTotal(page.total);
         setProjectId((current) =>
@@ -177,6 +191,8 @@ export function ControlDesk({
     const parentChanged = goalsProjectRef.current !== projectId;
     if (parentChanged) {
       goalsProjectRef.current = projectId;
+      loadedGoalOffsetRef.current = null;
+      loadedCampaignOffsetRef.current = null;
       setGoals([]);
       setGoalId(null);
       setGoalOffset(0);
@@ -189,6 +205,15 @@ export function ControlDesk({
     }
     if (!projectId) return () => undefined;
 
+    const pageChanged = loadedGoalOffsetRef.current !== goalOffset;
+    if (!parentChanged && pageChanged) {
+      setGoals([]);
+      setGoalId(null);
+      setCampaigns([]);
+      setCampaignId(null);
+      setOverview(null);
+    }
+
     fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=${PAGE_SIZE}&offset=${goalOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
@@ -200,6 +225,7 @@ export function ControlDesk({
           setGoalOffset(Math.max(0, goalOffset - PAGE_SIZE));
           return;
         }
+        loadedGoalOffsetRef.current = page.offset;
         setGoals(page.items);
         setGoalTotal(page.total);
         setGoalId((current) =>
@@ -226,6 +252,7 @@ export function ControlDesk({
     const parentChanged = campaignsGoalRef.current !== goalId;
     if (parentChanged) {
       campaignsGoalRef.current = goalId;
+      loadedCampaignOffsetRef.current = null;
       setCampaigns([]);
       setCampaignId(null);
       setCampaignOffset(0);
@@ -233,6 +260,13 @@ export function ControlDesk({
       setOverview(null);
     }
     if (!goalId) return () => undefined;
+
+    const pageChanged = loadedCampaignOffsetRef.current !== campaignOffset;
+    if (!parentChanged && pageChanged) {
+      setCampaigns([]);
+      setCampaignId(null);
+      setOverview(null);
+    }
 
     fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=${PAGE_SIZE}&offset=${campaignOffset}`, {
       headers: WORKSPACE_HEADERS,
@@ -245,6 +279,7 @@ export function ControlDesk({
           setCampaignOffset(Math.max(0, campaignOffset - PAGE_SIZE));
           return;
         }
+        loadedCampaignOffsetRef.current = page.offset;
         setCampaigns(page.items);
         setCampaignTotal(page.total);
         setCampaignId((current) =>
