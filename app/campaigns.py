@@ -190,23 +190,19 @@ class CampaignService:
     def latest_events(self, campaign_id: str, limit: int) -> CampaignEventPage:
         with self.database.read() as session:
             self._require(session, campaign_id)
-            total = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(CampaignEvent)
-                    .where(CampaignEvent.campaign_id == campaign_id)
-                )
-                or 0
-            )
-            newest_first = list(
-                session.scalars(
-                    select(CampaignEvent)
+            rows = list(
+                session.execute(
+                    select(
+                        CampaignEvent,
+                        func.count().over().label("total"),
+                    )
                     .where(CampaignEvent.campaign_id == campaign_id)
                     .order_by(CampaignEvent.sequence.desc())
                     .limit(limit)
                 )
             )
-            events = list(reversed(newest_first))
+            total = int(rows[0].total) if rows else 0
+            events = [row.CampaignEvent for row in reversed(rows)]
             return CampaignEventPage(
                 items=[CampaignEventResponse.model_validate(event) for event in events],
                 limit=limit,

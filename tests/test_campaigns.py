@@ -1,10 +1,10 @@
 """v0.12 Campaign ownership and operational-state tests."""
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
-from app.campaigns import CampaignService
+from app.campaigns import CampaignService, append_campaign_event
 from app.policy import DomainError, State
 from app.projects import ProjectService
 from app.schemas import (
@@ -289,6 +289,42 @@ def test_latest_campaign_events_returns_tail_without_offset_paging(database):
     assert page.total == 6
     assert page.offset == 3
     assert [event.sequence for event in page.items] == [4, 5, 6]
+
+
+def test_latest_campaign_events_metadata_is_snapshot_consistent_during_append(database):
+    _, _, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+    for version in range(1, 6):
+        campaigns.checkpoint(
+            campaign.id,
+            CampaignCheckpointCreate(state={"version": version}),
+        )
+
+    inserted = False
+
+    def append_after_latest_statement(conn, cursor, statement, parameters, context, executemany):
+        nonlocal inserted
+        if inserted or "count(*) OVER" not in statement:
+            return
+        inserted = True
+        with database.transaction() as writer:
+            append_campaign_event(writer, campaign.id, "concurrent_append")
+
+    event.listen(database.engine, "after_cursor_execute", append_after_latest_statement)
+    try:
+        page = campaigns.latest_events(campaign.id, 3)
+    finally:
+        event.remove(database.engine, "after_cursor_execute", append_after_latest_statement)
+
+    assert inserted is True
+    assert page.total == 6
+    assert page.offset == 3
+    assert [item.sequence for item in page.items] == [4, 5, 6]
+
+    next_page = campaigns.latest_events(campaign.id, 3)
+    assert next_page.total == 7
+    assert next_page.offset == 4
+    assert [item.sequence for item in next_page.items] == [5, 6, 7]
 
 
 def test_campaign_terminal_event_and_activity_follow_pre_execution_cancel(settings, database):
