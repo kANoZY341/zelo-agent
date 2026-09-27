@@ -1,6 +1,4 @@
-# Optional local speech adapter dependencies for v0.12 push-to-talk.
-# Keep these out of the Core runtime environment unless voice is intentionally enabled.
+# Common optional local speech adapter dependencies for v0.12 push-to-talk.
+# Install exactly one provider-specific requirements file for TTS.
 -r requirements.txt
 faster-whisper==1.2.1
-chatterbox-tts==0.1.7
-sherpa-onnx==1.13.8
