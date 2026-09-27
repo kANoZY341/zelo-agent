@@ -224,3 +224,24 @@ test("proxyVoice rejects non-loopback adapter URLs", async () => {
     else process.env.ZELO_VOICE_TOKEN = previousToken;
   }
 });
+
+test("voice transcription is invalidated before conversation changes", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /voiceTranscriptionAbortRef/);
+  assert.match(page, /voiceInputGenerationRef/);
+  assert.match(page, /invalidateVoiceInput\(\);[\s\S]*?activeConversationIdRef\.current = id/);
+  assert.match(page, /controller\.signal\.aborted[\s\S]*?voiceInputGenerationRef\.current !== transcriptionGeneration/);
+  assert.match(page, /activeConversationIdRef\.current !== transcriptionConversationId/);
+  assert.match(page, /onPointerCancel=\{cancelVoiceRecording\}/);
+});
+
+test("voice synthesis proxy bounds the stream before JSON buffering", async () => {
+  const route = await readFile(
+    new URL("../app/api/voice/synthesize/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /request\.body\.getReader\(\)/);
+  assert.match(route, /total > maxBytes/);
+  assert.match(route, /voice_synthesis_request_too_large/);
+  assert.doesNotMatch(route, /request\.text\(\)/);
+});
