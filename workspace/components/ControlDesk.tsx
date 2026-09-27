@@ -734,7 +734,7 @@ export function ControlDesk({
             </>
           )}
 
-          <div className="desk-inline-inspector">
+          <div className="desk-inline-inspector" aria-busy={detailLoading}>
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
@@ -900,7 +900,7 @@ export function ControlDesk({
         </div>
       </section>
 
-      <aside className="desk-inspector">
+      <aside className="desk-inspector" aria-busy={detailLoading}>
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 

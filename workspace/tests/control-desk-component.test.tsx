@@ -128,6 +128,17 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
     });
     await flushEffects();
     assert.equal(overviewStarted, true);
+    const busyInspectors = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        ".desk-inline-inspector[aria-busy], .desk-inspector[aria-busy]",
+      ),
+    );
+    assert.equal(busyInspectors.length, 2);
+    assert.ok(
+      busyInspectors.every(
+        (inspector) => inspector.getAttribute("aria-busy") === "true",
+      ),
+    );
 
     const goalButtons = Array.from(
       container.querySelectorAll<HTMLButtonElement>(".goal-card"),
@@ -140,6 +151,11 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
     await flushEffects();
 
     assert.equal(overviewAborted, true);
+    assert.ok(
+      busyInspectors.every(
+        (inspector) => inspector.getAttribute("aria-busy") === "false",
+      ),
+    );
     assert.doesNotMatch(container.textContent ?? "", /Loading campaign state/);
     assert.match(container.textContent ?? "", /No campaigns attached to this goal/);
     assert.match(container.textContent ?? "", /Select a campaign to inspect/);
