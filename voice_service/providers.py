@@ -29,7 +29,7 @@ def detect_tts_language(text: str) -> str:
         codepoint = ord(character)
         if any(start <= codepoint <= end for start, end in ARABIC_RANGES):
             arabic += 1
-        elif ("a" <= character.lower() <= "z"):
+        elif "a" <= character.lower() <= "z":
             latin += 1
     return "ar" if arabic > latin else "en"
 
@@ -98,10 +98,7 @@ def pcm16_wav(samples, sample_rate: int) -> bytes:
     """Encode normalized mono float samples as a standard PCM16 WAV."""
     frames = array(
         "h",
-        (
-            max(-32768, min(32767, round(float(sample) * 32767)))
-            for sample in samples
-        ),
+        (max(-32768, min(32767, round(float(sample) * 32767))) for sample in samples),
     )
     if sys.byteorder != "little":
         frames.byteswap()
@@ -175,9 +172,7 @@ class SherpaOnnxVitsSynthesizer:
         return model
 
     def synthesize(self, text: str, language: str) -> bytes:
-        chosen_language = (
-            detect_tts_language(text) if language == "auto" else language
-        )
+        chosen_language = detect_tts_language(text) if language == "auto" else language
         if chosen_language not in {"en", "ar"}:
             raise ValueError("unsupported_voice_language")
 
