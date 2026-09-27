@@ -7,7 +7,7 @@ import os
 import pathlib
 import tempfile
 import threading
-import typing
+from typing import Protocol
 
 
 ARABIC_RANGES = (
@@ -44,11 +44,11 @@ def audio_suffix(content_type: str) -> str:
     }.get(lowered, ".audio")
 
 
-class Transcriber(typing.Protocol):
+class Transcriber(Protocol):
     def transcribe(self, audio: bytes, content_type: str) -> dict[str, object]: ...
 
 
-class Synthesizer(typing.Protocol):
+class Synthesizer(Protocol):
     def synthesize(self, text: str, language: str) -> bytes: ...
 
 
