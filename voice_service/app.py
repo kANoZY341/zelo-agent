@@ -56,9 +56,7 @@ def _tts_deadline_seconds() -> float:
 def _authorize(authorization: str | None) -> None:
     prefix = "Bearer "
     supplied = (
-        authorization[len(prefix) :]
-        if authorization and authorization.startswith(prefix)
-        else ""
+        authorization[len(prefix) :] if authorization and authorization.startswith(prefix) else ""
     )
     if not supplied or not hmac.compare_digest(supplied, _required_token()):
         raise HTTPException(status_code=401, detail="voice_unauthorized")
@@ -134,11 +132,7 @@ async def synthesize(
     authorization: str | None = Header(default=None),
 ) -> Response:
     _authorize(authorization)
-    language = (
-        detect_tts_language(payload.text)
-        if payload.language == "auto"
-        else payload.language
-    )
+    language = detect_tts_language(payload.text) if payload.language == "auto" else payload.language
     request_id: str | None = None
     completed = False
 
