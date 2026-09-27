@@ -359,3 +359,237 @@ test("TTS failure after a voice turn never reposts the accepted Mind turn", asyn
     }
   }
 });
+
+
+test("autoplay rejection exposes manual reply playback without reposting the turn", async () => {
+  const runtime = globalThis as unknown as {
+    fetch: typeof fetch;
+    MediaRecorder: typeof MediaRecorder;
+    Audio: typeof Audio;
+    URL: typeof URL;
+  };
+  const originalFetch = runtime.fetch;
+  const originalMediaRecorder = runtime.MediaRecorder;
+  const originalAudio = runtime.Audio;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const originalMediaDevices = Object.getOwnPropertyDescriptor(
+    windowInstance.navigator,
+    "mediaDevices",
+  );
+
+  let turnPosts = 0;
+  let synthPosts = 0;
+  let playCalls = 0;
+  let revoked = 0;
+
+  class FakeRecorder {
+    static isTypeSupported() {
+      return true;
+    }
+
+    state: RecordingState = "inactive";
+    mimeType = "audio/webm";
+    private listeners = new Map<string, Array<(event: unknown) => void>>();
+
+    addEventListener(type: string, listener: (event: unknown) => void) {
+      const current = this.listeners.get(type) ?? [];
+      current.push(listener);
+      this.listeners.set(type, current);
+    }
+
+    start() {
+      this.state = "recording";
+    }
+
+    stop() {
+      if (this.state !== "recording") return;
+      this.state = "inactive";
+      for (const listener of this.listeners.get("dataavailable") ?? []) {
+        listener({ data: new Blob(["voice"], { type: "audio/webm" }) });
+      }
+      for (const listener of this.listeners.get("stop") ?? []) {
+        listener(new Event("stop"));
+      }
+    }
+  }
+
+  class FakeAudio {
+    private listeners = new Map<string, Array<() => void>>();
+
+    constructor(public src: string) {}
+
+    addEventListener(type: string, listener: () => void) {
+      const current = this.listeners.get(type) ?? [];
+      current.push(listener);
+      this.listeners.set(type, current);
+    }
+
+    pause() {}
+
+    async play() {
+      playCalls += 1;
+      if (playCalls === 1) {
+        throw new DOMException("Autoplay blocked", "NotAllowedError");
+      }
+      queueMicrotask(() => {
+        for (const listener of this.listeners.get("ended") ?? []) listener();
+      });
+    }
+  }
+
+  Object.defineProperty(windowInstance.navigator, "mediaDevices", {
+    configurable: true,
+    value: {
+      getUserMedia: async () =>
+        ({
+          getTracks: () => [{ stop: () => undefined }],
+        }) as unknown as MediaStream,
+    },
+  });
+  runtime.MediaRecorder = FakeRecorder as unknown as typeof MediaRecorder;
+  runtime.Audio = FakeAudio as unknown as typeof Audio;
+  URL.createObjectURL = () => "blob:zelo-reply";
+  URL.revokeObjectURL = () => {
+    revoked += 1;
+  };
+
+  const turn = {
+    id: "turn-autoplay",
+    number: 1,
+    user_content: "voice prompt",
+    assistant_content: "Spoken answer.",
+    selected_alias: "local_general",
+    selected_model: "test-model",
+    usage: {},
+    core_task: null,
+    created_at: "2026-09-27T00:00:00Z",
+  };
+  const conversation = {
+    id: "conversation-autoplay",
+    title: "Autoplay test",
+    created_at: "2026-09-27T00:00:00Z",
+    updated_at: "2026-09-27T00:00:00Z",
+    turns: [turn],
+    turn_limit: 50,
+    turn_offset: 0,
+    turn_total: 1,
+  };
+
+  runtime.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (url === "/api/voice/health") return json({ status: "healthy" });
+    if (url === "/api/health") return json({ status: "healthy" });
+    if (url.startsWith("/api/conversations?")) {
+      return json({ items: [], limit: 100, offset: 0, total: 0 });
+    }
+    if (url === "/api/voice/transcribe") {
+      return json({ text: "voice prompt", language: "en" });
+    }
+    if (url === "/api/conversations" && method === "POST") {
+      return json({ ...conversation, turns: [], turn_total: 0 });
+    }
+    if (
+      url === "/api/conversations/conversation-autoplay/turns" &&
+      method === "POST"
+    ) {
+      turnPosts += 1;
+      return json(turn);
+    }
+    if (
+      url ===
+      "/api/conversations/conversation-autoplay?turn_limit=1&turn_offset=0"
+    ) {
+      return json({ ...conversation, turns: [], turn_limit: 1 });
+    }
+    if (
+      url ===
+      "/api/conversations/conversation-autoplay?turn_limit=50&turn_offset=0"
+    ) {
+      return json(conversation);
+    }
+    if (url === "/api/voice/synthesize" && method === "POST") {
+      synthPosts += 1;
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { "content-type": "audio/wav" },
+      });
+    }
+    throw new Error(`unexpected fetch: ${method} ${url}`);
+  }) as typeof fetch;
+
+  const { root, container } = mount();
+  try {
+    await act(async () => {
+      root.render(<Home />);
+    });
+    await flushEffects();
+
+    const voiceButton =
+      container.querySelector<HTMLButtonElement>(".voice-button");
+    assert.ok(voiceButton);
+
+    await act(async () => {
+      voiceButton.dispatchEvent(
+        new windowInstance.KeyboardEvent("keydown", {
+          key: " ",
+          bubbles: true,
+        }),
+      );
+    });
+    await flushEffects();
+
+    await act(async () => {
+      voiceButton.dispatchEvent(
+        new windowInstance.KeyboardEvent("keyup", {
+          key: " ",
+          bubbles: true,
+        }),
+      );
+    });
+    await flushEffects(16);
+
+    assert.equal(turnPosts, 1);
+    assert.equal(synthPosts, 1);
+    assert.equal(playCalls, 1);
+
+    const manual =
+      container.querySelector<HTMLButtonElement>(".voice-playback-button");
+    assert.ok(manual);
+    assert.match(manual.textContent ?? "", /Play reply/);
+
+    await act(async () => {
+      manual.click();
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    assert.equal(playCalls, 2);
+    assert.equal(turnPosts, 1);
+    assert.equal(synthPosts, 1);
+    assert.ok(revoked >= 1);
+    assert.equal(
+      container.querySelector(".voice-playback-button"),
+      null,
+    );
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    runtime.fetch = originalFetch;
+    runtime.MediaRecorder = originalMediaRecorder;
+    runtime.Audio = originalAudio;
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+    if (originalMediaDevices) {
+      Object.defineProperty(
+        windowInstance.navigator,
+        "mediaDevices",
+        originalMediaDevices,
+      );
+    } else {
+      delete (windowInstance.navigator as unknown as { mediaDevices?: unknown })
+        .mediaDevices;
+    }
+  }
+});
