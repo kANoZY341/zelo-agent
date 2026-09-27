@@ -15,6 +15,7 @@ const WORKSPACE_HEADERS = { "X-Zelo-Workspace": "1" };
 const PAGE_SIZE = 25;
 const REFRESH_INTERVAL_MS = 5000;
 const HIERARCHY_REFRESH_INTERVAL_MS = 15000;
+const HIERARCHY_REQUEST_TIMEOUT_MS = 30000;
 
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json();
@@ -28,6 +29,18 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function requestDeadline(controller: AbortController) {
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, HIERARCHY_REQUEST_TIMEOUT_MS);
+  return {
+    clear: () => clearTimeout(timer),
+    didTimeout: () => timedOut,
+  };
 }
 
 function timestamp(value: string | null): string {
@@ -145,6 +158,7 @@ export function ControlDesk({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    const deadline = requestDeadline(controller);
     const pageChanged = loadedProjectOffsetRef.current !== projectOffset;
     if (pageChanged) {
       setProjects([]);
@@ -181,13 +195,18 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled && !isAbortError(loadError)) {
+        if (!cancelled && (deadline.didTimeout() || !isAbortError(loadError))) {
           setError(
-            loadError instanceof Error ? loadError.message : "project_load_failed",
+            deadline.didTimeout()
+              ? "project_load_timeout"
+              : loadError instanceof Error
+                ? loadError.message
+                : "project_load_failed",
           );
         }
       })
       .finally(() => {
+        deadline.clear();
         hierarchyPendingRef.current = Math.max(
           0,
           hierarchyPendingRef.current - 1,
@@ -197,6 +216,7 @@ export function ControlDesk({
 
     return () => {
       cancelled = true;
+      deadline.clear();
       controller.abort();
     };
   }, [projectOffset, refreshKey]);
@@ -204,6 +224,7 @@ export function ControlDesk({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    const deadline = requestDeadline(controller);
     const parentChanged = goalsProjectRef.current !== projectId;
     if (parentChanged) {
       goalsProjectRef.current = projectId;
@@ -253,13 +274,18 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled && !isAbortError(loadError)) {
+        if (!cancelled && (deadline.didTimeout() || !isAbortError(loadError))) {
           setError(
-            loadError instanceof Error ? loadError.message : "goal_load_failed",
+            deadline.didTimeout()
+              ? "goal_load_timeout"
+              : loadError instanceof Error
+                ? loadError.message
+                : "goal_load_failed",
           );
         }
       })
       .finally(() => {
+        deadline.clear();
         hierarchyPendingRef.current = Math.max(
           0,
           hierarchyPendingRef.current - 1,
@@ -268,6 +294,7 @@ export function ControlDesk({
 
     return () => {
       cancelled = true;
+      deadline.clear();
       controller.abort();
     };
   }, [goalOffset, projectId, refreshKey]);
@@ -275,6 +302,7 @@ export function ControlDesk({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    const deadline = requestDeadline(controller);
     const parentChanged = campaignsGoalRef.current !== goalId;
     if (parentChanged) {
       campaignsGoalRef.current = goalId;
@@ -317,15 +345,18 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled && !isAbortError(loadError)) {
+        if (!cancelled && (deadline.didTimeout() || !isAbortError(loadError))) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "campaign_load_failed",
+            deadline.didTimeout()
+              ? "campaign_load_timeout"
+              : loadError instanceof Error
+                ? loadError.message
+                : "campaign_load_failed",
           );
         }
       })
       .finally(() => {
+        deadline.clear();
         hierarchyPendingRef.current = Math.max(
           0,
           hierarchyPendingRef.current - 1,
@@ -334,6 +365,7 @@ export function ControlDesk({
 
     return () => {
       cancelled = true;
+      deadline.clear();
       controller.abort();
     };
   }, [campaignOffset, goalId, refreshKey]);
