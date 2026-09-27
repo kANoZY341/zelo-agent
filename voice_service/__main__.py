@@ -1,7 +1,6 @@
 """Run the local Zelo voice service."""
 
 import uvicorn
-
 from voice_service.config import VoiceSettings
 
 
