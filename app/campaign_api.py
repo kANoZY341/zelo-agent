@@ -62,6 +62,15 @@ def campaign_events(
     return campaigns.events(campaign_id, limit, offset)
 
 
+@router.get("/campaigns/{campaign_id}/events/latest", response_model=CampaignEventPage)
+def latest_campaign_events(
+    campaign_id: str,
+    campaigns: Campaigns,
+    limit: Limit = 100,
+) -> CampaignEventPage:
+    return campaigns.latest_events(campaign_id, limit)
+
+
 @router.post(
     "/campaigns/{campaign_id}/checkpoints",
     response_model=CampaignCheckpointResponse,

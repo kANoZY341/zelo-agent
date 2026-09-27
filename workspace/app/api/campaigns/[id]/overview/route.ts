@@ -41,20 +41,6 @@ async function readCoreJson(
   return { ok: response.ok, status: response.status, body };
 }
 
-function pageTotal(body: unknown): number | null {
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("total" in body) ||
-    typeof body.total !== "number" ||
-    !Number.isInteger(body.total) ||
-    body.total < 0
-  ) {
-    return null;
-  }
-  return body.total;
-}
-
 function coreError(result: CoreRead): Response {
   return Response.json(result.body, {
     status: result.status,
@@ -85,10 +71,10 @@ export async function GET(
     MAX_OFFSET,
   );
   const campaignId = encodeURIComponent(id);
-  const [campaign, eventMeta, budgets, schedules] = await Promise.all([
+  const [campaign, events, budgets, schedules] = await Promise.all([
     readCoreJson(`/campaigns/${campaignId}`, request.signal),
     readCoreJson(
-      `/campaigns/${campaignId}/events?limit=1&offset=0`,
+      `/campaigns/${campaignId}/events/latest?limit=100`,
       request.signal,
     ),
     readCoreJson(
@@ -101,24 +87,9 @@ export async function GET(
     ),
   ]);
 
-  for (const result of [campaign, eventMeta, budgets, schedules]) {
+  for (const result of [campaign, events, budgets, schedules]) {
     if (!result.ok) return coreError(result);
   }
-
-  const totalEvents = pageTotal(eventMeta.body);
-  if (totalEvents === null) {
-    return Response.json(
-      { detail: "invalid_campaign_event_page" },
-      { status: 502, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  const eventOffset = Math.max(totalEvents - 100, 0);
-  const events = await readCoreJson(
-    `/campaigns/${campaignId}/events?limit=100&offset=${eventOffset}`,
-    request.signal,
-  );
-  if (!events.ok) return coreError(events);
 
   return Response.json(
     {

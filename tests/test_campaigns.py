@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.campaigns import CampaignService
+from app.campaigns import CampaignService, append_campaign_event
 from app.policy import DomainError, State
 from app.projects import ProjectService
 from app.schemas import (
@@ -94,6 +94,37 @@ def test_campaign_api_persists_events_and_checkpoints(client):
         "checkpoint_recorded",
     ]
     assert [item["sequence"] for item in events["items"]] == [1, 2]
+
+    latest = client.get(
+        f"/campaigns/{campaign['id']}/events/latest?limit=1",
+        headers=AUTH,
+    )
+    assert latest.status_code == 200, latest.text
+    latest_page = latest.json()
+    assert latest_page["total"] == 2
+    assert latest_page["offset"] == 1
+    assert [item["event"] for item in latest_page["items"]] == ["checkpoint_recorded"]
+
+
+def test_campaign_latest_events_reads_tail_without_large_offset(database):
+    _, _, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+
+    with database.transaction() as session:
+        for index in range(5):
+            append_campaign_event(
+                session,
+                campaign.id,
+                "tail_probe",
+                probe=index,
+            )
+
+    page = campaigns.latest_events(campaign.id, 3)
+
+    assert page.total == 6
+    assert page.offset == 3
+    assert [event.sequence for event in page.items] == [4, 5, 6]
+    assert [event.details["probe"] for event in page.items] == [2, 3, 4]
 
 
 def test_campaign_dependencies_gate_runner(settings, database):
