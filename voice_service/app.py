@@ -31,7 +31,11 @@ def _required_token() -> str:
 
 def _authorize(authorization: str | None) -> None:
     prefix = "Bearer "
-    supplied = authorization[len(prefix) :] if authorization and authorization.startswith(prefix) else ""
+    supplied = (
+        authorization[len(prefix) :]
+        if authorization and authorization.startswith(prefix)
+        else ""
+    )
     if not supplied or not hmac.compare_digest(supplied, _required_token()):
         raise HTTPException(status_code=401, detail="voice_unauthorized")
 

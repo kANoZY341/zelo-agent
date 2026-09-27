@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import io
 import os
+import pathlib
+import tempfile
 import threading
-from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import Protocol
+import typing
 
 
 ARABIC_RANGES = (
@@ -44,11 +44,11 @@ def audio_suffix(content_type: str) -> str:
     }.get(lowered, ".audio")
 
 
-class Transcriber(Protocol):
+class Transcriber(typing.Protocol):
     def transcribe(self, audio: bytes, content_type: str) -> dict[str, object]: ...
 
 
-class Synthesizer(Protocol):
+class Synthesizer(typing.Protocol):
     def synthesize(self, text: str, language: str) -> bytes: ...
 
 
@@ -73,7 +73,7 @@ class FasterWhisperTranscriber:
 
     def transcribe(self, audio: bytes, content_type: str) -> dict[str, object]:
         suffix = audio_suffix(content_type)
-        with NamedTemporaryFile(suffix=suffix) as temporary:
+        with tempfile.NamedTemporaryFile(suffix=suffix) as temporary:
             temporary.write(audio)
             temporary.flush()
             with self._lock:
@@ -96,7 +96,7 @@ class ChatterboxSynthesizer:
     def __init__(self) -> None:
         self.device = os.getenv("ZELO_TTS_DEVICE", "cpu")
         reference = os.getenv("ZELO_TTS_REFERENCE_AUDIO", "").strip()
-        self.reference_audio = Path(reference).expanduser() if reference else None
+        self.reference_audio = pathlib.Path(reference).expanduser() if reference else None
         self._model = None
         self._lock = threading.Lock()
 
