@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Verified: 26 September 2026
+Verified: 27 September 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -132,15 +132,13 @@ The merged slice adds one typed `research_run` Core task, a fixed
 Core-generated evidence IDs and citation binding, bounded persisted source
 metadata, normal Campaign lifecycle ownership, and Mind delegation.
 
-## Active increment: v0.12 Workspace project/progress views
+## Completed increment: v0.12 Workspace project/progress views
 
-Current main baseline:
+PR #34 merged on main at:
 
-`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`
+`247516866db4dd9906fe326bc302e99db7d6c658`
 
-Active branch:
-
-`feat/v0.12-workspace-progress`
+Post-merge Core CI and Workspace CI both succeeded.
 
 This slice activates the existing Control Desk navigation and projects canonical
 Core state into the workspace:
@@ -161,6 +159,20 @@ Core state into the workspace:
 The workspace remains presentation and interaction only. It does not create a
 second task, approval, scheduler, budget, project or campaign authority system.
 
+## Active increment: v0.12 Workspace hardening
+
+Branch: `feat/v0.12-workspace-hardening`.
+
+Before voice, close every known review finding:
+
+- clear stale detail loading when campaign selection becomes empty;
+- avoid unused empty-parent deadline timers;
+- replace offset-based event-tail retrieval with a Core-owned bounded latest-events read;
+- add focused Workspace regression tests for pagination, selection, timeout/cancellation,
+  responsive navigation and proxy timeout scoping;
+- update vulnerable Next.js/React runtime dependencies;
+- remove deprecated Node 20 GitHub Action runtimes and enforce npm audit in Workspace CI.
+
 ## Parked work
 
 `feat/v1.0-agent-factory` remains parked. Reuse compatible ideas selectively at
@@ -168,7 +180,7 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify the workspace project/progress views backed only by Core state.
+1. Land and verify the Workspace hardening pass with no known review findings.
 2. Add push-to-talk voice through the existing conversation/action contracts.
 3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
 4. Enter v0.13 with scoped persistent memory, provenance, correction,

@@ -66,12 +66,12 @@ The fixed Research specialist is complete on main at
 `1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`. Its design remains documented in
 `docs/v0.12-research-specialist.md`.
 
-The active slice is **v0.12 Workspace project/progress views**. Build only the
-Control Desk projection needed to inspect canonical Core-owned Projects, Goals,
-Campaigns, Campaign events, budgets, schedules, task counts, and progress. Keep
-all browser-facing workspace routes read-only for this slice and keep
-`ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, and layout
-state are presentation state only and must never become lifecycle authority.
+PR #34 merged the v0.12 Workspace project/progress views on main. The active
+slice is **v0.12 Workspace hardening**: close every known review finding before
+voice. Keep all browser-facing workspace routes read-only and keep
+`ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, pagination,
+timeouts and layout state are presentation state only and must never become
+lifecycle authority. Add regression coverage for every corrected failure.
 
 Do not add project/campaign mutation controls, a second task/approval/scheduler
 or budget system, Company World runtime, voice, public-web search, broad worker
