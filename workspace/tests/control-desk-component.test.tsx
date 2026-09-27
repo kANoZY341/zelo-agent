@@ -6,16 +6,24 @@ import { Window } from "happy-dom";
 import { ControlDesk } from "../components/ControlDesk";
 
 const windowInstance = new Window({ url: "http://localhost/" });
-const runtime = globalThis as unknown as Record<string, unknown>;
-runtime.window = windowInstance;
-runtime.document = windowInstance.document;
-runtime.navigator = windowInstance.navigator;
-runtime.HTMLElement = windowInstance.HTMLElement;
-runtime.Node = windowInstance.Node;
-runtime.Event = windowInstance.Event;
-runtime.MouseEvent = windowInstance.MouseEvent;
-runtime.getComputedStyle = windowInstance.getComputedStyle.bind(windowInstance);
-runtime.IS_REACT_ACT_ENVIRONMENT = true;
+
+function installGlobal(name: string, value: unknown) {
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    writable: true,
+    value,
+  });
+}
+
+installGlobal("window", windowInstance);
+installGlobal("document", windowInstance.document);
+installGlobal("navigator", windowInstance.navigator);
+installGlobal("HTMLElement", windowInstance.HTMLElement);
+installGlobal("Node", windowInstance.Node);
+installGlobal("Event", windowInstance.Event);
+installGlobal("MouseEvent", windowInstance.MouseEvent);
+installGlobal("getComputedStyle", windowInstance.getComputedStyle.bind(windowInstance));
+installGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 
 const now = "2026-09-27T00:00:00Z";
 
