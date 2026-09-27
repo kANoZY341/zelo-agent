@@ -1,0 +1,3 @@
+# Sherpa/Piper CPU voice plus common local STT dependencies.
+-r requirements-voice.txt
+sherpa-onnx==1.13.8
