@@ -150,15 +150,11 @@ class SherpaOnnxVitsSynthesizer:
         root = self._bundle_dir(language)
         models = sorted(root.glob("*.onnx"))
         if len(models) != 1:
-            raise RuntimeError(
-                f"sherpa_vits bundle {root} must contain exactly one .onnx model"
-            )
+            raise RuntimeError(f"sherpa_vits bundle {root} must contain exactly one .onnx model")
         tokens = root / "tokens.txt"
         data_dir = root / "espeak-ng-data"
         if not tokens.is_file() or not data_dir.is_dir():
-            raise RuntimeError(
-                f"sherpa_vits bundle {root} requires tokens.txt and espeak-ng-data/"
-            )
+            raise RuntimeError(f"sherpa_vits bundle {root} requires tokens.txt and espeak-ng-data/")
 
         config = sherpa_onnx.OfflineTtsConfig(
             model=sherpa_onnx.OfflineTtsModelConfig(
