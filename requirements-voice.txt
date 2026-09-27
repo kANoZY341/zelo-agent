@@ -1,0 +1,5 @@
+# Optional local speech adapter dependencies for v0.12 push-to-talk.
+# Keep these out of the Core runtime environment unless voice is intentionally enabled.
+-r requirements.txt
+faster-whisper==1.2.1
+chatterbox-tts==0.1.7
