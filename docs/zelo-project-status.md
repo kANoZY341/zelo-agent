@@ -116,33 +116,50 @@ schedules, Campaign-wide wake leases, `mind_wakes` accounting, deterministic
 scheduled Mind turns, restart reconciliation, cancellation/recovery and forced
 same-Campaign ownership for Core tasks produced by scheduled wakes.
 
-## Active increment: v0.12 Fixed Research specialist
+## Completed increment: v0.12 Fixed Research specialist
+
+PR #33 is merged on main.
+
+Verified main commit:
+
+`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`
+
+Post-merge main CI run `36273962721` succeeded with diff check, Ruff lint,
+Ruff format and the full pytest suite green: `760 passed, 2 skipped`.
+
+The merged slice adds one typed `research_run` Core task, a fixed
+`local_general` Research specialist with only repository/workspace read tools,
+Core-generated evidence IDs and citation binding, bounded persisted source
+metadata, normal Campaign lifecycle ownership, and Mind delegation.
+
+## Active increment: v0.12 Workspace project/progress views
 
 Current main baseline:
 
-`1ad8d7582713651dd5b2804ef88f8f78bba7f934`
+`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`
 
 Active branch:
 
-`feat/v0.12-research-specialist`
+`feat/v0.12-workspace-progress`
 
-Design:
+This slice activates the existing Control Desk navigation and projects canonical
+Core state into the workspace:
 
-`docs/v0.12-research-specialist.md`
+- Projects -> Goals -> Campaigns navigation;
+- campaign task counts and status;
+- recent Campaign events;
+- Campaign budgets;
+- bounded Mind schedules;
+- periodic read-only refresh from Core with selection preservation and campaign-card reconciliation;
+- mobile project selection and refresh controls when the desktop project rail is hidden;
+- bounded page navigation for Projects, Goals, Campaigns, budgets and schedules without accumulating entire collections in browser memory;
+- responsive Talk/Desk headers that keep navigation reachable with long titles;
+- request-aware hierarchy revalidation that skips active reads, aborts superseded browser requests and propagates cancellation through server-side Core proxy fetches;
+- bounded server/client deadlines for hierarchy and campaign-overview reads, scoped only to Control Desk reads so Talk/Mind execution keeps its existing Core timing contract;
+- recovery pagination that remains available when a requested budget/schedule page fails.
 
-This slice adds:
-
-- one typed `research_run` Core task;
-- one fixed Research specialist using `local_general`;
-- an explicit read-only allowlist limited to repository/workspace retrieval;
-- Core-generated source IDs and required final-answer citations;
-- persisted source locators and SHA-256 result digests without raw evidence copies;
-- normal Campaign ownership, dependencies, retry, recovery and audit behavior;
-- Mind routing into the Research specialist.
-
-This slice deliberately does not add live web/browser/API retrieval, write tools,
-specialist memory, recursive subagents, Agent Factory generalization or broad
-capability registration. Those remain in later canonical milestones.
+The workspace remains presentation and interaction only. It does not create a
+second task, approval, scheduler, budget, project or campaign authority system.
 
 ## Parked work
 
@@ -151,9 +168,8 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify the fixed Research specialist.
-2. Add workspace project/progress views backed only by Core state.
-3. Add push-to-talk voice through the existing conversation/action contracts.
-4. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
-5. Enter v0.13 with scoped persistent memory, provenance, correction,
+1. Land and verify the workspace project/progress views backed only by Core state.
+2. Add push-to-talk voice through the existing conversation/action contracts.
+3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
+4. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.
