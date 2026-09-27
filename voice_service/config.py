@@ -22,9 +22,17 @@ class VoiceSettings(BaseSettings):
     stt_model: str = "small"
     stt_device: str = "cpu"
     stt_compute_type: str = "int8"
-    stt_download_root: Path = ROOT / "runtime" / "voice" / "models" / "faster-whisper"
+    stt_download_root: Path = (
+        ROOT / "runtime" / "voice" / "models" / "faster-whisper"
+    )
     tts_provider: str = "sherpa-supertonic"
-    tts_model_dir: Path = ROOT / "runtime" / "voice" / "models" / "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+    tts_model_dir: Path = (
+        ROOT
+        / "runtime"
+        / "voice"
+        / "models"
+        / "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+    )
     tts_speaker_id: int = Field(default=0, ge=0, le=255)
     tts_speed: float = Field(default=1.0, ge=0.5, le=2.0)
     max_audio_bytes: int = Field(default=20_000_000, ge=1024, le=50_000_000)

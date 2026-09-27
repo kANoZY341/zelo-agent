@@ -8,7 +8,6 @@ import tempfile
 import wave
 from array import array
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol
 
 from voice_service.config import VoiceSettings
