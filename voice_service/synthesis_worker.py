@@ -60,12 +60,15 @@ class SynthesisWorker:
             except OSError:
                 pass
 
-        if process is not None and process.is_alive():
-            process.terminate()
-            process.join(timeout=1.0)
+        if process is not None:
             if process.is_alive():
-                process.kill()
+                process.terminate()
                 process.join(timeout=1.0)
+                if process.is_alive():
+                    process.kill()
+                    process.join(timeout=1.0)
+            else:
+                process.join(timeout=0)
 
     def _ensure_worker_locked(self) -> Connection:
         process = self._process
@@ -111,7 +114,12 @@ class SynthesisWorker:
             if connection is None or process is None:
                 raise RuntimeError("voice_synthesis_worker_unavailable")
 
-            if not connection.poll():
+            try:
+                ready = connection.poll()
+            except OSError as exc:
+                self._reset_locked()
+                raise RuntimeError("voice_synthesis_worker_unavailable") from exc
+            if not ready:
                 if not process.is_alive():
                     self._reset_locked()
                     raise RuntimeError("voice_synthesis_worker_exited")
@@ -135,6 +143,7 @@ class SynthesisWorker:
                 return payload
             if status == "value_error":
                 raise ValueError(str(payload))
+            self._reset_locked()
             raise RuntimeError("voice_synthesis_failed")
 
     def abort(self, request_id: str) -> None:
