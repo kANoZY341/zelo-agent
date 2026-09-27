@@ -6,10 +6,12 @@
     "dev": "next dev --hostname 127.0.0.1 --port ${PORT:-3000}",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port ${PORT:-3000}",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
-    "next": "16.1.6",
+    "next": "16.3.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

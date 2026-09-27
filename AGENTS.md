@@ -55,7 +55,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Fixed Research specialist
+## Current scope: v0.12 Workspace hardening
 
 The released base remains Zelo Core v0.11.0. Early Zelo Chat, the Zelo-owned
 workspace foundation, Project/Goal/Campaign ownership, Campaign controls, and the
@@ -66,12 +66,16 @@ The fixed Research specialist is complete on main at
 `1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`. Its design remains documented in
 `docs/v0.12-research-specialist.md`.
 
-The active slice is **v0.12 Workspace project/progress views**. Build only the
-Control Desk projection needed to inspect canonical Core-owned Projects, Goals,
-Campaigns, Campaign events, budgets, schedules, task counts, and progress. Keep
-all browser-facing workspace routes read-only for this slice and keep
-`ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, and layout
-state are presentation state only and must never become lifecycle authority.
+PR #34 merged the v0.12 Workspace project/progress projection on main at
+`247516866db4dd9906fe326bc302e99db7d6c658`.
+
+The active slice is **v0.12 Workspace hardening**. Resolve every known review
+finding before voice: empty-selection loading cleanup, complete deadline/timer
+cleanup, Core-owned latest Campaign event retrieval without offset ceilings,
+focused regression coverage, dependency audit failures, and GitHub Actions
+Node-runtime warnings. Keep all browser-facing workspace routes read-only and
+keep `ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, and
+layout state are presentation state only and must never become lifecycle authority.
 
 Do not add project/campaign mutation controls, a second task/approval/scheduler
 or budget system, Company World runtime, voice, public-web search, broad worker

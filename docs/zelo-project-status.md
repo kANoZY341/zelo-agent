@@ -132,15 +132,21 @@ The merged slice adds one typed `research_run` Core task, a fixed
 Core-generated evidence IDs and citation binding, bounded persisted source
 metadata, normal Campaign lifecycle ownership, and Mind delegation.
 
-## Active increment: v0.12 Workspace project/progress views
+## Completed increment: v0.12 Workspace project/progress views
 
-Current main baseline:
+PR #34 is merged on main.
 
-`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`
+Verified merge commit:
+
+`247516866db4dd9906fe326bc302e99db7d6c658`
+
+Post-merge Core CI and Workspace CI succeeded.
+
+## Active increment: v0.12 Workspace hardening
 
 Active branch:
 
-`feat/v0.12-workspace-progress`
+`fix/v0.12-workspace-hardening`
 
 This slice activates the existing Control Desk navigation and projects canonical
 Core state into the workspace:
@@ -168,7 +174,7 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Land and verify the workspace project/progress views backed only by Core state.
+1. Resolve all known Workspace review, dependency, CI-runtime and regression-coverage findings.
 2. Add push-to-talk voice through the existing conversation/action contracts.
 3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
 4. Enter v0.13 with scoped persistent memory, provenance, correction,

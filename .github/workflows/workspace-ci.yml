@@ -31,12 +31,16 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install workspace dependencies
         run: npm install --ignore-scripts
+      - name: Audit workspace dependencies
+        run: npm run audit
+      - name: Test workspace hardening contracts
+        run: npm test
       - name: Typecheck workspace
         run: npm run typecheck
       - name: Build workspace
