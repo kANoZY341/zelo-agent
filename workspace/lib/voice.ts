@@ -25,6 +25,15 @@ function voiceToken(): string {
   if (!token) {
     throw new Error("ZELO_VOICE_TOKEN is required by the workspace server");
   }
+  if (
+    token.length < 32 ||
+    token.length > 512 ||
+    !/^[\x21-\x7e]+$/.test(token)
+  ) {
+    throw new Error(
+      "ZELO_VOICE_TOKEN must contain 32-512 non-whitespace ASCII characters",
+    );
+  }
   return token;
 }
 

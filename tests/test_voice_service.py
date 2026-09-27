@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 import voice_service.app as voice_app
 from voice_service.providers import audio_suffix, detect_tts_language
 
-TOKEN = "test-only-voice-token"
+TOKEN = "test-only-voice-token-0123456789abcdef"
 
 
 class FakeTranscriber:
@@ -113,3 +113,17 @@ def test_synthesize_rejects_unsupported_language_before_provider(monkeypatch):
         )
         assert response.status_code == 422
         assert called is False
+
+
+def test_voice_adapter_rejects_weak_token(monkeypatch):
+    monkeypatch.setenv("ZELO_VOICE_TOKEN", "too-short")
+    with TestClient(voice_app.app) as client:
+        try:
+            response = client.get(
+                "/health",
+                headers={"Authorization": "Bearer too-short"},
+            )
+        except RuntimeError as exc:
+            assert "32-512" in str(exc)
+        else:
+            assert response.status_code >= 500

@@ -27,6 +27,14 @@ def _required_token() -> str:
     token = os.getenv("ZELO_VOICE_TOKEN", "")
     if not token:
         raise RuntimeError("ZELO_VOICE_TOKEN is required")
+    if (
+        not 32 <= len(token) <= 512
+        or not token.isascii()
+        or any(character.isspace() for character in token)
+    ):
+        raise RuntimeError(
+            "ZELO_VOICE_TOKEN must contain 32-512 non-whitespace ASCII characters"
+        )
     return token
 
 

@@ -148,13 +148,17 @@ test("proxyVoice keeps its token server-side and preserves binary responses", as
   const previousToken = process.env.ZELO_VOICE_TOKEN;
 
   process.env.ZELO_VOICE_URL = "http://127.0.0.1:8765";
-  process.env.ZELO_VOICE_TOKEN = "server-only-voice-token";
+  process.env.ZELO_VOICE_TOKEN =
+    "server-only-voice-token-0123456789abcdef";
 
   try {
     runtimeGlobals.fetch = async (input, init) => {
       assert.equal(String(input), "http://127.0.0.1:8765/synthesize");
       const headers = new Headers(init?.headers);
-      assert.equal(headers.get("authorization"), "Bearer server-only-voice-token");
+      assert.equal(
+        headers.get("authorization"),
+        "Bearer server-only-voice-token-0123456789abcdef",
+      );
       assert.equal(headers.get("x-attacker-auth"), "ignored-by-route");
       assert.equal(init?.signal?.aborted, false);
       return new Response(new Uint8Array([1, 2, 3]), {
@@ -168,7 +172,12 @@ test("proxyVoice keeps its token server-side and preserves binary responses", as
 
     const response = await proxyVoice(
       "/synthesize",
-      { headers: { "X-Attacker-Auth": "ignored-by-route" } },
+      {
+        headers: {
+          Authorization: "Bearer attacker-controlled-token",
+          "X-Attacker-Auth": "ignored-by-route",
+        },
+      },
       1000,
     );
     assert.equal(response.status, 200);
@@ -196,7 +205,8 @@ test("proxyVoice rejects non-loopback adapter URLs", async () => {
   let fetched = false;
 
   process.env.ZELO_VOICE_URL = "https://example.com";
-  process.env.ZELO_VOICE_TOKEN = "server-only-voice-token";
+  process.env.ZELO_VOICE_TOKEN =
+    "server-only-voice-token-0123456789abcdef";
   runtimeGlobals.fetch = async () => {
     fetched = true;
     throw new Error("must not fetch");
