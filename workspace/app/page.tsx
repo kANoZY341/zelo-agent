@@ -138,6 +138,8 @@ export default function Home() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
   const voiceHeldRef = useRef(false);
+  const voiceDiscardRecordingRef = useRef(false);
+  const voiceSynthesisAbortRef = useRef<AbortController | null>(null);
   const spokenAudioRef = useRef<HTMLAudioElement | null>(null);
   const spokenUrlRef = useRef<string | null>(null);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
@@ -325,8 +327,10 @@ export default function Home() {
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
+      voiceDiscardRecordingRef.current = true;
       mediaRecorderRef.current?.stop();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      voiceSynthesisAbortRef.current?.abort();
       spokenAudioRef.current?.pause();
       if (spokenUrlRef.current) URL.revokeObjectURL(spokenUrlRef.current);
     };
@@ -412,6 +416,8 @@ export default function Home() {
   }
 
   function stopVoicePlayback() {
+    voiceSynthesisAbortRef.current?.abort();
+    voiceSynthesisAbortRef.current = null;
     spokenAudioRef.current?.pause();
     spokenAudioRef.current = null;
     if (spokenUrlRef.current) {
@@ -426,6 +432,9 @@ export default function Home() {
     stopVoicePlayback();
     setVoiceState("speaking");
 
+    const controller = new AbortController();
+    voiceSynthesisAbortRef.current = controller;
+
     try {
       const response = await fetch("/api/voice/synthesize", {
         method: "POST",
@@ -434,7 +443,9 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ text: reply, language: "auto" }),
+        signal: controller.signal,
       });
+      if (voiceSynthesisAbortRef.current !== controller) return;
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         const detail =
@@ -445,6 +456,7 @@ export default function Home() {
       }
 
       const blob = await response.blob();
+      if (voiceSynthesisAbortRef.current !== controller) return;
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       spokenUrlRef.current = url;
@@ -457,6 +469,9 @@ export default function Home() {
           URL.revokeObjectURL(url);
           spokenUrlRef.current = null;
         }
+        if (voiceSynthesisAbortRef.current === controller) {
+          voiceSynthesisAbortRef.current = null;
+        }
         setVoiceState("idle");
       };
       audio.onended = finish;
@@ -466,10 +481,14 @@ export default function Home() {
       };
       await audio.play();
     } catch (voiceError) {
+      const aborted =
+        voiceError instanceof DOMException && voiceError.name === "AbortError";
       stopVoicePlayback();
-      setError(
-        voiceError instanceof Error ? voiceError.message : "voice_playback_failed",
-      );
+      if (!aborted) {
+        setError(
+          voiceError instanceof Error ? voiceError.message : "voice_playback_failed",
+        );
+      }
     }
   }
 
@@ -606,6 +625,7 @@ export default function Home() {
 
     stopVoicePlayback();
     voiceHeldRef.current = true;
+    voiceDiscardRecordingRef.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
 
     try {
@@ -641,6 +661,10 @@ export default function Home() {
       };
 
       recorder.onerror = () => {
+        voiceDiscardRecordingRef.current = true;
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
         setError("voice_recording_failed");
         setVoiceState("idle");
       };
@@ -649,6 +673,13 @@ export default function Home() {
         stream.getTracks().forEach((track) => track.stop());
         mediaRecorderRef.current = null;
         mediaStreamRef.current = null;
+
+        if (voiceDiscardRecordingRef.current) {
+          voiceChunksRef.current = [];
+          voiceDiscardRecordingRef.current = false;
+          setVoiceState("idle");
+          return;
+        }
 
         const blob = new Blob(voiceChunksRef.current, {
           type: recorder.mimeType || "audio/webm",
@@ -704,9 +735,22 @@ export default function Home() {
     if (recorder?.state === "recording") recorder.stop();
   }
 
+  function cancelVoiceRecording() {
+    voiceHeldRef.current = false;
+    voiceDiscardRecordingRef.current = true;
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+    else {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      voiceDiscardRecordingRef.current = false;
+      setVoiceState("idle");
+    }
+  }
+
   function newConversation() {
     if (busy || conversationLoading) return;
-    stopVoiceRecording();
+    cancelVoiceRecording();
     stopVoicePlayback();
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
