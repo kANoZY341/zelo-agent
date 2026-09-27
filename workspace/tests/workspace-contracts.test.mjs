@@ -65,14 +65,14 @@ test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines",
     globalThis.setTimeout = ((...args) => {
       scheduled += 1;
       return originalSetTimeout(...args);
-    }) as typeof setTimeout;
+    });
     globalThis.fetch = (async (_input, init) => {
       assert.equal(init?.signal?.aborted, false);
       return new Response('{"ok":true}', {
         status: 200,
         headers: { "content-type": "application/json" },
       });
-    }) as typeof fetch;
+    });
 
     const talkResponse = await proxyCore("/talk-like-read");
     assert.equal(talkResponse.status, 200);
@@ -97,7 +97,7 @@ test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines",
             ),
           30,
         );
-      })) as typeof fetch;
+      }));
 
     const deskResponse = await proxyCore(
       "/desk-read",

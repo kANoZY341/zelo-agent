@@ -202,7 +202,7 @@ class CampaignService:
                 )
             )
             total = int(rows[0].total) if rows else 0
-            events = [row.CampaignEvent for row in reversed(rows)]
+            events = [row[0] for row in reversed(rows)]
             return CampaignEventPage(
                 items=[CampaignEventResponse.model_validate(event) for event in events],
                 limit=limit,
