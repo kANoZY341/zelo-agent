@@ -245,3 +245,12 @@ test("voice synthesis proxy bounds the stream before JSON buffering", async () =
   assert.match(route, /voice_synthesis_request_too_large/);
   assert.doesNotMatch(route, /request\.text\(\)/);
 });
+
+test("voice playback reset uses current state rather than a stale closure", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(
+    page,
+    /setVoiceState\(\(current\) => \(current === "speaking" \? "idle" : current\)\)/,
+  );
+  assert.doesNotMatch(page, /if \(voiceState === "speaking"\) setVoiceState\("idle"\)/);
+});
