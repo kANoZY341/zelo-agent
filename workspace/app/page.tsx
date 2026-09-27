@@ -450,22 +450,26 @@ export default function Home() {
       spokenUrlRef.current = url;
       spokenAudioRef.current = audio;
 
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => resolve();
-        audio.onerror = () => reject(new Error("voice_playback_failed"));
-        audio.play().catch(reject);
-      });
+      const finish = () => {
+        if (spokenAudioRef.current !== audio) return;
+        spokenAudioRef.current = null;
+        if (spokenUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          spokenUrlRef.current = null;
+        }
+        setVoiceState("idle");
+      };
+      audio.onended = finish;
+      audio.onerror = () => {
+        finish();
+        setError("voice_playback_failed");
+      };
+      await audio.play();
     } catch (voiceError) {
+      stopVoicePlayback();
       setError(
         voiceError instanceof Error ? voiceError.message : "voice_playback_failed",
       );
-    } finally {
-      spokenAudioRef.current = null;
-      if (spokenUrlRef.current) {
-        URL.revokeObjectURL(spokenUrlRef.current);
-        spokenUrlRef.current = null;
-      }
-      setVoiceState("idle");
     }
   }
 
@@ -542,7 +546,7 @@ export default function Home() {
         await pollUntilTaskSettles(id);
       }
       if (options.speakResponse) {
-        await speakReply(turn.assistant_content);
+        void speakReply(turn.assistant_content);
       }
     };
 

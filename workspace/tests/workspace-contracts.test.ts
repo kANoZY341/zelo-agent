@@ -138,3 +138,79 @@ test("responsive navigation contracts remain present", async () => {
   );
   assert.match(css, /\.desk-topbar \.mobile-view-button/);
 });
+
+
+test("proxyVoice keeps its token server-side and preserves binary responses", async () => {
+  const { proxyVoice } = await import("../lib/voice");
+  const runtimeGlobals = globalThis as unknown as { fetch: typeof fetch };
+  const originalFetch = runtimeGlobals.fetch;
+  const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_TOKEN;
+
+  process.env.ZELO_VOICE_URL = "http://127.0.0.1:8765";
+  process.env.ZELO_VOICE_TOKEN = "server-only-voice-token";
+
+  try {
+    runtimeGlobals.fetch = async (input, init) => {
+      assert.equal(String(input), "http://127.0.0.1:8765/synthesize");
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get("authorization"), "Bearer server-only-voice-token");
+      assert.equal(headers.get("x-attacker-auth"), "ignored-by-route");
+      assert.equal(init?.signal?.aborted, false);
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          "content-type": "audio/wav",
+          "x-zelo-voice-language": "ar",
+        },
+      });
+    };
+
+    const response = await proxyVoice(
+      "/synthesize",
+      { headers: { "X-Attacker-Auth": "ignored-by-route" } },
+      1000,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "audio/wav");
+    assert.equal(response.headers.get("x-zelo-voice-language"), "ar");
+    assert.deepEqual(
+      Array.from(new Uint8Array(await response.arrayBuffer())),
+      [1, 2, 3],
+    );
+  } finally {
+    runtimeGlobals.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
+    else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_TOKEN;
+    else process.env.ZELO_VOICE_TOKEN = previousToken;
+  }
+});
+
+test("proxyVoice rejects non-loopback adapter URLs", async () => {
+  const { proxyVoice } = await import("../lib/voice");
+  const runtimeGlobals = globalThis as unknown as { fetch: typeof fetch };
+  const originalFetch = runtimeGlobals.fetch;
+  const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_TOKEN;
+  let fetched = false;
+
+  process.env.ZELO_VOICE_URL = "https://example.com";
+  process.env.ZELO_VOICE_TOKEN = "server-only-voice-token";
+  runtimeGlobals.fetch = async () => {
+    fetched = true;
+    throw new Error("must not fetch");
+  };
+
+  try {
+    const response = await proxyVoice("/health", {}, 1000);
+    assert.equal(response.status, 503);
+    assert.equal(fetched, false);
+  } finally {
+    runtimeGlobals.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
+    else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_TOKEN;
+    else process.env.ZELO_VOICE_TOKEN = previousToken;
+  }
+});

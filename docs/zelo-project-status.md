@@ -142,11 +142,22 @@ Verified merge commit:
 
 Post-merge Core CI and Workspace CI succeeded.
 
-## Active increment: v0.12 Workspace hardening
+## Completed increment: v0.12 Workspace hardening
+
+PR #36 is merged on main.
+
+Verified main commit:
+
+`f4f9603d1feda8d4ecc96640b5538ecc0c72b306`
+
+Post-merge Core CI #1188 and Workspace CI #117 succeeded. Final review reported
+no known remaining Workspace problem.
+
+## Active increment: v0.12 Push-to-talk voice
 
 Active branch:
 
-`fix/v0.12-workspace-hardening`
+`feat/v0.12-push-to-talk-voice`
 
 This slice activates the existing Control Desk navigation and projects canonical
 Core state into the workspace:
@@ -174,8 +185,8 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Resolve all known Workspace review, dependency, CI-runtime and regression-coverage findings.
-2. Add push-to-talk voice through the existing conversation/action contracts.
+1. Add push-to-talk voice through the existing conversation/action contracts.
+2. Verify local Arabic/English STT and TTS quality and keep providers swappable.
 3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
 4. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.
