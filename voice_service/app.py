@@ -8,6 +8,7 @@ import os
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from voice_service.providers import detect_tts_language, get_synthesizer, get_transcriber
 
@@ -40,6 +41,17 @@ def _authorize(authorization: str | None) -> None:
         raise HTTPException(status_code=401, detail="voice_unauthorized")
 
 
+async def _read_bounded_body(request: Request, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(status_code=413, detail="voice_audio_too_large")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @app.get("/health")
 def health(authorization: str | None = Header(default=None)) -> dict[str, str]:
     _authorize(authorization)
@@ -64,7 +76,7 @@ async def transcribe(
         if declared_length > MAX_AUDIO_BYTES:
             raise HTTPException(status_code=413, detail="voice_audio_too_large")
 
-    audio = await request.body()
+    audio = await _read_bounded_body(request, MAX_AUDIO_BYTES)
     if not audio:
         raise HTTPException(status_code=400, detail="voice_audio_empty")
     if len(audio) > MAX_AUDIO_BYTES:
@@ -72,7 +84,11 @@ async def transcribe(
 
     content_type = x_audio_type or request.headers.get("content-type", "application/octet-stream")
     try:
-        result = get_transcriber().transcribe(audio, content_type)
+        result = await run_in_threadpool(
+            get_transcriber().transcribe,
+            audio,
+            content_type,
+        )
     except Exception as exc:
         raise HTTPException(status_code=503, detail="voice_transcription_failed") from exc
 

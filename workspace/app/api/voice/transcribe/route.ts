@@ -11,6 +11,40 @@ const ALLOWED_AUDIO_TYPES = new Set([
   "audio/mp4",
 ]);
 
+async function readBoundedAudio(
+  request: Request,
+  maxBytes: number,
+): Promise<ArrayBuffer> {
+  if (!request.body) return new ArrayBuffer(0);
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel("voice_audio_too_large");
+        throw new Error("voice_audio_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const audio = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    audio.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return audio.buffer;
+}
+
 export async function POST(request: Request): Promise<Response> {
   const rejected = requireWorkspaceRequest(request);
   if (rejected) return rejected;
@@ -26,7 +60,12 @@ export async function POST(request: Request): Promise<Response> {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength) {
     const length = Number(declaredLength);
-    if (!Number.isFinite(length) || length < 0 || length > MAX_AUDIO_BYTES) {
+    if (
+      !Number.isFinite(length) ||
+      !Number.isInteger(length) ||
+      length < 0 ||
+      length > MAX_AUDIO_BYTES
+    ) {
       return Response.json(
         { detail: "voice_audio_too_large" },
         { status: 413, headers: { "Cache-Control": "no-store" } },
@@ -34,17 +73,25 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  const audio = await request.arrayBuffer();
+  let audio: ArrayBuffer;
+  try {
+    audio = await readBoundedAudio(request, MAX_AUDIO_BYTES);
+  } catch (readError) {
+    if (readError instanceof Error && readError.message === "voice_audio_too_large") {
+      return Response.json(
+        { detail: "voice_audio_too_large" },
+        { status: 413, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return Response.json(
+      { detail: "voice_audio_read_failed" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   if (audio.byteLength === 0) {
     return Response.json(
       { detail: "voice_audio_empty" },
       { status: 400, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-  if (audio.byteLength > MAX_AUDIO_BYTES) {
-    return Response.json(
-      { detail: "voice_audio_too_large" },
-      { status: 413, headers: { "Cache-Control": "no-store" } },
     );
   }
 
