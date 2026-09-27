@@ -144,6 +144,7 @@ export default function Home() {
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
   const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
   const [recording, setRecording] = useState(false);
+  const [voiceStarting, setVoiceStarting] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -266,7 +267,13 @@ export default function Home() {
 
   const openConversation = useCallback(
     async (id: string) => {
-      if (busy || conversationLoading || recording || voiceBusy) return;
+      if (
+        busy ||
+        conversationLoading ||
+        recording ||
+        voiceStarting ||
+        voiceBusy
+      ) return;
       if (pendingSubmissionRef.current) {
         setError(
           "Resolve the pending message before switching conversations.",
@@ -314,7 +321,15 @@ export default function Home() {
         setConversationLoading(false);
       }
     },
-    [busy, conversationLoading, pollUntilTaskSettles, recording, refreshConversation, voiceBusy],
+    [
+      busy,
+      conversationLoading,
+      pollUntilTaskSettles,
+      recording,
+      refreshConversation,
+      voiceBusy,
+      voiceStarting,
+    ],
   );
 
   useEffect(() => {
@@ -669,6 +684,7 @@ export default function Home() {
 
     stopPlayback();
     voiceStartPendingRef.current = true;
+    setVoiceStarting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -726,6 +742,7 @@ export default function Home() {
       );
     } finally {
       voiceStartPendingRef.current = false;
+      if (voiceMountedRef.current) setVoiceStarting(false);
     }
   }
 
@@ -741,14 +758,18 @@ export default function Home() {
   }
 
   function newConversation() {
-    if (busy || conversationLoading || recording || voiceBusy) return;
+    if (
+      busy ||
+      conversationLoading ||
+      recording ||
+      voiceStarting ||
+      voiceBusy
+    ) return;
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
       return;
     }
     if (pollRef.current) clearTimeout(pollRef.current);
-    discardRecordingRef.current = true;
-    stopVoiceRecording();
     stopPlayback();
     stickToBottomRef.current = true;
     setHistoryOpen(false);
@@ -802,7 +823,7 @@ export default function Home() {
           <button
             className="history-new"
             onClick={newConversation}
-            disabled={busy || conversationLoading || recording || voiceBusy}
+            disabled={busy || conversationLoading || recording || voiceStarting || voiceBusy}
             title="New conversation"
             aria-label="New conversation"
           >
@@ -825,7 +846,7 @@ export default function Home() {
                   conversation.id === conversationId ? "active" : ""
                 }`}
                 onClick={() => void openConversation(conversation.id)}
-                disabled={busy || conversationLoading || recording || voiceBusy}
+                disabled={busy || conversationLoading || recording || voiceStarting || voiceBusy}
                 aria-pressed={conversation.id === conversationId}
               >
                 <span className="history-title">{conversation.title}</span>
@@ -865,7 +886,7 @@ export default function Home() {
             <button
               className="mobile-history-button"
               onClick={() => setHistoryOpen(true)}
-              disabled={busy || conversationLoading || recording || voiceBusy}
+              disabled={busy || conversationLoading || recording || voiceStarting || voiceBusy}
             >
               History
             </button>
@@ -882,7 +903,7 @@ export default function Home() {
             <button
               className="secondary-button"
               onClick={newConversation}
-              disabled={busy || conversationLoading || recording || voiceBusy}
+              disabled={busy || conversationLoading || recording || voiceStarting || voiceBusy}
             >
               New conversation
             </button>
@@ -961,7 +982,7 @@ export default function Home() {
               }}
               placeholder="Tell Zelo what you need..."
               rows={3}
-              disabled={busy || conversationLoading || recording || voiceBusy}
+              disabled={busy || conversationLoading || recording || voiceStarting || voiceBusy}
             />
             <div className="composer-footer">
               <span>
@@ -975,6 +996,7 @@ export default function Home() {
                   className={`voice-button ${recording ? "recording" : ""}`}
                   disabled={
                     voiceAvailable !== true ||
+                    voiceStarting ||
                     voiceBusy ||
                     busy ||
                     conversationLoading
@@ -1016,8 +1038,10 @@ export default function Home() {
                 >
                   {recording
                     ? "Listening…"
-                    : voiceBusy
-                      ? "Transcribing…"
+                    : voiceStarting
+                      ? "Starting…"
+                      : voiceBusy
+                        ? "Transcribing…"
                       : voiceAvailable === null
                         ? "Voice…"
                         : voiceAvailable
