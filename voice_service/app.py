@@ -13,7 +13,7 @@ from voice_service.providers import STTProvider, TTSProvider, build_stt, build_t
 
 
 class SynthesisRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=8000)
+    text: str = Field(min_length=1, max_length=32000)
     language: str = Field(default="en", pattern=r"^[a-z]{2}$")
 
 

@@ -15,11 +15,35 @@ fi
 ENV_FILE="$ROOT/.env"
 touch "$ENV_FILE"
 chmod 600 "$ENV_FILE"
-if ! grep -q '^ZELO_VOICE_SERVICE_TOKEN=' "$ENV_FILE"; then
-  VOICE_TOKEN="$("$PYTHON" -c 'import secrets; print(secrets.token_urlsafe(48))')"
-  printf '\nZELO_VOICE_SERVICE_TOKEN="%s"\n' "$VOICE_TOKEN" >> "$ENV_FILE"
-  echo "Generated ZELO_VOICE_SERVICE_TOKEN in .env"
-fi
+ZELO_ENV_FILE="$ENV_FILE" "$PYTHON" - <<'PY'
+import os
+import secrets
+from pathlib import Path
+
+path = Path(os.environ["ZELO_ENV_FILE"])
+lines = path.read_text(encoding="utf-8").splitlines()
+prefix = "ZELO_VOICE_SERVICE_TOKEN="
+replacement = f'ZELO_VOICE_SERVICE_TOKEN="{secrets.token_urlsafe(48)}"'
+found = False
+changed = False
+
+for index, line in enumerate(lines):
+    if not line.startswith(prefix):
+        continue
+    found = True
+    raw = line[len(prefix):].strip().strip('"')
+    if not raw or raw == "REPLACE_WITH_A_RANDOM_LOCAL_VOICE_TOKEN":
+        lines[index] = replacement
+        changed = True
+
+if not found:
+    lines.extend(["", replacement])
+    changed = True
+
+if changed:
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("Generated ZELO_VOICE_SERVICE_TOKEN in .env")
+PY
 
 MODEL_ROOT="$ROOT/runtime/voice/models"
 SUPER_DIR="$MODEL_ROOT/sherpa-onnx-supertonic-3-tts-int8-2026-05-11"

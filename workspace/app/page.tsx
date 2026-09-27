@@ -146,6 +146,7 @@ export default function Home() {
   const [recording, setRecording] = useState(false);
   const [voiceStarting, setVoiceStarting] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const [manualPlaybackReady, setManualPlaybackReady] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -455,6 +456,38 @@ export default function Home() {
       URL.revokeObjectURL(playbackUrlRef.current);
       playbackUrlRef.current = null;
     }
+    if (voiceMountedRef.current) setManualPlaybackReady(false);
+  }
+
+  function attachPlaybackCleanup(audio: HTMLAudioElement, url: string) {
+    const release = () => {
+      if (playbackRef.current === audio) playbackRef.current = null;
+      if (playbackUrlRef.current === url) {
+        URL.revokeObjectURL(url);
+        playbackUrlRef.current = null;
+      }
+      if (voiceMountedRef.current) setManualPlaybackReady(false);
+    };
+    audio.addEventListener("ended", release, { once: true });
+    audio.addEventListener("error", release, { once: true });
+  }
+
+  async function playPendingReply() {
+    const url = playbackUrlRef.current;
+    if (!url) return;
+    const audio = new Audio(url);
+    playbackRef.current = audio;
+    attachPlaybackCleanup(audio, url);
+    try {
+      await audio.play();
+      if (voiceMountedRef.current) setManualPlaybackReady(false);
+    } catch {
+      if (playbackRef.current === audio) playbackRef.current = null;
+      if (voiceMountedRef.current) {
+        setManualPlaybackReady(true);
+        setError("voice_playback_blocked");
+      }
+    }
   }
 
   async function speakAssistant(text: string) {
@@ -483,16 +516,13 @@ export default function Home() {
     const audio = new Audio(url);
     playbackRef.current = audio;
     playbackUrlRef.current = url;
-    const release = () => {
+    attachPlaybackCleanup(audio, url);
+    try {
+      await audio.play();
+    } catch {
       if (playbackRef.current === audio) playbackRef.current = null;
-      if (playbackUrlRef.current === url) {
-        URL.revokeObjectURL(url);
-        playbackUrlRef.current = null;
-      }
-    };
-    audio.addEventListener("ended", release, { once: true });
-    audio.addEventListener("error", release, { once: true });
-    await audio.play();
+      if (voiceMountedRef.current) setManualPlaybackReady(true);
+    }
   }
 
   async function ensureConversation(): Promise<string> {
@@ -994,6 +1024,16 @@ export default function Home() {
                   : "New conversation"}
               </span>
               <div className="composer-actions">
+                {manualPlaybackReady ? (
+                  <button
+                    type="button"
+                    className="voice-playback-button"
+                    onClick={() => void playPendingReply()}
+                    disabled={recording || voiceStarting || voiceBusy || busy}
+                  >
+                    ▶ Play reply
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={`voice-button ${recording ? "recording" : ""}`}

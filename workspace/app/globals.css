@@ -387,6 +387,7 @@ h2 {
   gap: 8px;
 }
 
+.voice-playback-button,
 .voice-button {
   min-width: 96px;
   border: 1px solid #34400e;
@@ -396,6 +397,21 @@ h2 {
   color: var(--accent);
   cursor: pointer;
   font-weight: 800;
+}
+
+.voice-playback-button {
+  border: 1px solid #34400e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  color: #dce5ed;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.voice-playback-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .voice-button.recording {
