@@ -118,13 +118,23 @@ remain in their later canonical milestones.
 v0.12 voice adds local speech I/O around the existing Talk-to-Zelo conversation
 contract. Voice does not create a second Mind or task path.
 
-Install the optional speech environment separately from the Core runtime:
+Install the optional speech environment separately from the Core runtime and choose
+exactly one TTS provider:
 
 ```bash
 python3 -m venv .venv-voice
 source .venv-voice/bin/activate
-python -m pip install -r requirements-voice.txt
+
+# Trial multilingual/cloneable voice:
+python -m pip install -r requirements-voice-chatterbox.txt
+
+# OR lightweight CPU Sherpa/Piper voice:
+# python -m pip install -r requirements-voice-sherpa.txt
 ```
+
+The provider-specific files both include the common `faster-whisper` STT
+dependencies through `requirements-voice.txt`; neither TTS runtime requires the
+other one to install successfully.
 
 Set a separate random `ZELO_VOICE_TOKEN` in both the voice-service environment
 and the Workspace server environment. Keep `ZELO_VOICE_URL` on loopback
