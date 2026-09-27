@@ -38,9 +38,7 @@ def _required_token() -> str:
         or not token.isascii()
         or any(character.isspace() for character in token)
     ):
-        raise RuntimeError(
-            "ZELO_VOICE_TOKEN must contain 32-512 non-whitespace ASCII characters"
-        )
+        raise RuntimeError("ZELO_VOICE_TOKEN must contain 32-512 non-whitespace ASCII characters")
     return token
 
 
