@@ -45,6 +45,7 @@ class FasterWhisperSTT:
                 self.settings.stt_model,
                 device=self.settings.stt_device,
                 compute_type=self.settings.stt_compute_type,
+                download_root=str(self.settings.stt_download_root),
             )
         return self._model
 
@@ -57,7 +58,7 @@ class FasterWhisperSTT:
                 suffix = ".ogg"
             elif "mp4" in media_type or "m4a" in media_type:
                 suffix = ".m4a"
-        runtime = Path(self.settings.tts_model_dir).parents[1]
+        runtime = self.settings.tts_model_dir.parents[1]
         runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
         with tempfile.NamedTemporaryFile(dir=runtime, suffix=suffix) as handle:
             handle.write(audio)
