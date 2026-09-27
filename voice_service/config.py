@@ -38,6 +38,15 @@ class VoiceSettings(BaseSettings):
     max_audio_bytes: int = Field(default=20_000_000, ge=1024, le=50_000_000)
     max_text_chars: int = Field(default=8000, ge=1, le=32000)
 
+    @field_validator("stt_download_root", "tts_model_dir")
+    @classmethod
+    def local_model_path(cls, value: Path) -> Path:
+        resolved = (ROOT / value).resolve() if not value.is_absolute() else value.resolve()
+        voice_root = (ROOT / "runtime" / "voice").resolve()
+        if not resolved.is_relative_to(voice_root):
+            raise ValueError("Voice model paths must stay inside runtime/voice")
+        return resolved
+
     @field_validator("host")
     @classmethod
     def loopback_only(cls, value: str) -> str:

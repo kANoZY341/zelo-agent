@@ -57,7 +57,7 @@ class FasterWhisperSTT:
                 suffix = ".ogg"
             elif "mp4" in media_type or "m4a" in media_type:
                 suffix = ".m4a"
-        runtime = self.settings.tts_model_dir.parents[1]
+        runtime = self.settings.stt_download_root.parents[1] / "tmp"
         runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
         with tempfile.NamedTemporaryFile(dir=runtime, suffix=suffix) as handle:
             handle.write(audio)
@@ -117,7 +117,12 @@ class SherpaSupertonicTTS:
         return self._tts
 
     def synthesize(self, text: str, language: str) -> bytes:
-        import sherpa_onnx
+        try:
+            import sherpa_onnx
+        except ImportError as exc:
+            raise RuntimeError(
+                "sherpa-onnx is not installed; install requirements-voice.txt"
+            ) from exc
 
         config = sherpa_onnx.GenerationConfig()
         config.sid = self.settings.tts_speaker_id

@@ -151,6 +151,10 @@ export default function Home() {
   const voiceChunksRef = useRef<Blob[]>([]);
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const playbackUrlRef = useRef<string | null>(null);
+  const voicePressHeldRef = useRef(false);
+  const voiceStartPendingRef = useRef(false);
+  const discardRecordingRef = useRef(false);
+  const voiceMountedRef = useRef(true);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationBodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
@@ -262,7 +266,7 @@ export default function Home() {
 
   const openConversation = useCallback(
     async (id: string) => {
-      if (busy || conversationLoading) return;
+      if (busy || conversationLoading || recording || voiceBusy) return;
       if (pendingSubmissionRef.current) {
         setError(
           "Resolve the pending message before switching conversations.",
@@ -273,6 +277,7 @@ export default function Home() {
       if (pollRef.current) clearTimeout(pollRef.current);
       stickToBottomRef.current = true;
       setConversationLoading(true);
+      stopPlayback();
       setHistoryOpen(false);
       setPendingPrompt(null);
       setError(null);
@@ -309,7 +314,7 @@ export default function Home() {
         setConversationLoading(false);
       }
     },
-    [busy, conversationLoading, pollUntilTaskSettles, refreshConversation],
+    [busy, conversationLoading, pollUntilTaskSettles, recording, refreshConversation, voiceBusy],
   );
 
   useEffect(() => {
@@ -359,6 +364,9 @@ export default function Home() {
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
+      voiceMountedRef.current = false;
+      discardRecordingRef.current = true;
+      voicePressHeldRef.current = false;
       const recorder = mediaRecorderRef.current;
       if (recorder?.state === "recording") recorder.stop();
       microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -644,6 +652,7 @@ export default function Home() {
     if (
       voiceAvailable !== true ||
       recording ||
+      voiceStartPendingRef.current ||
       voiceBusy ||
       busy ||
       conversationLoading
@@ -659,6 +668,7 @@ export default function Home() {
     }
 
     stopPlayback();
+    voiceStartPendingRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -667,6 +677,10 @@ export default function Home() {
           autoGainControl: true,
         },
       });
+      if (!voicePressHeldRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       microphoneStreamRef.current = stream;
       const mimeType = recorderMimeType();
       const recorder = new MediaRecorder(
@@ -689,12 +703,19 @@ export default function Home() {
           microphoneStreamRef.current = null;
           mediaRecorderRef.current = null;
           setRecording(false);
+          if (discardRecordingRef.current || !voiceMountedRef.current) {
+            discardRecordingRef.current = false;
+            return;
+          }
           void handleVoiceBlob(blob);
         },
         { once: true },
       );
       recorder.start();
       setRecording(true);
+      if (!voicePressHeldRef.current && recorder.state === "recording") {
+        recorder.stop();
+      }
     } catch (voiceError) {
       microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
       microphoneStreamRef.current = null;
@@ -703,21 +724,30 @@ export default function Home() {
       setError(
         voiceError instanceof Error ? voiceError.message : "microphone_unavailable",
       );
+    } finally {
+      voiceStartPendingRef.current = false;
     }
   }
 
+  function beginVoicePress() {
+    voicePressHeldRef.current = true;
+    void startVoiceRecording();
+  }
+
   function stopVoiceRecording() {
+    voicePressHeldRef.current = false;
     const recorder = mediaRecorderRef.current;
     if (recorder?.state === "recording") recorder.stop();
   }
 
   function newConversation() {
-    if (busy || conversationLoading) return;
+    if (busy || conversationLoading || recording || voiceBusy) return;
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
       return;
     }
     if (pollRef.current) clearTimeout(pollRef.current);
+    discardRecordingRef.current = true;
     stopVoiceRecording();
     stopPlayback();
     stickToBottomRef.current = true;
@@ -772,7 +802,7 @@ export default function Home() {
           <button
             className="history-new"
             onClick={newConversation}
-            disabled={busy || conversationLoading}
+            disabled={busy || conversationLoading || recording || voiceBusy}
             title="New conversation"
             aria-label="New conversation"
           >
@@ -795,7 +825,7 @@ export default function Home() {
                   conversation.id === conversationId ? "active" : ""
                 }`}
                 onClick={() => void openConversation(conversation.id)}
-                disabled={busy || conversationLoading}
+                disabled={busy || conversationLoading || recording || voiceBusy}
                 aria-pressed={conversation.id === conversationId}
               >
                 <span className="history-title">{conversation.title}</span>
@@ -835,7 +865,7 @@ export default function Home() {
             <button
               className="mobile-history-button"
               onClick={() => setHistoryOpen(true)}
-              disabled={busy || conversationLoading}
+              disabled={busy || conversationLoading || recording || voiceBusy}
             >
               History
             </button>
@@ -852,7 +882,7 @@ export default function Home() {
             <button
               className="secondary-button"
               onClick={newConversation}
-              disabled={busy || conversationLoading}
+              disabled={busy || conversationLoading || recording || voiceBusy}
             >
               New conversation
             </button>
@@ -931,7 +961,7 @@ export default function Home() {
               }}
               placeholder="Tell Zelo what you need..."
               rows={3}
-              disabled={busy || conversationLoading}
+              disabled={busy || conversationLoading || recording || voiceBusy}
             />
             <div className="composer-footer">
               <span>
@@ -958,7 +988,7 @@ export default function Home() {
                   onPointerDown={(event) => {
                     event.preventDefault();
                     event.currentTarget.setPointerCapture(event.pointerId);
-                    void startVoiceRecording();
+                    beginVoicePress();
                   }}
                   onPointerUp={(event) => {
                     event.preventDefault();
@@ -974,7 +1004,7 @@ export default function Home() {
                       (event.key === " " || event.key === "Enter")
                     ) {
                       event.preventDefault();
-                      void startVoiceRecording();
+                      beginVoicePress();
                     }
                   }}
                   onKeyUp={(event) => {
