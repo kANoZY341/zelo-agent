@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from io import BytesIO
+import wave
+
 from fastapi.testclient import TestClient
 
 import voice_service.app as voice_app
@@ -23,11 +26,22 @@ class FakeTranscriber:
         }
 
 
-class FakeSynthesizer:
-    def synthesize(self, text: str, language: str) -> bytes:
-        assert text == "Hello from Zelo"
-        assert language == "en"
-        return b"RIFF-fake-wave"
+class FakeSynthesisWorker:
+    def __init__(self, result: bytes | None = b"RIFF-fake-wave") -> None:
+        self.result = result
+        self.started: list[tuple[str, str]] = []
+        self.aborted: list[str] = []
+
+    def start(self, text: str, language: str) -> str:
+        self.started.append((text, language))
+        return "fake-job"
+
+    def poll(self, request_id: str) -> bytes | None:
+        assert request_id == "fake-job"
+        return self.result
+
+    def abort(self, request_id: str) -> None:
+        self.aborted.append(request_id)
 
 
 def auth() -> dict[str, str]:
@@ -80,7 +94,8 @@ def test_transcribe_is_bounded_and_uses_provider(monkeypatch):
 
 def test_synthesize_returns_wav_and_language_header(monkeypatch):
     monkeypatch.setenv("ZELO_VOICE_TOKEN", TOKEN)
-    monkeypatch.setattr(voice_app, "get_synthesizer", lambda: FakeSynthesizer())
+    worker = FakeSynthesisWorker()
+    monkeypatch.setattr(voice_app, "_synthesis_worker", worker)
 
     with TestClient(voice_app.app) as client:
         response = client.post(
@@ -92,19 +107,31 @@ def test_synthesize_returns_wav_and_language_header(monkeypatch):
         assert response.content == b"RIFF-fake-wave"
         assert response.headers["content-type"] == "audio/wav"
         assert response.headers["x-zelo-voice-language"] == "en"
+        assert worker.started == [("Hello from Zelo", "en")]
+        assert worker.aborted == []
 
 
-def test_synthesize_rejects_unsupported_language_before_provider(monkeypatch):
+def test_synthesize_timeout_aborts_worker(monkeypatch):
     monkeypatch.setenv("ZELO_VOICE_TOKEN", TOKEN)
-    called = False
+    worker = FakeSynthesisWorker(result=None)
+    monkeypatch.setattr(voice_app, "_synthesis_worker", worker)
+    monkeypatch.setattr(voice_app, "_tts_deadline_seconds", lambda: 0.0)
 
-    class RejectingSynthesizer:
-        def synthesize(self, text: str, language: str) -> bytes:
-            nonlocal called
-            called = True
-            raise AssertionError("provider should not be reached")
+    with TestClient(voice_app.app) as client:
+        response = client.post(
+            "/synthesize",
+            headers=auth(),
+            json={"text": "Hello from Zelo", "language": "en"},
+        )
+        assert response.status_code == 503
+        assert response.json() == {"detail": "voice_synthesis_timeout"}
+        assert worker.aborted == ["fake-job"]
 
-    monkeypatch.setattr(voice_app, "get_synthesizer", lambda: RejectingSynthesizer())
+
+def test_synthesize_rejects_unsupported_language_before_worker(monkeypatch):
+    monkeypatch.setenv("ZELO_VOICE_TOKEN", TOKEN)
+    worker = FakeSynthesisWorker()
+    monkeypatch.setattr(voice_app, "_synthesis_worker", worker)
 
     with TestClient(voice_app.app) as client:
         response = client.post(
@@ -113,7 +140,7 @@ def test_synthesize_rejects_unsupported_language_before_provider(monkeypatch):
             json={"text": "Bonjour", "language": "fr"},
         )
         assert response.status_code == 422
-        assert called is False
+        assert worker.started == []
 
 
 def test_voice_adapter_rejects_weak_token(monkeypatch):
@@ -131,9 +158,6 @@ def test_voice_adapter_rejects_weak_token(monkeypatch):
 
 
 def test_pcm16_wav_encoder_returns_valid_wave():
-    import wave
-    from io import BytesIO
-
     encoded = pcm16_wav([-1.0, 0.0, 1.0], 16000)
     with wave.open(BytesIO(encoded), "rb") as wav_file:
         assert wav_file.getnchannels() == 1
