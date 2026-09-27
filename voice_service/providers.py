@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+import wave
 from array import array
 from io import BytesIO
 from os import getenv
 from pathlib import Path
-import sys
 from tempfile import NamedTemporaryFile
 from threading import Lock
 from typing import Protocol
-import wave
 
 ARABIC_RANGES = (
     (0x0600, 0x06FF),
