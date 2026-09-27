@@ -27,7 +27,11 @@ async function readCoreJson(
   path: string,
   signal: AbortSignal,
 ): Promise<CoreRead> {
-  const response = await proxyCore(path, { signal });
+  const response = await proxyCore(
+    path,
+    { signal },
+    { timeoutMs: 30000 },
+  );
   let body: unknown;
   try {
     body = await response.json();

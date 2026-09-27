@@ -155,7 +155,7 @@ Core state into the workspace:
 - bounded page navigation for Projects, Goals, Campaigns, budgets and schedules without accumulating entire collections in browser memory;
 - responsive Talk/Desk headers that keep navigation reachable with long titles;
 - request-aware hierarchy revalidation that skips active reads, aborts superseded browser requests and propagates cancellation through server-side Core proxy fetches;
-- bounded server/client deadlines for hierarchy and campaign-overview reads;
+- bounded server/client deadlines for hierarchy and campaign-overview reads, scoped only to Control Desk reads so Talk/Mind execution keeps its existing Core timing contract;
 - recovery pagination that remains available when a requested budget/schedule page fails.
 
 The workspace remains presentation and interaction only. It does not create a

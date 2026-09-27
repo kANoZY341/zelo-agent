@@ -40,5 +40,6 @@ export async function GET(
   return proxyCore(
     `/goals/${encodeURIComponent(id)}/campaigns?${query.toString()}`,
     { signal: request.signal },
+    { timeoutMs: 30000 },
   );
 }

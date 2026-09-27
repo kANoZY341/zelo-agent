@@ -33,7 +33,9 @@ export async function GET(request: Request): Promise<Response> {
     offset: String(offset),
   });
 
-  return proxyCore(`/projects?${query.toString()}`, {
-    signal: request.signal,
-  });
+  return proxyCore(
+    `/projects?${query.toString()}`,
+    { signal: request.signal },
+    { timeoutMs: 30000 },
+  );
 }
