@@ -210,9 +210,7 @@ class ChatterboxSynthesizer:
     def synthesize(self, text: str, language: str) -> bytes:
         import torchaudio as ta
 
-        chosen_language = (
-            detect_tts_language(text) if language == "auto" else language
-        )
+        chosen_language = detect_tts_language(text) if language == "auto" else language
         if chosen_language not in {"en", "ar"}:
             raise ValueError("unsupported_voice_language")
 
