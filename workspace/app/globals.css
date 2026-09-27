@@ -262,6 +262,25 @@ button {
   padding: 20px 32px;
 }
 
+.topbar > div:first-child,
+.desk-topbar > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.topbar h1,
+.desk-topbar h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-actions,
+.desk-topbar-actions {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--accent);
@@ -1266,6 +1285,11 @@ h2 {
     display: inline-flex;
   }
 
+  .topbar,
+  .desk-topbar {
+    gap: 12px;
+  }
+
   .desk-topbar-actions {
     display: flex;
     align-items: center;
@@ -1290,18 +1314,25 @@ h2 {
     display: none;
   }
 
+  .topbar,
   .desk-topbar {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
   }
 
+  .topbar-actions,
   .desk-topbar-actions {
     width: 100%;
     flex-wrap: wrap;
   }
 
-  .mobile-view-button {
+  .topbar-actions {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .desk-topbar .mobile-view-button {
     margin-left: auto;
     order: 1;
   }
@@ -1323,6 +1354,18 @@ h2 {
 
   .desk-status-pill {
     display: none;
+  }
+
+  .topbar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .topbar-actions .secondary-button {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .desk-scroll {

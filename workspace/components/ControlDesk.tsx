@@ -26,6 +26,10 @@ async function parseJson<T>(response: Response): Promise<T> {
   return body as T;
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 function timestamp(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
@@ -115,6 +119,7 @@ export function ControlDesk({
   const loadedProjectOffsetRef = useRef<number | null>(null);
   const loadedGoalOffsetRef = useRef<number | null>(null);
   const loadedCampaignOffsetRef = useRef<number | null>(null);
+  const hierarchyPendingRef = useRef(0);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -128,15 +133,18 @@ export function ControlDesk({
     () => campaigns.find((campaign) => campaign.id === campaignId) ?? null,
     [campaigns, campaignId],
   );
+  const campaignOverview =
+    overview?.campaign.id === campaignId ? overview : null;
   const visibleOverview =
-    overview?.campaign.id === campaignId &&
-    overview.budgets.offset === budgetOffset &&
-    overview.schedules.offset === scheduleOffset
-      ? overview
+    campaignOverview &&
+    campaignOverview.budgets.offset === budgetOffset &&
+    campaignOverview.schedules.offset === scheduleOffset
+      ? campaignOverview
       : null;
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const pageChanged = loadedProjectOffsetRef.current !== projectOffset;
     if (pageChanged) {
       setProjects([]);
@@ -149,10 +157,12 @@ export function ControlDesk({
     }
     setLoading(true);
     setError(null);
+    hierarchyPendingRef.current += 1;
 
     fetch(`/api/projects?limit=${PAGE_SIZE}&offset=${projectOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
+      signal: controller.signal,
     })
       .then((response) => parseJson<ProjectPage>(response))
       .then((page) => {
@@ -171,23 +181,29 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled) {
+        if (!cancelled && !isAbortError(loadError)) {
           setError(
             loadError instanceof Error ? loadError.message : "project_load_failed",
           );
         }
       })
       .finally(() => {
+        hierarchyPendingRef.current = Math.max(
+          0,
+          hierarchyPendingRef.current - 1,
+        );
         if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [projectOffset, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const parentChanged = goalsProjectRef.current !== projectId;
     if (parentChanged) {
       goalsProjectRef.current = projectId;
@@ -214,9 +230,11 @@ export function ControlDesk({
       setOverview(null);
     }
 
+    hierarchyPendingRef.current += 1;
     fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=${PAGE_SIZE}&offset=${goalOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
+      signal: controller.signal,
     })
       .then((response) => parseJson<GoalPage>(response))
       .then((page) => {
@@ -235,20 +253,28 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled) {
+        if (!cancelled && !isAbortError(loadError)) {
           setError(
             loadError instanceof Error ? loadError.message : "goal_load_failed",
           );
         }
+      })
+      .finally(() => {
+        hierarchyPendingRef.current = Math.max(
+          0,
+          hierarchyPendingRef.current - 1,
+        );
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [goalOffset, projectId, refreshKey]);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const parentChanged = campaignsGoalRef.current !== goalId;
     if (parentChanged) {
       campaignsGoalRef.current = goalId;
@@ -268,9 +294,11 @@ export function ControlDesk({
       setOverview(null);
     }
 
+    hierarchyPendingRef.current += 1;
     fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=${PAGE_SIZE}&offset=${campaignOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
+      signal: controller.signal,
     })
       .then((response) => parseJson<CampaignPage>(response))
       .then((page) => {
@@ -289,17 +317,24 @@ export function ControlDesk({
         );
       })
       .catch((loadError) => {
-        if (!cancelled) {
+        if (!cancelled && !isAbortError(loadError)) {
           setError(
             loadError instanceof Error
               ? loadError.message
               : "campaign_load_failed",
           );
         }
+      })
+      .finally(() => {
+        hierarchyPendingRef.current = Math.max(
+          0,
+          hierarchyPendingRef.current - 1,
+        );
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [campaignOffset, goalId, refreshKey]);
 
@@ -379,14 +414,27 @@ export function ControlDesk({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [budgetOffset, campaignId, refreshKey, scheduleOffset]);
+  }, [budgetOffset, campaignId, scheduleOffset]);
 
   useEffect(() => {
-    const timer = setInterval(
-      () => setRefreshKey((value) => value + 1),
-      HIERARCHY_REFRESH_INTERVAL_MS,
-    );
-    return () => clearInterval(timer);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        if (hierarchyPendingRef.current === 0) {
+          setRefreshKey((value) => value + 1);
+        }
+        schedule();
+      }, HIERARCHY_REFRESH_INTERVAL_MS);
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const recentEvents = visibleOverview
@@ -741,6 +789,36 @@ export function ControlDesk({
               <p>The Desk does not own lifecycle or execution authority.</p>
             </div>
           </>
+        ) : campaignOverview ? (
+          <>
+            <div className="desk-empty-card">
+              {detailLoading
+                ? "Loading requested campaign detail page…"
+                : "That campaign detail page is unavailable. Use the controls below to return to a loaded page."}
+            </div>
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Budgets</strong>
+                <span>{campaignOverview.budgets.total}</span>
+              </div>
+              <Pager
+                offset={budgetOffset}
+                total={campaignOverview.budgets.total}
+                onOffsetChange={setBudgetOffset}
+              />
+            </section>
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Schedules</strong>
+                <span>{campaignOverview.schedules.total}</span>
+              </div>
+              <Pager
+                offset={scheduleOffset}
+                total={campaignOverview.schedules.total}
+                onOffsetChange={setScheduleOffset}
+              />
+            </section>
+          </>
         ) : (
           <div className="desk-empty-card">
             Select a campaign to inspect its canonical activity and operating state.
@@ -871,6 +949,36 @@ export function ControlDesk({
               </p>
               <p>The Desk does not own lifecycle or execution authority.</p>
             </div>
+          </>
+        ) : campaignOverview ? (
+          <>
+            <div className="desk-empty-card">
+              {detailLoading
+                ? "Loading requested campaign detail page…"
+                : "That campaign detail page is unavailable. Use the controls below to return to a loaded page."}
+            </div>
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Budgets</strong>
+                <span>{campaignOverview.budgets.total}</span>
+              </div>
+              <Pager
+                offset={budgetOffset}
+                total={campaignOverview.budgets.total}
+                onOffsetChange={setBudgetOffset}
+              />
+            </section>
+            <section className="desk-inspector-section">
+              <div className="desk-inspector-title">
+                <strong>Schedules</strong>
+                <span>{campaignOverview.schedules.total}</span>
+              </div>
+              <Pager
+                offset={scheduleOffset}
+                total={campaignOverview.schedules.total}
+                onOffsetChange={setScheduleOffset}
+              />
+            </section>
           </>
         ) : (
           <div className="desk-empty-card">

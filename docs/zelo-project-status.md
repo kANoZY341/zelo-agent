@@ -152,7 +152,10 @@ Core state into the workspace:
 - bounded Mind schedules;
 - periodic read-only refresh from Core with selection preservation and campaign-card reconciliation;
 - mobile project selection and refresh controls when the desktop project rail is hidden;
-- bounded page navigation for Projects, Goals, Campaigns, budgets and schedules without accumulating entire collections in browser memory.
+- bounded page navigation for Projects, Goals, Campaigns, budgets and schedules without accumulating entire collections in browser memory;
+- responsive Talk/Desk headers that keep navigation reachable with long titles;
+- request-aware hierarchy revalidation that skips active reads and aborts superseded browser requests;
+- recovery pagination that remains available when a requested budget/schedule page fails.
 
 The workspace remains presentation and interaction only. It does not create a
 second task, approval, scheduler, budget, project or campaign authority system.
