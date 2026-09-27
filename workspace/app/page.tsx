@@ -363,6 +363,7 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
+    voiceMountedRef.current = true;
 
     fetch("/api/health", {
       headers: WORKSPACE_HEADERS,
@@ -800,6 +801,7 @@ export default function Home() {
           className={`rail-item ${activeView === "desk" ? "active" : ""}`}
           title="Control Desk"
           onClick={() => setActiveView("desk")}
+          disabled={recording || voiceStarting || voiceBusy || busy}
         >
           Desk
         </button>
@@ -880,6 +882,7 @@ export default function Home() {
             <button
               className="mobile-view-button"
               onClick={() => setActiveView("desk")}
+              disabled={recording || voiceStarting || voiceBusy || busy}
             >
               Desk
             </button>
@@ -996,7 +999,6 @@ export default function Home() {
                   className={`voice-button ${recording ? "recording" : ""}`}
                   disabled={
                     voiceAvailable !== true ||
-                    voiceStarting ||
                     voiceBusy ||
                     busy ||
                     conversationLoading
@@ -1050,7 +1052,14 @@ export default function Home() {
                 </button>
                 <button
                   className="send-button"
-                  disabled={busy || conversationLoading || voiceBusy || !text.trim()}
+                  disabled={
+                    busy ||
+                    conversationLoading ||
+                    recording ||
+                    voiceStarting ||
+                    voiceBusy ||
+                    !text.trim()
+                  }
                 >
                   {busy ? "Thinking..." : "Send"}
                 </button>
