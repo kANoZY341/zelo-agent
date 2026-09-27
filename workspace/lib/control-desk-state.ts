@@ -31,8 +31,27 @@ export function pageBackfillOffset(
   return Math.max(0, offset - pageSize);
 }
 
-export function pendingAfterSettlement(current: number): number {
-  return Math.max(0, current - 1);
+export class PendingRequestTracker {
+  #count = 0;
+
+  begin(): void {
+    this.#count += 1;
+  }
+
+  settle(): void {
+    if (this.#count === 0) {
+      throw new Error("pending request accounting underflow");
+    }
+    this.#count -= 1;
+  }
+
+  isIdle(): boolean {
+    return this.#count === 0;
+  }
+
+  count(): number {
+    return this.#count;
+  }
 }
 
 export function shouldShowDetailLoading(

@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createAbortDeadline,
   pageBackfillOffset,
-  pendingAfterSettlement,
+  PendingRequestTracker,
   shouldShowDetailLoading,
 } from "../lib/control-desk-state.ts";
 
@@ -21,10 +21,18 @@ test("empty final pages retreat by one bounded page", () => {
   assert.equal(pageBackfillOffset(0, 0, 25, 25), null);
 });
 
-test("hierarchy pending accounting cannot go negative", () => {
-  assert.equal(pendingAfterSettlement(3), 2);
-  assert.equal(pendingAfterSettlement(1), 0);
-  assert.equal(pendingAfterSettlement(0), 0);
+test("hierarchy pending accounting follows request settlement", () => {
+  const pending = new PendingRequestTracker();
+  assert.equal(pending.isIdle(), true);
+  pending.begin();
+  pending.begin();
+  assert.equal(pending.count(), 2);
+  assert.equal(pending.isIdle(), false);
+  pending.settle();
+  assert.equal(pending.count(), 1);
+  pending.settle();
+  assert.equal(pending.isIdle(), true);
+  assert.throws(() => pending.settle(), /underflow/);
 });
 
 test("abort deadlines time out and can be cleared", async () => {
@@ -42,24 +50,78 @@ test("abort deadlines time out and can be cleared", async () => {
   assert.equal(clearedDeadline.didTimeout(), false);
 });
 
-test("Control Desk uses latest-events and Talk keeps its normal timing contract", async () => {
+test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines", async () => {
+  const { proxyCore } = await import("../lib/core.ts");
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const previousUrl = process.env.ZELO_CORE_URL;
+  const previousToken = process.env.ZELO_OPERATOR_TOKEN;
+
+  process.env.ZELO_CORE_URL = "http://127.0.0.1:8000";
+  process.env.ZELO_OPERATOR_TOKEN = "test-only-token";
+
+  try {
+    let scheduled = 0;
+    globalThis.setTimeout = ((...args) => {
+      scheduled += 1;
+      return originalSetTimeout(...args);
+    }) as typeof setTimeout;
+    globalThis.fetch = (async (_input, init) => {
+      assert.equal(init?.signal?.aborted, false);
+      return new Response('{"ok":true}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const talkResponse = await proxyCore("/talk-like-read");
+    assert.equal(talkResponse.status, 200);
+    assert.equal(scheduled, 0);
+
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.fetch = ((_input, init) =>
+      new Promise<Response>((resolve, reject) => {
+        const signal = init?.signal;
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+        originalSetTimeout(
+          () =>
+            resolve(
+              new Response('{"ok":true}', {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              }),
+            ),
+          30,
+        );
+      })) as typeof fetch;
+
+    const deskResponse = await proxyCore(
+      "/desk-read",
+      {},
+      { timeoutMs: 5 },
+    );
+    assert.equal(deskResponse.status, 503);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+    if (previousUrl === undefined) delete process.env.ZELO_CORE_URL;
+    else process.env.ZELO_CORE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_OPERATOR_TOKEN;
+    else process.env.ZELO_OPERATOR_TOKEN = previousToken;
+  }
+});
+
+test("Control Desk overview uses Core latest-events rather than a calculated tail offset", async () => {
   const overview = await readFile(
     new URL("../app/api/campaigns/[id]/overview/route.ts", import.meta.url),
     "utf8",
   );
-  const talkTurns = await readFile(
-    new URL("../app/api/conversations/[id]/turns/route.ts", import.meta.url),
-    "utf8",
-  );
-  const projects = await readFile(
-    new URL("../app/api/projects/route.ts", import.meta.url),
-    "utf8",
-  );
-
   assert.match(overview, /events\/latest\?limit=100/);
   assert.doesNotMatch(overview, /totalEvents|eventOffset|events\?limit=1&offset=0/);
-  assert.doesNotMatch(talkTurns, /timeoutMs/);
-  assert.match(projects, /timeoutMs:\s*30000/);
 });
 
 test("responsive navigation contracts remain present", async () => {

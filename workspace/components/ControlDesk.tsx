@@ -13,7 +13,7 @@ import type {
 import {
   createAbortDeadline,
   pageBackfillOffset,
-  pendingAfterSettlement,
+  PendingRequestTracker,
   shouldShowDetailLoading,
 } from "@/lib/control-desk-state";
 
@@ -127,7 +127,7 @@ export function ControlDesk({
   const loadedProjectOffsetRef = useRef<number | null>(null);
   const loadedGoalOffsetRef = useRef<number | null>(null);
   const loadedCampaignOffsetRef = useRef<number | null>(null);
-  const hierarchyPendingRef = useRef(0);
+  const hierarchyPendingRef = useRef(new PendingRequestTracker());
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -169,7 +169,7 @@ export function ControlDesk({
     }
     setLoading(true);
     setError(null);
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
 
     fetch(`/api/projects?limit=${PAGE_SIZE}&offset=${projectOffset}`, {
       headers: WORKSPACE_HEADERS,
@@ -211,9 +211,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = pendingAfterSettlement(
-          hierarchyPendingRef.current,
-        );
+        hierarchyPendingRef.current.settle();
         if (!cancelled) setLoading(false);
       });
 
@@ -257,7 +255,7 @@ export function ControlDesk({
       setOverview(null);
     }
 
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
     fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=${PAGE_SIZE}&offset=${goalOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
@@ -298,9 +296,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = pendingAfterSettlement(
-          hierarchyPendingRef.current,
-        );
+        hierarchyPendingRef.current.settle();
       });
 
     return () => {
@@ -336,7 +332,7 @@ export function ControlDesk({
       setOverview(null);
     }
 
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
     fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=${PAGE_SIZE}&offset=${campaignOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
@@ -377,9 +373,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = pendingAfterSettlement(
-          hierarchyPendingRef.current,
-        );
+        hierarchyPendingRef.current.settle();
       });
 
     return () => {
@@ -495,7 +489,7 @@ export function ControlDesk({
     const schedule = () => {
       timer = setTimeout(() => {
         if (cancelled) return;
-        if (hierarchyPendingRef.current === 0) {
+        if (hierarchyPendingRef.current.isIdle()) {
           setRefreshKey((value) => value + 1);
         }
         schedule();
