@@ -9,8 +9,6 @@ from tempfile import NamedTemporaryFile
 from threading import Lock
 from typing import Protocol
 
-
-
 ARABIC_RANGES = (
     (0x0600, 0x06FF),
     (0x0750, 0x077F),
