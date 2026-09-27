@@ -22,20 +22,17 @@ class FakeTTS:
         return b"RIFFfake"
 
 
-def settings(runtime_path):
-    voice_root = runtime_path / "voice"
+def settings():
     return VoiceSettings(
         _env_file=None,
         service_token=VOICE_TOKEN,
-        stt_download_root=voice_root / "models" / "faster-whisper",
-        tts_model_dir=voice_root / "models" / "supertonic",
         max_audio_bytes=1024,
     )
 
 
 def test_voice_service_requires_proxy_token_before_work(runtime_path):
     client = TestClient(
-        create_voice_app(settings(runtime_path), stt=FakeSTT(), tts=FakeTTS())
+        create_voice_app(settings(), stt=FakeSTT(), tts=FakeTTS())
     )
     assert client.get("/health").status_code == 401
     response = client.post(
@@ -48,7 +45,7 @@ def test_voice_service_requires_proxy_token_before_work(runtime_path):
 
 def test_voice_service_health_and_provider_identity(runtime_path):
     client = TestClient(
-        create_voice_app(settings(runtime_path), stt=FakeSTT(), tts=FakeTTS())
+        create_voice_app(settings(), stt=FakeSTT(), tts=FakeTTS())
     )
     assert client.get("/health", headers=AUTH).json() == {
         "status": "healthy",
@@ -59,7 +56,7 @@ def test_voice_service_health_and_provider_identity(runtime_path):
 
 def test_transcribe_is_typed_stream_bounded_and_returns_language(runtime_path):
     client = TestClient(
-        create_voice_app(settings(runtime_path), stt=FakeSTT(), tts=FakeTTS())
+        create_voice_app(settings(), stt=FakeSTT(), tts=FakeTTS())
     )
     response = client.post(
         "/transcribe",
@@ -93,7 +90,7 @@ def test_transcribe_is_typed_stream_bounded_and_returns_language(runtime_path):
 
 def test_synthesize_returns_wav_bytes(runtime_path):
     client = TestClient(
-        create_voice_app(settings(runtime_path), stt=FakeSTT(), tts=FakeTTS())
+        create_voice_app(settings(), stt=FakeSTT(), tts=FakeTTS())
     )
     response = client.post(
         "/synthesize",
@@ -105,16 +102,27 @@ def test_synthesize_returns_wav_bytes(runtime_path):
     assert response.content == b"RIFFfake"
 
 
-def test_voice_service_rejects_non_loopback_and_external_model_paths(runtime_path):
+def test_voice_service_rejects_non_loopback_binding():
     try:
         VoiceSettings(
             _env_file=None,
             service_token=VOICE_TOKEN,
             host="0.0.0.0",
-            stt_download_root=runtime_path / "voice" / "stt",
-            tts_model_dir=runtime_path / "voice" / "tts",
         )
     except ValueError as error:
         assert "loopback" in str(error).lower()
     else:
         raise AssertionError("non-loopback voice bind must fail")
+
+
+def test_voice_service_rejects_external_model_paths(tmp_path):
+    try:
+        VoiceSettings(
+            _env_file=None,
+            service_token=VOICE_TOKEN,
+            stt_download_root=tmp_path / "outside",
+        )
+    except ValueError as error:
+        assert "runtime/voice" in str(error)
+    else:
+        raise AssertionError("voice model path outside runtime/voice must fail")
