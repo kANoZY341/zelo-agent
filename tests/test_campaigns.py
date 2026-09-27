@@ -95,6 +95,15 @@ def test_campaign_api_persists_events_and_checkpoints(client):
     ]
     assert [item["sequence"] for item in events["items"]] == [1, 2]
 
+    latest = client.get(
+        f"/campaigns/{campaign['id']}/events/latest?limit=1",
+        headers=AUTH,
+    )
+    assert latest.status_code == 200, latest.text
+    assert latest.json()["total"] == 2
+    assert latest.json()["offset"] == 1
+    assert [item["sequence"] for item in latest.json()["items"]] == [2]
+
 
 def test_campaign_dependencies_gate_runner(settings, database):
     _, _, campaign = campaign_fixture(database)
@@ -264,6 +273,22 @@ def test_campaign_ownership_and_dependencies_are_database_immutable(settings, da
                 ),
                 {"task_id": outsider.id, "depends_on": prerequisite.id},
             )
+
+
+def test_latest_campaign_events_returns_tail_without_offset_paging(database):
+    _, _, campaign = campaign_fixture(database)
+    campaigns = CampaignService(database)
+    for version in range(1, 6):
+        campaigns.checkpoint(
+            campaign.id,
+            CampaignCheckpointCreate(state={"version": version}),
+        )
+
+    page = campaigns.latest_events(campaign.id, 3)
+
+    assert page.total == 6
+    assert page.offset == 3
+    assert [event.sequence for event in page.items] == [4, 5, 6]
 
 
 def test_campaign_terminal_event_and_activity_follow_pre_execution_cancel(settings, database):
