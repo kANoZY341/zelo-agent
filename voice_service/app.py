@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import os
+from time import monotonic
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from voice_service.providers import detect_tts_language, get_synthesizer, get_transcriber
+from voice_service.providers import detect_tts_language, get_transcriber
+from voice_service.synthesis_worker import SynthesisWorker, SynthesisWorkerBusy
 
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
 MAX_TTS_CHARS = 4000
+DEFAULT_TTS_DEADLINE_SECONDS = 110.0
+SYNTHESIS_POLL_SECONDS = 0.05
 
 app = FastAPI(title="Zelo Voice Adapter", docs_url=None, redoc_url=None)
+_synthesis_worker = SynthesisWorker()
 
 
 class SynthesisRequest(BaseModel):
@@ -36,6 +42,17 @@ def _required_token() -> str:
             "ZELO_VOICE_TOKEN must contain 32-512 non-whitespace ASCII characters"
         )
     return token
+
+
+def _tts_deadline_seconds() -> float:
+    raw = os.getenv("ZELO_TTS_DEADLINE_SECONDS", str(DEFAULT_TTS_DEADLINE_SECONDS))
+    try:
+        deadline = float(raw)
+    except ValueError as exc:
+        raise RuntimeError("ZELO_TTS_DEADLINE_SECONDS must be numeric") from exc
+    if not 1.0 <= deadline <= 600.0:
+        raise RuntimeError("ZELO_TTS_DEADLINE_SECONDS must be between 1 and 600")
+    return deadline
 
 
 def _authorize(authorization: str | None) -> None:
@@ -78,7 +95,10 @@ async def transcribe(
         try:
             declared_length = int(content_length)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail="voice_content_length_invalid") from exc
+            raise HTTPException(
+                status_code=400,
+                detail="voice_content_length_invalid",
+            ) from exc
         if declared_length < 0:
             raise HTTPException(status_code=400, detail="voice_content_length_invalid")
         if declared_length > MAX_AUDIO_BYTES:
@@ -87,10 +107,11 @@ async def transcribe(
     audio = await _read_bounded_body(request, MAX_AUDIO_BYTES)
     if not audio:
         raise HTTPException(status_code=400, detail="voice_audio_empty")
-    if len(audio) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="voice_audio_too_large")
 
-    content_type = x_audio_type or request.headers.get("content-type", "application/octet-stream")
+    content_type = x_audio_type or request.headers.get(
+        "content-type",
+        "application/octet-stream",
+    )
     try:
         result = await run_in_threadpool(
             get_transcriber().transcribe,
@@ -98,7 +119,10 @@ async def transcribe(
             content_type,
         )
     except Exception as exc:
-        raise HTTPException(status_code=503, detail="voice_transcription_failed") from exc
+        raise HTTPException(
+            status_code=503,
+            detail="voice_transcription_failed",
+        ) from exc
 
     if not str(result.get("text", "")).strip():
         raise HTTPException(status_code=422, detail="voice_no_speech_detected")
@@ -106,18 +130,49 @@ async def transcribe(
 
 
 @app.post("/synthesize")
-def synthesize(
+async def synthesize(
+    request: Request,
     payload: SynthesisRequest,
     authorization: str | None = Header(default=None),
 ) -> Response:
     _authorize(authorization)
-    language = detect_tts_language(payload.text) if payload.language == "auto" else payload.language
+    language = (
+        detect_tts_language(payload.text)
+        if payload.language == "auto"
+        else payload.language
+    )
+    request_id: str | None = None
+    completed = False
+
     try:
-        audio = get_synthesizer().synthesize(payload.text, language)
+        request_id = _synthesis_worker.start(payload.text, language)
+        deadline = monotonic() + _tts_deadline_seconds()
+
+        while True:
+            audio = _synthesis_worker.poll(request_id)
+            if audio is not None:
+                completed = True
+                break
+            if await request.is_disconnected():
+                raise HTTPException(status_code=499, detail="voice_client_disconnected")
+            if monotonic() >= deadline:
+                raise HTTPException(status_code=503, detail="voice_synthesis_timeout")
+            await asyncio.sleep(SYNTHESIS_POLL_SECONDS)
+    except SynthesisWorkerBusy as exc:
+        raise HTTPException(status_code=503, detail="voice_synthesis_busy") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except asyncio.CancelledError:
+        if request_id is not None:
+            _synthesis_worker.abort(request_id)
+        raise
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=503, detail="voice_synthesis_failed") from exc
+    finally:
+        if request_id is not None and not completed:
+            _synthesis_worker.abort(request_id)
 
     return Response(
         content=audio,
