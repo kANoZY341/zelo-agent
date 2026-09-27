@@ -1377,3 +1377,51 @@ h2 {
     flex-direction: column;
   }
 }
+
+/* Push-to-talk voice I/O — presentation only; conversation authority stays unchanged. */
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-button {
+  min-width: 104px;
+  border: 1px solid #34400e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.voice-button.recording {
+  border-color: #8a3c43;
+  background: rgba(255, 107, 114, 0.13);
+  color: #ff9da2;
+  box-shadow: 0 0 18px rgba(255, 107, 114, 0.12);
+}
+
+.voice-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .composer-footer {
+    gap: 10px;
+  }
+
+  .composer-actions {
+    margin-left: auto;
+  }
+
+  .voice-button {
+    min-width: 88px;
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}

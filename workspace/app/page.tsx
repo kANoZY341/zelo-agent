@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  PointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -27,6 +28,8 @@ type UiMessage = {
   content: string;
   task?: TaskProjection | null;
 };
+
+type VoiceState = "idle" | "recording" | "transcribing" | "speaking";
 
 function friendlyTaskError(error: string): string {
   const knownErrors: Record<string, string> = {
@@ -126,10 +129,17 @@ export default function Home() {
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationBodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const voiceHeldRef = useRef(false);
+  const spokenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const spokenUrlRef = useRef<string | null>(null);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
     null,
   );
@@ -315,6 +325,10 @@ export default function Home() {
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
+      mediaRecorderRef.current?.stop();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      spokenAudioRef.current?.pause();
+      if (spokenUrlRef.current) URL.revokeObjectURL(spokenUrlRef.current);
     };
   }, []);
 
@@ -397,9 +411,69 @@ export default function Home() {
     return conversation.id;
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const prompt = text.trim();
+  function stopVoicePlayback() {
+    spokenAudioRef.current?.pause();
+    spokenAudioRef.current = null;
+    if (spokenUrlRef.current) {
+      URL.revokeObjectURL(spokenUrlRef.current);
+      spokenUrlRef.current = null;
+    }
+    if (voiceState === "speaking") setVoiceState("idle");
+  }
+
+  async function speakReply(reply: string): Promise<void> {
+    if (!reply.trim()) return;
+    stopVoicePlayback();
+    setVoiceState("speaking");
+
+    try {
+      const response = await fetch("/api/voice/synthesize", {
+        method: "POST",
+        headers: {
+          ...WORKSPACE_HEADERS,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: reply, language: "auto" }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const detail =
+          body && typeof body.detail === "string"
+            ? body.detail
+            : `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      spokenUrlRef.current = url;
+      spokenAudioRef.current = audio;
+
+      await new Promise<void>((resolve, reject) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => reject(new Error("voice_playback_failed"));
+        audio.play().catch(reject);
+      });
+    } catch (voiceError) {
+      setError(
+        voiceError instanceof Error ? voiceError.message : "voice_playback_failed",
+      );
+    } finally {
+      spokenAudioRef.current = null;
+      if (spokenUrlRef.current) {
+        URL.revokeObjectURL(spokenUrlRef.current);
+        spokenUrlRef.current = null;
+      }
+      setVoiceState("idle");
+    }
+  }
+
+  async function sendPrompt(
+    rawPrompt: string,
+    options: { speakResponse?: boolean } = {},
+  ): Promise<void> {
+    const prompt = rawPrompt.trim();
     if (!prompt || busy) return;
 
     const previousSubmission = pendingSubmissionRef.current;
@@ -467,6 +541,9 @@ export default function Home() {
       if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
       }
+      if (options.speakResponse) {
+        await speakReply(turn.assistant_content);
+      }
     };
 
     try {
@@ -507,8 +584,126 @@ export default function Home() {
     }
   }
 
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await sendPrompt(text);
+  }
+
+  async function startVoiceRecording(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (
+      busy ||
+      conversationLoading ||
+      voiceState === "recording" ||
+      voiceState === "transcribing"
+    ) {
+      return;
+    }
+
+    stopVoicePlayback();
+    voiceHeldRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("voice_recording_not_supported");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!voiceHeldRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      const mimeType =
+        preferredTypes.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+        "";
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+
+      recorder.ondataavailable = (dataEvent) => {
+        if (dataEvent.data.size > 0) voiceChunksRef.current.push(dataEvent.data);
+      };
+
+      recorder.onerror = () => {
+        setError("voice_recording_failed");
+        setVoiceState("idle");
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
+
+        const blob = new Blob(voiceChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        voiceChunksRef.current = [];
+        if (blob.size === 0) {
+          setVoiceState("idle");
+          return;
+        }
+
+        setVoiceState("transcribing");
+        try {
+          const response = await fetch("/api/voice/transcribe", {
+            method: "POST",
+            headers: {
+              ...WORKSPACE_HEADERS,
+              "Content-Type": blob.type.split(";", 1)[0] || "audio/webm",
+            },
+            body: blob,
+          });
+          const result = await parseJson<{ text: string }>(response);
+          const transcript = result.text.trim();
+          if (!transcript) throw new Error("voice_no_speech_detected");
+          setVoiceState("idle");
+          await sendPrompt(transcript, { speakResponse: true });
+        } catch (voiceError) {
+          setVoiceState("idle");
+          setError(
+            voiceError instanceof Error
+              ? voiceError.message
+              : "voice_transcription_failed",
+          );
+        }
+      };
+
+      recorder.start(250);
+      setVoiceState("recording");
+    } catch (voiceError) {
+      voiceHeldRef.current = false;
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setVoiceState("idle");
+      setError(
+        voiceError instanceof Error ? voiceError.message : "voice_recording_failed",
+      );
+    }
+  }
+
+  function stopVoiceRecording() {
+    voiceHeldRef.current = false;
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+  }
+
   function newConversation() {
     if (busy || conversationLoading) return;
+    stopVoiceRecording();
+    stopVoicePlayback();
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
       return;
@@ -733,12 +928,36 @@ export default function Home() {
                   ? `Conversation ${conversationId.slice(0, 8)}`
                   : "New conversation"}
               </span>
-              <button
-                className="send-button"
-                disabled={busy || conversationLoading || !text.trim()}
-              >
-                {busy ? "Thinking..." : "Send"}
-              </button>
+              <div className="composer-actions">
+                <button
+                  type="button"
+                  className={`voice-button ${voiceState === "recording" ? "recording" : ""}`}
+                  onPointerDown={(event) => void startVoiceRecording(event)}
+                  onPointerUp={stopVoiceRecording}
+                  onPointerCancel={stopVoiceRecording}
+                  disabled={
+                    busy ||
+                    conversationLoading ||
+                    voiceState === "transcribing"
+                  }
+                  aria-label="Hold to talk to Zelo"
+                  title="Hold to talk"
+                >
+                  {voiceState === "recording"
+                    ? "Release"
+                    : voiceState === "transcribing"
+                      ? "Transcribing…"
+                      : voiceState === "speaking"
+                        ? "Interrupt & talk"
+                        : "Hold to talk"}
+                </button>
+                <button
+                  className="send-button"
+                  disabled={busy || conversationLoading || !text.trim()}
+                >
+                  {busy ? "Thinking..." : "Send"}
+                </button>
+              </div>
             </div>
           </div>
         </form>
