@@ -381,6 +381,35 @@ h2 {
   cursor: not-allowed;
 }
 
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-button {
+  min-width: 96px;
+  border: 1px solid #34400e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.voice-button.recording {
+  border-color: #8b3439;
+  background: rgba(255, 107, 114, 0.12);
+  color: #ff8f95;
+  box-shadow: 0 0 0 3px rgba(255, 107, 114, 0.08);
+}
+
+.voice-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .conversation-body {
   min-height: 0;
   overflow-y: auto;
