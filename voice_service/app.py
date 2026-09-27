@@ -50,8 +50,15 @@ async def transcribe(
 ) -> dict[str, object]:
     _authorize(authorization)
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="voice_audio_too_large")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="voice_content_length_invalid") from exc
+        if declared_length < 0:
+            raise HTTPException(status_code=400, detail="voice_content_length_invalid")
+        if declared_length > MAX_AUDIO_BYTES:
+            raise HTTPException(status_code=413, detail="voice_audio_too_large")
 
     audio = await request.body()
     if not audio:
