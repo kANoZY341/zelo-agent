@@ -431,7 +431,7 @@ export default function Home() {
       URL.revokeObjectURL(spokenUrlRef.current);
       spokenUrlRef.current = null;
     }
-    if (voiceState === "speaking") setVoiceState("idle");
+    setVoiceState((current) => (current === "speaking" ? "idle" : current));
   }
 
   async function speakReply(reply: string): Promise<void> {
