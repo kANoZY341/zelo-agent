@@ -139,6 +139,8 @@ export default function Home() {
   const voiceChunksRef = useRef<Blob[]>([]);
   const voiceHeldRef = useRef(false);
   const voiceDiscardRecordingRef = useRef(false);
+  const voiceTranscriptionAbortRef = useRef<AbortController | null>(null);
+  const voiceInputGenerationRef = useRef(0);
   const voiceSynthesisAbortRef = useRef<AbortController | null>(null);
   const spokenAudioRef = useRef<HTMLAudioElement | null>(null);
   const spokenUrlRef = useRef<string | null>(null);
@@ -258,6 +260,8 @@ export default function Home() {
         return;
       }
 
+      invalidateVoiceInput();
+      stopVoicePlayback();
       if (pollRef.current) clearTimeout(pollRef.current);
       stickToBottomRef.current = true;
       setConversationLoading(true);
@@ -327,6 +331,9 @@ export default function Home() {
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
+      voiceInputGenerationRef.current += 1;
+      voiceTranscriptionAbortRef.current?.abort();
+      voiceTranscriptionAbortRef.current = null;
       voiceDiscardRecordingRef.current = true;
       mediaRecorderRef.current?.stop();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -690,6 +697,11 @@ export default function Home() {
           return;
         }
 
+        const transcriptionGeneration = voiceInputGenerationRef.current;
+        const transcriptionConversationId = activeConversationIdRef.current;
+        const controller = new AbortController();
+        voiceTranscriptionAbortRef.current?.abort();
+        voiceTranscriptionAbortRef.current = controller;
         setVoiceState("transcribing");
         try {
           const response = await fetch("/api/voice/transcribe", {
@@ -699,19 +711,36 @@ export default function Home() {
               "Content-Type": blob.type.split(";", 1)[0] || "audio/webm",
             },
             body: blob,
+            signal: controller.signal,
           });
           const result = await parseJson<{ text: string }>(response);
+          if (
+            controller.signal.aborted ||
+            voiceInputGenerationRef.current !== transcriptionGeneration ||
+            activeConversationIdRef.current !== transcriptionConversationId
+          ) {
+            return;
+          }
           const transcript = result.text.trim();
           if (!transcript) throw new Error("voice_no_speech_detected");
           setVoiceState("idle");
           await sendPrompt(transcript, { speakResponse: true });
         } catch (voiceError) {
+          const aborted =
+            controller.signal.aborted ||
+            (voiceError instanceof DOMException && voiceError.name === "AbortError");
           setVoiceState("idle");
-          setError(
-            voiceError instanceof Error
-              ? voiceError.message
-              : "voice_transcription_failed",
-          );
+          if (!aborted) {
+            setError(
+              voiceError instanceof Error
+                ? voiceError.message
+                : "voice_transcription_failed",
+            );
+          }
+        } finally {
+          if (voiceTranscriptionAbortRef.current === controller) {
+            voiceTranscriptionAbortRef.current = null;
+          }
         }
       };
 
@@ -748,9 +777,16 @@ export default function Home() {
     }
   }
 
+  function invalidateVoiceInput() {
+    voiceInputGenerationRef.current += 1;
+    voiceTranscriptionAbortRef.current?.abort();
+    voiceTranscriptionAbortRef.current = null;
+    cancelVoiceRecording();
+  }
+
   function newConversation() {
     if (busy || conversationLoading) return;
-    cancelVoiceRecording();
+    invalidateVoiceInput();
     stopVoicePlayback();
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
@@ -982,7 +1018,7 @@ export default function Home() {
                   className={`voice-button ${voiceState === "recording" ? "recording" : ""}`}
                   onPointerDown={(event) => void startVoiceRecording(event)}
                   onPointerUp={stopVoiceRecording}
-                  onPointerCancel={stopVoiceRecording}
+                  onPointerCancel={cancelVoiceRecording}
                   disabled={
                     busy ||
                     conversationLoading ||
