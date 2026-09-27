@@ -341,7 +341,7 @@ test("TTS failure after a voice turn never reposts the accepted Mind turn", asyn
     assert.equal(synthPosts, 1);
     assert.ok(trackStops >= 1);
     assert.match(container.textContent ?? "", /Hello back/);
-    assert.match(container.textContent ?? "", /tts unavailable/);
+    assert.match(container.textContent ?? "", /tts_unavailable/);
   } finally {
     await act(async () => root.unmount());
     container.remove();
