@@ -127,7 +127,7 @@ test("release before microphone permission resolves never starts a recording", a
 
     await act(async () => {
       button.dispatchEvent(
-        new windowInstance.KeyboardEvent("keydown", {
+        new KeyboardEvent("keydown", {
           key: " ",
           bubbles: true,
         }),
@@ -137,7 +137,7 @@ test("release before microphone permission resolves never starts a recording", a
 
     await act(async () => {
       button.dispatchEvent(
-        new windowInstance.KeyboardEvent("keyup", {
+        new KeyboardEvent("keyup", {
           key: " ",
           bubbles: true,
         }),
@@ -317,7 +317,7 @@ test("TTS failure after a voice turn never reposts the accepted Mind turn", asyn
 
     await act(async () => {
       button.dispatchEvent(
-        new windowInstance.KeyboardEvent("keydown", {
+        new KeyboardEvent("keydown", {
           key: " ",
           bubbles: true,
         }),
@@ -328,7 +328,7 @@ test("TTS failure after a voice turn never reposts the accepted Mind turn", asyn
 
     await act(async () => {
       button.dispatchEvent(
-        new windowInstance.KeyboardEvent("keyup", {
+        new KeyboardEvent("keyup", {
           key: " ",
           bubbles: true,
         }),
@@ -532,7 +532,7 @@ test("autoplay rejection exposes manual reply playback without reposting the tur
 
     await act(async () => {
       voiceButton.dispatchEvent(
-        new windowInstance.KeyboardEvent("keydown", {
+        new KeyboardEvent("keydown", {
           key: " ",
           bubbles: true,
         }),
@@ -542,7 +542,7 @@ test("autoplay rejection exposes manual reply playback without reposting the tur
 
     await act(async () => {
       voiceButton.dispatchEvent(
-        new windowInstance.KeyboardEvent("keyup", {
+        new KeyboardEvent("keyup", {
           key: " ",
           bubbles: true,
         }),
