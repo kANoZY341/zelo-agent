@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  canRefreshHierarchy,
+  campaignOverviewForSelection,
+  recoverPreviousPageOffset,
+  shouldShowDetailLoading,
+  visibleOverviewForOffsets,
+} from "@/lib/control-desk-state";
 import type {
   Campaign,
   CampaignOverview,
@@ -147,14 +154,12 @@ export function ControlDesk({
     () => campaigns.find((campaign) => campaign.id === campaignId) ?? null,
     [campaigns, campaignId],
   );
-  const campaignOverview =
-    overview?.campaign.id === campaignId ? overview : null;
-  const visibleOverview =
-    campaignOverview &&
-    campaignOverview.budgets.offset === budgetOffset &&
-    campaignOverview.schedules.offset === scheduleOffset
-      ? campaignOverview
-      : null;
+  const campaignOverview = campaignOverviewForSelection(overview, campaignId);
+  const visibleOverview = visibleOverviewForOffsets(
+    campaignOverview,
+    budgetOffset,
+    scheduleOffset,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -182,8 +187,14 @@ export function ControlDesk({
       .then((response) => parseJson<ProjectPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && projectOffset > 0) {
-          setProjectOffset(Math.max(0, projectOffset - PAGE_SIZE));
+        const fallbackOffset = recoverPreviousPageOffset(
+          projectOffset,
+          page.total,
+          page.items.length,
+          PAGE_SIZE,
+        );
+        if (fallbackOffset !== null) {
+          setProjectOffset(fallbackOffset);
           return;
         }
         loadedProjectOffsetRef.current = page.offset;
@@ -224,8 +235,6 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    const deadline = requestDeadline(controller);
     const parentChanged = goalsProjectRef.current !== projectId;
     if (parentChanged) {
       goalsProjectRef.current = projectId;
@@ -243,6 +252,8 @@ export function ControlDesk({
     }
     if (!projectId) return () => undefined;
 
+    const controller = new AbortController();
+    const deadline = requestDeadline(controller);
     const pageChanged = loadedGoalOffsetRef.current !== goalOffset;
     if (!parentChanged && pageChanged) {
       setGoals([]);
@@ -261,8 +272,14 @@ export function ControlDesk({
       .then((response) => parseJson<GoalPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && goalOffset > 0) {
-          setGoalOffset(Math.max(0, goalOffset - PAGE_SIZE));
+        const fallbackOffset = recoverPreviousPageOffset(
+          goalOffset,
+          page.total,
+          page.items.length,
+          PAGE_SIZE,
+        );
+        if (fallbackOffset !== null) {
+          setGoalOffset(fallbackOffset);
           return;
         }
         loadedGoalOffsetRef.current = page.offset;
@@ -302,8 +319,6 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    const deadline = requestDeadline(controller);
     const parentChanged = campaignsGoalRef.current !== goalId;
     if (parentChanged) {
       campaignsGoalRef.current = goalId;
@@ -316,6 +331,8 @@ export function ControlDesk({
     }
     if (!goalId) return () => undefined;
 
+    const controller = new AbortController();
+    const deadline = requestDeadline(controller);
     const pageChanged = loadedCampaignOffsetRef.current !== campaignOffset;
     if (!parentChanged && pageChanged) {
       setCampaigns([]);
@@ -332,8 +349,14 @@ export function ControlDesk({
       .then((response) => parseJson<CampaignPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && campaignOffset > 0) {
-          setCampaignOffset(Math.max(0, campaignOffset - PAGE_SIZE));
+        const fallbackOffset = recoverPreviousPageOffset(
+          campaignOffset,
+          page.total,
+          page.items.length,
+          PAGE_SIZE,
+        );
+        if (fallbackOffset !== null) {
+          setCampaignOffset(fallbackOffset);
           return;
         }
         loadedCampaignOffsetRef.current = page.offset;
@@ -384,6 +407,7 @@ export function ControlDesk({
 
     if (!campaignId) {
       setOverview(null);
+      setDetailLoading(false);
       return () => undefined;
     }
 
@@ -476,7 +500,7 @@ export function ControlDesk({
     const schedule = () => {
       timer = setTimeout(() => {
         if (cancelled) return;
-        if (hierarchyPendingRef.current === 0) {
+        if (canRefreshHierarchy(hierarchyPendingRef.current)) {
           setRefreshKey((value) => value + 1);
         }
         schedule();
@@ -725,7 +749,12 @@ export function ControlDesk({
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview && !campaignOverview ? (
+        {shouldShowDetailLoading(
+          campaignId,
+          detailLoading,
+          visibleOverview,
+          campaignOverview,
+        ) ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>
@@ -886,7 +915,12 @@ export function ControlDesk({
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview && !campaignOverview ? (
+        {shouldShowDetailLoading(
+          campaignId,
+          detailLoading,
+          visibleOverview,
+          campaignOverview,
+        ) ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>

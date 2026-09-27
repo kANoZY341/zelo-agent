@@ -6,7 +6,8 @@
     "dev": "next dev --hostname 127.0.0.1 --port ${PORT:-3000}",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port ${PORT:-3000}",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --test tests/*.test.mts"
   },
   "dependencies": {
     "next": "16.1.6",

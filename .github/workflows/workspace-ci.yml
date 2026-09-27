@@ -39,5 +39,7 @@ jobs:
         run: npm install --ignore-scripts
       - name: Typecheck workspace
         run: npm run typecheck
+      - name: Test workspace contracts
+        run: npm test
       - name: Build workspace
         run: npm run build
