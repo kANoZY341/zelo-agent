@@ -6,7 +6,7 @@ import {
   pageBackfillOffset,
   PendingRequestTracker,
   shouldShowDetailLoading,
-} from "../lib/control-desk-state.ts";
+} from "../lib/control-desk-state";
 
 test("empty selection never renders stale campaign loading", () => {
   assert.equal(shouldShowDetailLoading(null, true, false, false), false);
@@ -51,9 +51,13 @@ test("abort deadlines time out and can be cleared", async () => {
 });
 
 test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines", async () => {
-  const { proxyCore } = await import("../lib/core.ts");
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
+  const { proxyCore } = await import("../lib/core");
+  const runtimeGlobals = globalThis as unknown as {
+    fetch: typeof fetch;
+    setTimeout: (...args: unknown[]) => unknown;
+  };
+  const originalFetch = runtimeGlobals.fetch;
+  const originalSetTimeout = runtimeGlobals.setTimeout;
   const previousUrl = process.env.ZELO_CORE_URL;
   const previousToken = process.env.ZELO_OPERATOR_TOKEN;
 
@@ -62,24 +66,24 @@ test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines",
 
   try {
     let scheduled = 0;
-    globalThis.setTimeout = ((...args) => {
+    runtimeGlobals.setTimeout = (...args: unknown[]) => {
       scheduled += 1;
       return originalSetTimeout(...args);
-    });
-    globalThis.fetch = (async (_input, init) => {
+    };
+    runtimeGlobals.fetch = async (_input, init) => {
       assert.equal(init?.signal?.aborted, false);
       return new Response('{"ok":true}', {
         status: 200,
         headers: { "content-type": "application/json" },
       });
-    });
+    };
 
     const talkResponse = await proxyCore("/talk-like-read");
     assert.equal(talkResponse.status, 200);
     assert.equal(scheduled, 0);
 
-    globalThis.setTimeout = originalSetTimeout;
-    globalThis.fetch = ((_input, init) =>
+    runtimeGlobals.setTimeout = originalSetTimeout;
+    runtimeGlobals.fetch = (_input, init) =>
       new Promise<Response>((resolve, reject) => {
         const signal = init?.signal;
         signal?.addEventListener(
@@ -97,7 +101,7 @@ test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines",
             ),
           30,
         );
-      }));
+      });
 
     const deskResponse = await proxyCore(
       "/desk-read",
@@ -106,8 +110,8 @@ test("proxyCore has no implicit Talk deadline and honors opt-in Desk deadlines",
     );
     assert.equal(deskResponse.status, 503);
   } finally {
-    globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
+    runtimeGlobals.fetch = originalFetch;
+    runtimeGlobals.setTimeout = originalSetTimeout;
     if (previousUrl === undefined) delete process.env.ZELO_CORE_URL;
     else process.env.ZELO_CORE_URL = previousUrl;
     if (previousToken === undefined) delete process.env.ZELO_OPERATOR_TOKEN;

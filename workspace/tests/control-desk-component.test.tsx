@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import { ControlDesk } from "../components/ControlDesk.tsx";
+import { ControlDesk } from "../components/ControlDesk";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -29,7 +29,8 @@ async function flushEffects(rounds = 8) {
 }
 
 test("Campaign A -> empty Goal aborts overview and clears loading state", async () => {
-  const originalFetch = globalThis.fetch;
+  const runtimeGlobals = globalThis as unknown as { fetch: typeof fetch };
+  const originalFetch = runtimeGlobals.fetch;
   let overviewAborted = false;
   let overviewStarted = false;
 
@@ -67,7 +68,7 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
     updated_at: now,
   };
 
-  globalThis.fetch = ((input, init) => {
+  runtimeGlobals.fetch = (input, init) => {
     const url = String(input);
     if (url.startsWith("/api/projects?")) return Promise.resolve(json(page([project])));
     if (url.includes("/projects/project-a/goals")) {
@@ -93,7 +94,7 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
       });
     }
     throw new Error(`unexpected fetch: ${url}`);
-  }) as typeof fetch;
+  };
 
   let renderer: TestRenderer.ReactTestRenderer | null = null;
   try {
@@ -127,33 +128,48 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
     if (renderer) {
       await act(async () => renderer!.unmount());
     }
-    globalThis.fetch = originalFetch;
+    runtimeGlobals.fetch = originalFetch;
   }
 });
 
 test("empty parent hierarchy leaves no 30-second deadline timers after settlement/unmount", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
-  const originalClearTimeout = globalThis.clearTimeout;
-  const activeDeadlines = new Set<ReturnType<typeof setTimeout>>();
+  const runtimeGlobals = globalThis as unknown as {
+    fetch: typeof fetch;
+    setTimeout: (...args: unknown[]) => unknown;
+    clearTimeout: (...args: unknown[]) => unknown;
+  };
+  const originalFetch = runtimeGlobals.fetch;
+  const originalSetTimeout = runtimeGlobals.setTimeout;
+  const originalClearTimeout = runtimeGlobals.clearTimeout;
+  const activeDeadlines = new Set<unknown>();
 
-  globalThis.setTimeout = ((handler, timeout, ...args) => {
-    const timer = originalSetTimeout(() => {
-      activeDeadlines.delete(timer);
-      if (typeof handler === "function") handler(...args);
-    }, timeout);
+  runtimeGlobals.setTimeout = (
+    handler: unknown,
+    timeout?: unknown,
+    ...args: unknown[]
+  ) => {
+    let timer: unknown;
+    timer = originalSetTimeout(
+      () => {
+        activeDeadlines.delete(timer);
+        if (typeof handler === "function") {
+          (handler as (...values: unknown[]) => void)(...args);
+        }
+      },
+      timeout,
+    );
     if (timeout === 30000) activeDeadlines.add(timer);
     return timer;
-  }) as typeof setTimeout;
-  globalThis.clearTimeout = ((timer) => {
-    activeDeadlines.delete(timer as ReturnType<typeof setTimeout>);
+  };
+  runtimeGlobals.clearTimeout = (timer: unknown) => {
+    activeDeadlines.delete(timer);
     return originalClearTimeout(timer);
-  }) as typeof clearTimeout;
-  globalThis.fetch = (async (input) => {
+  };
+  runtimeGlobals.fetch = async (input) => {
     const url = String(input);
     if (url.startsWith("/api/projects?")) return json(page([]));
     throw new Error(`unexpected fetch: ${url}`);
-  }) as typeof fetch;
+  };
 
   let renderer: TestRenderer.ReactTestRenderer | null = null;
   try {
@@ -170,8 +186,8 @@ test("empty parent hierarchy leaves no 30-second deadline timers after settlemen
     assert.equal(activeDeadlines.size, 0);
   } finally {
     if (renderer) await act(async () => renderer!.unmount());
-    globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
-    globalThis.clearTimeout = originalClearTimeout;
+    runtimeGlobals.fetch = originalFetch;
+    runtimeGlobals.setTimeout = originalSetTimeout;
+    runtimeGlobals.clearTimeout = originalClearTimeout;
   }
 });
