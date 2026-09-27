@@ -1,4 +1,5 @@
 const DEFAULT_CORE_URL = "http://127.0.0.1:8000";
+const CORE_PROXY_TIMEOUT_MS = 30000;
 
 function coreBaseUrl(): URL {
   const configured = process.env.ZELO_CORE_URL ?? DEFAULT_CORE_URL;
@@ -31,6 +32,17 @@ export async function proxyCore(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
+  const controller = new AbortController();
+  const upstreamSignal = init.signal;
+  const abortFromUpstream = () => controller.abort();
+  const timeout = setTimeout(() => controller.abort(), CORE_PROXY_TIMEOUT_MS);
+
+  if (upstreamSignal?.aborted) {
+    controller.abort();
+  } else {
+    upstreamSignal?.addEventListener("abort", abortFromUpstream, { once: true });
+  }
+
   try {
     const url = new URL(path, coreBaseUrl());
     const headers = new Headers(init.headers);
@@ -40,6 +52,7 @@ export async function proxyCore(
     const response = await fetch(url, {
       ...init,
       headers,
+      signal: controller.signal,
       cache: "no-store",
     });
     const body = await response.text();
@@ -53,5 +66,8 @@ export async function proxyCore(
     });
   } catch {
     return Response.json({ detail: "core_proxy_unavailable" }, { status: 503 });
+  } finally {
+    clearTimeout(timeout);
+    upstreamSignal?.removeEventListener("abort", abortFromUpstream);
   }
 }

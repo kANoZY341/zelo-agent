@@ -16,6 +16,7 @@ const PAGE_SIZE = 25;
 const REFRESH_INTERVAL_MS = 5000;
 const HIERARCHY_REFRESH_INTERVAL_MS = 15000;
 const HIERARCHY_REQUEST_TIMEOUT_MS = 30000;
+const OVERVIEW_REQUEST_TIMEOUT_MS = 30000;
 
 async function parseJson<T>(response: Response): Promise<T> {
   const body = await response.json();
@@ -378,6 +379,8 @@ export function ControlDesk({
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let activeController: AbortController | null = null;
+    let activeDeadline: ReturnType<typeof setTimeout> | null = null;
 
     if (!campaignId) {
       setOverview(null);
@@ -389,6 +392,12 @@ export function ControlDesk({
     );
 
     const load = async () => {
+      const controller = new AbortController();
+      activeController = controller;
+      activeDeadline = setTimeout(
+        () => controller.abort(),
+        OVERVIEW_REQUEST_TIMEOUT_MS,
+      );
       setDetailLoading(true);
       try {
         const response = await fetch(
@@ -396,6 +405,7 @@ export function ControlDesk({
           {
             headers: WORKSPACE_HEADERS,
             cache: "no-store",
+            signal: controller.signal,
           },
         );
         const next = await parseJson<CampaignOverview>(response);
@@ -427,12 +437,21 @@ export function ControlDesk({
       } catch (loadError) {
         if (!cancelled) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "campaign_overview_failed",
+            isAbortError(loadError)
+              ? "campaign_overview_timeout"
+              : loadError instanceof Error
+                ? loadError.message
+                : "campaign_overview_failed",
           );
         }
       } finally {
+        if (activeDeadline) {
+          clearTimeout(activeDeadline);
+          activeDeadline = null;
+        }
+        if (activeController === controller) {
+          activeController = null;
+        }
         if (!cancelled) setDetailLoading(false);
       }
 
@@ -445,6 +464,8 @@ export function ControlDesk({
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      if (activeDeadline) clearTimeout(activeDeadline);
+      activeController?.abort();
     };
   }, [budgetOffset, campaignId, scheduleOffset]);
 

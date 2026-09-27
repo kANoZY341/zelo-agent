@@ -39,5 +39,6 @@ export async function GET(
 
   return proxyCore(
     `/projects/${encodeURIComponent(id)}/goals?${query.toString()}`,
+    { signal: request.signal },
   );
 }

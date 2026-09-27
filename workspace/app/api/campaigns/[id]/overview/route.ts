@@ -23,8 +23,11 @@ function boundedInteger(
   return parsed;
 }
 
-async function readCoreJson(path: string): Promise<CoreRead> {
-  const response = await proxyCore(path);
+async function readCoreJson(
+  path: string,
+  signal: AbortSignal,
+): Promise<CoreRead> {
+  const response = await proxyCore(path, { signal });
   let body: unknown;
   try {
     body = await response.json();
@@ -79,13 +82,18 @@ export async function GET(
   );
   const campaignId = encodeURIComponent(id);
   const [campaign, eventMeta, budgets, schedules] = await Promise.all([
-    readCoreJson(`/campaigns/${campaignId}`),
-    readCoreJson(`/campaigns/${campaignId}/events?limit=1&offset=0`),
+    readCoreJson(`/campaigns/${campaignId}`, request.signal),
+    readCoreJson(
+      `/campaigns/${campaignId}/events?limit=1&offset=0`,
+      request.signal,
+    ),
     readCoreJson(
       `/campaigns/${campaignId}/budgets?limit=${limit}&offset=${budgetOffset}`,
+      request.signal,
     ),
     readCoreJson(
       `/campaigns/${campaignId}/schedules?limit=${limit}&offset=${scheduleOffset}`,
+      request.signal,
     ),
   ]);
 
@@ -104,6 +112,7 @@ export async function GET(
   const eventOffset = Math.max(totalEvents - 100, 0);
   const events = await readCoreJson(
     `/campaigns/${campaignId}/events?limit=100&offset=${eventOffset}`,
+    request.signal,
   );
   if (!events.ok) return coreError(events);
 
