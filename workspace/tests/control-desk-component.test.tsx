@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import React from "react";
-import TestRenderer, { act } from "react-test-renderer";
+import React, { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { Window } from "happy-dom";
 import { ControlDesk } from "../components/ControlDesk";
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+const windowInstance = new Window({ url: "http://localhost/" });
+const runtime = globalThis as unknown as Record<string, unknown>;
+runtime.window = windowInstance;
+runtime.document = windowInstance.document;
+runtime.navigator = windowInstance.navigator;
+runtime.HTMLElement = windowInstance.HTMLElement;
+runtime.Node = windowInstance.Node;
+runtime.Event = windowInstance.Event;
+runtime.MouseEvent = windowInstance.MouseEvent;
+runtime.getComputedStyle = windowInstance.getComputedStyle.bind(windowInstance);
+runtime.IS_REACT_ACT_ENVIRONMENT = true;
 
 const now = "2026-09-27T00:00:00Z";
 
@@ -26,6 +37,12 @@ async function flushEffects(rounds = 8) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   }
+}
+
+function mount(): { root: Root; container: HTMLElement } {
+  const container = windowInstance.document.createElement("div") as unknown as HTMLElement;
+  windowInstance.document.body.appendChild(container as unknown as never);
+  return { root: createRoot(container), container };
 }
 
 test("Campaign A -> empty Goal aborts overview and clears loading state", async () => {
@@ -96,38 +113,31 @@ test("Campaign A -> empty Goal aborts overview and clears loading state", async 
     throw new Error(`unexpected fetch: ${url}`);
   };
 
-  let renderer: TestRenderer.ReactTestRenderer | null = null;
+  const { root, container } = mount();
   try {
     await act(async () => {
-      renderer = TestRenderer.create(
-        <ControlDesk coreHealthy={true} onShowTalk={() => undefined} />,
-      );
+      root.render(<ControlDesk coreHealthy={true} onShowTalk={() => undefined} />);
     });
     await flushEffects();
     assert.equal(overviewStarted, true);
 
-    const goalButtons = renderer!.root.findAll(
-      (node) =>
-        node.type === "button" &&
-        typeof node.props.className === "string" &&
-        node.props.className.includes("goal-card"),
+    const goalButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(".goal-card"),
     );
     assert.equal(goalButtons.length, 2);
 
     await act(async () => {
-      goalButtons[1].props.onClick();
+      goalButtons[1].click();
     });
     await flushEffects();
 
     assert.equal(overviewAborted, true);
-    const rendered = JSON.stringify(renderer!.toJSON());
-    assert.doesNotMatch(rendered, /Loading campaign state/);
-    assert.match(rendered, /No campaigns attached to this goal/);
-    assert.match(rendered, /Select a campaign to inspect/);
+    assert.doesNotMatch(container.textContent ?? "", /Loading campaign state/);
+    assert.match(container.textContent ?? "", /No campaigns attached to this goal/);
+    assert.match(container.textContent ?? "", /Select a campaign to inspect/);
   } finally {
-    if (renderer) {
-      await act(async () => renderer!.unmount());
-    }
+    await act(async () => root.unmount());
+    container.remove();
     runtimeGlobals.fetch = originalFetch;
   }
 });
@@ -171,21 +181,18 @@ test("empty parent hierarchy leaves no 30-second deadline timers after settlemen
     throw new Error(`unexpected fetch: ${url}`);
   };
 
-  let renderer: TestRenderer.ReactTestRenderer | null = null;
+  const { root, container } = mount();
   try {
     await act(async () => {
-      renderer = TestRenderer.create(
-        <ControlDesk coreHealthy={true} onShowTalk={() => undefined} />,
-      );
+      root.render(<ControlDesk coreHealthy={true} onShowTalk={() => undefined} />);
     });
     await flushEffects();
     assert.equal(activeDeadlines.size, 0);
 
-    await act(async () => renderer!.unmount());
-    renderer = null;
+    await act(async () => root.unmount());
     assert.equal(activeDeadlines.size, 0);
   } finally {
-    if (renderer) await act(async () => renderer!.unmount());
+    container.remove();
     runtimeGlobals.fetch = originalFetch;
     runtimeGlobals.setTimeout = originalSetTimeout;
     runtimeGlobals.clearTimeout = originalClearTimeout;

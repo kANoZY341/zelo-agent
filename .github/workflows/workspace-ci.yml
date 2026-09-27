@@ -36,7 +36,12 @@ jobs:
         with:
           node-version: '24'
       - name: Install workspace dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
+      - name: Emit generated workspace lockfile
+        run: |
+          printf 'ZELO_LOCKFILE_B64='
+          base64 -w0 package-lock.json
+          printf '\n'
       - name: Audit workspace dependencies
         run: npm run audit
       - name: Test workspace hardening contracts
