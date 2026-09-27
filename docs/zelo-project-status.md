@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Verified: 26 September 2026
+Verified: 27 September 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -142,30 +142,43 @@ Verified merge commit:
 
 Post-merge Core CI and Workspace CI succeeded.
 
-## Active increment: v0.12 Workspace hardening
+## Completed increment: v0.12 Workspace hardening
+
+PR #36 is merged on main.
+
+Verified merge commit:
+
+`f4f9603d1feda8d4ecc96640b5538ecc0c72b306`
+
+Post-merge Core CI #1188 and Workspace CI #117 both succeeded. Core reported
+`762 passed, 2 skipped`; Workspace reported 9/9 tests, zero audit
+vulnerabilities, successful TypeScript and production build. Final Codex and
+Astra reviews reported no known remaining problem.
+
+## Active increment: v0.12 Push-to-talk voice
 
 Active branch:
 
-`fix/v0.12-workspace-hardening`
+`feat/v0.12-voice`
 
-This slice activates the existing Control Desk navigation and projects canonical
-Core state into the workspace:
+The voice slice keeps the existing conversation/Mind/Core contract canonical:
 
-- Projects -> Goals -> Campaigns navigation;
-- campaign task counts and status;
-- recent Campaign events;
-- Campaign budgets;
-- bounded Mind schedules;
-- periodic read-only refresh from Core with selection preservation and campaign-card reconciliation;
-- mobile project selection and refresh controls when the desktop project rail is hidden;
-- bounded page navigation for Projects, Goals, Campaigns, budgets and schedules without accumulating entire collections in browser memory;
-- responsive Talk/Desk headers that keep navigation reachable with long titles;
-- request-aware hierarchy revalidation that skips active reads, aborts superseded browser requests and propagates cancellation through server-side Core proxy fetches;
-- bounded server/client deadlines for hierarchy and campaign-overview reads, scoped only to Control Desk reads so Talk/Mind execution keeps its existing Core timing contract;
-- recovery pagination that remains available when a requested budget/schedule page fails.
+```text
+browser push-to-talk
+  -> loopback Workspace voice proxy
+  -> loopback Voice Service
+  -> replaceable STT provider
+  -> transcript
+  -> existing conversation turn route
+  -> existing Zelo Mind -> Core path
+  -> assistant text
+  -> replaceable TTS provider
+  -> browser audio playback
+```
 
-The workspace remains presentation and interaction only. It does not create a
-second task, approval, scheduler, budget, project or campaign authority system.
+Initial providers are faster-whisper (multilingual CPU int8) and sherpa-onnx
+Supertonic 3 (multilingual TTS). Provider choice is intentionally replaceable;
+voice does not own tasks, approvals, lifecycle, memory, or execution authority.
 
 ## Parked work
 
@@ -174,8 +187,8 @@ v0.14; do not merge the branch wholesale.
 
 ## Next actions
 
-1. Resolve all known Workspace review, dependency, CI-runtime and regression-coverage findings.
-2. Add push-to-talk voice through the existing conversation/action contracts.
+1. Add push-to-talk voice through the existing conversation/action contracts.
+2. Prove local Arabic/English STT/TTS and make voice/style replacement configuration-only.
 3. Bind one bounded self-improvement cycle cleanly into Campaign scheduling.
 4. Enter v0.13 with scoped persistent memory, provenance, correction,
    supersession and bounded retrieval after project/state ownership is stable.

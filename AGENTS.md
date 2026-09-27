@@ -55,7 +55,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Workspace hardening
+## Current scope: v0.12 Push-to-talk voice
 
 The released base remains Zelo Core v0.11.0. Early Zelo Chat, the Zelo-owned
 workspace foundation, Project/Goal/Campaign ownership, Campaign controls, and the
@@ -69,21 +69,23 @@ The fixed Research specialist is complete on main at
 PR #34 merged the v0.12 Workspace project/progress projection on main at
 `247516866db4dd9906fe326bc302e99db7d6c658`.
 
-The active slice is **v0.12 Workspace hardening**. Resolve every known review
-finding before voice: empty-selection loading cleanup, complete deadline/timer
-cleanup, Core-owned latest Campaign event retrieval without offset ceilings,
-focused regression coverage, dependency audit failures, and GitHub Actions
-Node-runtime warnings. Keep all browser-facing workspace routes read-only and
-keep `ZELO_OPERATOR_TOKEN` server-side. UI selection, refresh, caching, and
-layout state are presentation state only and must never become lifecycle authority.
+PR #36 merged the Workspace hardening increment on main at
+`f4f9603d1feda8d4ecc96640b5538ecc0c72b306` with both Core and Workspace
+post-merge CI green.
 
-Do not add project/campaign mutation controls, a second task/approval/scheduler
-or budget system, Company World runtime, voice, public-web search, broad worker
-capabilities, specialist memory, AgentSpec/DepartmentSpec generalization, or new
-merge/release authority in this slice. Push-to-talk voice remains the next
-v0.12 workspace increment; persistent memory remains v0.13, Agent Factory v0.14,
-broad capabilities and external retrieval workers v0.15, and external channels
-v0.16.
+The active slice is **v0.12 Push-to-talk voice**. Voice is an input/output
+modality around the existing conversation contract, never a new Mind, agent, or
+authority path. Browser microphone audio may flow only to the loopback Workspace
+voice proxy and loopback Voice Service; transcripts must enter Zelo through the
+same persisted conversation turn route used by typed text. Spoken replies must
+be synthesized from the assistant text returned by that same turn.
+
+Keep STT/TTS replaceable behind provider interfaces. The initial local providers
+are faster-whisper for multilingual STT and sherpa-onnx Supertonic 3 for
+multilingual TTS. Do not add wake-word, always-listening microphone, external
+calls/channels, voice-owned memory, or voice-owned task authority in this slice.
+Persistent memory remains v0.13, Agent Factory v0.14, broad capabilities and
+external retrieval workers v0.15, and external channels v0.16.
 
 ## Workspace decision
 
