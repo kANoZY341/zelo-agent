@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 import voice_service.app as voice_app
-from voice_service.providers import audio_suffix, detect_tts_language
+import voice_service.providers as providers
+from voice_service.providers import audio_suffix, detect_tts_language, pcm16_wav
 
 TOKEN = "test-only-voice-token-0123456789abcdef"
 
@@ -127,3 +128,42 @@ def test_voice_adapter_rejects_weak_token(monkeypatch):
             assert "32-512" in str(exc)
         else:
             assert response.status_code >= 500
+
+
+def test_pcm16_wav_encoder_returns_valid_wave():
+    import wave
+    from io import BytesIO
+
+    encoded = pcm16_wav([-1.0, 0.0, 1.0], 16000)
+    with wave.open(BytesIO(encoded), "rb") as wav_file:
+        assert wav_file.getnchannels() == 1
+        assert wav_file.getsampwidth() == 2
+        assert wav_file.getframerate() == 16000
+        assert wav_file.getnframes() == 3
+
+
+def test_tts_provider_is_replaceable_by_configuration(monkeypatch):
+    original = providers._synthesizer
+    try:
+        chatterbox = object()
+        monkeypatch.setenv("ZELO_TTS_PROVIDER", "chatterbox")
+        monkeypatch.setattr(providers, "ChatterboxSynthesizer", lambda: chatterbox)
+        providers._synthesizer = None
+        assert providers.get_synthesizer() is chatterbox
+
+        sherpa = object()
+        monkeypatch.setenv("ZELO_TTS_PROVIDER", "sherpa_vits")
+        monkeypatch.setattr(providers, "SherpaOnnxVitsSynthesizer", lambda: sherpa)
+        providers._synthesizer = None
+        assert providers.get_synthesizer() is sherpa
+
+        monkeypatch.setenv("ZELO_TTS_PROVIDER", "not-real")
+        providers._synthesizer = None
+        try:
+            providers.get_synthesizer()
+        except RuntimeError as exc:
+            assert str(exc) == "unsupported_tts_provider"
+        else:
+            raise AssertionError("unsupported provider should fail closed")
+    finally:
+        providers._synthesizer = original

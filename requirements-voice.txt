@@ -3,3 +3,4 @@
 -r requirements.txt
 faster-whisper==1.2.1
 chatterbox-tts==0.1.7
+sherpa-onnx==1.13.8
