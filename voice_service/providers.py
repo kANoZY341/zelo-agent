@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import io
-import os
-import pathlib
-import tempfile
-import threading
+from io import BytesIO
+from os import getenv
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from threading import Lock
 from typing import Protocol
 
 
@@ -54,11 +54,11 @@ class Synthesizer(Protocol):
 
 class FasterWhisperTranscriber:
     def __init__(self) -> None:
-        self.model_name = os.getenv("ZELO_STT_MODEL", "small")
-        self.device = os.getenv("ZELO_STT_DEVICE", "cpu")
-        self.compute_type = os.getenv("ZELO_STT_COMPUTE_TYPE", "int8")
+        self.model_name = getenv("ZELO_STT_MODEL", "small")
+        self.device = getenv("ZELO_STT_DEVICE", "cpu")
+        self.compute_type = getenv("ZELO_STT_COMPUTE_TYPE", "int8")
         self._model = None
-        self._lock = threading.Lock()
+        self._lock = Lock()
 
     def _load(self):
         if self._model is None:
@@ -73,7 +73,7 @@ class FasterWhisperTranscriber:
 
     def transcribe(self, audio: bytes, content_type: str) -> dict[str, object]:
         suffix = audio_suffix(content_type)
-        with tempfile.NamedTemporaryFile(suffix=suffix) as temporary:
+        with NamedTemporaryFile(suffix=suffix) as temporary:
             temporary.write(audio)
             temporary.flush()
             with self._lock:
@@ -94,11 +94,11 @@ class FasterWhisperTranscriber:
 
 class ChatterboxSynthesizer:
     def __init__(self) -> None:
-        self.device = os.getenv("ZELO_TTS_DEVICE", "cpu")
-        reference = os.getenv("ZELO_TTS_REFERENCE_AUDIO", "").strip()
-        self.reference_audio = pathlib.Path(reference).expanduser() if reference else None
+        self.device = getenv("ZELO_TTS_DEVICE", "cpu")
+        reference = getenv("ZELO_TTS_REFERENCE_AUDIO", "").strip()
+        self.reference_audio = Path(reference).expanduser() if reference else None
         self._model = None
-        self._lock = threading.Lock()
+        self._lock = Lock()
 
     def _load(self):
         if self._model is None:
@@ -129,14 +129,14 @@ class ChatterboxSynthesizer:
         with self._lock:
             model = self._load()
             waveform = model.generate(text, **kwargs)
-            output = io.BytesIO()
+            output = BytesIO()
             ta.save(output, waveform, model.sr, format="wav")
         return output.getvalue()
 
 
 _transcriber: FasterWhisperTranscriber | None = None
 _synthesizer: ChatterboxSynthesizer | None = None
-_provider_lock = threading.Lock()
+_provider_lock = Lock()
 
 
 def get_transcriber() -> Transcriber:
@@ -151,7 +151,7 @@ def get_synthesizer() -> Synthesizer:
     global _synthesizer
     with _provider_lock:
         if _synthesizer is None:
-            provider = os.getenv("ZELO_TTS_PROVIDER", "chatterbox").strip().lower()
+            provider = getenv("ZELO_TTS_PROVIDER", "chatterbox").strip().lower()
             if provider != "chatterbox":
                 raise RuntimeError("unsupported_tts_provider")
             _synthesizer = ChatterboxSynthesizer()
