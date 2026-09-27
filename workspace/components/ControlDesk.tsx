@@ -672,7 +672,7 @@ export function ControlDesk({
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview ? (
+        {detailLoading && !visibleOverview && !campaignOverview ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>
@@ -833,7 +833,7 @@ export function ControlDesk({
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview ? (
+        {detailLoading && !visibleOverview && !campaignOverview ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>
