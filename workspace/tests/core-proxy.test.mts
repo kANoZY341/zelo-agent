@@ -4,6 +4,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { proxyCore } from "../lib/core.ts";
 
 const originalFetch = globalThis.fetch;
+const originalSetTimeout = globalThis.setTimeout;
 const originalToken = process.env.ZELO_OPERATOR_TOKEN;
 const originalCoreUrl = process.env.ZELO_CORE_URL;
 
@@ -14,13 +15,20 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  globalThis.setTimeout = originalSetTimeout;
   if (originalToken === undefined) delete process.env.ZELO_OPERATOR_TOKEN;
   else process.env.ZELO_OPERATOR_TOKEN = originalToken;
   if (originalCoreUrl === undefined) delete process.env.ZELO_CORE_URL;
   else process.env.ZELO_CORE_URL = originalCoreUrl;
 });
 
-test("proxyCore has no implicit Desk timeout", async () => {
+test("proxyCore default path creates no deadline timer", async () => {
+  let timerCalls = 0;
+  globalThis.setTimeout = ((...args) => {
+    timerCalls += 1;
+    return originalSetTimeout(...args);
+  });
+
   globalThis.fetch = async (_input, init) => {
     assert.equal(init?.signal?.aborted, false);
     return new Response('{"ok":true}', {
@@ -30,7 +38,9 @@ test("proxyCore has no implicit Desk timeout", async () => {
   };
 
   const response = await proxyCore("/health");
+
   assert.equal(response.status, 200);
+  assert.equal(timerCalls, 0);
 });
 
 test("proxyCore explicit timeout aborts the underlying Core fetch", async () => {

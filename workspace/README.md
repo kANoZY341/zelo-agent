@@ -22,7 +22,7 @@ and Core itself remains bound to loopback.
 
 ## Run locally
 
-Requirements: Node.js 20.9+ and npm.
+Requirements: Node.js 24+ and npm.
 
 ```bash
 cd ~/zelo/core/workspace
