@@ -187,6 +187,29 @@ class CampaignService:
                 total=total,
             )
 
+    def latest_events(self, campaign_id: str, limit: int) -> CampaignEventPage:
+        with self.database.read() as session:
+            self._require(session, campaign_id)
+            rows = list(
+                session.execute(
+                    select(
+                        CampaignEvent,
+                        func.count().over().label("total"),
+                    )
+                    .where(CampaignEvent.campaign_id == campaign_id)
+                    .order_by(CampaignEvent.sequence.desc())
+                    .limit(limit)
+                )
+            )
+            total = int(rows[0].total) if rows else 0
+            events = [row[0] for row in reversed(rows)]
+            return CampaignEventPage(
+                items=[CampaignEventResponse.model_validate(event) for event in events],
+                limit=limit,
+                offset=max(total - len(events), 0),
+                total=total,
+            )
+
     def checkpoint(
         self,
         campaign_id: str,

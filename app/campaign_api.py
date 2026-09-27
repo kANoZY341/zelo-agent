@@ -52,6 +52,15 @@ def get_campaign(campaign_id: str, campaigns: Campaigns) -> CampaignResponse:
     return campaigns.get(campaign_id)
 
 
+@router.get("/campaigns/{campaign_id}/events/latest", response_model=CampaignEventPage)
+def latest_campaign_events(
+    campaign_id: str,
+    campaigns: Campaigns,
+    limit: Limit = 100,
+) -> CampaignEventPage:
+    return campaigns.latest_events(campaign_id, limit)
+
+
 @router.get("/campaigns/{campaign_id}/events", response_model=CampaignEventPage)
 def campaign_events(
     campaign_id: str,

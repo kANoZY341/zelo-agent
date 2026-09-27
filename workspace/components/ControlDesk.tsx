@@ -10,6 +10,12 @@ import type {
   Project,
   ProjectPage,
 } from "@/lib/types";
+import {
+  createAbortDeadline,
+  pageBackfillOffset,
+  PendingRequestTracker,
+  shouldShowDetailLoading,
+} from "@/lib/control-desk-state";
 
 const WORKSPACE_HEADERS = { "X-Zelo-Workspace": "1" };
 const PAGE_SIZE = 25;
@@ -30,18 +36,6 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
-}
-
-function requestDeadline(controller: AbortController) {
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, HIERARCHY_REQUEST_TIMEOUT_MS);
-  return {
-    clear: () => clearTimeout(timer),
-    didTimeout: () => timedOut,
-  };
 }
 
 function timestamp(value: string | null): string {
@@ -133,7 +127,7 @@ export function ControlDesk({
   const loadedProjectOffsetRef = useRef<number | null>(null);
   const loadedGoalOffsetRef = useRef<number | null>(null);
   const loadedCampaignOffsetRef = useRef<number | null>(null);
-  const hierarchyPendingRef = useRef(0);
+  const hierarchyPendingRef = useRef(new PendingRequestTracker());
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -159,7 +153,10 @@ export function ControlDesk({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const deadline = requestDeadline(controller);
+    const deadline = createAbortDeadline(
+      controller,
+      HIERARCHY_REQUEST_TIMEOUT_MS,
+    );
     const pageChanged = loadedProjectOffsetRef.current !== projectOffset;
     if (pageChanged) {
       setProjects([]);
@@ -172,7 +169,7 @@ export function ControlDesk({
     }
     setLoading(true);
     setError(null);
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
 
     fetch(`/api/projects?limit=${PAGE_SIZE}&offset=${projectOffset}`, {
       headers: WORKSPACE_HEADERS,
@@ -182,8 +179,14 @@ export function ControlDesk({
       .then((response) => parseJson<ProjectPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && projectOffset > 0) {
-          setProjectOffset(Math.max(0, projectOffset - PAGE_SIZE));
+        const backfillOffset = pageBackfillOffset(
+          page.items.length,
+          page.total,
+          projectOffset,
+          PAGE_SIZE,
+        );
+        if (backfillOffset !== null) {
+          setProjectOffset(backfillOffset);
           return;
         }
         loadedProjectOffsetRef.current = page.offset;
@@ -208,10 +211,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = Math.max(
-          0,
-          hierarchyPendingRef.current - 1,
-        );
+        hierarchyPendingRef.current.settle();
         if (!cancelled) setLoading(false);
       });
 
@@ -224,8 +224,6 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    const deadline = requestDeadline(controller);
     const parentChanged = goalsProjectRef.current !== projectId;
     if (parentChanged) {
       goalsProjectRef.current = projectId;
@@ -243,6 +241,11 @@ export function ControlDesk({
     }
     if (!projectId) return () => undefined;
 
+    const controller = new AbortController();
+    const deadline = createAbortDeadline(
+      controller,
+      HIERARCHY_REQUEST_TIMEOUT_MS,
+    );
     const pageChanged = loadedGoalOffsetRef.current !== goalOffset;
     if (!parentChanged && pageChanged) {
       setGoals([]);
@@ -252,7 +255,7 @@ export function ControlDesk({
       setOverview(null);
     }
 
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
     fetch(`/api/projects/${encodeURIComponent(projectId)}/goals?limit=${PAGE_SIZE}&offset=${goalOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
@@ -261,8 +264,14 @@ export function ControlDesk({
       .then((response) => parseJson<GoalPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && goalOffset > 0) {
-          setGoalOffset(Math.max(0, goalOffset - PAGE_SIZE));
+        const backfillOffset = pageBackfillOffset(
+          page.items.length,
+          page.total,
+          goalOffset,
+          PAGE_SIZE,
+        );
+        if (backfillOffset !== null) {
+          setGoalOffset(backfillOffset);
           return;
         }
         loadedGoalOffsetRef.current = page.offset;
@@ -287,10 +296,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = Math.max(
-          0,
-          hierarchyPendingRef.current - 1,
-        );
+        hierarchyPendingRef.current.settle();
       });
 
     return () => {
@@ -302,8 +308,6 @@ export function ControlDesk({
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
-    const deadline = requestDeadline(controller);
     const parentChanged = campaignsGoalRef.current !== goalId;
     if (parentChanged) {
       campaignsGoalRef.current = goalId;
@@ -316,6 +320,11 @@ export function ControlDesk({
     }
     if (!goalId) return () => undefined;
 
+    const controller = new AbortController();
+    const deadline = createAbortDeadline(
+      controller,
+      HIERARCHY_REQUEST_TIMEOUT_MS,
+    );
     const pageChanged = loadedCampaignOffsetRef.current !== campaignOffset;
     if (!parentChanged && pageChanged) {
       setCampaigns([]);
@@ -323,7 +332,7 @@ export function ControlDesk({
       setOverview(null);
     }
 
-    hierarchyPendingRef.current += 1;
+    hierarchyPendingRef.current.begin();
     fetch(`/api/goals/${encodeURIComponent(goalId)}/campaigns?limit=${PAGE_SIZE}&offset=${campaignOffset}`, {
       headers: WORKSPACE_HEADERS,
       cache: "no-store",
@@ -332,8 +341,14 @@ export function ControlDesk({
       .then((response) => parseJson<CampaignPage>(response))
       .then((page) => {
         if (cancelled) return;
-        if (page.items.length === 0 && page.total > 0 && campaignOffset > 0) {
-          setCampaignOffset(Math.max(0, campaignOffset - PAGE_SIZE));
+        const backfillOffset = pageBackfillOffset(
+          page.items.length,
+          page.total,
+          campaignOffset,
+          PAGE_SIZE,
+        );
+        if (backfillOffset !== null) {
+          setCampaignOffset(backfillOffset);
           return;
         }
         loadedCampaignOffsetRef.current = page.offset;
@@ -358,10 +373,7 @@ export function ControlDesk({
       })
       .finally(() => {
         deadline.clear();
-        hierarchyPendingRef.current = Math.max(
-          0,
-          hierarchyPendingRef.current - 1,
-        );
+        hierarchyPendingRef.current.settle();
       });
 
     return () => {
@@ -384,6 +396,7 @@ export function ControlDesk({
 
     if (!campaignId) {
       setOverview(null);
+      setDetailLoading(false);
       return () => undefined;
     }
 
@@ -476,7 +489,7 @@ export function ControlDesk({
     const schedule = () => {
       timer = setTimeout(() => {
         if (cancelled) return;
-        if (hierarchyPendingRef.current === 0) {
+        if (hierarchyPendingRef.current.isIdle()) {
           setRefreshKey((value) => value + 1);
         }
         schedule();
@@ -721,11 +734,16 @@ export function ControlDesk({
             </>
           )}
 
-          <div className="desk-inline-inspector">
+          <div className="desk-inline-inspector" aria-busy={detailLoading}>
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview && !campaignOverview ? (
+        {shouldShowDetailLoading(
+          campaignId,
+          detailLoading,
+          Boolean(visibleOverview),
+          Boolean(campaignOverview),
+        ) ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>
@@ -882,11 +900,16 @@ export function ControlDesk({
         </div>
       </section>
 
-      <aside className="desk-inspector">
+      <aside className="desk-inspector" aria-busy={detailLoading}>
         <p className="eyebrow">CAMPAIGN / LIVE STATE</p>
         <h2>{visibleOverview?.campaign.title ?? selectedCampaign?.title ?? "Select a campaign"}</h2>
 
-        {detailLoading && !visibleOverview && !campaignOverview ? (
+        {shouldShowDetailLoading(
+          campaignId,
+          detailLoading,
+          Boolean(visibleOverview),
+          Boolean(campaignOverview),
+        ) ? (
           <div className="desk-empty-card">Loading campaign state…</div>
         ) : visibleOverview ? (
           <>
