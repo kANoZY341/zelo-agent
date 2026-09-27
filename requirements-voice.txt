@@ -1,0 +1,4 @@
+# Common optional local speech adapter dependencies for v0.12 push-to-talk.
+# Install exactly one provider-specific requirements file for TTS.
+-r requirements.txt
+faster-whisper==1.2.1

@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  PointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -27,6 +28,8 @@ type UiMessage = {
   content: string;
   task?: TaskProjection | null;
 };
+
+type VoiceState = "idle" | "recording" | "transcribing" | "speaking";
 
 function friendlyTaskError(error: string): string {
   const knownErrors: Record<string, string> = {
@@ -126,10 +129,21 @@ export default function Home() {
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [coreHealthy, setCoreHealthy] = useState<boolean | null>(null);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const conversationBodyRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const voiceHeldRef = useRef(false);
+  const voiceDiscardRecordingRef = useRef(false);
+  const voiceTranscriptionAbortRef = useRef<AbortController | null>(null);
+  const voiceInputGenerationRef = useRef(0);
+  const voiceSynthesisAbortRef = useRef<AbortController | null>(null);
+  const spokenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const spokenUrlRef = useRef<string | null>(null);
   const pendingSubmissionRef = useRef<{ prompt: string; key: string } | null>(
     null,
   );
@@ -246,6 +260,8 @@ export default function Home() {
         return;
       }
 
+      invalidateVoiceInput();
+      stopVoicePlayback();
       if (pollRef.current) clearTimeout(pollRef.current);
       stickToBottomRef.current = true;
       setConversationLoading(true);
@@ -315,6 +331,15 @@ export default function Home() {
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
+      voiceInputGenerationRef.current += 1;
+      voiceTranscriptionAbortRef.current?.abort();
+      voiceTranscriptionAbortRef.current = null;
+      voiceDiscardRecordingRef.current = true;
+      mediaRecorderRef.current?.stop();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      voiceSynthesisAbortRef.current?.abort();
+      spokenAudioRef.current?.pause();
+      if (spokenUrlRef.current) URL.revokeObjectURL(spokenUrlRef.current);
     };
   }, []);
 
@@ -397,9 +422,88 @@ export default function Home() {
     return conversation.id;
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const prompt = text.trim();
+  function stopVoicePlayback() {
+    voiceSynthesisAbortRef.current?.abort();
+    voiceSynthesisAbortRef.current = null;
+    spokenAudioRef.current?.pause();
+    spokenAudioRef.current = null;
+    if (spokenUrlRef.current) {
+      URL.revokeObjectURL(spokenUrlRef.current);
+      spokenUrlRef.current = null;
+    }
+    setVoiceState((current) => (current === "speaking" ? "idle" : current));
+  }
+
+  async function speakReply(reply: string): Promise<void> {
+    if (!reply.trim()) return;
+    stopVoicePlayback();
+    setVoiceState("speaking");
+
+    const controller = new AbortController();
+    voiceSynthesisAbortRef.current = controller;
+
+    try {
+      const response = await fetch("/api/voice/synthesize", {
+        method: "POST",
+        headers: {
+          ...WORKSPACE_HEADERS,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: reply, language: "auto" }),
+        signal: controller.signal,
+      });
+      if (voiceSynthesisAbortRef.current !== controller) return;
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const detail =
+          body && typeof body.detail === "string"
+            ? body.detail
+            : `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+
+      const blob = await response.blob();
+      if (voiceSynthesisAbortRef.current !== controller) return;
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      spokenUrlRef.current = url;
+      spokenAudioRef.current = audio;
+
+      const finish = () => {
+        if (spokenAudioRef.current !== audio) return;
+        spokenAudioRef.current = null;
+        if (spokenUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          spokenUrlRef.current = null;
+        }
+        if (voiceSynthesisAbortRef.current === controller) {
+          voiceSynthesisAbortRef.current = null;
+        }
+        setVoiceState("idle");
+      };
+      audio.onended = finish;
+      audio.onerror = () => {
+        finish();
+        setError("voice_playback_failed");
+      };
+      await audio.play();
+    } catch (voiceError) {
+      const aborted =
+        voiceError instanceof DOMException && voiceError.name === "AbortError";
+      stopVoicePlayback();
+      if (!aborted) {
+        setError(
+          voiceError instanceof Error ? voiceError.message : "voice_playback_failed",
+        );
+      }
+    }
+  }
+
+  async function sendPrompt(
+    rawPrompt: string,
+    options: { speakResponse?: boolean } = {},
+  ): Promise<void> {
+    const prompt = rawPrompt.trim();
     if (!prompt || busy) return;
 
     const previousSubmission = pendingSubmissionRef.current;
@@ -467,6 +571,9 @@ export default function Home() {
       if (turn.core_task && ACTIVE_TASK_STATES.has(turn.core_task.status)) {
         await pollUntilTaskSettles(id);
       }
+      if (options.speakResponse) {
+        void speakReply(turn.assistant_content);
+      }
     };
 
     try {
@@ -507,8 +614,180 @@ export default function Home() {
     }
   }
 
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await sendPrompt(text);
+  }
+
+  async function startVoiceRecording(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (
+      busy ||
+      conversationLoading ||
+      voiceState === "recording" ||
+      voiceState === "transcribing"
+    ) {
+      return;
+    }
+
+    stopVoicePlayback();
+    voiceHeldRef.current = true;
+    voiceDiscardRecordingRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("voice_recording_not_supported");
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!voiceHeldRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      const mimeType =
+        preferredTypes.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+        "";
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+
+      recorder.ondataavailable = (dataEvent) => {
+        if (dataEvent.data.size > 0) voiceChunksRef.current.push(dataEvent.data);
+      };
+
+      recorder.onerror = () => {
+        voiceDiscardRecordingRef.current = true;
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
+        setError("voice_recording_failed");
+        setVoiceState("idle");
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
+
+        if (voiceDiscardRecordingRef.current) {
+          voiceChunksRef.current = [];
+          voiceDiscardRecordingRef.current = false;
+          setVoiceState("idle");
+          return;
+        }
+
+        const blob = new Blob(voiceChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        voiceChunksRef.current = [];
+        if (blob.size === 0) {
+          setVoiceState("idle");
+          return;
+        }
+
+        const transcriptionGeneration = voiceInputGenerationRef.current;
+        const transcriptionConversationId = activeConversationIdRef.current;
+        const controller = new AbortController();
+        voiceTranscriptionAbortRef.current?.abort();
+        voiceTranscriptionAbortRef.current = controller;
+        setVoiceState("transcribing");
+        try {
+          const response = await fetch("/api/voice/transcribe", {
+            method: "POST",
+            headers: {
+              ...WORKSPACE_HEADERS,
+              "Content-Type": blob.type.split(";", 1)[0] || "audio/webm",
+            },
+            body: blob,
+            signal: controller.signal,
+          });
+          const result = await parseJson<{ text: string }>(response);
+          if (
+            controller.signal.aborted ||
+            voiceInputGenerationRef.current !== transcriptionGeneration ||
+            activeConversationIdRef.current !== transcriptionConversationId
+          ) {
+            return;
+          }
+          const transcript = result.text.trim();
+          if (!transcript) throw new Error("voice_no_speech_detected");
+          setVoiceState("idle");
+          await sendPrompt(transcript, { speakResponse: true });
+        } catch (voiceError) {
+          const aborted =
+            controller.signal.aborted ||
+            (voiceError instanceof DOMException && voiceError.name === "AbortError");
+          setVoiceState("idle");
+          if (!aborted) {
+            setError(
+              voiceError instanceof Error
+                ? voiceError.message
+                : "voice_transcription_failed",
+            );
+          }
+        } finally {
+          if (voiceTranscriptionAbortRef.current === controller) {
+            voiceTranscriptionAbortRef.current = null;
+          }
+        }
+      };
+
+      recorder.start(250);
+      setVoiceState("recording");
+    } catch (voiceError) {
+      voiceHeldRef.current = false;
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setVoiceState("idle");
+      setError(
+        voiceError instanceof Error ? voiceError.message : "voice_recording_failed",
+      );
+    }
+  }
+
+  function stopVoiceRecording() {
+    voiceHeldRef.current = false;
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+  }
+
+  function cancelVoiceRecording() {
+    voiceHeldRef.current = false;
+    voiceDiscardRecordingRef.current = true;
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+    else {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      voiceDiscardRecordingRef.current = false;
+      setVoiceState("idle");
+    }
+  }
+
+  function invalidateVoiceInput() {
+    voiceInputGenerationRef.current += 1;
+    voiceTranscriptionAbortRef.current?.abort();
+    voiceTranscriptionAbortRef.current = null;
+    cancelVoiceRecording();
+  }
+
   function newConversation() {
     if (busy || conversationLoading) return;
+    invalidateVoiceInput();
+    stopVoicePlayback();
     if (pendingSubmissionRef.current) {
       setError("Resolve the pending message before starting a new conversation.");
       return;
@@ -733,12 +1012,36 @@ export default function Home() {
                   ? `Conversation ${conversationId.slice(0, 8)}`
                   : "New conversation"}
               </span>
-              <button
-                className="send-button"
-                disabled={busy || conversationLoading || !text.trim()}
-              >
-                {busy ? "Thinking..." : "Send"}
-              </button>
+              <div className="composer-actions">
+                <button
+                  type="button"
+                  className={`voice-button ${voiceState === "recording" ? "recording" : ""}`}
+                  onPointerDown={(event) => void startVoiceRecording(event)}
+                  onPointerUp={stopVoiceRecording}
+                  onPointerCancel={cancelVoiceRecording}
+                  disabled={
+                    busy ||
+                    conversationLoading ||
+                    voiceState === "transcribing"
+                  }
+                  aria-label="Hold to talk to Zelo"
+                  title="Hold to talk"
+                >
+                  {voiceState === "recording"
+                    ? "Release"
+                    : voiceState === "transcribing"
+                      ? "Transcribing…"
+                      : voiceState === "speaking"
+                        ? "Interrupt & talk"
+                        : "Hold to talk"}
+                </button>
+                <button
+                  className="send-button"
+                  disabled={busy || conversationLoading || !text.trim()}
+                >
+                  {busy ? "Thinking..." : "Send"}
+                </button>
+              </div>
             </div>
           </div>
         </form>

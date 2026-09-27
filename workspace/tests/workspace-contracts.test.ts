@@ -138,3 +138,119 @@ test("responsive navigation contracts remain present", async () => {
   );
   assert.match(css, /\.desk-topbar \.mobile-view-button/);
 });
+
+
+test("proxyVoice keeps its token server-side and preserves binary responses", async () => {
+  const { proxyVoice } = await import("../lib/voice");
+  const runtimeGlobals = globalThis as unknown as { fetch: typeof fetch };
+  const originalFetch = runtimeGlobals.fetch;
+  const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_TOKEN;
+
+  process.env.ZELO_VOICE_URL = "http://127.0.0.1:8765";
+  process.env.ZELO_VOICE_TOKEN =
+    "server-only-voice-token-0123456789abcdef";
+
+  try {
+    runtimeGlobals.fetch = async (input, init) => {
+      assert.equal(String(input), "http://127.0.0.1:8765/synthesize");
+      const headers = new Headers(init?.headers);
+      assert.equal(
+        headers.get("authorization"),
+        "Bearer server-only-voice-token-0123456789abcdef",
+      );
+      assert.equal(headers.get("x-attacker-auth"), "ignored-by-route");
+      assert.equal(init?.signal?.aborted, false);
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          "content-type": "audio/wav",
+          "x-zelo-voice-language": "ar",
+        },
+      });
+    };
+
+    const response = await proxyVoice(
+      "/synthesize",
+      {
+        headers: {
+          Authorization: "Bearer attacker-controlled-token",
+          "X-Attacker-Auth": "ignored-by-route",
+        },
+      },
+      1000,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "audio/wav");
+    assert.equal(response.headers.get("x-zelo-voice-language"), "ar");
+    assert.deepEqual(
+      Array.from(new Uint8Array(await response.arrayBuffer())),
+      [1, 2, 3],
+    );
+  } finally {
+    runtimeGlobals.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
+    else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_TOKEN;
+    else process.env.ZELO_VOICE_TOKEN = previousToken;
+  }
+});
+
+test("proxyVoice rejects non-loopback adapter URLs", async () => {
+  const { proxyVoice } = await import("../lib/voice");
+  const runtimeGlobals = globalThis as unknown as { fetch: typeof fetch };
+  const originalFetch = runtimeGlobals.fetch;
+  const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_TOKEN;
+  let fetched = false;
+
+  process.env.ZELO_VOICE_URL = "https://example.com";
+  process.env.ZELO_VOICE_TOKEN =
+    "server-only-voice-token-0123456789abcdef";
+  runtimeGlobals.fetch = async () => {
+    fetched = true;
+    throw new Error("must not fetch");
+  };
+
+  try {
+    const response = await proxyVoice("/health", {}, 1000);
+    assert.equal(response.status, 503);
+    assert.equal(fetched, false);
+  } finally {
+    runtimeGlobals.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
+    else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_TOKEN;
+    else process.env.ZELO_VOICE_TOKEN = previousToken;
+  }
+});
+
+test("voice transcription is invalidated before conversation changes", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /voiceTranscriptionAbortRef/);
+  assert.match(page, /voiceInputGenerationRef/);
+  assert.match(page, /invalidateVoiceInput\(\);[\s\S]*?activeConversationIdRef\.current = id/);
+  assert.match(page, /controller\.signal\.aborted[\s\S]*?voiceInputGenerationRef\.current !== transcriptionGeneration/);
+  assert.match(page, /activeConversationIdRef\.current !== transcriptionConversationId/);
+  assert.match(page, /onPointerCancel=\{cancelVoiceRecording\}/);
+});
+
+test("voice synthesis proxy bounds the stream before JSON buffering", async () => {
+  const route = await readFile(
+    new URL("../app/api/voice/synthesize/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /request\.body\.getReader\(\)/);
+  assert.match(route, /total > maxBytes/);
+  assert.match(route, /voice_synthesis_request_too_large/);
+  assert.doesNotMatch(route, /request\.text\(\)/);
+});
+
+test("voice playback reset uses current state rather than a stale closure", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(
+    page,
+    /setVoiceState\(\(current\) => \(current === "speaking" \? "idle" : current\)\)/,
+  );
+  assert.doesNotMatch(page, /if \(voiceState === "speaking"\) setVoiceState\("idle"\)/);
+});

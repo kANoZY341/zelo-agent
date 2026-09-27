@@ -113,6 +113,44 @@ duplicating it. The first proof path is documented in
 `docs/early-zelo-chat.md`. Persistent memory, Agent Factory, broad capabilities, and external channels
 remain in their later canonical milestones.
 
+## Optional local push-to-talk voice
+
+v0.12 voice adds local speech I/O around the existing Talk-to-Zelo conversation
+contract. Voice does not create a second Mind or task path.
+
+Install the optional speech environment separately from the Core runtime and choose
+exactly one TTS provider:
+
+```bash
+python3 -m venv .venv-voice
+source .venv-voice/bin/activate
+
+# Trial multilingual/cloneable voice:
+python -m pip install -r requirements-voice-chatterbox.txt
+
+# OR lightweight CPU Sherpa/Piper voice:
+# python -m pip install -r requirements-voice-sherpa.txt
+```
+
+The provider-specific files both include the common `faster-whisper` STT
+dependencies through `requirements-voice.txt`; neither TTS runtime requires the
+other one to install successfully.
+
+Set a separate random `ZELO_VOICE_TOKEN` in both the voice-service environment
+and the Workspace server environment. Keep `ZELO_VOICE_URL` on loopback
+(default `http://127.0.0.1:8765`), then run:
+
+```bash
+source .venv-voice/bin/activate
+python -m scripts.run_voice
+```
+
+The initial STT provider is multilingual `faster-whisper`; the initial TTS
+provider is Chatterbox Multilingual for English and Arabic. Both are behind the
+local adapter and can be replaced later without changing Mind, Core,
+conversations, tasks, approvals, or the Workspace turn contract. Raw microphone
+audio is handled transiently and is not persisted by this slice.
+
 ## Fixed Research specialist
 
 v0.12 adds a fixed `research_run` specialist on top of the same Core task
