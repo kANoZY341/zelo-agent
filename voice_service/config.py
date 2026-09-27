@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +18,7 @@ class VoiceSettings(BaseSettings):
 
     host: str = "127.0.0.1"
     port: int = Field(default=8765, ge=1024, le=65535)
+    service_token: SecretStr | None = None
     stt_provider: str = "faster-whisper"
     stt_model: str = "small"
     stt_device: str = "cpu"
@@ -46,6 +47,24 @@ class VoiceSettings(BaseSettings):
         if not resolved.is_relative_to(voice_root):
             raise ValueError("Voice model paths must stay inside runtime/voice")
         return resolved
+
+    @field_validator("service_token")
+    @classmethod
+    def validate_service_token(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        token = value.get_secret_value()
+        if (
+            not 32 <= len(token) <= 512
+            or not token.isascii()
+            or any(character.isspace() for character in token)
+        ):
+            raise ValueError(
+                "Voice service token must contain 32-512 non-whitespace ASCII characters"
+            )
+        if token == "REPLACE_WITH_A_RANDOM_LOCAL_VOICE_TOKEN":
+            raise ValueError("Replace the example voice service token before starting voice")
+        return value
 
     @field_validator("host")
     @classmethod

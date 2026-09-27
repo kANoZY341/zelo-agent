@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 const DEFAULT_VOICE_URL = "http://127.0.0.1:8765";
 const VOICE_TIMEOUT_MS = 120000;
 
@@ -9,6 +11,20 @@ function voiceBaseUrl(): URL {
     throw new Error("ZELO_VOICE_URL must be loopback HTTP without credentials");
   }
   return url;
+}
+
+function voiceServiceToken(): string {
+  const token = process.env.ZELO_VOICE_SERVICE_TOKEN;
+  if (
+    !token ||
+    token.length < 32 ||
+    token.length > 512 ||
+    /\s/.test(token) ||
+    !/^[\x21-\x7e]+$/.test(token)
+  ) {
+    throw new Error("ZELO_VOICE_SERVICE_TOKEN is required");
+  }
+  return token;
 }
 
 export async function proxyVoice(
@@ -24,8 +40,11 @@ export async function proxyVoice(
   else upstreamSignal?.addEventListener("abort", abortFromUpstream, { once: true });
 
   try {
+    const headers = new Headers(init.headers);
+    headers.set("Authorization", `Bearer ${voiceServiceToken()}`);
     const response = await fetch(new URL(path, voiceBaseUrl()), {
       ...init,
+      headers,
       signal: controller.signal,
       cache: "no-store",
     });
@@ -33,7 +52,8 @@ export async function proxyVoice(
     return new Response(body, {
       status: response.status,
       headers: {
-        "Content-Type": response.headers.get("content-type") ?? "application/octet-stream",
+        "Content-Type":
+          response.headers.get("content-type") ?? "application/octet-stream",
         "Cache-Control": "no-store",
       },
     });

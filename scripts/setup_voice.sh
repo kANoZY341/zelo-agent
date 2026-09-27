@@ -12,6 +12,15 @@ fi
 
 "$PYTHON" -m pip install -r requirements-voice.txt
 
+ENV_FILE="$ROOT/.env"
+touch "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+if ! grep -q '^ZELO_VOICE_SERVICE_TOKEN=' "$ENV_FILE"; then
+  VOICE_TOKEN="$("$PYTHON" -c 'import secrets; print(secrets.token_urlsafe(48))')"
+  printf '\nZELO_VOICE_SERVICE_TOKEN="%s"\n' "$VOICE_TOKEN" >> "$ENV_FILE"
+  echo "Generated ZELO_VOICE_SERVICE_TOKEN in .env"
+fi
+
 MODEL_ROOT="$ROOT/runtime/voice/models"
 SUPER_DIR="$MODEL_ROOT/sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
 mkdir -p "$MODEL_ROOT"

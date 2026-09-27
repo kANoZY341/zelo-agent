@@ -6,7 +6,9 @@ test("voice proxy is loopback-only and preserves local audio responses", async (
   const runtime = globalThis as unknown as { fetch: typeof fetch };
   const originalFetch = runtime.fetch;
   const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_SERVICE_TOKEN;
   process.env.ZELO_VOICE_URL = "http://127.0.0.1:8765";
+  process.env.ZELO_VOICE_SERVICE_TOKEN = "workspace-voice-test-token-" + "x".repeat(32);
 
   try {
     let requested = "";
@@ -14,13 +16,21 @@ test("voice proxy is loopback-only and preserves local audio responses", async (
       requested = String(input);
       assert.equal(init?.cache, "no-store");
       assert.ok(init?.signal);
+      const headers = new Headers(init?.headers);
+      assert.equal(
+        headers.get("authorization"),
+        `Bearer ${process.env.ZELO_VOICE_SERVICE_TOKEN}`,
+      );
       return new Response(new Uint8Array([1, 2, 3]), {
         status: 200,
         headers: { "content-type": "audio/wav" },
       });
     };
 
-    const response = await proxyVoice("/synthesize", { method: "POST" });
+    const response = await proxyVoice("/synthesize", {
+      method: "POST",
+      headers: { Authorization: "Bearer browser-controlled" },
+    });
     assert.equal(requested, "http://127.0.0.1:8765/synthesize");
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "audio/wav");
@@ -32,6 +42,8 @@ test("voice proxy is loopback-only and preserves local audio responses", async (
     runtime.fetch = originalFetch;
     if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
     else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_SERVICE_TOKEN;
+    else process.env.ZELO_VOICE_SERVICE_TOKEN = previousToken;
   }
 });
 
@@ -39,7 +51,9 @@ test("voice proxy refuses non-loopback configuration without making a request", 
   const runtime = globalThis as unknown as { fetch: typeof fetch };
   const originalFetch = runtime.fetch;
   const previousUrl = process.env.ZELO_VOICE_URL;
+  const previousToken = process.env.ZELO_VOICE_SERVICE_TOKEN;
   process.env.ZELO_VOICE_URL = "https://example.com";
+  process.env.ZELO_VOICE_SERVICE_TOKEN = "workspace-voice-test-token-" + "x".repeat(32);
 
   try {
     let called = false;
@@ -55,6 +69,8 @@ test("voice proxy refuses non-loopback configuration without making a request", 
     runtime.fetch = originalFetch;
     if (previousUrl === undefined) delete process.env.ZELO_VOICE_URL;
     else process.env.ZELO_VOICE_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.ZELO_VOICE_SERVICE_TOKEN;
+    else process.env.ZELO_VOICE_SERVICE_TOKEN = previousToken;
   }
 });
 
