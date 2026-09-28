@@ -1959,11 +1959,12 @@ def test_scheduler_migration_preserves_existing_control_state(settings):
         with database.read() as session:
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0017_research_specialist"
+                == "0018_autonomous_continuation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedules")) == 0
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedule_continuations")) == 0
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedule_runs")) == 0
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
