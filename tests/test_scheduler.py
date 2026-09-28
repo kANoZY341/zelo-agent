@@ -536,6 +536,7 @@ def test_continuation_schedule_accelerates_then_uses_timer_fallback_for_reply(
         ).json()["items"]
         assert not any(event["event"] == "schedule_continuation_completed" for event in events)
 
+
 def test_cadence_schedule_is_not_accelerated_by_task_completion(settings, database):
     provider = SchedulerMindProvider(scheduled_echo("cadence step"))
     configured = settings.model_copy(update={"scheduler_enabled": False})
