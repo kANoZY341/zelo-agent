@@ -1,0 +1,177 @@
+name: Codex PR Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review
+        required: true
+        type: string
+  push:
+    branches:
+      - feat/v0.12-autonomous-continuation
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codex-pr-review-${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - zelo-ci
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || '39' }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          repository = os.environ["REPOSITORY"]
+          pr_number = os.environ["PR_NUMBER"]
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{repository}/pulls/{pr_number}",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=20) as response:
+              payload = json.load(response)
+
+          if payload["head"]["repo"]["full_name"] != repository:
+              raise SystemExit("Codex review only accepts same-repository pull requests")
+
+          output = os.environ["GITHUB_OUTPUT"]
+          with open(output, "a", encoding="utf-8") as stream:
+              stream.write(f"number={payload['number']}\n")
+              stream.write(f"base_sha={payload['base']['sha']}\n")
+              stream.write(f"head_sha={payload['head']['sha']}\n")
+          PY
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Locate trusted Codex installation
+        id: codex
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -x "$HOME/.local/bin/codex" && -r "$HOME/.codex/auth.json" ]]; then
+            executable="$HOME/.local/bin/codex"
+            auth="$HOME/.codex/auth.json"
+          elif [[ -x "/home/zelo/.local/bin/codex" && -r "/home/zelo/.codex/auth.json" ]]; then
+            executable="/home/zelo/.local/bin/codex"
+            auth="/home/zelo/.codex/auth.json"
+          else
+            echo "No readable trusted Codex CLI/auth pair is available to the self-hosted runner." >&2
+            exit 78
+          fi
+          test -x "${executable%/*}/codex-code-mode-host"
+          echo "executable=$executable" >> "$GITHUB_OUTPUT"
+          echo "auth=$auth" >> "$GITHUB_OUTPUT"
+
+      - name: Create bounded review environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .venv-codex-review
+          /usr/bin/python3 -m venv .venv-codex-review
+          .venv-codex-review/bin/python -m pip install --upgrade pip
+          .venv-codex-review/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Run Zelo Codex reviewer
+        env:
+          ZELO_DEVELOPER_CODEX_EXECUTABLE: ${{ steps.codex.outputs.executable }}
+          ZELO_DEVELOPER_CODEX_AUTH_FILE: ${{ steps.codex.outputs.auth }}
+          ZELO_SCHEDULER_ENABLED: "false"
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv-codex-review/bin/python -m scripts.codex_pr_review \
+            --repository . \
+            --base-sha "${{ steps.pr.outputs.base_sha }}" \
+            --head-sha "${{ steps.pr.outputs.head_sha }}" \
+            --output codex-pr-review.json
+
+      - name: Publish review to pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          with open("codex-pr-review.json", encoding="utf-8") as stream:
+              payload = json.load(stream)
+
+          report = payload["report"]
+          lines = [
+              "## Zelo Codex read-only review",
+              "",
+              f"**Head:** `{payload['head_sha'][:12]}`",
+              f"**Reviewer:** `{payload['worker']['worker_id']}` / `{payload['worker']['cli_version']}`",
+              "",
+              report["summary"],
+              "",
+          ]
+          findings = report.get("findings", [])
+          if findings:
+              lines.append("### Findings")
+              for finding in findings[:20]:
+                  path = f" — `{finding['path']}`" if finding.get("path") else ""
+                  message = finding["message"][:1500]
+                  lines.append(f"- **{finding['severity'].upper()}**{path}: {message}")
+              if len(findings) > 20:
+                  lines.append(f"- …and {len(findings) - 20} additional bounded findings in the job output.")
+          else:
+              lines.append("No concrete findings were reported.")
+
+          body = "\n".join(lines)
+          data = json.dumps({"body": body}).encode()
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/issues/{os.environ['PR_NUMBER']}/comments",
+              data=data,
+              method="POST",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "Content-Type": "application/json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=20):
+              pass
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(body + "\n")
+          PY
