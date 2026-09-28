@@ -124,7 +124,10 @@ class CampaignScheduler:
         body: CampaignScheduleCreate,
         idempotency_key: str,
     ) -> CampaignScheduleResponse:
-        request_hash = fingerprint(body.model_dump(mode="json"))
+        request_payload = body.model_dump(mode="json")
+        if body.mode == "cadence":
+            request_payload.pop("mode", None)
+        request_hash = fingerprint(request_payload)
         with self.database.transaction() as session:
             now = self.clock()
             campaign = self._require_campaign(session, campaign_id)
