@@ -140,7 +140,10 @@ class CampaignScheduler:
                         "Schedule idempotency key was reused with a different request",
                         409,
                     )
-                return self._schedule_response(existing)
+                return self._schedule_response(
+                    existing,
+                    mode=self._schedule_mode(session, existing.id),
+                )
             if campaign.status != "active":
                 raise DomainError("Campaign is not active", 409)
             if session.get(Conversation, body.conversation_id) is None:
