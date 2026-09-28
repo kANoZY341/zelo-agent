@@ -383,7 +383,7 @@ def test_cadence_schedule_retry_preserves_legacy_idempotency_hash(settings, data
             {
                 "conversation_id": conversation["id"],
                 "prompt": prompt,
-                "run_at": run_at.isoformat(),
+                "run_at": run_at.isoformat().replace("+00:00", "Z"),
                 "interval_seconds": None,
                 "max_runs": 1,
             }
