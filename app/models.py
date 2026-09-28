@@ -343,6 +343,16 @@ class CampaignSchedule(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class CampaignScheduleContinuation(Base):
+    __tablename__ = "campaign_schedule_continuations"
+
+    schedule_id: Mapped[str] = mapped_column(
+        ForeignKey("campaign_schedules.id"),
+        primary_key=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class CampaignScheduleRun(Base):
     __tablename__ = "campaign_schedule_runs"
     __table_args__ = (
