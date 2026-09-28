@@ -21,9 +21,11 @@ from app.models import (
     CampaignBudgetReservation,
     CampaignLease,
     CampaignSchedule,
+    CampaignScheduleContinuation,
     CampaignScheduleRun,
     Conversation,
     ConversationTurn,
+    Task,
     utcnow,
 )
 from app.policy import DomainError, fingerprint
@@ -47,6 +49,7 @@ WAKE_BUDGET_RESOURCE = "mind_wakes"
 WAKE_LEASE_SCOPE = "mind-wake"
 WAKE_BUDGET_UNITS = 1
 SCHEDULE_ERROR_CHARS = 256
+TERMINAL_TASK_STATES = frozenset({"succeeded", "failed", "cancelled", "interrupted"})
 
 
 class WakeAuthorityUnavailable(RuntimeError):
@@ -82,8 +85,20 @@ class CampaignScheduler:
         return value[:SCHEDULE_ERROR_CHARS]
 
     @staticmethod
-    def _schedule_response(schedule: CampaignSchedule) -> CampaignScheduleResponse:
-        return CampaignScheduleResponse.model_validate(schedule)
+    def _schedule_response(
+        schedule: CampaignSchedule,
+        *,
+        mode: str = "cadence",
+    ) -> CampaignScheduleResponse:
+        return CampaignScheduleResponse.model_validate(schedule).model_copy(update={"mode": mode})
+
+    @staticmethod
+    def _schedule_mode(session: Session, schedule_id: str) -> str:
+        return (
+            "continuation"
+            if session.get(CampaignScheduleContinuation, schedule_id) is not None
+            else "cadence"
+        )
 
     @staticmethod
     def _run_response(run: CampaignScheduleRun) -> CampaignScheduleRunResponse:
@@ -171,6 +186,14 @@ class CampaignScheduler:
             )
             session.add(schedule)
             session.flush()
+            if body.mode == "continuation":
+                session.add(
+                    CampaignScheduleContinuation(
+                        schedule_id=schedule.id,
+                        created_at=now,
+                    )
+                )
+                session.flush()
             append_campaign_event(
                 session,
                 campaign.id,
@@ -180,12 +203,17 @@ class CampaignScheduler:
                 next_run_at=schedule.next_run_at.isoformat(),
                 interval_seconds=schedule.interval_seconds,
                 max_runs=schedule.max_runs,
+                mode=body.mode,
             )
-            return self._schedule_response(schedule)
+            return self._schedule_response(schedule, mode=body.mode)
 
     def get(self, schedule_id: str) -> CampaignScheduleResponse:
         with self.database.read() as session:
-            return self._schedule_response(self._require_schedule(session, schedule_id))
+            schedule = self._require_schedule(session, schedule_id)
+            return self._schedule_response(
+                schedule,
+                mode=self._schedule_mode(session, schedule.id),
+            )
 
     def list_for_campaign(
         self,
@@ -213,7 +241,13 @@ class CampaignScheduler:
                 )
             )
             return CampaignSchedulePage(
-                items=[self._schedule_response(item) for item in schedules],
+                items=[
+                    self._schedule_response(
+                        item,
+                        mode=self._schedule_mode(session, item.id),
+                    )
+                    for item in schedules
+                ],
                 limit=limit,
                 offset=offset,
                 total=total,
@@ -269,31 +303,80 @@ class CampaignScheduler:
                 schedule_id=schedule.id,
                 run_count=schedule.run_count,
             )
-            return self._schedule_response(schedule)
+            return self._schedule_response(
+                schedule,
+                mode=self._schedule_mode(session, schedule.id),
+            )
+
+    def _is_due(self, session: Session, schedule: CampaignSchedule, now: datetime) -> bool:
+        if (
+            schedule.status != "active"
+            or schedule.next_run_at is None
+            or schedule.run_count >= schedule.max_runs
+        ):
+            return False
+
+        continuation = session.get(CampaignScheduleContinuation, schedule.id)
+        if continuation is None or schedule.run_count == 0:
+            return schedule.next_run_at <= now
+
+        latest_run = session.scalar(
+            select(CampaignScheduleRun).where(
+                CampaignScheduleRun.schedule_id == schedule.id,
+                CampaignScheduleRun.sequence == schedule.run_count,
+            )
+        )
+        if latest_run is None or latest_run.status != "succeeded":
+            return schedule.next_run_at <= now
+        if latest_run.conversation_turn_id is None:
+            return False
+
+        turn = session.get(ConversationTurn, latest_run.conversation_turn_id)
+        if turn is None or turn.core_task_id is None:
+            return False
+        task = session.get(Task, turn.core_task_id)
+        return task is not None and task.status in TERMINAL_TASK_STATES
 
     def _next_due_id(self) -> str | None:
         now = self.clock()
         with self.database.read() as session:
-            return session.scalar(
-                select(CampaignSchedule.id)
-                .join(Campaign, Campaign.id == CampaignSchedule.campaign_id)
-                .where(
-                    CampaignSchedule.status == "active",
-                    CampaignSchedule.next_run_at.is_not(None),
-                    CampaignSchedule.next_run_at <= now,
-                    CampaignSchedule.run_count < CampaignSchedule.max_runs,
-                    Campaign.status == "active",
-                    ~exists().where(
-                        CampaignLease.campaign_id == CampaignSchedule.campaign_id,
-                        CampaignLease.scope == WAKE_LEASE_SCOPE,
-                        CampaignLease.holder_id.is_not(None),
-                        CampaignLease.expires_at.is_not(None),
-                        CampaignLease.expires_at > now,
-                    ),
-                )
-                .order_by(CampaignSchedule.next_run_at, CampaignSchedule.id)
-                .limit(1)
+            common = (
+                CampaignSchedule.status == "active",
+                CampaignSchedule.next_run_at.is_not(None),
+                CampaignSchedule.run_count < CampaignSchedule.max_runs,
+                Campaign.status == "active",
+                ~exists().where(
+                    CampaignLease.campaign_id == CampaignSchedule.campaign_id,
+                    CampaignLease.scope == WAKE_LEASE_SCOPE,
+                    CampaignLease.holder_id.is_not(None),
+                    CampaignLease.expires_at.is_not(None),
+                    CampaignLease.expires_at > now,
+                ),
             )
+            clock_due = session.scalars(
+                select(CampaignSchedule)
+                .join(Campaign, Campaign.id == CampaignSchedule.campaign_id)
+                .where(*common, CampaignSchedule.next_run_at <= now)
+                .order_by(CampaignSchedule.next_run_at, CampaignSchedule.id)
+            )
+            for schedule in clock_due:
+                if self._is_due(session, schedule, now):
+                    return schedule.id
+
+            continuation_candidates = session.scalars(
+                select(CampaignSchedule)
+                .join(Campaign, Campaign.id == CampaignSchedule.campaign_id)
+                .join(
+                    CampaignScheduleContinuation,
+                    CampaignScheduleContinuation.schedule_id == CampaignSchedule.id,
+                )
+                .where(*common, CampaignSchedule.next_run_at > now)
+                .order_by(CampaignSchedule.updated_at, CampaignSchedule.id)
+            )
+            for schedule in continuation_candidates:
+                if self._is_due(session, schedule, now):
+                    return schedule.id
+            return None
 
     def _execution_snapshot(
         self,
@@ -301,13 +384,7 @@ class CampaignScheduler:
     ) -> tuple[str, str, str, int] | None:
         with self.database.read() as session:
             schedule = session.get(CampaignSchedule, schedule_id)
-            if (
-                schedule is None
-                or schedule.status != "active"
-                or schedule.next_run_at is None
-                or schedule.next_run_at > self.clock()
-                or schedule.run_count >= schedule.max_runs
-            ):
+            if schedule is None or not self._is_due(session, schedule, self.clock()):
                 return None
             campaign = session.get(Campaign, schedule.campaign_id)
             if campaign is None or campaign.status != "active":
@@ -330,12 +407,7 @@ class CampaignScheduler:
         with self.database.transaction() as session:
             now = self.clock()
             schedule = self._require_schedule(session, schedule_id)
-            if (
-                schedule.status != "active"
-                or schedule.next_run_at is None
-                or schedule.next_run_at > now
-                or schedule.run_count >= schedule.max_runs
-            ):
+            if not self._is_due(session, schedule, now):
                 raise DomainError("Campaign schedule is no longer due", 409)
             sequence = schedule.run_count + 1
             run = session.scalar(
@@ -559,18 +631,40 @@ class CampaignScheduler:
             run.completed_at = now
             run.error = error
 
+            continuation_idle = False
+            if (
+                status == "succeeded"
+                and session.get(CampaignScheduleContinuation, schedule.id) is not None
+                and conversation_turn_id is not None
+            ):
+                turn = session.get(ConversationTurn, conversation_turn_id)
+                if turn is None:
+                    raise DomainError("Successful continuation wake is missing its turn", 500)
+                continuation_idle = turn.core_task_id is None
+
             if schedule.status == "active":
                 schedule.run_count += 1
                 schedule.last_run_at = now
                 schedule.last_error = error
                 schedule.updated_at = now
-                if schedule.run_count >= schedule.max_runs:
+                if schedule.run_count >= schedule.max_runs or continuation_idle:
                     schedule.status = "completed"
                     schedule.next_run_at = None
                 else:
                     if schedule.interval_seconds is None:
                         raise DomainError("Recurring Campaign schedule cadence is unavailable", 500)
                     schedule.next_run_at = now + timedelta(seconds=schedule.interval_seconds)
+
+                if continuation_idle:
+                    append_campaign_event(
+                        session,
+                        schedule.campaign_id,
+                        "schedule_continuation_completed",
+                        schedule_id=schedule.id,
+                        schedule_run_id=run.id,
+                        sequence=run.sequence,
+                        reason="mind_reply_without_core_task",
+                    )
             elif schedule.status != "cancelled":
                 raise DomainError("Campaign schedule cannot finalize a wake in this state", 409)
 
