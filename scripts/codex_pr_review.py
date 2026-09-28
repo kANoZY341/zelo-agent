@@ -17,7 +17,9 @@ from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_revie
 
 def _sha(value: str) -> str:
     normalized = value.strip().lower()
-    if len(normalized) != 40 or any(character not in "0123456789abcdef" for character in normalized):
+    if len(normalized) != 40 or any(
+        character not in "0123456789abcdef" for character in normalized
+    ):
         raise ValueError("expected a full 40-character Git SHA")
     return normalized
 
@@ -27,8 +29,7 @@ def _git(repo: Path, *args: str) -> str:
         ["git", *args],
         cwd=repo,
         check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     return result.stdout.strip()
@@ -91,7 +92,8 @@ async def _review(args: argparse.Namespace) -> dict:
             "migration/idempotency behavior, concurrency/restart behavior, and compliance with "
             "AGENTS.md and the Zelo architecture. Treat passing tests as evidence, not proof. "
             "Do not modify anything. Return exactly one JSON object with no markdown using this "
-            'shape: {"summary":"bounded summary","findings":[{"severity":"low|medium|high|critical",'
+            'shape: {"summary":"bounded summary","findings":['
+            '{"severity":"low|medium|high|critical",'
             '"message":"specific actionable finding","path":"relative/path/or null"}]}. '
             "Use an empty findings array only when no concrete issue is found."
         ),
