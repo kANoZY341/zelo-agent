@@ -17,7 +17,7 @@ from app.config import Settings
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
-from app.policy import DomainError
+from app.policy import DomainError, fingerprint
 from app.scheduler import WakeAuthorityUnavailable
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
@@ -368,6 +368,66 @@ def test_recurring_schedule_advances_from_completion_without_catch_up(settings, 
             headers=AUTH,
         ).json()
         assert stored["turn_total"] == 2
+
+
+def test_cadence_schedule_retry_preserves_legacy_idempotency_hash(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Legacy cadence idempotency")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 12, 0, tzinfo=UTC)
+        prompt = "Preserve the pre-mode cadence request hash."
+        legacy_hash = fingerprint(
+            {
+                "conversation_id": conversation["id"],
+                "prompt": prompt,
+                "run_at": run_at.isoformat(),
+                "interval_seconds": None,
+                "max_runs": 1,
+            }
+        )
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaign_schedules (
+                        id, campaign_id, conversation_id, prompt,
+                        idempotency_key, request_hash, status, next_run_at,
+                        interval_seconds, max_runs, run_count,
+                        last_run_at, last_error, created_at, updated_at
+                    ) VALUES (
+                        '72000000-0000-0000-0000-000000000072',
+                        :campaign_id, :conversation_id, :prompt,
+                        'legacy-cadence-retry', :request_hash, 'active', :run_at,
+                        NULL, 1, 0, NULL, NULL, :run_at, :run_at
+                    )
+                    """
+                ),
+                {
+                    "campaign_id": campaign["id"],
+                    "conversation_id": conversation["id"],
+                    "prompt": prompt,
+                    "request_hash": legacy_hash,
+                    "run_at": run_at,
+                },
+            )
+
+        response = client.post(
+            f"/campaigns/{campaign['id']}/schedules",
+            headers={**AUTH, "Idempotency-Key": "legacy-cadence-retry"},
+            json={
+                "conversation_id": conversation["id"],
+                "prompt": prompt,
+                "run_at": run_at.isoformat(),
+                "max_runs": 1,
+            },
+        )
+        assert response.status_code == 201, response.text
+        assert response.json()["id"] == "72000000-0000-0000-0000-000000000072"
+        assert response.json()["mode"] == "cadence"
 
 
 def test_continuation_schedule_idempotent_create_preserves_mode(settings, database):
