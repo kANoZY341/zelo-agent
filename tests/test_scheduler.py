@@ -370,6 +370,41 @@ def test_recurring_schedule_advances_from_completion_without_catch_up(settings, 
         assert stored["turn_total"] == 2
 
 
+def test_continuation_schedule_idempotent_create_preserves_mode(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation idempotency")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 12, 0, tzinfo=UTC)
+
+        first = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-idempotent",
+        )
+        second = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-idempotent",
+        )
+
+        assert second["id"] == first["id"]
+        assert first["mode"] == "continuation"
+        assert second["mode"] == "continuation"
+
+
 def test_continuation_schedule_wakes_after_task_completion_and_stops_when_idle(
     settings,
     database,
