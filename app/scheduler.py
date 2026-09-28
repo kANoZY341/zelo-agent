@@ -303,7 +303,10 @@ class CampaignScheduler:
             now = self.clock()
             schedule = self._require_schedule(session, schedule_id)
             if schedule.status == "cancelled":
-                return self._schedule_response(schedule)
+                return self._schedule_response(
+                    schedule,
+                    mode=self._schedule_mode(session, schedule.id),
+                )
             if schedule.status == "completed":
                 raise DomainError("Completed schedule cannot be cancelled", 409)
             schedule.status = "cancelled"

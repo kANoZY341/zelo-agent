@@ -55,36 +55,32 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Push-to-talk voice
+## Current scope: v0.12 Bounded autonomous continuation
 
-The released base remains Zelo Core v0.11.0. Early Zelo Chat, the Zelo-owned
-workspace foundation, Project/Goal/Campaign ownership, Campaign controls, and the
-bounded scheduler/Mind wake cycle are complete on main. PR #32 merged the
-scheduler at `1ad8d7582713651dd5b2804ef88f8f78bba7f934` with green main CI.
+The released base remains Zelo Core v0.11.0. The v0.12 durable-goals/campaign
+milestone has already landed its Project/Goal/Campaign ownership, Campaign
+controls, bounded scheduler/Mind wake cycles, fixed Research specialist, workspace
+project/progress projection, Workspace hardening, and local push-to-talk voice.
 
-The fixed Research specialist is complete on main at
-`1fc2970f88fe205d7c2ee4ea5e8f87b160af305a`. Its design remains documented in
-`docs/v0.12-research-specialist.md`.
+PR #37 merged the push-to-talk local voice slice into `main` at
+`00039a4a0ec513bc0d394809bc9e994d61854e8f`. Voice remains an I/O adapter over
+the same conversation/action contracts and is not changed by this slice.
 
-PR #34 merged the v0.12 Workspace project/progress projection on main at
-`247516866db4dd9906fe326bc302e99db7d6c658`.
+The active slice is **v0.12 Bounded autonomous continuation**. This is a narrow
+refinement of the canonical v0.12 roadmap's existing "limited scheduling and
+bounded Mind wake cycles": an operator-created continuation schedule may wake
+again when the exact Core task created by its prior successful Mind wake reaches a
+terminal state, while retaining the configured cadence as a recovery fallback.
 
-PR #36 completed Workspace hardening on main at
-`f4f9603d1feda8d4ecc96640b5538ecc0c72b306` with green Core and Workspace CI
-and no known remaining review findings.
+Keep the existing Campaign lease, `mind_wakes` budget, idempotency, Campaign
+ownership, `max_runs`, cancellation, approval, merge and release boundaries
+authoritative. Do not create self-created schedules, a second callback/execution
+authority, approval bypasses, autonomous merge/release, or infer goal completion
+from a plain conversational reply. This slice does not add new project/campaign
+mutation controls; it only refines execution of schedules the authenticated
+operator already created.
 
-The active slice is **v0.12 Push-to-talk voice**. Voice is an I/O adapter only:
-browser microphone -> local speech adapter -> transcript -> the same existing
-conversation-turn endpoint -> assistant text -> local speech adapter -> playback.
-Keep `ZELO_VOICE_TOKEN` server-side, bind speech services to loopback only, do
-not persist raw audio, and do not create a voice-specific Mind, conversation,
-task, approval, scheduler, memory, or authority path. STT/TTS providers must
-remain replaceable so changing Zelo's voice does not affect Core or Mind.
-
-Do not add project/campaign mutation controls, Company World runtime, public-web
-search, broad worker capabilities, specialist memory, AgentSpec/DepartmentSpec
-generalization, external messaging/call channels, or new merge/release authority
-in this slice. Persistent memory remains v0.13, Agent Factory v0.14, broad
+Persistent memory remains v0.13, Agent Factory v0.14, broad
 capabilities/external retrieval workers v0.15, and external channels v0.16.
 
 ## Workspace decision

@@ -537,6 +537,37 @@ def test_continuation_schedule_accelerates_then_uses_timer_fallback_for_reply(
         assert not any(event["event"] == "schedule_continuation_completed" for event in events)
 
 
+def test_repeated_continuation_cancellation_preserves_mode(settings, database):
+    provider = SchedulerMindProvider(reply("Cancellation should not wake Mind."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation cancellation")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 13, 0, tzinfo=UTC)
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-cancel",
+        )
+
+        first = client.post(f"/schedules/{schedule['id']}/cancel", headers=AUTH)
+        assert first.status_code == 200, first.text
+        assert first.json()["status"] == "cancelled"
+        assert first.json()["mode"] == "continuation"
+
+        second = client.post(f"/schedules/{schedule['id']}/cancel", headers=AUTH)
+        assert second.status_code == 200, second.text
+        assert second.json()["status"] == "cancelled"
+        assert second.json()["mode"] == "continuation"
+        assert provider.requests == []
+
+
 def test_cadence_schedule_is_not_accelerated_by_task_completion(settings, database):
     provider = SchedulerMindProvider(scheduled_echo("cadence step"))
     configured = settings.model_copy(update={"scheduler_enabled": False})
