@@ -132,6 +132,7 @@ def create_schedule(
     run_at: datetime | None = None,
     interval_seconds: int | None = None,
     max_runs: int = 1,
+    mode: str = "cadence",
     idempotency_key: str = "schedule-create-1",
 ) -> dict:
     body = {
@@ -139,6 +140,7 @@ def create_schedule(
         "prompt": prompt,
         "run_at": (run_at or datetime.now(UTC)).isoformat(),
         "max_runs": max_runs,
+        "mode": mode,
     }
     if interval_seconds is not None:
         body["interval_seconds"] = interval_seconds
@@ -366,6 +368,110 @@ def test_recurring_schedule_advances_from_completion_without_catch_up(settings, 
             headers=AUTH,
         ).json()
         assert stored["turn_total"] == 2
+
+
+def test_continuation_schedule_wakes_after_task_completion_and_stops_when_idle(
+    settings,
+    database,
+):
+    provider = SchedulerMindProvider(
+        scheduled_echo("continuation step"),
+        reply("Campaign work is complete."),
+    )
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation campaign")
+        configure_wake_budget(client, campaign["id"], limit_units=3)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            prompt="Continue this Campaign until there is no next Core task.",
+            run_at=clock.value,
+            interval_seconds=3600,
+            max_runs=3,
+            mode="continuation",
+            idempotency_key="continuation-schedule",
+        )
+        assert schedule["mode"] == "continuation"
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+        first = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert first["status"] == "active"
+        assert first["run_count"] == 1
+        assert datetime.fromisoformat(first["next_run_at"]) == clock.value + timedelta(hours=1)
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        task = stored["turns"][0]["core_task"]
+        assert task is not None
+        wait_for(client, task["id"], "succeeded")
+
+        assert scheduler._next_due_id() == schedule["id"]
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        completed = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert completed["status"] == "completed"
+        assert completed["mode"] == "continuation"
+        assert completed["run_count"] == 2
+        assert completed["next_run_at"] is None
+        assert len(provider.requests) == 2
+
+        events = client.get(
+            f"/campaigns/{campaign['id']}/events",
+            headers=AUTH,
+        ).json()["items"]
+        continuation_events = [
+            event for event in events if event["event"] == "schedule_continuation_completed"
+        ]
+        assert len(continuation_events) == 1
+        assert continuation_events[0]["details"]["reason"] == "mind_reply_without_core_task"
+
+
+def test_cadence_schedule_is_not_accelerated_by_task_completion(settings, database):
+    provider = SchedulerMindProvider(scheduled_echo("cadence step"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Cadence campaign")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="cadence",
+            idempotency_key="cadence-task-schedule",
+        )
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        task = stored["turns"][0]["core_task"]
+        assert task is not None
+        wait_for(client, task["id"], "succeeded")
+
+        assert scheduler._next_due_id() is None
+        current = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert current["status"] == "active"
+        assert current["mode"] == "cadence"
+        assert current["run_count"] == 1
+        assert datetime.fromisoformat(current["next_run_at"]) == clock.value + timedelta(hours=1)
 
 
 def test_restart_retries_same_logical_occurrence_without_double_charge(settings, database):
