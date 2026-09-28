@@ -28,7 +28,7 @@ from app.models import (
     Task,
     utcnow,
 )
-from app.policy import DomainError, fingerprint
+from app.policy import DomainError, State, fingerprint
 from app.schemas import (
     CampaignBudgetCommit,
     CampaignBudgetReservationResponse,
@@ -49,7 +49,14 @@ WAKE_BUDGET_RESOURCE = "mind_wakes"
 WAKE_LEASE_SCOPE = "mind-wake"
 WAKE_BUDGET_UNITS = 1
 SCHEDULE_ERROR_CHARS = 256
-TERMINAL_TASK_STATES = frozenset({"succeeded", "failed", "cancelled", "interrupted"})
+TERMINAL_TASK_STATES = frozenset(
+    {
+        State.SUCCEEDED.value,
+        State.FAILED.value,
+        State.CANCELLED.value,
+        State.INTERRUPTED.value,
+    }
+)
 
 
 class WakeAuthorityUnavailable(RuntimeError):
@@ -326,6 +333,7 @@ class CampaignScheduler:
         if continuation is None or schedule.run_count == 0:
             return schedule.next_run_at <= now
 
+        clock_due = schedule.next_run_at <= now
         latest_run = session.scalar(
             select(CampaignScheduleRun).where(
                 CampaignScheduleRun.schedule_id == schedule.id,
@@ -333,15 +341,15 @@ class CampaignScheduler:
             )
         )
         if latest_run is None or latest_run.status != "succeeded":
-            return schedule.next_run_at <= now
+            return clock_due
         if latest_run.conversation_turn_id is None:
-            return False
+            return clock_due
 
         turn = session.get(ConversationTurn, latest_run.conversation_turn_id)
         if turn is None or turn.core_task_id is None:
-            return False
+            return clock_due
         task = session.get(Task, turn.core_task_id)
-        return task is not None and task.status in TERMINAL_TASK_STATES
+        return clock_due or (task is not None and task.status in TERMINAL_TASK_STATES)
 
     def _next_due_id(self) -> str | None:
         now = self.clock()
@@ -637,23 +645,12 @@ class CampaignScheduler:
             run.completed_at = now
             run.error = error
 
-            continuation_idle = False
-            if (
-                status == "succeeded"
-                and session.get(CampaignScheduleContinuation, schedule.id) is not None
-                and conversation_turn_id is not None
-            ):
-                turn = session.get(ConversationTurn, conversation_turn_id)
-                if turn is None:
-                    raise DomainError("Successful continuation wake is missing its turn", 500)
-                continuation_idle = turn.core_task_id is None
-
             if schedule.status == "active":
                 schedule.run_count += 1
                 schedule.last_run_at = now
                 schedule.last_error = error
                 schedule.updated_at = now
-                if schedule.run_count >= schedule.max_runs or continuation_idle:
+                if schedule.run_count >= schedule.max_runs:
                     schedule.status = "completed"
                     schedule.next_run_at = None
                 else:
@@ -661,16 +658,6 @@ class CampaignScheduler:
                         raise DomainError("Recurring Campaign schedule cadence is unavailable", 500)
                     schedule.next_run_at = now + timedelta(seconds=schedule.interval_seconds)
 
-                if continuation_idle:
-                    append_campaign_event(
-                        session,
-                        schedule.campaign_id,
-                        "schedule_continuation_completed",
-                        schedule_id=schedule.id,
-                        schedule_run_id=run.id,
-                        sequence=run.sequence,
-                        reason="mind_reply_without_core_task",
-                    )
             elif schedule.status != "cancelled":
                 raise DomainError("Campaign schedule cannot finalize a wake in this state", 409)
 

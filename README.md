@@ -360,21 +360,6 @@ It creates an isolated temporary database, starts Zelo on an ephemeral
 the persisted result and audit events, then stops the server and cleans up its
 temporary database. It never downloads a model or invokes DeepSeek.
 
-## Manual Codex pull-request review
-
-The repository includes a bounded GitHub Actions review path in
-`.github/workflows/codex-review.yml`. It runs only on the trusted self-hosted Zelo
-runner and invokes the existing `CodexCliWorker` in its **reviewer** role with the
-read-only/no-network authority profile. The reviewed checkout is pinned to the
-pull request head, Codex receives no GitHub token, and the workflow posts only the
-bounded structured review back to the pull request.
-
-After this workflow lands on the default branch, use **Actions → Codex PR Review →
-Run workflow** and provide the pull-request number. The temporary push trigger on
-`feat/v0.12-autonomous-continuation` exists only to bootstrap review of PR #39
-before the workflow itself is merged; remove that trigger after the bootstrap
-review succeeds.
-
 ## Developer Runtime (v0.6)
 
 `DeveloperRuntime` delegates an explicitly approved coding instruction to a

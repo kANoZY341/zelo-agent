@@ -465,13 +465,14 @@ def test_continuation_schedule_idempotent_create_preserves_mode(settings, databa
         assert second["mode"] == "continuation"
 
 
-def test_continuation_schedule_wakes_after_task_completion_and_stops_when_idle(
+def test_continuation_schedule_accelerates_then_uses_timer_fallback_for_reply(
     settings,
     database,
 ):
     provider = SchedulerMindProvider(
         scheduled_echo("continuation step"),
-        reply("Campaign work is complete."),
+        reply("No next Core task yet."),
+        reply("Still no next Core task."),
     )
     configured = settings.model_copy(update={"scheduler_enabled": False})
     with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
@@ -486,7 +487,7 @@ def test_continuation_schedule_wakes_after_task_completion_and_stops_when_idle(
             client,
             campaign["id"],
             conversation["id"],
-            prompt="Continue this Campaign until there is no next Core task.",
+            prompt="Continue this Campaign within the configured wake bound.",
             run_at=clock.value,
             interval_seconds=3600,
             max_runs=3,
@@ -512,23 +513,28 @@ def test_continuation_schedule_wakes_after_task_completion_and_stops_when_idle(
         assert scheduler._next_due_id() == schedule["id"]
         asyncio.run(scheduler._execute_due(schedule["id"]))
 
+        second = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert second["status"] == "active"
+        assert second["run_count"] == 2
+        assert datetime.fromisoformat(second["next_run_at"]) == clock.value + timedelta(hours=1)
+        assert scheduler._next_due_id() is None
+
+        clock.advance(seconds=3600)
+        assert scheduler._next_due_id() == schedule["id"]
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
         completed = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
         assert completed["status"] == "completed"
         assert completed["mode"] == "continuation"
-        assert completed["run_count"] == 2
+        assert completed["run_count"] == 3
         assert completed["next_run_at"] is None
-        assert len(provider.requests) == 2
+        assert len(provider.requests) == 3
 
         events = client.get(
             f"/campaigns/{campaign['id']}/events",
             headers=AUTH,
         ).json()["items"]
-        continuation_events = [
-            event for event in events if event["event"] == "schedule_continuation_completed"
-        ]
-        assert len(continuation_events) == 1
-        assert continuation_events[0]["details"]["reason"] == "mind_reply_without_core_task"
-
+        assert not any(event["event"] == "schedule_continuation_completed" for event in events)
 
 def test_cadence_schedule_is_not_accelerated_by_task_completion(settings, database):
     provider = SchedulerMindProvider(scheduled_echo("cadence step"))
