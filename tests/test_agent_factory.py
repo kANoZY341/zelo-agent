@@ -86,9 +86,7 @@ def test_agent_spec_binds_memory_namespace_to_identity():
         (False, 1, "subagent_limit_without_authority"),
     ],
 )
-def test_agent_spec_subagent_authority_is_fail_closed(
-    allow_subagents, max_subagents, error
-):
+def test_agent_spec_subagent_authority_is_fail_closed(allow_subagents, max_subagents, error):
     with pytest.raises(ValidationError, match=error):
         agent_spec(
             allow_subagents=allow_subagents,
