@@ -182,6 +182,14 @@ explicit scope. They remain available through explicit retrieval requests.
 There are still no automatic memory writes from conversation, model-decided
 retention rules, embeddings/vector search, or Agent Factory behavior.
 
+v0.13 also includes a deterministic memory evaluation harness in
+`app/memory_evaluation.py`. It records exact expected/actual memory IDs,
+missing/forbidden/unexpected hits, precision/recall and the retrieval version for
+baseline cases. The baseline suite runs without external models or APIs and is
+paired with contamination-boundary tests covering scope isolation, untrusted
+memory instructions, canonical-state precedence and irrelevant-memory
+non-injection.
+
 
 ## Fixed Research specialist
 

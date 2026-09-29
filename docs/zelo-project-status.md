@@ -41,40 +41,40 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.13 Memory retrieval and context
+## Active increment: v0.13 Memory evaluation and contamination boundaries
 
-The first v0.13 Memory foundation slice merged to `main` at:
+The second v0.13 bounded retrieval/context slice merged to `main` at:
 
-`e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`
-
-It established immutable typed personal/project/agent memory records, provenance,
-expiry, correction/supersession chains, database append-only guards and
-authenticated create/get/list APIs.
+`22f9ff24070ead799511657b656463bdaef54f2a`
 
 The active implementation branch is:
 
-`feat/v0.13-memory-retrieval-context`
+`feat/v0.13-memory-evaluation`
 
-This second v0.13 slice adds:
+This third v0.13 slice adds deterministic baseline evidence for memory quality
+and contamination boundaries:
 
-- deterministic bounded lexical retrieval over active memory;
-- explicit multi-scope retrieval for operator/API use;
-- correction/expiry-aware selection;
-- bounded snippets, candidate counts and item limits;
-- personal-memory context assembly for Zelo Mind;
-- provenance/scope-preserving `zelo_context` evidence;
-- strict prevention of implicit project/agent memory injection;
-- continued exclusion of context from Core task construction.
+- exact expected/actual retrieval case results;
+- precision/recall evidence tied to exact memory IDs;
+- contamination and unexpected-hit counts;
+- current-vs-corrected/expired selection checks;
+- unrelated-query rejection;
+- Unicode/Arabic recall;
+- explicit project and agent scope isolation;
+- automatic Mind-context personal-only isolation;
+- memory-instruction trust-boundary checks;
+- canonical project/runtime precedence over conflicting remembered context;
+- irrelevant-memory non-injection.
 
+The evaluation path performs no model calls and grants no new runtime authority.
 There are still no automatic memory writes, embeddings/vector database,
-model-decided retention rules, Agent Factory, or new execution authority.
+model-decided retention rules, Agent Factory, or approval/merge/release bypasses.
 
 ## Later v0.13 slices
 
-After retrieval/context is verified:
+After evaluation/contamination evidence is verified:
 
-1. baseline evaluation cases and memory contamination tests;
-2. worker/model performance and cost evidence;
-3. storage abstraction for future Postgres/Supabase/vector backends.
+1. worker/model performance and cost evidence;
+2. storage abstraction for future Postgres/Supabase/vector backends.
 
 Do not advance into v0.14 Agent Factory work from this branch.

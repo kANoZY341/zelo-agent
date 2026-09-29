@@ -55,36 +55,35 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Memory retrieval and context
+## Current scope: v0.13 Memory evaluation and contamination boundaries
 
 Zelo Core v0.12.0 is published from `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
-The first v0.13 Memory foundation slice is merged on `main` at
-`e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`.
+The first two v0.13 slices are merged on `main`:
 
-The active slice is **bounded scope-aware memory retrieval and context assembly**.
-Build a deterministic read-only retrieval path over the immutable MemoryRecord
-store and allow Zelo Mind to receive relevant bounded personal memory as
-untrusted factual context.
+- Memory foundation: `e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`;
+- bounded retrieval/context: `22f9ff24070ead799511657b656463bdaef54f2a`.
+
+The active slice is **baseline memory evaluation and contamination boundaries**.
+Add deterministic quality evidence over the existing retrieval/context path
+without changing memory authority or introducing model-based grading.
 
 Rules for this slice:
 
-- retrieval must consider only active, non-expired, non-replaced records;
-- project and agent scopes are explicit and must never leak into Mind merely
-  because their text happens to match;
-- until conversations have an explicit project/agent binding, automatic Mind
-  retrieval is personal-scope only;
-- retrieval and assembled context must have hard candidate, item and character
-  budgets;
-- memory provenance and scope must remain visible in retrieved evidence;
-- all `zelo_context` remains `instruction_trust: none`;
-- memory/project context may inform Mind routing/replies but must stay excluded
-  from authority-bearing Core task construction;
+- evaluation cases must be deterministic and runnable without external model/API
+  calls;
+- baseline cases must cover correct recall, unrelated-query rejection,
+  correction/expiry behavior, Unicode/Arabic recall and explicit scope isolation;
+- contamination checks must cover personal/project/agent separation, untrusted
+  memory instructions, canonical-state precedence and irrelevant-memory
+  non-injection;
+- evaluation evidence must expose exact expected/actual IDs and contamination
+  failures rather than hiding them behind one aggregate score;
+- keep memory retrieval/context read-only and bounded;
 - do not automatically write memories from conversations;
 - do not add embeddings/vector search, model-decided retention, Agent Factory,
-  new execution authority, approval bypasses, or merge/release authority.
-
-Later v0.13 slices cover evaluation cases/contamination boundaries,
-worker/model performance and cost evidence, and storage abstraction.
+  new execution authority, approval bypasses, or merge/release authority;
+Later v0.13 slices cover worker/model performance and cost evidence, then storage
+abstraction for future backend swaps.
 
 ## Workspace decision
 
