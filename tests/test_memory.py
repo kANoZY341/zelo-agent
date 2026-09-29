@@ -371,3 +371,63 @@ def test_memory_records_are_database_append_only_and_project_scope_is_guarded(da
             )
             == 0
         )
+
+
+    with database.transaction() as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO memory_records (
+                    id, scope_kind, kind, content,
+                    provenance_kind, provenance_note, replaces_id,
+                    replacement_kind, created_at
+                ) VALUES (
+                    '00000000-0000-0000-0000-000000000095',
+                    'personal',
+                    'fact',
+                    'First immutable correction',
+                    'operator',
+                    '',
+                    '00000000-0000-0000-0000-000000000092',
+                    'correction',
+                    '2026-09-29 00:03:00'
+                )
+                """
+            )
+        )
+
+    with pytest.raises(IntegrityError, match="already been replaced"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT OR REPLACE INTO memory_records (
+                        id, scope_kind, kind, content,
+                        provenance_kind, provenance_note, replaces_id,
+                        replacement_kind, created_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-000000000096',
+                        'personal',
+                        'fact',
+                        'Must not replace the first correction',
+                        'operator',
+                        '',
+                        '00000000-0000-0000-0000-000000000092',
+                        'correction',
+                        '2026-09-29 00:04:00'
+                    )
+                    """
+                )
+            )
+
+    with database.read() as session:
+        replacement = session.execute(
+            text(
+                "SELECT id, content FROM memory_records "
+                "WHERE replaces_id='00000000-0000-0000-0000-000000000092'"
+            )
+        ).one()
+        assert replacement == (
+            "00000000-0000-0000-0000-000000000095",
+            "First immutable correction",
+        )
