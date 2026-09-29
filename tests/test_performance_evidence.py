@@ -266,6 +266,7 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
     assert reviewer["worker"] == "claude-code"
     assert reviewer["duration_seconds"] == 4.5
     assert reviewer["validation_passed"] is None
+    assert "ignored_cost_usd" not in reviewer["usage"]
 
     codex_summary = next(
         item
