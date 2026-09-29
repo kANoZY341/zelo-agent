@@ -20,6 +20,8 @@ from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
 from app.logging_config import configure_logging
+from app.memory import MemoryService
+from app.memory_api import router as memory_router
 from app.mind import MindService
 from app.mind_api import router as mind_router
 from app.policy import DomainError
@@ -77,6 +79,7 @@ def create_app(
             )
             tool_gateway = ToolGateway(configuration)
             projects = ProjectService(database)
+            memories = MemoryService(database)
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
             context_resolver = ContextResolver(projects)
@@ -154,6 +157,7 @@ def create_app(
             application.state.database = database
             application.state.tasks = tasks
             application.state.projects = projects
+            application.state.memories = memories
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
             application.state.mind = mind
@@ -176,6 +180,7 @@ def create_app(
     application.include_router(router)
     application.include_router(task_router)
     application.include_router(project_router)
+    application.include_router(memory_router)
     application.include_router(campaign_router)
     application.include_router(campaign_control_router)
     application.include_router(scheduler_router)
