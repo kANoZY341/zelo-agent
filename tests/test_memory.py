@@ -228,6 +228,214 @@ def test_memory_scope_and_replacement_shapes_are_validated(client):
     assert incomplete_replacement.status_code == 422
 
 
+def test_retrieval_returns_only_active_current_personal_memory(client):
+    original = _create_personal(client, "My favorite interface color is blue.")
+    corrected = _create_personal(
+        client,
+        "My favorite interface color is black.",
+        replaces_id=original["id"],
+        replacement_kind="correction",
+    )
+    _create_personal(
+        client,
+        "My favorite interface color is temporary green.",
+        expires_at=(datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
+    )
+    _create_personal(client, "My preferred dessert is caramel.")
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what is my favorite interface color?",
+            "scopes": [{"kind": "personal"}],
+            "limit": 6,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["retrieval"] == "bounded_lexical_v1"
+    assert [item["id"] for item in payload["items"]] == [corrected["id"]]
+    assert payload["items"][0]["matched_terms"] == ["favorite", "interface", "color"]
+
+
+def test_retrieval_can_recall_broad_like_preferences(client):
+    liked = _create_personal(client, "I like sushi and ramen.", kind="preference")
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what do I like?",
+            "scopes": [{"kind": "personal"}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [liked["id"]]
+
+
+def test_retrieval_does_not_return_single_generic_overlap_for_multi_term_query(client):
+    _create_personal(client, "My favorite interface color is black.")
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what is my favorite dessert?",
+            "scopes": [{"kind": "personal"}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["items"] == []
+
+
+def test_retrieval_keeps_project_and_agent_scopes_explicit(client):
+    alpha = client.post(
+        "/projects",
+        headers=AUTH,
+        json={"name": "Alpha", "summary": "First project."},
+    ).json()
+    beta = client.post(
+        "/projects",
+        headers=AUTH,
+        json={"name": "Beta", "summary": "Second project."},
+    ).json()
+
+    alpha_memory = client.post(
+        "/memories",
+        headers=AUTH,
+        json={
+            "scope": {"kind": "project", "id": alpha["id"]},
+            "kind": "decision",
+            "content": "The deployment database is SQLite.",
+            "provenance": {"kind": "project", "ref": alpha["id"]},
+        },
+    ).json()
+    client.post(
+        "/memories",
+        headers=AUTH,
+        json={
+            "scope": {"kind": "project", "id": beta["id"]},
+            "kind": "decision",
+            "content": "The deployment database is PostgreSQL.",
+            "provenance": {"kind": "project", "ref": beta["id"]},
+        },
+    )
+    research_memory = client.post(
+        "/memories",
+        headers=AUTH,
+        json={
+            "scope": {"kind": "agent", "id": "research"},
+            "kind": "experience",
+            "content": "Evidence retrieval should preserve provenance.",
+            "provenance": {"kind": "agent", "ref": "research"},
+        },
+    ).json()
+
+    project_response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "deployment database",
+            "scopes": [{"kind": "project", "id": alpha["id"]}],
+        },
+    )
+    assert project_response.status_code == 200, project_response.text
+    assert [item["id"] for item in project_response.json()["items"]] == [alpha_memory["id"]]
+
+    agent_response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "evidence retrieval provenance",
+            "scopes": [{"kind": "agent", "id": "research"}],
+        },
+    )
+    assert agent_response.status_code == 200, agent_response.text
+    assert [item["id"] for item in agent_response.json()["items"]] == [research_memory["id"]]
+
+
+def test_retrieval_is_bounded_and_rejects_duplicate_scopes(client):
+    long_memory = _create_personal(
+        client,
+        ("prefix " * 300) + "favorite telescope aperture eighty millimeters",
+    )
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "favorite telescope aperture",
+            "scopes": [{"kind": "personal"}],
+            "limit": 1,
+        },
+    )
+    assert response.status_code == 200, response.text
+    item = response.json()["items"][0]
+    assert item["id"] == long_memory["id"]
+    assert item["content_truncated"] is True
+    assert len(item["content"]) <= 1200
+    assert "telescope aperture" in item["content"]
+
+    duplicate = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "telescope aperture",
+            "scopes": [{"kind": "personal"}, {"kind": "personal"}],
+        },
+    )
+    assert duplicate.status_code == 422
+
+    duplicate_agent = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "retrieval evidence",
+            "scopes": [
+                {"kind": "agent", "id": "research"},
+                {"kind": "agent", "id": " research "},
+            ],
+        },
+    )
+    assert duplicate_agent.status_code == 422
+
+
+def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):
+    _create_personal(client, "A memory that should not be scanned for empty intent.")
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "what is it", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["candidate_count"] == 0
+    assert response.json()["items"] == []
+
+
+def test_retrieval_validates_scope_even_when_query_has_no_meaningful_terms(client):
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what is it",
+            "scopes": [
+                {
+                    "kind": "project",
+                    "id": "00000000-0000-0000-0000-000000000099",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 404
+
+
+def test_retrieval_rejects_blank_query(client):
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "   ", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 422
+
+
 def test_memory_routes_require_operator_auth(client):
     client.headers.pop("Authorization")
     response = client.get("/memories", params={"scope_kind": "personal"})

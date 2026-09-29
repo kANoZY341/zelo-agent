@@ -41,40 +41,40 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.13 Memory foundation
+## Active increment: v0.13 Memory retrieval and context
 
-Zelo Core v0.12.0 release preparation merged to `main` at:
+The first v0.13 Memory foundation slice merged to `main` at:
 
-`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`
+`e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`
+
+It established immutable typed personal/project/agent memory records, provenance,
+expiry, correction/supersession chains, database append-only guards and
+authenticated create/get/list APIs.
 
 The active implementation branch is:
 
-`feat/v0.13-memory-foundation`
+`feat/v0.13-memory-retrieval-context`
 
-This first v0.13 slice is intentionally narrow:
+This second v0.13 slice adds:
 
-- durable immutable memory records;
-- explicit personal, project and agent scopes;
-- typed fact, preference, decision and experience records;
-- provenance metadata;
-- optional expiry;
-- correction and supersession through append-only replacement records;
-- authenticated create/get/list Core APIs;
-- no automatic memory writes from conversations;
-- no memory injection into Mind context yet;
-- no embeddings or vector database;
-- no Agent Factory or new execution authority.
+- deterministic bounded lexical retrieval over active memory;
+- explicit multi-scope retrieval for operator/API use;
+- correction/expiry-aware selection;
+- bounded snippets, candidate counts and item limits;
+- personal-memory context assembly for Zelo Mind;
+- provenance/scope-preserving `zelo_context` evidence;
+- strict prevention of implicit project/agent memory injection;
+- continued exclusion of context from Core task construction.
 
-The repository baseline, tag and GitHub Release all now identify `v0.12.0`.
+There are still no automatic memory writes, embeddings/vector database,
+model-decided retention rules, Agent Factory, or new execution authority.
 
 ## Later v0.13 slices
 
-After the foundation is verified:
+After retrieval/context is verified:
 
-1. bounded scope-aware retrieval and context assembly;
-2. correction/expiry-aware memory selection for Mind;
-3. evaluation cases for memory quality and contamination boundaries;
-4. worker/model performance and cost evidence;
-5. storage abstraction for future backend swaps.
+1. baseline evaluation cases and memory contamination tests;
+2. worker/model performance and cost evidence;
+3. storage abstraction for future Postgres/Supabase/vector backends.
 
 Do not advance into v0.14 Agent Factory work from this branch.
