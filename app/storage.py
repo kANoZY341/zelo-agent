@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 
+
 @dataclass(frozen=True)
 class StorageDescriptor:
     """Stable, non-secret description of one configured storage backend."""
