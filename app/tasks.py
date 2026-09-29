@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app.campaigns import append_campaign_event
 from app.config import Settings
-from app.storage import SessionStore
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
 from app.models import (
@@ -58,6 +57,7 @@ from app.self_improvement_runtime import (
     developer_instruction,
     developer_review_instruction,
 )
+from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
