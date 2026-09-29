@@ -186,9 +186,20 @@ def test_memory_evaluation_detects_forbidden_and_unexpected_retrieval(client):
     assert result.passed is False
     assert result.actual_ids == (active["id"],)
     assert result.forbidden_ids_present == frozenset({active["id"]})
-    assert result.unexpected_ids == frozenset({active["id"]})
+    assert result.unexpected_ids == frozenset()
     assert result.precision == 0.0
     assert result.recall == 1.0
+
+    unexpected_case = MemoryEvaluationCase(
+        name="intentional-unexpected-sentinel",
+        query="favorite interface color",
+        scopes=(MemoryScope(kind="personal"),),
+        expected_ids=frozenset(),
+    )
+    unexpected = evaluate_memory_case(client.app.state.memories, unexpected_case)
+    assert unexpected.passed is False
+    assert unexpected.forbidden_ids_present == frozenset()
+    assert unexpected.unexpected_ids == frozenset({active["id"]})
 
 
 def test_memory_evaluation_case_requires_explicit_scope_validation(client):
