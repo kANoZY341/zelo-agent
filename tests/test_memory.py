@@ -2,6 +2,10 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
 from tests.conftest import AUTH
 
 
@@ -228,3 +232,57 @@ def test_memory_routes_require_operator_auth(client):
     client.headers.pop("Authorization")
     response = client.get("/memories", params={"scope_kind": "personal"})
     assert response.status_code in {401, 403}
+
+
+def test_memory_records_are_database_append_only_and_project_scope_is_guarded(database):
+    with pytest.raises(IntegrityError, match="existing Project"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO memory_records (
+                        id, scope_kind, scope_id, kind, content,
+                        provenance_kind, provenance_note, created_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-000000000091',
+                        'project',
+                        '00000000-0000-0000-0000-000000000099',
+                        'fact',
+                        'Invalid project memory',
+                        'operator',
+                        '',
+                        '2026-09-29 00:00:00'
+                    )
+                    """
+                )
+            )
+
+    with database.transaction() as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO memory_records (
+                    id, scope_kind, kind, content,
+                    provenance_kind, provenance_note, created_at
+                ) VALUES (
+                    '00000000-0000-0000-0000-000000000092',
+                    'personal',
+                    'fact',
+                    'Immutable memory',
+                    'operator',
+                    '',
+                    '2026-09-29 00:00:00'
+                )
+                """
+            )
+        )
+
+    for statement in (
+        "UPDATE memory_records SET content='mutated' "
+        "WHERE id='00000000-0000-0000-0000-000000000092'",
+        "DELETE FROM memory_records "
+        "WHERE id='00000000-0000-0000-0000-000000000092'",
+    ):
+        with pytest.raises(IntegrityError, match="append-only"):
+            with database.transaction() as session:
+                session.execute(text(statement))
