@@ -148,10 +148,13 @@ def test_create_replay_list_and_revoke_releases_budget(database, client):
     assert released.id == reservation.id
     assert released.status == "released"
 
-    assert delegations.revoke(
-        created.id,
-        AgentDelegationRevoke(reason="Second revoke is idempotent."),
-    ) == revoked
+    assert (
+        delegations.revoke(
+            created.id,
+            AgentDelegationRevoke(reason="Second revoke is idempotent."),
+        )
+        == revoked
+    )
 
 
 def test_delegation_fails_closed_for_authority_scope_and_idempotency(database, client):
@@ -373,8 +376,7 @@ def test_database_guards_immutable_contract_and_cycle(database, client):
         with database.transaction() as session:
             session.execute(
                 text(
-                    "UPDATE agent_delegations SET objective = 'tampered' "
-                    "WHERE id = :delegation_id"
+                    "UPDATE agent_delegations SET objective = 'tampered' WHERE id = :delegation_id"
                 ),
                 {"delegation_id": created.id},
             )
