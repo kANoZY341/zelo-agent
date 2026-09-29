@@ -67,7 +67,7 @@ _MEMORY_STOP_TERMS = frozenset(
 )
 
 
-def _memory_terms(value: str) -> tuple[str, ...]:
+def _memory_terms(value: str, *, limit: int | None = None) -> tuple[str, ...]:
     seen: set[str] = set()
     terms: list[str] = []
     for raw in _MEMORY_TOKEN.findall(value.casefold()):
@@ -75,7 +75,7 @@ def _memory_terms(value: str) -> tuple[str, ...]:
             continue
         seen.add(raw)
         terms.append(raw)
-        if len(terms) >= 32:
+        if limit is not None and len(terms) >= limit:
             break
     return tuple(terms)
 
@@ -264,7 +264,7 @@ class MemoryService:
         query = " ".join(body.query.split())
         if not query:
             raise DomainError("Memory retrieval query cannot be blank", 422)
-        terms = _memory_terms(query)
+        terms = _memory_terms(query, limit=32)
         if not terms:
             return MemoryRetrievalResponse(
                 query=query,
