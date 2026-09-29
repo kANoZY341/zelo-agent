@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from app.memory import MemoryService
 from app.schemas import MemoryRetrieveRequest, MemoryScope
 
+MEMORY_EVALUATION_SCHEMA = "zelo-memory-evaluation-v1"
+
 
 @dataclass(frozen=True)
 class MemoryEvaluationCase:
@@ -126,3 +128,32 @@ def evaluate_memory_suite(
         unexpected_hits=unexpected_hits,
         passed=cases_passed == len(results),
     )
+
+
+def memory_evaluation_evidence(report: MemoryEvaluationReport) -> dict:
+    """Return stable JSON-safe evidence without persisting it."""
+
+    return {
+        "schema": MEMORY_EVALUATION_SCHEMA,
+        "passed": report.passed,
+        "cases_total": report.cases_total,
+        "cases_passed": report.cases_passed,
+        "contamination_hits": report.contamination_hits,
+        "unexpected_hits": report.unexpected_hits,
+        "cases": [
+            {
+                "name": result.name,
+                "retrieval": result.retrieval,
+                "candidate_count": result.candidate_count,
+                "actual_ids": list(result.actual_ids),
+                "expected_ids": sorted(result.expected_ids),
+                "missing_expected_ids": sorted(result.missing_expected_ids),
+                "forbidden_ids_present": sorted(result.forbidden_ids_present),
+                "unexpected_ids": sorted(result.unexpected_ids),
+                "precision": result.precision,
+                "recall": result.recall,
+                "passed": result.passed,
+            }
+            for result in report.cases
+        ],
+    }
