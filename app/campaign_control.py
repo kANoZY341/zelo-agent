@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.campaigns import append_campaign_event
-from app.database import Database
+from app.storage import SessionStore
 from app.models import (
     Campaign,
     CampaignBudgetLimit,
@@ -42,7 +42,7 @@ CONTROL_NAME = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 class CampaignControlService:
     def __init__(
         self,
-        database: Database,
+        database: SessionStore,
         *,
         clock: Callable[[], datetime] = utcnow,
     ) -> None:
