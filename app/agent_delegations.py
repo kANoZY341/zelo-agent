@@ -64,6 +64,30 @@ class AgentDelegationService:
     def _canonical(values: list[str]) -> tuple[str, ...]:
         return tuple(values)
 
+    @staticmethod
+    def _would_cycle(session, parent_id: str, child_id: str) -> bool:
+        edges = session.execute(
+            select(
+                AgentDelegation.parent_instance_id,
+                AgentDelegation.child_instance_id,
+            ).where(AgentDelegation.status == "active")
+        ).all()
+        adjacency: dict[str, set[str]] = {}
+        for existing_parent, existing_child in edges:
+            adjacency.setdefault(existing_parent, set()).add(existing_child)
+
+        pending = [child_id]
+        visited: set[str] = set()
+        while pending:
+            current = pending.pop()
+            if current == parent_id:
+                return True
+            if current in visited:
+                continue
+            visited.add(current)
+            pending.extend(sorted(adjacency.get(current, ())))
+        return False
+
     def create(
         self,
         parent_instance_id: str,
@@ -131,6 +155,9 @@ class AgentDelegationService:
                 )
             ):
                 raise DomainError("Child agent already has an active parent", 409)
+
+            if self._would_cycle(session, parent.id, child.id):
+                raise DomainError("Agent delegation cycle is not allowed", 409)
 
             allowed_task_kinds = self._canonical(body.allowed_task_kinds)
             required_capabilities = self._canonical(body.required_capabilities)
