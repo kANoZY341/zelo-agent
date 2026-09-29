@@ -188,7 +188,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0019_memory_foundation"
+                == "0020_agent_instances"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
