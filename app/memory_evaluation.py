@@ -1,7 +1,7 @@
 """Deterministic baseline evaluation for v0.13 memory retrieval quality."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from app.memory import MemoryService
 from app.schemas import MemoryRetrieveRequest, MemoryScope
