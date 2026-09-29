@@ -262,6 +262,8 @@ class MemoryService:
 
     def retrieve(self, body: MemoryRetrieveRequest) -> MemoryRetrievalResponse:
         query = " ".join(body.query.split())
+        if not query:
+            raise DomainError("Memory retrieval query cannot be blank", 422)
         terms = _memory_terms(query)
         if not terms:
             return MemoryRetrievalResponse(
