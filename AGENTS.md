@@ -55,42 +55,47 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Agent registry foundation
+## Current scope: v0.14 Agent lifecycle and project binding
 
 Zelo Core v0.13.0 is published from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
 
+The v0.14 registry foundation is merged through PR #47 at:
+
+`8609ee583513f24d312785b7158a90d40a8458ef`
+
 The active branch is:
 
-`feat/v0.14-agent-registry-foundation`
+`feat/v0.14-agent-lifecycle-project-binding`
 
-This first v0.14 slice establishes trusted agent and department identity
-contracts before generic specialist execution is enabled.
+This second v0.14 slice persists Core-owned agent instances while preserving the
+existing task, worker, approval, scheduler and release authority boundaries.
 
 Rules for this slice:
 
-- define frozen, versioned `AgentSpec` and `DepartmentSpec` contracts;
-- keep agent IDs, memory namespaces, task/tool upper bounds and worker
-  requirements canonical and deterministic;
-- keep worker requirements vendor-neutral; never name concrete workers, models,
-  executables or credentials in generic agent contracts;
-- make registry ordering and fingerprinting deterministic;
-- fail closed for unknown, inactive or invalidly assigned agents/departments;
-- validate active task/tool references against trusted Core surfaces at startup;
-- describe existing Coding and Research specialists without replacing their
-  current execution paths yet;
-- do not add a new task kind or database migration in this slice;
-- do not add dynamic prompt-created agents, persisted agent instances, recursive
-  subagents, new tools or new worker authority;
-- do not let Agent Factory bypass Core tasks, ToolPolicy, Supervisor selection,
-  approvals, budgets, audit, promotion, merge or release boundaries;
-- inspect the parked `feat/v1.0-agent-factory` branch for compatible patterns
-  only; do not merge it wholesale;
+- create agent instances only from trusted active AgentSpec registry bindings;
+- accept only agent ID and existing Project ID from the operator at creation;
+- persist exact AgentSpec snapshot, agent version and registry fingerprint;
+- make agent identity, spec snapshot and Project binding immutable after creation;
+- keep lifecycle explicit: active, paused and terminal retired;
+- require exact current registry match before a paused instance can resume;
+- allow stale instances to pause/retire so they can always be shut down safely;
+- persist append-only lifecycle events with contiguous sequence numbers;
+- enforce instance identity/lifecycle invariants in the database as well as the service;
+- enforce per-Project live-instance limits inside the serialized write transaction;
+- assemble bounded read-only memory context from Project scope + stable specialist
+  Agent scope only;
+- do not include personal memory or other Project/Agent scopes implicitly;
+- do not add generic agent task execution, parent-child delegation, subagents,
+  manager runtime behavior or agent-to-agent messaging in this slice;
+- do not add dynamic/model-authored AgentSpecs, automatic memory writes, new
+  tools, new worker authority or approval/budget/promotion/release bypasses;
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
 - require independent/adversarial review before merge.
 
-After this slice, continue v0.14 with persisted lifecycle/project binding and
-bounded parent-child delegation before enabling generic subagent creation.
+After this slice, continue v0.14 with explicit bounded parent-child delegation
+and then route existing Coding/Research execution through generic agent identity
+snapshots before enabling subagent creation.
 
 ## Workspace decision
 

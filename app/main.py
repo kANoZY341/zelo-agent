@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.agent import AgentRuntime
 from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
+from app.agent_instance_api import router as agent_instance_router
+from app.agent_instances import AgentInstanceService
 from app.api import router
 from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
@@ -89,6 +91,7 @@ def create_app(
             agent_factory = AgentFactory(agent_registry)
             projects = ProjectService(database)
             memories = MemoryService(database)
+            agent_instances = AgentInstanceService(database, agent_factory, memories)
             performance_evidence = PerformanceEvidenceService(database)
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
@@ -171,6 +174,7 @@ def create_app(
             application.state.tasks = tasks
             application.state.projects = projects
             application.state.memories = memories
+            application.state.agent_instances = agent_instances
             application.state.performance_evidence = performance_evidence
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
@@ -193,6 +197,7 @@ def create_app(
     application.state.settings = configuration
     application.include_router(router)
     application.include_router(task_router)
+    application.include_router(agent_instance_router)
     application.include_router(project_router)
     application.include_router(memory_router)
     application.include_router(performance_router)

@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.agent_factory import AgentSpec
 from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
@@ -418,6 +419,63 @@ class ProjectPage(StrictModel):
     total: int = Field(ge=0)
 
 
+AgentInstanceStatus = Literal["active", "paused", "retired"]
+AgentInstanceEventName = Literal["created", "paused", "resumed", "retired"]
+AgentInstanceTransitionAction = Literal["pause", "resume", "retire"]
+
+
+class AgentInstanceCreate(StrictModel):
+    agent_id: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    )
+    project_id: TaskId
+
+
+class AgentInstanceTransition(StrictModel):
+    action: AgentInstanceTransitionAction
+
+
+class AgentInstanceResponse(StrictModel):
+    id: TaskId
+    agent_id: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    )
+    agent_version: int = Field(ge=1)
+    registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    project_id: TaskId
+    spec: AgentSpec
+    status: AgentInstanceStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentInstancePage(StrictModel):
+    items: list[AgentInstanceResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class AgentInstanceEventResponse(StrictModel):
+    id: TaskId
+    agent_instance_id: TaskId
+    sequence: int = Field(ge=1)
+    event: AgentInstanceEventName
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AgentInstanceEventPage(StrictModel):
+    items: list[AgentInstanceEventResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
 MemoryScopeKind = Literal["personal", "project", "agent"]
 MemoryKind = Literal["fact", "preference", "decision", "experience"]
 MemoryProvenanceKind = Literal[
@@ -530,6 +588,17 @@ class MemoryRetrievalResponse(StrictModel):
     candidate_count: int = Field(ge=0)
     limit: int = Field(ge=1, le=20)
     retrieval: Literal["bounded_lexical_v1"] = "bounded_lexical_v1"
+
+
+class AgentMemoryContextRequest(StrictModel):
+    query: str = Field(min_length=1, max_length=2048)
+    limit: int = Field(default=6, ge=1, le=20)
+
+
+class AgentMemoryContextResponse(StrictModel):
+    instance: AgentInstanceResponse
+    scopes: list[MemoryScope] = Field(min_length=2, max_length=2)
+    retrieval: MemoryRetrievalResponse
 
 
 class ModelPerformanceEvidence(StrictModel):

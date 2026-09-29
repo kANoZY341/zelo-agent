@@ -559,8 +559,13 @@ Current verified baseline as of 30 September 2026:
 - v0.13 includes scoped memory, bounded retrieval/context, deterministic memory
   evaluation and contamination boundaries, worker/model performance and
   reported-cost evidence, and the Zelo-owned storage abstraction;
-- the active milestone is v0.14 Agent Factory, beginning with versioned agent
-  and department registry contracts on `feat/v0.14-agent-registry-foundation`;
+- v0.14 Agent Factory is active; the registry foundation is merged through
+  PR #47 at `8609ee583513f24d312785b7158a90d40a8458ef`;
+- the active slice persists project-bound agent instances, lifecycle state,
+  append-only lifecycle events and bounded Project + Agent memory context on
+  `feat/v0.14-agent-lifecycle-project-binding`;
+- parent-child delegation and generic agent execution remain future v0.14
+  slices and must not be enabled by this persistence work;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 

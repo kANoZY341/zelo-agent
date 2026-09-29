@@ -36,47 +36,54 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Agent registry foundation
+## Active increment: v0.14 Agent lifecycle and project binding
+
+The v0.14 registry foundation is merged through PR #47 at:
+
+`8609ee583513f24d312785b7158a90d40a8458ef`
 
 The active branch is:
 
-`feat/v0.14-agent-registry-foundation`
+`feat/v0.14-agent-lifecycle-project-binding`
 
-This is the first bounded slice of v0.14 Agent Factory. It introduces trusted,
-versioned identity contracts before generic agent execution is enabled:
+This second bounded Agent Factory slice turns trusted AgentSpec templates into
+durable Core-owned instances without adding generic agent execution.
 
-- frozen `AgentSpec` templates;
-- frozen `DepartmentSpec` records;
-- deterministic registry fingerprints;
-- explicit `draft` / `active` / `retired` lifecycle state;
-- manager/producer department assignments;
-- canonical agent memory namespaces;
-- worker-neutral role/capability requirements;
-- task/tool/permission/procedure upper bounds;
-- review and bounded lifecycle metadata;
-- fail-closed activation validation;
-- exact registry bindings for later execution snapshots;
-- built-in Coding and Research templates describing the existing specialist
-  runtimes without replacing their current task paths.
+Current slice behavior:
 
-The parked `feat/v1.0-agent-factory` experiment was inspected for compatible
-patterns only. It diverged from the v0.10 baseline and is not being merged.
+- create a project-bound instance from only a trusted active `agent_id` and
+  existing active `project_id`;
+- persist the exact AgentSpec snapshot, agent version and registry fingerprint;
+- keep agent identity, spec snapshot and Project binding immutable;
+- explicit `active` / `paused` / terminal `retired` lifecycle;
+- fail closed when a stale persisted registry/spec snapshot attempts to resume;
+- append-only lifecycle event history with database-enforced sequence/order rules;
+- database-enforced valid lifecycle transitions and no instance deletion;
+- per-Project live-instance limits checked inside the serialized write transaction;
+- bounded read-only memory context composed only from the owning Project scope and
+  stable specialist Agent scope;
+- no implicit personal-memory, other-Project or other-Agent contamination.
 
-This slice does not add a task kind, database migration, persisted agent
-instances, recursive subagents, dynamic prompt-created agents, new tools,
-worker authority, automatic memory writes, or agent-owned approval/release
-authority.
+Migration `0020_agent_instances` adds `agent_instances` and
+`agent_instance_events`.
+
+Authenticated management/inspection routes are under `/agents`. They do not
+execute Coding, Research or worker tasks in this slice.
+
+This slice does not add generic Agent Factory task execution, parent-child
+delegation, recursive subagents, manager runtime behavior, agent-to-agent
+messaging, dynamic/model-authored AgentSpecs, automatic memory writes, new tools,
+new worker authority or approval/budget/promotion/release bypasses.
 
 ## v0.14 planned continuation
 
-After the registry foundation is verified and merged:
+After lifecycle/project binding is verified and merged:
 
-1. persisted agent instances and lifecycle transitions;
-2. project binding and project-scoped memory assembly;
-3. explicit bounded parent-child delegation contracts;
-4. Coding/Research execution through the generic agent identity layer;
-5. bounded subagent creation with budgets and depth limits;
-6. activation/evaluation gates before adding more specialist templates.
+1. explicit bounded parent-child delegation contracts;
+2. Project/Campaign budget and depth binding for delegation;
+3. Coding/Research execution through generic agent identity snapshots;
+4. bounded subagent creation under Core-owned limits;
+5. activation/evaluation gates before additional specialist templates.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.
