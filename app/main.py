@@ -15,7 +15,7 @@ from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.config import ROOT, Settings
 from app.context import ContextResolver
-from app.database import Database
+from app.storage import build_storage
 from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
@@ -64,7 +64,7 @@ def create_app(
         if configuration.operator_token is None:
             raise RuntimeError("Set ZELO_OPERATOR_TOKEN before starting Zelo")
         configure_logging()
-        database = Database(configuration.database_path)
+        database = build_storage(configuration)
         runner = None
         scheduler = None
         try:
@@ -157,6 +157,7 @@ def create_app(
                 self_improvement_runtime,
                 research_runtime=research_runtime,
             )
+            application.state.storage = database
             application.state.database = database
             application.state.tasks = tasks
             application.state.projects = projects
