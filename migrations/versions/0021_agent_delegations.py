@@ -130,7 +130,8 @@ def upgrade() -> None:
         CREATE TRIGGER agent_delegations_status_transition_guard
         BEFORE UPDATE ON agent_delegations
         FOR EACH ROW
-        WHEN NOT (
+        WHEN NEW.status <> OLD.status
+         AND NOT (
             (OLD.status = 'active' AND NEW.status = 'revoked'
              AND NEW.revoked_at IS NOT NULL)
             OR (OLD.status = 'revoked' AND NEW.status = 'revoked'
