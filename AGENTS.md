@@ -82,9 +82,6 @@ Rules for this slice:
 - do not automatically write memories from conversations;
 - do not add embeddings/vector search, model-decided retention, Agent Factory,
   new execution authority, approval bypasses, or merge/release authority;
-- do not spend connected Codex review quota on this slice unless the operator
-  explicitly asks.
-
 Later v0.13 slices cover worker/model performance and cost evidence, then storage
 abstraction for future backend swaps.
 
