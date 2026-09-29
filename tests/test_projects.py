@@ -85,10 +85,10 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert envelope["purpose"] == "factual_project_context"
     sources = {item["source"]: item for item in envelope["sources"]}
     assert "docs/zelo-project-status.md#active" in sources
-    assert "docs/zelo-canonical-architecture-roadmap.md#v0.12" in sources
+    assert "docs/zelo-canonical-architecture-roadmap.md#v0.13" in sources
     assert "core.projects" in sources
     assert (
-        "Active increment: v0.12 Release preparation"
+        "Active increment: v0.13 Memory foundation"
         in sources["docs/zelo-project-status.md#active"]["content"]
     )
     assert "Early Zelo Chat" not in sources["docs/zelo-project-status.md#active"]["content"]
@@ -105,7 +105,7 @@ def test_context_budget_is_enforced_after_unicode_serialization(database, tmp_pa
         encoding="utf-8",
     )
     (docs / "zelo-canonical-architecture-roadmap.md").write_text(
-        "### v0.12 — Durable goals and first useful campaign\n\n" + ("é" * 5000),
+        "### v0.13 — Memory, context and evidence\n\n" + ("é" * 5000),
         encoding="utf-8",
     )
 
