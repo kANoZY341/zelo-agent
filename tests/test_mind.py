@@ -458,6 +458,7 @@ def test_direct_conversation_persists_identity_and_history(settings, database):
         assert "customer-support bot" in first_request.system_prompt
         assert "Do not automatically end replies" in first_request.system_prompt
         assert "Avoid repeating stock phrases" in first_request.system_prompt
+        assert "prefer canonical" in first_request.system_prompt
         assert "$defs" not in first_request.system_prompt
         assert len(first_request.system_prompt) < 1200
         assert first_request.output_schema is not None
