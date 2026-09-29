@@ -1,6 +1,7 @@
 """Application configuration loaded from the environment and local .env file."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Zelo Agent", min_length=1)
     operator_token: SecretStr | None = None
     runtime_dir: Path = ROOT / "runtime"
+    storage_backend: Literal["sqlite"] = "sqlite"
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
