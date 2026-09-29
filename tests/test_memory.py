@@ -371,6 +371,15 @@ def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):
     assert response.json()["items"] == []
 
 
+def test_retrieval_rejects_blank_query(client):
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "   ", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 422
+
+
 def test_memory_routes_require_operator_auth(client):
     client.headers.pop("Authorization")
     response = client.get("/memories", params={"scope_kind": "personal"})
