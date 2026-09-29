@@ -60,6 +60,17 @@ def upgrade() -> None:
 
     op.execute(
         """
+        CREATE TRIGGER memory_records_existing_id_guard
+        BEFORE INSERT ON memory_records
+        FOR EACH ROW
+        WHEN EXISTS (SELECT 1 FROM memory_records WHERE id = NEW.id)
+        BEGIN
+            SELECT RAISE(ABORT, 'Memory record id already exists');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER memory_records_project_scope_guard
         BEFORE INSERT ON memory_records
         FOR EACH ROW
