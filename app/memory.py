@@ -75,6 +75,8 @@ def _memory_terms(value: str) -> tuple[str, ...]:
             continue
         seen.add(raw)
         terms.append(raw)
+        if len(terms) >= 32:
+            break
     return tuple(terms)
 
 
