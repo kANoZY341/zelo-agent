@@ -5,7 +5,6 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.storage import SessionStore
 from app.models import (
     Campaign,
     CampaignCheckpoint,
@@ -26,6 +25,7 @@ from app.schemas import (
     CampaignPage,
     CampaignResponse,
 )
+from app.storage import SessionStore
 
 CHECKPOINT_MAX_CHARS = 65536
 
