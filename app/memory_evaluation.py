@@ -157,10 +157,7 @@ def memory_evaluation_evidence(report: MemoryEvaluationReport) -> dict:
             {
                 "name": result.name,
                 "query": result.query,
-                "scopes": [
-                    {"kind": kind, "id": scope_id}
-                    for kind, scope_id in result.scopes
-                ],
+                "scopes": [{"kind": kind, "id": scope_id} for kind, scope_id in result.scopes],
                 "limit": result.limit,
                 "retrieval": result.retrieval,
                 "candidate_count": result.candidate_count,
