@@ -37,9 +37,11 @@ class SessionStore(Protocol):
 
     def transaction(self) -> AbstractContextManager[Session]:
         """Open one write transaction with backend-appropriate serialization."""
+        ...
 
     def read(self) -> AbstractContextManager[Session]:
         """Open one read-only service session."""
+        ...
 
 
 @runtime_checkable
@@ -50,12 +52,15 @@ class CoreStorage(SessionStore, Protocol):
 
     def acquire_runner(self) -> None:
         """Acquire the backend's exclusive runner-ownership boundary."""
+        ...
 
     def check_schema(self) -> None:
         """Verify the configured storage schema is current."""
+        ...
 
     def close(self) -> None:
         """Release backend resources and runner ownership."""
+        ...
 
 
 def build_storage(settings: Settings) -> CoreStorage:
