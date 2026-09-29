@@ -418,6 +418,80 @@ class ProjectPage(StrictModel):
     total: int = Field(ge=0)
 
 
+MemoryScopeKind = Literal["personal", "project", "agent"]
+MemoryKind = Literal["fact", "preference", "decision", "experience"]
+MemoryProvenanceKind = Literal[
+    "operator",
+    "conversation_turn",
+    "task",
+    "project",
+    "agent",
+    "import",
+]
+MemoryReplacementKind = Literal["correction", "supersession"]
+MemoryStatus = Literal["active", "expired", "corrected", "superseded"]
+
+
+class MemoryScope(StrictModel):
+    kind: MemoryScopeKind
+    id: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "MemoryScope":
+        if self.kind == "personal" and self.id is not None:
+            raise ValueError("personal memory scope cannot set id")
+        if self.kind != "personal" and self.id is None:
+            raise ValueError(f"{self.kind} memory scope requires id")
+        return self
+
+
+class MemoryProvenance(StrictModel):
+    kind: MemoryProvenanceKind
+    ref: str | None = Field(default=None, min_length=1, max_length=256)
+    note: str = Field(default="", max_length=1024)
+
+
+class MemoryCreate(StrictModel):
+    scope: MemoryScope
+    kind: MemoryKind
+    content: str = Field(min_length=1, max_length=8192)
+    provenance: MemoryProvenance
+    expires_at: datetime | None = None
+    replaces_id: TaskId | None = None
+    replacement_kind: MemoryReplacementKind | None = None
+
+    @model_validator(mode="after")
+    def validate_replacement(self) -> "MemoryCreate":
+        if self.expires_at is not None and (
+            self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None
+        ):
+            raise ValueError("expires_at must include a timezone")
+        if (self.replaces_id is None) != (self.replacement_kind is None):
+            raise ValueError("replaces_id and replacement_kind must be set together")
+        return self
+
+
+class MemoryResponse(StrictModel):
+    id: TaskId
+    scope: MemoryScope
+    kind: MemoryKind
+    content: str = Field(min_length=1, max_length=8192)
+    provenance: MemoryProvenance
+    expires_at: datetime | None = None
+    replaces_id: TaskId | None = None
+    replacement_kind: MemoryReplacementKind | None = None
+    replaced_by_id: TaskId | None = None
+    status: MemoryStatus
+    created_at: datetime
+
+
+class MemoryPage(StrictModel):
+    items: list[MemoryResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
 class GoalSpec(StrictModel):
     objective: str = Field(min_length=1, max_length=2048)
     success_criteria: list[GoalText] = Field(default_factory=list, max_length=16)
