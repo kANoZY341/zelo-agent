@@ -1,13 +1,16 @@
 """Baseline quality and contamination evaluation for v0.13 memory."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.memory_evaluation import (
+    MEMORY_EVALUATION_SCHEMA,
     MemoryEvaluationCase,
     evaluate_memory_case,
     evaluate_memory_suite,
+    memory_evaluation_evidence,
 )
 from app.policy import DomainError
 from app.schemas import MemoryScope
@@ -155,6 +158,13 @@ def test_memory_baseline_evaluation_suite_has_exact_recall_and_zero_contaminatio
     assert all(result.recall == 1.0 for result in report.cases)
     assert all(result.retrieval == "bounded_lexical_v1" for result in report.cases)
     assert all(result.candidate_count >= len(result.actual_ids) for result in report.cases)
+
+    evidence = memory_evaluation_evidence(report)
+    assert evidence["schema"] == MEMORY_EVALUATION_SCHEMA
+    assert evidence["passed"] is True
+    assert evidence["cases"][0]["actual_ids"] == [corrected["id"]]
+    assert evidence["cases"][0]["expected_ids"] == [corrected["id"]]
+    json.dumps(evidence, ensure_ascii=False, allow_nan=False)
 
 
 def test_memory_evaluation_detects_forbidden_and_unexpected_retrieval(client):
