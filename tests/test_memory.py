@@ -370,6 +370,19 @@ def test_retrieval_is_bounded_and_rejects_duplicate_scopes(client):
     )
     assert duplicate.status_code == 422
 
+    duplicate_agent = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "retrieval evidence",
+            "scopes": [
+                {"kind": "agent", "id": "research"},
+                {"kind": "agent", "id": " research "},
+            ],
+        },
+    )
+    assert duplicate_agent.status_code == 422
+
 
 def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):
     _create_personal(client, "A memory that should not be scanned for empty intent.")
