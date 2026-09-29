@@ -58,6 +58,25 @@ def upgrade() -> None:
     op.create_index("ix_memory_records_kind", "memory_records", ["kind"])
     op.create_index("ix_memory_records_expires_at", "memory_records", ["expires_at"])
 
+    op.execute(
+        """
+        CREATE TRIGGER memory_records_project_scope_guard
+        BEFORE INSERT ON memory_records
+        FOR EACH ROW
+        WHEN NEW.scope_kind = 'project'
+         AND NOT EXISTS (SELECT 1 FROM projects WHERE id = NEW.scope_id)
+        BEGIN
+            SELECT RAISE(ABORT, 'Project-scoped memory requires an existing Project');
+        END
+        """
+    )
+    for operation in ("UPDATE", "DELETE"):
+        op.execute(
+            f"CREATE TRIGGER memory_records_no_{operation.lower()} "
+            f"BEFORE {operation} ON memory_records "
+            "BEGIN SELECT RAISE(ABORT, 'Memory records are append-only'); END"
+        )
+
 
 def downgrade() -> None:
     raise RuntimeError("Destructive downgrade is disabled; restore a reviewed backup instead")
