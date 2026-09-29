@@ -317,3 +317,58 @@ def test_memory_records_are_database_append_only_and_project_scope_is_guarded(da
             )
             == "Immutable memory"
         )
+
+
+    with database.transaction() as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO projects (
+                    id, name, summary, status, created_at, updated_at
+                ) VALUES (
+                    '00000000-0000-0000-0000-000000000093',
+                    'Memory scope project',
+                    '',
+                    'active',
+                    '2026-09-29 00:00:00',
+                    '2026-09-29 00:00:00'
+                )
+                """
+            )
+        )
+
+    with pytest.raises(IntegrityError, match="same scope"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO memory_records (
+                        id, scope_kind, scope_id, kind, content,
+                        provenance_kind, provenance_note, replaces_id,
+                        replacement_kind, created_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-000000000094',
+                        'project',
+                        '00000000-0000-0000-0000-000000000093',
+                        'fact',
+                        'Cross-scope replacement',
+                        'operator',
+                        '',
+                        '00000000-0000-0000-0000-000000000092',
+                        'correction',
+                        '2026-09-29 00:02:00'
+                    )
+                    """
+                )
+            )
+
+    with database.read() as session:
+        assert (
+            session.scalar(
+                text(
+                    "SELECT COUNT(*) FROM memory_records "
+                    "WHERE replaces_id='00000000-0000-0000-0000-000000000092'"
+                )
+            )
+            == 0
+        )
