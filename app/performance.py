@@ -1,8 +1,8 @@
 """Read-only worker/model performance and reported-cost evidence for v0.13."""
 
+import math
 from collections import defaultdict
 from collections.abc import Iterable
-import math
 from typing import Any
 
 from sqlalchemy import select
