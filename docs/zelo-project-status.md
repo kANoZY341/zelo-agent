@@ -8,19 +8,15 @@ in `docs/zelo-workspace-decision.md`.
 
 ## Published release
 
-- Zelo Core v0.11.0 — Self-Improvement Seed remains the latest published release
-  until the v0.12 release-prep gate is merged and tagged.
-- v0.11.0 release commit:
-  `b2c4a7d13fd8e64c6badfbae89d2a29629fd3c12`.
-- Release tag: `v0.11.0`.
+- Zelo Core v0.12.0 — Durable Goals and Bounded Autonomy is published.
+- Release commit:
+  `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
+- Release tag: `v0.12.0`.
+- GitHub Release published on 29 September 2026.
 
-## v0.12 release candidate — implementation complete
+## v0.12 released behavior
 
-The v0.12 implementation is complete on `main`.
-
-Current main commit:
-
-`7f72f8191a1b235e683bde6eaeef65281495f04b`
+The v0.12 implementation is complete and released from the commit above.
 
 The milestone now includes:
 
@@ -69,8 +65,7 @@ This first v0.13 slice is intentionally narrow:
 - no embeddings or vector database;
 - no Agent Factory or new execution authority.
 
-The GitHub `v0.12.0` tag/release publication remains a separate release
-operation. Repository version metadata is already `0.12.0`.
+The repository baseline, tag and GitHub Release all now identify `v0.12.0`.
 
 ## Later v0.13 slices
 
