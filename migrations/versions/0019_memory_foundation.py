@@ -44,8 +44,7 @@ def upgrade() -> None:
             name="ck_memory_record_kind",
         ),
         sa.CheckConstraint(
-            "provenance_kind IN "
-            "('operator','conversation_turn','task','project','agent','import')",
+            "provenance_kind IN ('operator','conversation_turn','task','project','agent','import')",
             name="ck_memory_record_provenance_kind",
         ),
         sa.CheckConstraint(
