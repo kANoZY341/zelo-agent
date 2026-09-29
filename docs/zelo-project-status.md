@@ -41,39 +41,37 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.13 Worker/model performance and cost evidence
+## Active increment: v0.13 Storage abstraction
 
-The third v0.13 memory evaluation/contamination slice merged to `main` at:
+The fourth v0.13 performance/cost evidence slice merged to `main` at:
 
-`0ac35db90445a0a97201d584710faed90b7b6633`
+`25bb6f1c5cba5da0b0a416cc465eced9058f966e`
 
 The active implementation branch is:
 
-`feat/v0.13-performance-cost-evidence`
+`feat/v0.13-storage-abstraction`
 
-This fourth v0.13 slice adds read-only evidence derived from existing Core state:
+This final v0.13 slice introduces a Zelo-owned storage boundary:
 
-- Zelo Mind turn model identity and reported token usage;
-- model-task attempt identity, outcome, duration and reported token usage;
-- developer worker identity/version/config, outcome, duration and reported usage;
-- independent reviewer worker evidence when already persisted in developer results;
-- per-model and per-worker summaries;
-- explicit succeeded/failed/other outcome counts;
-- bounded source records with exact IDs;
-- an authenticated `GET /performance/evidence` surface;
-- explicit monetary-cost status when current providers/workers report no price.
+- `SessionStore` for Core service read/write sessions;
+- `CoreStorage` for schema, runner ownership, descriptor and lifecycle;
+- backend selection through `build_storage(settings)`;
+- explicit `ZELO_STORAGE_BACKEND` configuration;
+- the existing SQLite implementation as the only enabled v0.13 adapter;
+- backend metadata declaring relational support and no vector-search support;
+- tests proving Core service behavior through the interface rather than the
+  concrete `Database` type.
 
-The evidence layer does **not** estimate token prices or invent monetary spend.
-Current sources expose usage/timing but not monetary billing data, so monetary cost
-is reported as unavailable/not reported.
+SQLite semantics remain unchanged. The slice does not migrate data, add a
+Postgres/Supabase driver, add vector retrieval, or change Core authority.
 
-The slice does not change worker/model routing, execution authority, approvals,
-merge/release policy, or memory retention.
+## v0.13 completion path
 
-## Remaining v0.13 slice
+After storage abstraction is verified and merged:
 
-After performance/cost evidence is verified:
-
-1. storage abstraction for future Postgres/Supabase/vector backends.
+1. prepare the v0.13 release;
+2. run the full release gates;
+3. publish v0.13;
+4. only then start v0.14 Agent Factory.
 
 Do not advance into v0.14 Agent Factory work from this branch.

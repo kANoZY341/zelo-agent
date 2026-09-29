@@ -55,40 +55,38 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Worker/model performance and cost evidence
+## Current scope: v0.13 Storage abstraction
 
 Zelo Core v0.12.0 is published from `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
-The first three v0.13 slices are merged on `main`:
+The first four v0.13 slices are merged on `main`:
 
 - Memory foundation: `e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`;
 - bounded retrieval/context: `22f9ff24070ead799511657b656463bdaef54f2a`;
-- memory evaluation/contamination: `0ac35db90445a0a97201d584710faed90b7b6633`.
+- memory evaluation/contamination: `0ac35db90445a0a97201d584710faed90b7b6633`;
+- worker/model performance and cost evidence:
+  `25bb6f1c5cba5da0b0a416cc465eced9058f966e`.
 
-The active slice is **worker/model performance and cost evidence**. Build a
-read-only evidence layer over already-persisted Core task, attempt, conversation,
-model-usage and developer-worker records so later routing and workspace views can
-compare observed outcomes without inventing data.
+The active and final v0.13 slice is **storage abstraction**. Introduce a
+Zelo-owned backend-neutral persistence contract while preserving current SQLite
+behavior exactly.
 
 Rules for this slice:
 
-- derive evidence only from authoritative persisted Core records;
-- expose exact source/attempt IDs and model/worker identity where already stored;
-- preserve reported token/usage counters and observed durations;
-- distinguish succeeded, failed and other terminal outcomes;
-- never estimate or fabricate monetary prices when providers/workers did not
-  report a monetary cost;
-- make monetary cost unavailability explicit rather than treating token counts
-  as currency;
-- do not persist prompts, replies, diffs, worker summaries or other private
-  payload contents into the evidence response;
-- keep the evidence API authenticated, bounded and read-only;
-- do not use evidence to auto-route workers/models yet; v0.18 owns
-  evidence-based routing;
-- do not add automatic memory writes, Agent Factory, approval bypasses or new
-  merge/release authority.
+- Core services depend on a minimal transactional session-store contract rather
+  than SQLite-specific implementation details;
+- application assembly selects storage through a Zelo-owned factory;
+- SQLite remains the only enabled backend in v0.13;
+- preserve current SQLite privacy, WAL, foreign-key, transaction, migration and
+  single-runner guarantees;
+- configuration must fail closed rather than pretending an unimplemented
+  Postgres, Supabase or vector backend exists;
+- do not migrate data or add Postgres/Supabase/vector dependencies in this slice;
+- do not change memory retrieval, automatic memory retention, routing, task,
+  approval, scheduler, budget, merge or release authority;
+- do not begin v0.14 Agent Factory work from this branch.
 
-The remaining v0.13 slice is storage abstraction for future
-Postgres/Supabase/vector backends.
+After this slice is verified and merged, v0.13 implementation is complete and
+the next step is v0.13 release preparation.
 
 ## Workspace decision
 

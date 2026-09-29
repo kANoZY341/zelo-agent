@@ -2,14 +2,14 @@
 
 from sqlalchemy import func, select
 
-from app.database import Database
 from app.models import Goal, Project, utcnow
 from app.policy import DomainError
 from app.schemas import GoalCreate, GoalResponse, ProjectCreate, ProjectResponse
+from app.storage import SessionStore
 
 
 class ProjectService:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: SessionStore) -> None:
         self.database = database
 
     @staticmethod

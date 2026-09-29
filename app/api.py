@@ -32,9 +32,9 @@ def root(request: Request) -> RootResponse:
 def health(request: Request, response: Response) -> HealthResponse:
     """Readiness without paths, credentials, or configuration in the response."""
     try:
-        database = request.app.state.database
-        database.check_schema()
-        with database.read() as session:
+        storage = request.app.state.storage
+        storage.check_schema()
+        with storage.read() as session:
             session.execute(text("SELECT 1"))
         if not request.app.state.runner.ready:
             raise RuntimeError("Runner unavailable")
