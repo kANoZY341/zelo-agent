@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.projects import ProjectService
 from app.schemas import ProjectCreate
-from app.storage import CoreStorage, SQLITE_STORAGE, SessionStore, build_storage
+from app.storage import SQLITE_STORAGE, CoreStorage, SessionStore, build_storage
 
 
 class DelegatingSessionStore:
