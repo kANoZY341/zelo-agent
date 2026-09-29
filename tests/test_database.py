@@ -44,6 +44,8 @@ def test_migration_from_empty_database(settings) -> None:
             "campaign_schedule_continuations",
             "campaign_schedule_runs",
             "memory_records",
+            "agent_instances",
+            "agent_instance_events",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
@@ -71,6 +73,7 @@ def test_migration_from_empty_database(settings) -> None:
         "0007_merge_approval",
         "0008_release_approval",
         "0016_scheduler_wakes",
+        "0019_memory_foundation",
     ],
 )
 def test_migration_preserves_foreign_key_dependents(settings, starting_revision) -> None:
