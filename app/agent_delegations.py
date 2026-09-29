@@ -281,15 +281,19 @@ class AgentDelegationService:
             if item.status == "revoked":
                 return self._response(item)
 
+            now = utcnow()
             item.status = "revoked"
-            item.revoked_at = utcnow()
+            item.revoked_at = now
             item.revocation_reason = body.reason.strip()
             session.flush()
-            response = self._response(item)
 
-        # Release unused capacity through the existing campaign budget authority.
-        self.campaign_controls.release_budget(
-            response.campaign_id,
-            response.budget_reservation_id,
-        )
-        return response
+            # Keep delegation revocation and unused-budget release atomic. The
+            # Campaign control service remains the authority for reservation mutation.
+            self.campaign_controls.release_delegation_budget(
+                session,
+                item.campaign_id,
+                item.budget_reservation_id,
+                now=now,
+            )
+            session.flush()
+            return self._response(item)
