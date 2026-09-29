@@ -476,6 +476,68 @@ class AgentInstanceEventPage(StrictModel):
     total: int = Field(ge=0)
 
 
+AgentDelegationStatus = Literal["active", "revoked"]
+
+
+class AgentDelegationCreate(StrictModel):
+    child_instance_id: TaskId
+    campaign_id: TaskId
+    budget_reservation_id: TaskId
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    objective: str = Field(min_length=1, max_length=2048)
+    allowed_task_kinds: list[str] = Field(min_length=1, max_length=16)
+    required_capabilities: list[str] = Field(min_length=1, max_length=32)
+    max_depth: int = Field(default=1, ge=1, le=4)
+    budget_resource: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_.:-]{0,63}$",
+    )
+    budget_units: int = Field(ge=1, le=1_000_000_000_000_000)
+
+    @model_validator(mode="after")
+    def validate_canonical_lists(self) -> "AgentDelegationCreate":
+        for field in ("allowed_task_kinds", "required_capabilities"):
+            value = getattr(self, field)
+            if value != sorted(set(value)):
+                raise ValueError(f"{field} must be sorted and unique")
+        if not self.objective.strip():
+            raise ValueError("objective cannot be blank")
+        return self
+
+
+class AgentDelegationRevoke(StrictModel):
+    reason: str = Field(min_length=1, max_length=512)
+
+
+class AgentDelegationResponse(StrictModel):
+    id: TaskId
+    parent_instance_id: TaskId
+    child_instance_id: TaskId
+    campaign_id: TaskId
+    budget_reservation_id: TaskId
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    objective: str = Field(min_length=1, max_length=2048)
+    allowed_task_kinds: list[str] = Field(min_length=1, max_length=16)
+    required_capabilities: list[str] = Field(min_length=1, max_length=32)
+    depth: int = Field(ge=1, le=4)
+    max_depth: int = Field(ge=1, le=4)
+    budget_resource: str = Field(min_length=1, max_length=64)
+    budget_units: int = Field(ge=1)
+    status: AgentDelegationStatus
+    created_at: datetime
+    revoked_at: datetime | None = None
+    revocation_reason: str | None = Field(default=None, max_length=512)
+
+
+class AgentDelegationPage(StrictModel):
+    items: list[AgentDelegationResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
 MemoryScopeKind = Literal["personal", "project", "agent"]
 MemoryKind = Literal["fact", "preference", "decision", "experience"]
 MemoryProvenanceKind = Literal[
