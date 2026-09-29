@@ -151,29 +151,36 @@ local adapter and can be replaced later without changing Mind, Core,
 conversations, tasks, approvals, or the Workspace turn contract. Raw microphone
 audio is handled transiently and is not persisted by this slice.
 
-## v0.13 Memory foundation
+## v0.13 Memory and bounded retrieval
 
-The in-development v0.13 foundation adds an authenticated, immutable memory
-record store owned by Core. This first slice does **not** automatically remember
-conversation content or inject stored memory into Mind prompts.
+v0.13 starts from an authenticated, immutable memory record store owned by Core.
+Memory scopes are explicit: `personal`, `project`, or `agent`. Project scope
+IDs must resolve to an existing Core Project; agent scope IDs remain namespace
+keys until Agent Factory arrives in v0.14. Records carry typed provenance,
+optional expiry, and append-only correction/supersession history.
 
 Authenticated endpoints:
 
 ```text
 POST /memories
+POST /memories/retrieve
 GET  /memories?scope_kind=personal
 GET  /memories/{memory_id}
 ```
 
-Memory scopes are explicit: `personal`, `project`, or `agent`. Project scope
-IDs must resolve to an existing Core Project; agent scope IDs are namespace keys
-until Agent Factory arrives in v0.14. Records carry typed provenance and optional
-expiry. Corrections and supersessions are append-only replacement records, so
-history is preserved rather than edited in place. Default list reads return only
-active records; `include_inactive=true` includes expired and replaced history.
+`POST /memories/retrieve` is deterministic and bounded. The request supplies a
+query plus explicit scopes. Retrieval considers only active records, uses bounded
+lexical matching, returns bounded snippets and preserves scope/provenance. It does
+not use embeddings or a vector backend.
 
-There is no embedding/vector backend, automatic retention policy, or memory-to-Mind
-retrieval in this first slice.
+Talk-to-Zelo may now receive relevant **personal** memory through the existing
+`zelo_context` tool envelope. This context is marked `instruction_trust: none`
+and is excluded from Core task construction. Project and agent memories are not
+automatically injected until a future conversation/project binding gives Core an
+explicit scope. They remain available through explicit retrieval requests.
+
+There are still no automatic memory writes from conversation, model-decided
+retention rules, embeddings/vector search, or Agent Factory behavior.
 
 
 ## Fixed Research specialist
