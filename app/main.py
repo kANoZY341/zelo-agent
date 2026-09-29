@@ -8,9 +8,9 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.agent import AgentRuntime
+from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
 from app.agent_instance_api import router as agent_instance_router
 from app.agent_instances import AgentInstanceService
-from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
 from app.api import router
 from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
