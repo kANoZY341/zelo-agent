@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from app.database import Database
+from app.storage import SessionStore
 from app.models import MemoryRecord, Project, utcnow
 from app.policy import DomainError
 from app.schemas import (
@@ -108,7 +108,7 @@ class MemoryService:
 
     def __init__(
         self,
-        database: Database,
+        database: SessionStore,
         *,
         clock: Callable[[], datetime] = utcnow,
     ) -> None:
