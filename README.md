@@ -1,12 +1,12 @@
-# Zelo Core v0.11.0 — Self-Improvement Seed
+# Zelo Core v0.12.0 — Durable Goals and Bounded Autonomy
 
-A small, modular foundation for Zelo Agent. It currently provides a FastAPI
-application, durable task execution, approvals, a localhost-only Ollama model
-gateway, native read-only tools, a bounded Agent Runtime, an approved
-Developer Runtime, an approval-bound Review & Promotion Runtime, and a trusted
-worker registry with deterministic supervisor routing, enforceable worker authority, bounded
-multi-worker developer execution, a one-cycle approval-gated self-improvement runtime,
-and the in-development persistent Talk-to-Zelo conversation contract.
+Zelo Core is the trusted local authority and execution runtime for Zelo. v0.12
+builds on the v0.11 self-improvement seed with persistent Talk-to-Zelo
+conversation, Project/Goal/Campaign ownership, leases and shared budgets,
+bounded scheduling and Mind wake cycles, completion-aware continuation, a fixed
+Research specialist, Core-backed Workspace project/progress views, and local
+push-to-talk voice. Existing worker authority, approvals, validation, promotion,
+and merge/release boundaries remain in force.
 
 ## Setup
 
@@ -39,7 +39,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.11.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.12.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -82,8 +82,8 @@ text and non-secret usage/timing metadata are persisted.
 
 ## Early Talk to Zelo
 
-The post-v0.11 workspace increment adds a persistent Zelo Mind text surface
-without creating a parallel execution system. Conversation may answer directly
+v0.12 includes a persistent Zelo Mind text surface without creating a parallel
+execution system. Conversation may answer directly
 or request one allowlisted typed Core task. Core still owns validation,
 idempotency, approvals, execution, task state, and results.
 

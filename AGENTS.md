@@ -55,33 +55,25 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 Bounded autonomous continuation
+## Current scope: v0.12 release preparation
 
-The released base remains Zelo Core v0.11.0. The v0.12 durable-goals/campaign
-milestone has already landed its Project/Goal/Campaign ownership, Campaign
-controls, bounded scheduler/Mind wake cycles, fixed Research specialist, workspace
-project/progress projection, Workspace hardening, and local push-to-talk voice.
+The v0.12 implementation is complete on `main` at
+`7f72f8191a1b235e683bde6eaeef65281495f04b`. The milestone includes durable
+Project/Goal/Campaign ownership, Campaign controls, leases and shared budgets,
+bounded scheduler/Mind wake cycles, the fixed Research specialist, Core-backed
+Workspace project/progress views, Workspace hardening, local push-to-talk voice,
+and bounded autonomous continuation.
 
-PR #37 merged the push-to-talk local voice slice into `main` at
-`00039a4a0ec513bc0d394809bc9e994d61854e8f`. Voice remains an I/O adapter over
-the same conversation/action contracts and is not changed by this slice.
+This slice is release preparation only: align version metadata and repository
+status/documentation, run the full validation gates, and publish `v0.12.0` only
+after the release-prep PR is merged. Do not add new runtime behavior here.
 
-The active slice is **v0.12 Bounded autonomous continuation**. This is a narrow
-refinement of the canonical v0.12 roadmap's existing "limited scheduling and
-bounded Mind wake cycles": an operator-created continuation schedule may wake
-again when the exact Core task created by its prior successful Mind wake reaches a
-terminal state, while retaining the configured cadence as a recovery fallback.
-
-Keep the existing Campaign lease, `mind_wakes` budget, idempotency, Campaign
-ownership, `max_runs`, cancellation, approval, merge and release boundaries
-authoritative. Do not create self-created schedules, a second callback/execution
-authority, approval bypasses, autonomous merge/release, or infer goal completion
-from a plain conversational reply. This slice does not add new project/campaign
-mutation controls; it only refines execution of schedules the authenticated
-operator already created.
-
-Persistent memory remains v0.13, Agent Factory v0.14, broad
-capabilities/external retrieval workers v0.15, and external channels v0.16.
+After the v0.12.0 release, the active milestone becomes **v0.13 — Memory, context
+and evidence**. Start narrowly with typed durable memory records and explicit
+personal/project/agent scopes, provenance, expiry, correction and supersession.
+Do not introduce a vector database, automatic forever-memory policy, Agent
+Factory, broad new worker capabilities, external channels, or new merge/release
+authority in the first memory slice.
 
 ## Workspace decision
 
