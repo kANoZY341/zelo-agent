@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.memory_evaluation import (
     MemoryEvaluationCase,
     evaluate_memory_case,
@@ -150,6 +152,8 @@ def test_memory_baseline_evaluation_suite_has_exact_recall_and_zero_contaminatio
     assert report.unexpected_hits == 0
     assert all(result.precision == 1.0 for result in report.cases)
     assert all(result.recall == 1.0 for result in report.cases)
+    assert all(result.retrieval == "bounded_lexical_v1" for result in report.cases)
+    assert all(result.candidate_count >= len(result.actual_ids) for result in report.cases)
 
 
 def test_memory_evaluation_detects_forbidden_and_unexpected_retrieval(client):
@@ -189,12 +193,30 @@ def test_memory_evaluation_case_requires_explicit_scope_validation(client):
         expected_ids=frozenset(),
     )
 
-    response = client.post(
-        "/memories/retrieve",
-        headers=AUTH,
-        json={
-            "query": case.query,
-            "scopes": [scope.model_dump(mode="json") for scope in case.scopes],
-        },
+    with pytest.raises(Exception, match="Project not found"):
+        evaluate_memory_case(client.app.state.memories, case)
+
+
+def test_memory_evaluation_contract_rejects_ambiguous_cases(client):
+    active = _create_memory(
+        client,
+        content="My favorite interface color is black.",
+        kind="preference",
     )
-    assert response.status_code == 404
+    with pytest.raises(ValueError, match="disjoint"):
+        MemoryEvaluationCase(
+            name="ambiguous",
+            query="favorite interface color",
+            scopes=(MemoryScope(kind="personal"),),
+            expected_ids=frozenset({active["id"]}),
+            forbidden_ids=frozenset({active["id"]}),
+        )
+
+    case = MemoryEvaluationCase(
+        name="duplicate",
+        query="favorite interface color",
+        scopes=(MemoryScope(kind="personal"),),
+        expected_ids=frozenset({active["id"]}),
+    )
+    with pytest.raises(ValueError, match="names must be unique"):
+        evaluate_memory_suite(client.app.state.memories, (case, case))
