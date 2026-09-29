@@ -82,7 +82,7 @@ def create_app(
             memories = MemoryService(database)
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
-            context_resolver = ContextResolver(projects)
+            context_resolver = ContextResolver(projects, memories=memories)
             self_improvement_runtime = SelfImprovementRuntime(
                 RepositoryInspector(ROOT),
                 SelfImprovementPlanner(
