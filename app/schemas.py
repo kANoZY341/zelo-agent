@@ -492,6 +492,43 @@ class MemoryPage(StrictModel):
     total: int = Field(ge=0)
 
 
+class MemoryRetrieveRequest(StrictModel):
+    query: str = Field(min_length=1, max_length=2048)
+    scopes: list[MemoryScope] = Field(
+        default_factory=lambda: [MemoryScope(kind="personal")],
+        min_length=1,
+        max_length=8,
+    )
+    limit: int = Field(default=6, ge=1, le=20)
+
+    @model_validator(mode="after")
+    def validate_scopes(self) -> "MemoryRetrieveRequest":
+        keys = [(scope.kind, scope.id) for scope in self.scopes]
+        if len(keys) != len(set(keys)):
+            raise ValueError("memory retrieval scopes must be unique")
+        return self
+
+
+class MemoryHit(StrictModel):
+    id: TaskId
+    scope: MemoryScope
+    kind: MemoryKind
+    content: str = Field(min_length=1, max_length=1400)
+    content_truncated: bool
+    provenance: MemoryProvenance
+    score: int = Field(ge=1)
+    matched_terms: list[str] = Field(max_length=32)
+    created_at: datetime
+
+
+class MemoryRetrievalResponse(StrictModel):
+    query: str = Field(min_length=1, max_length=2048)
+    items: list[MemoryHit]
+    candidate_count: int = Field(ge=0)
+    limit: int = Field(ge=1, le=20)
+    retrieval: Literal["bounded_lexical_v1"] = "bounded_lexical_v1"
+
+
 class GoalSpec(StrictModel):
     objective: str = Field(min_length=1, max_length=2048)
     success_criteria: list[GoalText] = Field(default_factory=list, max_length=16)
