@@ -11,7 +11,7 @@ from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
 from app.campaign_control import CampaignControlService
 from app.memory import MemoryService
-from app.models import CampaignBudgetReservation, utcnow
+from app.models import utcnow
 from app.policy import DomainError
 from app.schemas import (
     AgentDelegationCreate,
@@ -378,7 +378,11 @@ def test_expired_bound_budget_revokes_delegation_atomically(database, client):
     project, _goal, campaign = create_project_goal_campaign(client)
     parent_spec = spec("manager", allow_subagents=True, max_subagents=2)
     child_spec = spec("producer")
-    instances, controls, delegations = services(database, parent_spec, child_spec)
+    factory = AgentFactory(AgentRegistry((parent_spec, child_spec)))
+    instances = AgentInstanceService(database, factory, MemoryService(database))
+    current = {"value": utcnow()}
+    controls = CampaignControlService(database, clock=lambda: current["value"])
+    delegations = AgentDelegationService(database, factory, controls)
     parent = create_instance(instances, "manager", project["id"])
     child = create_instance(instances, "producer", project["id"])
     reservation = reserve(controls, campaign["id"], parent.id, key="budget:expiry")
@@ -387,11 +391,7 @@ def test_expired_bound_budget_revokes_delegation_atomically(database, client):
         request(child.id, campaign["id"], reservation.id, key="delegate:expiry"),
     )
 
-    with database.transaction() as session:
-        stored = session.get(CampaignBudgetReservation, reservation.id)
-        assert stored is not None
-        stored.expires_at = utcnow() - timedelta(seconds=1)
-
+    current["value"] = current["value"] + timedelta(hours=2)
     recovered = controls.recover_expired(campaign["id"])
     assert recovered.expired_budget_reservations == 1
 
