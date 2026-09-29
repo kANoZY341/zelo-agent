@@ -104,6 +104,8 @@ def _worker_usage(raw: Any) -> dict[str, int]:
     for key in (
         "input_tokens",
         "cached_input_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
         "output_tokens",
         "prompt_tokens",
         "completion_tokens",
@@ -294,7 +296,18 @@ class PerformanceEvidenceService:
                     cached_input_tokens=sum(
                         item.usage.get("cached_input_tokens", 0) for item in items
                     ),
+                    cache_creation_input_tokens=sum(
+                        item.usage.get("cache_creation_input_tokens", 0) for item in items
+                    ),
+                    cache_read_input_tokens=sum(
+                        item.usage.get("cache_read_input_tokens", 0) for item in items
+                    ),
                     output_tokens=sum(item.usage.get("output_tokens", 0) for item in items),
+                    prompt_tokens=sum(item.usage.get("prompt_tokens", 0) for item in items),
+                    completion_tokens=sum(
+                        item.usage.get("completion_tokens", 0) for item in items
+                    ),
+                    total_tokens=sum(item.usage.get("total_tokens", 0) for item in items),
                     duration_observations=len(durations),
                     duration_seconds=sum(durations),
                     validation_passes=sum(item.validation_passed is True for item in items),
