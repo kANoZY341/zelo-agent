@@ -7,7 +7,6 @@ from datetime import datetime
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from app.storage import SessionStore
 from app.models import MemoryRecord, Project, utcnow
 from app.policy import DomainError
 from app.schemas import (
@@ -21,6 +20,7 @@ from app.schemas import (
     MemoryScope,
     MemoryScopeKind,
 )
+from app.storage import SessionStore
 
 MEMORY_RETRIEVAL_CANDIDATES = 256
 MEMORY_HIT_CONTENT_CHARS = 1200
