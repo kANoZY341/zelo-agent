@@ -172,9 +172,7 @@ class AgentInstanceService:
                 conditions.append(AgentInstance.status == status)
 
             total = (
-                session.scalar(
-                    select(func.count()).select_from(AgentInstance).where(*conditions)
-                )
+                session.scalar(select(func.count()).select_from(AgentInstance).where(*conditions))
                 or 0
             )
             instances = list(
