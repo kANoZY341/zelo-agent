@@ -36,54 +36,53 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Agent lifecycle and project binding
+## Active increment: v0.14 Parent-child delegation contracts
 
-The v0.14 registry foundation is merged through PR #47 at:
+The registry foundation and durable lifecycle/project-binding slices are merged:
 
-`8609ee583513f24d312785b7158a90d40a8458ef`
+- PR #47 → `8609ee583513f24d312785b7158a90d40a8458ef`;
+- PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`.
 
 The active branch is:
 
-`feat/v0.14-agent-lifecycle-project-binding`
+`feat/v0.14-parent-child-delegation`
 
-This second bounded Agent Factory slice turns trusted AgentSpec templates into
-durable Core-owned instances without adding generic agent execution.
+This third bounded Agent Factory slice adds Core-owned delegation contracts while
+keeping execution disabled.
 
 Current slice behavior:
 
-- create a project-bound instance from only a trusted active `agent_id` and
-  existing active `project_id`;
-- persist the exact AgentSpec snapshot, agent version and registry fingerprint;
-- keep agent identity, spec snapshot and Project binding immutable;
-- explicit `active` / `paused` / terminal `retired` lifecycle;
-- fail closed when a stale persisted registry/spec snapshot attempts to resume;
-- append-only lifecycle event history with database-enforced sequence/order rules;
-- database-enforced valid lifecycle transitions and no instance deletion;
-- per-Project live-instance limits checked inside the serialized write transaction;
-- bounded read-only memory context composed only from the owning Project scope and
-  stable specialist Agent scope;
-- no implicit personal-memory, other-Project or other-Agent contamination.
+- immutable parent/child delegation identity and objective;
+- same-Project and active-Campaign binding;
+- active/current-registry parent and child requirements;
+- explicit parent `allow_subagents` + `max_subagents` authority;
+- delegated task kinds must fit both parent and child task surfaces;
+- child capability requirements must be satisfied;
+- one active parent per child;
+- inherited depth contracts with hard maximum depth 4;
+- service-level and database-level cycle prevention;
+- Campaign budget reservation proof owned by the parent instance;
+- idempotent creation with request fingerprinting;
+- terminal revocation with unused reserved budget released through existing
+  Campaign control authority.
 
-Migration `0020_agent_instances` adds `agent_instances` and
-`agent_instance_events`.
+Migration `0021_agent_delegations` adds `agent_delegations` and database
+guards for immutability, valid relations, parent authority, budget proof, depth,
+cycles and deletion prevention.
 
-Authenticated management/inspection routes are under `/agents`. They do not
-execute Coding, Research or worker tasks in this slice.
-
-This slice does not add generic Agent Factory task execution, parent-child
-delegation, recursive subagents, manager runtime behavior, agent-to-agent
-messaging, dynamic/model-authored AgentSpecs, automatic memory writes, new tools,
-new worker authority or approval/budget/promotion/release bypasses.
+This slice does **not** execute delegated tasks, automatically create child
+instances, allow recursive model-authored subagents, add agent-to-agent
+messaging, add tools/worker authority, or bypass approvals, budgets, scheduler,
+promotion, merge or release authority.
 
 ## v0.14 planned continuation
 
-After lifecycle/project binding is verified and merged:
+After bounded delegation contracts are verified and merged:
 
-1. explicit bounded parent-child delegation contracts;
-2. Project/Campaign budget and depth binding for delegation;
-3. Coding/Research execution through generic agent identity snapshots;
-4. bounded subagent creation under Core-owned limits;
-5. activation/evaluation gates before additional specialist templates.
+1. bind existing Coding/Research execution to persisted generic agent identity;
+2. carry exact delegation identity into child task authority/evidence;
+3. enable bounded subagent creation only behind explicit depth/budget limits;
+4. add activation/evaluation gates before additional specialist templates.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.
