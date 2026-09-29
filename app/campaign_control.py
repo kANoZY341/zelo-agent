@@ -10,7 +10,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.campaigns import append_campaign_event
-from app.storage import SessionStore
 from app.models import (
     Campaign,
     CampaignBudgetLimit,
@@ -35,6 +34,7 @@ from app.schemas import (
     CampaignLeaseStatusResponse,
     CampaignRecoveryResponse,
 )
+from app.storage import SessionStore
 
 CONTROL_NAME = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 
