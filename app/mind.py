@@ -11,7 +11,6 @@ from sqlalchemy import func, select
 
 from app.config import Settings
 from app.context import ContextResolver
-from app.storage import SessionStore
 from app.gateway import ModelGateway, ModelGatewayError, ModelMessage
 from app.models import Conversation, ConversationTurn, utcnow
 from app.policy import DomainError
@@ -29,6 +28,7 @@ from app.schemas import (
     TextStatsInput,
     ToolCallInput,
 )
+from app.storage import SessionStore
 from app.tasks import TaskService
 
 
