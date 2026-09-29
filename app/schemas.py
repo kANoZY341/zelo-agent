@@ -616,6 +616,7 @@ class CampaignRecoveryResponse(StrictModel):
 
 
 CampaignScheduleStatus = Literal["active", "completed", "cancelled"]
+CampaignScheduleMode = Literal["cadence", "continuation"]
 CampaignScheduleRunStatus = Literal["running", "succeeded", "failed", "interrupted"]
 
 
@@ -625,6 +626,7 @@ class CampaignScheduleCreate(StrictModel):
     run_at: datetime
     interval_seconds: int | None = Field(default=None, ge=60, le=86400)
     max_runs: int = Field(default=1, ge=1, le=100)
+    mode: CampaignScheduleMode = "cadence"
 
     @model_validator(mode="after")
     def validate_cadence(self) -> "CampaignScheduleCreate":
@@ -634,6 +636,8 @@ class CampaignScheduleCreate(StrictModel):
             raise ValueError("one-shot schedules cannot set interval_seconds")
         if self.max_runs > 1 and self.interval_seconds is None:
             raise ValueError("recurring schedules require interval_seconds")
+        if self.mode == "continuation" and self.max_runs == 1:
+            raise ValueError("continuation schedules require max_runs greater than 1")
         return self
 
 
@@ -643,6 +647,7 @@ class CampaignScheduleResponse(StrictModel):
     conversation_id: TaskId
     prompt: str = Field(min_length=1, max_length=16384)
     status: CampaignScheduleStatus
+    mode: CampaignScheduleMode = "cadence"
     next_run_at: datetime | None = None
     interval_seconds: int | None = None
     max_runs: int = Field(ge=1, le=100)

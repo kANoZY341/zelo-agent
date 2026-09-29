@@ -17,7 +17,7 @@ from app.config import Settings
 from app.database import Database, migration_config
 from app.gateway import ModelResult
 from app.main import create_app
-from app.policy import DomainError
+from app.policy import DomainError, fingerprint
 from app.scheduler import WakeAuthorityUnavailable
 from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
 from tests.conftest import AUTH
@@ -132,6 +132,7 @@ def create_schedule(
     run_at: datetime | None = None,
     interval_seconds: int | None = None,
     max_runs: int = 1,
+    mode: str = "cadence",
     idempotency_key: str = "schedule-create-1",
 ) -> dict:
     body = {
@@ -139,6 +140,7 @@ def create_schedule(
         "prompt": prompt,
         "run_at": (run_at or datetime.now(UTC)).isoformat(),
         "max_runs": max_runs,
+        "mode": mode,
     }
     if interval_seconds is not None:
         body["interval_seconds"] = interval_seconds
@@ -366,6 +368,243 @@ def test_recurring_schedule_advances_from_completion_without_catch_up(settings, 
             headers=AUTH,
         ).json()
         assert stored["turn_total"] == 2
+
+
+def test_cadence_schedule_retry_preserves_legacy_idempotency_hash(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Legacy cadence idempotency")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 12, 0, tzinfo=UTC)
+        prompt = "Preserve the pre-mode cadence request hash."
+        legacy_hash = fingerprint(
+            {
+                "conversation_id": conversation["id"],
+                "prompt": prompt,
+                "run_at": run_at.isoformat().replace("+00:00", "Z"),
+                "interval_seconds": None,
+                "max_runs": 1,
+            }
+        )
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO campaign_schedules (
+                        id, campaign_id, conversation_id, prompt,
+                        idempotency_key, request_hash, status, next_run_at,
+                        interval_seconds, max_runs, run_count,
+                        last_run_at, last_error, created_at, updated_at
+                    ) VALUES (
+                        '72000000-0000-0000-0000-000000000072',
+                        :campaign_id, :conversation_id, :prompt,
+                        'legacy-cadence-retry', :request_hash, 'active', :run_at,
+                        NULL, 1, 0, NULL, NULL, :run_at, :run_at
+                    )
+                    """
+                ),
+                {
+                    "campaign_id": campaign["id"],
+                    "conversation_id": conversation["id"],
+                    "prompt": prompt,
+                    "request_hash": legacy_hash,
+                    "run_at": run_at,
+                },
+            )
+
+        response = client.post(
+            f"/campaigns/{campaign['id']}/schedules",
+            headers={**AUTH, "Idempotency-Key": "legacy-cadence-retry"},
+            json={
+                "conversation_id": conversation["id"],
+                "prompt": prompt,
+                "run_at": run_at.isoformat(),
+                "max_runs": 1,
+            },
+        )
+        assert response.status_code == 201, response.text
+        assert response.json()["id"] == "72000000-0000-0000-0000-000000000072"
+        assert response.json()["mode"] == "cadence"
+
+
+def test_continuation_schedule_idempotent_create_preserves_mode(settings, database):
+    provider = SchedulerMindProvider()
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation idempotency")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 12, 0, tzinfo=UTC)
+
+        first = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-idempotent",
+        )
+        second = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-idempotent",
+        )
+
+        assert second["id"] == first["id"]
+        assert first["mode"] == "continuation"
+        assert second["mode"] == "continuation"
+
+
+def test_continuation_schedule_accelerates_then_uses_timer_fallback_for_reply(
+    settings,
+    database,
+):
+    provider = SchedulerMindProvider(
+        scheduled_echo("continuation step"),
+        reply("No next Core task yet."),
+        reply("Still no next Core task."),
+    )
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation campaign")
+        configure_wake_budget(client, campaign["id"], limit_units=3)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            prompt="Continue this Campaign within the configured wake bound.",
+            run_at=clock.value,
+            interval_seconds=3600,
+            max_runs=3,
+            mode="continuation",
+            idempotency_key="continuation-schedule",
+        )
+        assert schedule["mode"] == "continuation"
+
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+        first = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert first["status"] == "active"
+        assert first["run_count"] == 1
+        assert datetime.fromisoformat(first["next_run_at"]) == clock.value + timedelta(hours=1)
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        task = stored["turns"][0]["core_task"]
+        assert task is not None
+        wait_for(client, task["id"], "succeeded")
+
+        assert scheduler._next_due_id() == schedule["id"]
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        second = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert second["status"] == "active"
+        assert second["run_count"] == 2
+        assert datetime.fromisoformat(second["next_run_at"]) == clock.value + timedelta(hours=1)
+        assert scheduler._next_due_id() is None
+
+        clock.advance(seconds=3600)
+        assert scheduler._next_due_id() == schedule["id"]
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        completed = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert completed["status"] == "completed"
+        assert completed["mode"] == "continuation"
+        assert completed["run_count"] == 3
+        assert completed["next_run_at"] is None
+        assert len(provider.requests) == 3
+
+        events = client.get(
+            f"/campaigns/{campaign['id']}/events",
+            headers=AUTH,
+        ).json()["items"]
+        assert not any(event["event"] == "schedule_continuation_completed" for event in events)
+
+
+def test_repeated_continuation_cancellation_preserves_mode(settings, database):
+    provider = SchedulerMindProvider(reply("Cancellation should not wake Mind."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Continuation cancellation")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        run_at = datetime(2026, 9, 26, 13, 0, tzinfo=UTC)
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=run_at,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="continuation",
+            idempotency_key="continuation-cancel",
+        )
+
+        first = client.post(f"/schedules/{schedule['id']}/cancel", headers=AUTH)
+        assert first.status_code == 200, first.text
+        assert first.json()["status"] == "cancelled"
+        assert first.json()["mode"] == "continuation"
+
+        second = client.post(f"/schedules/{schedule['id']}/cancel", headers=AUTH)
+        assert second.status_code == 200, second.text
+        assert second.json()["status"] == "cancelled"
+        assert second.json()["mode"] == "continuation"
+        assert provider.requests == []
+
+
+def test_cadence_schedule_is_not_accelerated_by_task_completion(settings, database):
+    provider = SchedulerMindProvider(scheduled_echo("cadence step"))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client, title="Cadence campaign")
+        configure_wake_budget(client, campaign["id"], limit_units=2)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+            interval_seconds=3600,
+            max_runs=2,
+            mode="cadence",
+            idempotency_key="cadence-task-schedule",
+        )
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+
+        stored = client.get(
+            f"/conversations/{conversation['id']}",
+            headers=AUTH,
+        ).json()
+        task = stored["turns"][0]["core_task"]
+        assert task is not None
+        wait_for(client, task["id"], "succeeded")
+
+        assert scheduler._next_due_id() is None
+        current = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert current["status"] == "active"
+        assert current["mode"] == "cadence"
+        assert current["run_count"] == 1
+        assert datetime.fromisoformat(current["next_run_at"]) == clock.value + timedelta(hours=1)
 
 
 def test_restart_retries_same_logical_occurrence_without_double_charge(settings, database):
@@ -1853,11 +2092,12 @@ def test_scheduler_migration_preserves_existing_control_state(settings):
         with database.read() as session:
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0017_research_specialist"
+                == "0018_autonomous_continuation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedules")) == 0
+            assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedule_continuations")) == 0
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_schedule_runs")) == 0
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
