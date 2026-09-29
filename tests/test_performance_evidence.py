@@ -177,8 +177,9 @@ def test_performance_evidence_aggregates_persisted_model_usage_without_prompts(c
     evidence = response.json()
 
     assert evidence["schema"] == "zelo-performance-evidence-v1"
-    assert evidence["totals"]["model_observations"] == 3
-    assert evidence["totals"]["worker_observations"] == 0
+    assert evidence["summary_scope"] == "returned_evidence_only"
+    assert evidence["totals"]["returned_model_observations"] == 3
+    assert evidence["totals"]["returned_worker_observations"] == 0
     assert evidence["reported_cost"]["status"] == "not_reported_by_current_sources"
     assert evidence["reported_cost"]["amount_micros"] is None
     assert evidence["reported_cost"]["currency"] is None
@@ -250,7 +251,7 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
         )
 
     evidence = client.get("/performance/evidence", headers=AUTH).json()
-    assert evidence["totals"]["worker_observations"] == 2
+    assert evidence["totals"]["returned_worker_observations"] == 2
     developer = next(item for item in evidence["worker_evidence"] if item["role"] == "developer")
     reviewer = next(item for item in evidence["worker_evidence"] if item["role"] == "reviewer")
 
