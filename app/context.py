@@ -84,6 +84,27 @@ def _serialize(envelope: dict) -> str:
     )
 
 
+def _fit_memory_payload(payload: dict, limit: int = MEMORY_CONTEXT_CHARS) -> str:
+    items = payload["items"]
+    serialized = _serialize(payload)
+    while len(serialized) > limit and len(items) > 1:
+        items.pop()
+        serialized = _serialize(payload)
+
+    if len(serialized) > limit and items:
+        item = items[0]
+        content = item["content"]
+        overhead = len(serialized) - len(content)
+        target = max(0, limit - overhead - 32)
+        item["content"] = _bounded(content, target)
+        item["content_truncated"] = True
+        serialized = _serialize(payload)
+
+    if len(serialized) > limit:
+        raise RuntimeError("Memory context metadata exceeds hard budget")
+    return serialized
+
+
 def _fit_serialized_budget(envelope: dict) -> str:
     serialized = _serialize(envelope)
     while len(serialized) > CONTEXT_MAX_CHARS:
@@ -94,29 +115,15 @@ def _fit_serialized_budget(envelope: dict) -> str:
         source = max(candidates, key=lambda item: len(item["content"]))
         excess = len(serialized) - CONTEXT_MAX_CHARS
         target = max(0, len(source["content"]) - max(excess + 64, 128))
-        source["content"] = _bounded(source["content"], target)
+        if source["source"] == "core.memories.personal":
+            try:
+                payload = json.loads(source["content"])
+                source["content"] = _fit_memory_payload(payload, target)
+            except (json.JSONDecodeError, RuntimeError, TypeError, KeyError):
+                sources.remove(source)
+        else:
+            source["content"] = _bounded(source["content"], target)
         serialized = _serialize(envelope)
-    return serialized
-
-
-def _fit_memory_payload(payload: dict) -> str:
-    items = payload["items"]
-    serialized = _serialize(payload)
-    while len(serialized) > MEMORY_CONTEXT_CHARS and len(items) > 1:
-        items.pop()
-        serialized = _serialize(payload)
-
-    if len(serialized) > MEMORY_CONTEXT_CHARS and items:
-        item = items[0]
-        content = item["content"]
-        overhead = len(serialized) - len(content)
-        target = max(0, MEMORY_CONTEXT_CHARS - overhead - 32)
-        item["content"] = _bounded(content, target)
-        item["content_truncated"] = True
-        serialized = _serialize(payload)
-
-    if len(serialized) > MEMORY_CONTEXT_CHARS:
-        raise RuntimeError("Memory context metadata exceeds hard budget")
     return serialized
 
 
