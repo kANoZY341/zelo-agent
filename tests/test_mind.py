@@ -190,9 +190,7 @@ def test_relevant_personal_memory_is_injected_into_mind_context(settings, databa
         envelope = context_messages[0]
         assert envelope["purpose"] == "personal_memory_context"
         memory_source = next(
-            source
-            for source in envelope["sources"]
-            if source["source"] == "core.memories.personal"
+            source for source in envelope["sources"] if source["source"] == "core.memories.personal"
         )
         assert memory_source["instruction_trust"] == "none"
         memory_payload = json.loads(memory_source["content"])
@@ -245,9 +243,7 @@ def test_combined_project_and_memory_context_preserves_valid_bounded_memory_json
         envelope = json.loads(context_message.content)
         assert envelope["purpose"] == "factual_project_and_memory_context"
         memory_source = next(
-            source
-            for source in envelope["sources"]
-            if source["source"] == "core.memories.personal"
+            source for source in envelope["sources"] if source["source"] == "core.memories.personal"
         )
         memory_payload = json.loads(memory_source["content"])
         assert memory_payload["items"]
