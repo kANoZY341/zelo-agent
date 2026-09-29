@@ -45,7 +45,7 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Release preparation
+## Active increment: v0.12 Release preparation
 
 The release-prep slice is intentionally non-functional:
 
