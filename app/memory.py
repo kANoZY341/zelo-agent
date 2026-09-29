@@ -1,8 +1,8 @@
 """Durable immutable memory records for the v0.13 foundation."""
 
+import re
 from collections.abc import Callable
 from datetime import datetime
-import re
 
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -21,7 +21,6 @@ from app.schemas import (
     MemoryScope,
     MemoryScopeKind,
 )
-
 
 MEMORY_RETRIEVAL_CANDIDATES = 256
 MEMORY_HIT_CONTENT_CHARS = 1200
