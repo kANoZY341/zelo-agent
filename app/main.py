@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.agent import AgentRuntime
+from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
 from app.api import router
 from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
@@ -80,6 +81,12 @@ def create_app(
                 mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
+            agent_registry = default_agent_registry()
+            agent_registry.validate_activation(
+                available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
+                available_tools={item["name"] for item in tool_gateway.registry.metadata()},
+            )
+            agent_factory = AgentFactory(agent_registry)
             projects = ProjectService(database)
             memories = MemoryService(database)
             performance_evidence = PerformanceEvidenceService(database)
@@ -157,6 +164,8 @@ def create_app(
                 self_improvement_runtime,
                 research_runtime=research_runtime,
             )
+            application.state.agent_registry = agent_registry
+            application.state.agent_factory = agent_factory
             application.state.storage = database
             application.state.database = database
             application.state.tasks = tasks
