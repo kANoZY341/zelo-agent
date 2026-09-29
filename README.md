@@ -214,6 +214,24 @@ memory instructions, canonical-state precedence and irrelevant-memory
 non-injection.
 
 
+### v0.13 Storage abstraction
+
+Core services now depend on the Zelo-owned `SessionStore` contract rather than
+on SQLite-specific implementation details. Application assembly selects the
+backend through `build_storage(settings)`; the current adapter remains the same
+local SQLite database and preserves the existing transaction, WAL, schema and
+single-runner behavior.
+
+`ZELO_STORAGE_BACKEND` is explicit and fail-closed. In v0.13 the only supported
+value is `sqlite`. Postgres/Supabase and vector search are future adapters, not
+enabled fallbacks. The current backend descriptor reports relational storage as
+available and vector search as unavailable.
+
+This slice does not migrate data, add a cloud database SDK, change memory
+retrieval, or alter task/approval/scheduler authority. See
+`docs/v0.13-storage-abstraction.md`.
+
+
 ## Fixed Research specialist
 
 v0.12 adds a fixed `research_run` specialist on top of the same Core task
