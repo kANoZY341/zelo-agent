@@ -200,7 +200,10 @@ class AgentRegistry:
             if spec.lifecycle != "active":
                 continue
             if missing := set(spec.allowed_task_kinds).difference(task_kinds):
-                raise ValueError(f"agent_task_kind_unavailable:{spec.agent_id}:{sorted(missing)[0]}")
+                missing_task = sorted(missing)[0]
+                raise ValueError(
+                    f"agent_task_kind_unavailable:{spec.agent_id}:{missing_task}"
+                )
             if missing := set(spec.allowed_tools).difference(tools):
                 raise ValueError(f"agent_tool_unavailable:{spec.agent_id}:{sorted(missing)[0]}")
 
@@ -263,7 +266,10 @@ def coding_agent_spec() -> AgentSpec:
     return AgentSpec(
         agent_id="coding",
         role="coding",
-        objective="Plan, implement, and review bounded software changes through Zelo-owned runtimes.",
+        objective=(
+            "Plan, implement, and review bounded software changes through "
+            "Zelo-owned runtimes."
+        ),
         capabilities=("code_change", "code_planning", "code_review"),
         allowed_task_kinds=("developer_run",),
         allowed_tools=("list_workspace_files", "read_workspace_file", "repo_status"),
