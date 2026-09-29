@@ -189,6 +189,12 @@ def test_performance_evidence_aggregates_persisted_model_usage_without_prompts(c
     assert mind["total_tokens"] == 7
     assert mind["duration_seconds"] is None
 
+    ai_observation = next(
+        item for item in evidence["model_evidence"] if item["source_id"] == ai_attempt_id
+    )
+    assert ai_observation["task_id"] == ai_task_id
+    assert ai_observation["attempt_number"] == 1
+
     model_summary = next(
         item
         for item in evidence["model_summaries"]
