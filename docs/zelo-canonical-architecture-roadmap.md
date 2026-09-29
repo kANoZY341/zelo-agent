@@ -554,15 +554,13 @@ become stale.
 
 Current verified baseline as of 29 September 2026:
 
-- v0.11.0 remains the latest published tag while v0.12 release preparation is in progress;
-- the complete v0.12 implementation is on `main` at
-  `7f72f8191a1b235e683bde6eaeef65281495f04b`;
-- v0.12 now includes durable goals/campaigns, leases and shared budgets, bounded
+- Zelo Core v0.12.0 is published from
+  `9f4d1c76b555fdca912e47ec8f5f90efd31217fb` with tag `v0.12.0`;
+- v0.12 includes durable goals/campaigns, leases and shared budgets, bounded
   scheduling/Mind wakes, bounded continuation, the fixed Research specialist,
   Core-backed Workspace project/progress views, Workspace hardening, and local
   push-to-talk voice;
-- after v0.12.0 is published, the next active milestone is v0.13 Memory, context
-  and evidence;
+- the active milestone is v0.13 Memory, context and evidence;
 - parked experiment `feat/v1.0-agent-factory` remains deferred to v0.14.
 
 ## Decision rule for new ideas

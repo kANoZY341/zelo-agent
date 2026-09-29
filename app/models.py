@@ -135,6 +135,51 @@ class Project(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class MemoryRecord(Base):
+    __tablename__ = "memory_records"
+    __table_args__ = (
+        UniqueConstraint("replaces_id", name="uq_memory_record_replaces"),
+        CheckConstraint(
+            "scope_kind IN ('personal','project','agent')",
+            name="ck_memory_record_scope_kind",
+        ),
+        CheckConstraint(
+            "(scope_kind = 'personal' AND scope_id IS NULL) OR "
+            "(scope_kind IN ('project','agent') AND scope_id IS NOT NULL)",
+            name="ck_memory_record_scope_shape",
+        ),
+        CheckConstraint(
+            "kind IN ('fact','preference','decision','experience')",
+            name="ck_memory_record_kind",
+        ),
+        CheckConstraint(
+            "provenance_kind IN ('operator','conversation_turn','task','project','agent','import')",
+            name="ck_memory_record_provenance_kind",
+        ),
+        CheckConstraint(
+            "(replaces_id IS NULL AND replacement_kind IS NULL) OR "
+            "(replaces_id IS NOT NULL AND replacement_kind IN ('correction','supersession'))",
+            name="ck_memory_record_replacement_shape",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    scope_kind: Mapped[str] = mapped_column(String(16), index=True)
+    scope_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    provenance_kind: Mapped[str] = mapped_column(String(32))
+    provenance_ref: Mapped[str | None] = mapped_column(String(256))
+    provenance_note: Mapped[str] = mapped_column(String(1024), default="")
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, index=True)
+    replaces_id: Mapped[str | None] = mapped_column(
+        ForeignKey("memory_records.id"),
+        unique=True,
+    )
+    replacement_kind: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class Goal(Base):
     __tablename__ = "goals"
     __table_args__ = (

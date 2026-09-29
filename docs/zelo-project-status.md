@@ -8,19 +8,15 @@ in `docs/zelo-workspace-decision.md`.
 
 ## Published release
 
-- Zelo Core v0.11.0 — Self-Improvement Seed remains the latest published release
-  until the v0.12 release-prep gate is merged and tagged.
-- v0.11.0 release commit:
-  `b2c4a7d13fd8e64c6badfbae89d2a29629fd3c12`.
-- Release tag: `v0.11.0`.
+- Zelo Core v0.12.0 — Durable Goals and Bounded Autonomy is published.
+- Release commit:
+  `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
+- Release tag: `v0.12.0`.
+- GitHub Release published on 29 September 2026.
 
-## v0.12 release candidate — implementation complete
+## v0.12 released behavior
 
-The v0.12 implementation is complete on `main`.
-
-Current main commit:
-
-`7f72f8191a1b235e683bde6eaeef65281495f04b`
+The v0.12 implementation is complete and released from the commit above.
 
 The milestone now includes:
 
@@ -45,30 +41,40 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.12 Release preparation
+## Active increment: v0.13 Memory foundation
 
-The release-prep slice is intentionally non-functional:
+Zelo Core v0.12.0 release preparation merged to `main` at:
 
-1. bump runtime/package-facing version metadata to `0.12.0`;
-2. align README, roadmap and live-status documentation with the implemented state;
-3. run diff, Ruff and full pytest gates;
-4. run connected Codex review;
-5. merge only after those gates are clean;
-6. publish/tag `v0.12.0` from the resulting main commit.
+`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`
 
-## Next milestone: v0.13 — Memory, context and evidence
+The active implementation branch is:
 
-The first v0.13 slice should add typed durable memory records with:
+`feat/v0.13-memory-foundation`
 
+This first v0.13 slice is intentionally narrow:
+
+- durable immutable memory records;
 - explicit personal, project and agent scopes;
-- provenance;
-- timestamps and optional expiry;
-- correction and supersession links;
-- clear separation from operational task/campaign state.
+- typed fact, preference, decision and experience records;
+- provenance metadata;
+- optional expiry;
+- correction and supersession through append-only replacement records;
+- authenticated create/get/list Core APIs;
+- no automatic memory writes from conversations;
+- no memory injection into Mind context yet;
+- no embeddings or vector database;
+- no Agent Factory or new execution authority.
 
-Later v0.13 slices add bounded context assembly and retrieval, evaluation cases,
-worker/model performance and cost evidence, and a storage abstraction suitable
-for later backend swaps.
+The repository baseline, tag and GitHub Release all now identify `v0.12.0`.
 
-Do not begin v0.14 Agent Factory work as part of the memory foundation. The
-parked `feat/v1.0-agent-factory` branch remains a reference only.
+## Later v0.13 slices
+
+After the foundation is verified:
+
+1. bounded scope-aware retrieval and context assembly;
+2. correction/expiry-aware memory selection for Mind;
+3. evaluation cases for memory quality and contamination boundaries;
+4. worker/model performance and cost evidence;
+5. storage abstraction for future backend swaps.
+
+Do not advance into v0.14 Agent Factory work from this branch.
