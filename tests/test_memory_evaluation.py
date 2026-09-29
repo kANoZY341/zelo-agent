@@ -169,7 +169,8 @@ def test_memory_baseline_evaluation_suite_has_exact_recall_and_zero_contaminatio
     assert first_case["actual_ids"] == [corrected["id"]]
     assert first_case["expected_ids"] == [corrected["id"]]
     assert original["id"] in first_case["forbidden_ids"]
-    json.dumps(evidence, ensure_ascii=False, allow_nan=False)
+    encoded = json.dumps(evidence, ensure_ascii=False, allow_nan=False)
+    assert "My favorite interface color is black." not in encoded
 
 
 def test_memory_evaluation_detects_forbidden_and_unexpected_retrieval(client):
