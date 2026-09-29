@@ -45,7 +45,6 @@ _MEMORY_STOP_TERMS = frozenset(
         "in",
         "is",
         "it",
-        "like",
         "me",
         "my",
         "of",
