@@ -286,7 +286,6 @@ def test_memory_records_are_database_append_only_and_project_scope_is_guarded(da
             with database.transaction() as session:
                 session.execute(text(statement))
 
-
     with pytest.raises(IntegrityError, match="already exists"):
         with database.transaction() as session:
             session.execute(
