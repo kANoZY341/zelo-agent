@@ -396,6 +396,23 @@ def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):
     assert response.json()["items"] == []
 
 
+def test_retrieval_validates_scope_even_when_query_has_no_meaningful_terms(client):
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what is it",
+            "scopes": [
+                {
+                    "kind": "project",
+                    "id": "00000000-0000-0000-0000-000000000099",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 404
+
+
 def test_retrieval_rejects_blank_query(client):
     response = client.post(
         "/memories/retrieve",
