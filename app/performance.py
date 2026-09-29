@@ -334,21 +334,31 @@ class PerformanceEvidenceService:
                     .limit(limit)
                 )
             )
-            attempts = list(
+            model_attempts = list(
                 session.execute(
                     select(TaskAttempt, Task)
                     .join(Task, Task.id == TaskAttempt.task_id)
-                    .where(Task.kind.in_(tuple(MODEL_TASK_KINDS | {"developer_run"})))
+                    .where(Task.kind.in_(tuple(MODEL_TASK_KINDS)))
+                    .order_by(TaskAttempt.started_at.desc(), TaskAttempt.id.desc())
+                    .limit(limit)
+                )
+            )
+            developer_attempts = list(
+                session.execute(
+                    select(TaskAttempt, Task)
+                    .join(Task, Task.id == TaskAttempt.task_id)
+                    .where(Task.kind == "developer_run")
                     .order_by(TaskAttempt.started_at.desc(), TaskAttempt.id.desc())
                     .limit(limit)
                 )
             )
 
         model_evidence = [self._model_from_turn(turn) for turn in turns]
+        for attempt, task in model_attempts:
+            model_evidence.append(self._model_from_attempt(task, attempt))
+
         worker_evidence: list[WorkerPerformanceEvidence] = []
-        for attempt, task in attempts:
-            if task.kind in MODEL_TASK_KINDS:
-                model_evidence.append(self._model_from_attempt(task, attempt))
+        for attempt, task in developer_attempts:
             worker_evidence.extend(self._worker_from_attempt(task, attempt))
 
         model_evidence.sort(key=lambda item: (item.observed_at, item.source_id), reverse=True)
