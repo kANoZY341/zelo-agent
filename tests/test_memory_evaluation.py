@@ -225,6 +225,11 @@ def test_memory_evaluation_case_requires_explicit_scope_validation(client):
         evaluate_memory_case(client.app.state.memories, case)
 
 
+def test_memory_evaluation_suite_rejects_empty_baseline(client):
+    with pytest.raises(ValueError, match="cannot be empty"):
+        evaluate_memory_suite(client.app.state.memories, ())
+
+
 def test_memory_evaluation_contract_rejects_ambiguous_cases(client):
     active = _create_memory(
         client,
