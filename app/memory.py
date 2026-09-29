@@ -62,11 +62,7 @@ class MemoryService:
         current_time = now or self.clock()
         replacement = self._replacement(session, record.id)
         if replacement is not None:
-            status = (
-                "corrected"
-                if replacement.replacement_kind == "correction"
-                else "superseded"
-            )
+            status = "corrected" if replacement.replacement_kind == "correction" else "superseded"
         elif record.expires_at is not None and record.expires_at <= current_time:
             status = "expired"
         else:
@@ -166,9 +162,7 @@ class MemoryService:
                 )
 
             total = (
-                session.scalar(
-                    select(func.count()).select_from(MemoryRecord).where(*conditions)
-                )
+                session.scalar(select(func.count()).select_from(MemoryRecord).where(*conditions))
                 or 0
             )
             records = list(
