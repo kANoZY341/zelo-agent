@@ -257,7 +257,6 @@ def test_retrieval_returns_only_active_current_personal_memory(client):
     assert payload["retrieval"] == "bounded_lexical_v1"
     assert [item["id"] for item in payload["items"]] == [corrected["id"]]
     assert payload["items"][0]["matched_terms"] == ["favorite", "interface", "color"]
-    assert payload["items"][0]["status"] if "status" in payload["items"][0] else "active"
 
 
 def test_retrieval_keeps_project_and_agent_scopes_explicit(client):
