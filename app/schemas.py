@@ -503,7 +503,10 @@ class MemoryRetrieveRequest(StrictModel):
 
     @model_validator(mode="after")
     def validate_scopes(self) -> "MemoryRetrieveRequest":
-        keys = [(scope.kind, scope.id) for scope in self.scopes]
+        keys = [
+            (scope.kind, scope.id.strip() if scope.id is not None else None)
+            for scope in self.scopes
+        ]
         if len(keys) != len(set(keys)):
             raise ValueError("memory retrieval scopes must be unique")
         return self
