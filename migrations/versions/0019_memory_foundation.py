@@ -60,6 +60,27 @@ def upgrade() -> None:
 
     op.execute(
         """
+        CREATE TRIGGER memory_records_replacement_scope_guard
+        BEFORE INSERT ON memory_records
+        FOR EACH ROW
+        WHEN NEW.replaces_id IS NOT NULL
+         AND NOT EXISTS (
+            SELECT 1
+            FROM memory_records AS target
+            WHERE target.id = NEW.replaces_id
+              AND target.scope_kind = NEW.scope_kind
+              AND (
+                target.scope_id = NEW.scope_id
+                OR (target.scope_id IS NULL AND NEW.scope_id IS NULL)
+              )
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Memory replacement must stay in the same scope');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER memory_records_existing_id_guard
         BEFORE INSERT ON memory_records
         FOR EACH ROW
