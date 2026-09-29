@@ -138,6 +138,7 @@ class PerformanceEvidenceService:
         return ModelPerformanceEvidence(
             source_kind="mind_turn",
             source_id=turn.id,
+            task_id=None,
             task_kind=None,
             attempt_number=None,
             alias=turn.selected_alias,
@@ -168,6 +169,7 @@ class PerformanceEvidenceService:
         return ModelPerformanceEvidence(
             source_kind="task_attempt",
             source_id=attempt.id,
+            task_id=task.id,
             task_kind=task.kind,
             attempt_number=attempt.number,
             alias=alias,
