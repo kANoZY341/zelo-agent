@@ -267,10 +267,7 @@ def test_database_protects_agent_identity_lifecycle_and_append_only_events(datab
     with pytest.raises(IntegrityError, match="immutable"):
         with database.transaction() as session:
             session.execute(
-                text(
-                    "UPDATE agent_instances SET agent_id = 'research' "
-                    "WHERE id = :instance_id"
-                ),
+                text("UPDATE agent_instances SET agent_id = 'research' WHERE id = :instance_id"),
                 {"instance_id": instance["id"]},
             )
 
@@ -301,10 +298,7 @@ def test_database_protects_agent_identity_lifecycle_and_append_only_events(datab
     with pytest.raises(IntegrityError, match="Invalid agent instance lifecycle"):
         with database.transaction() as session:
             session.execute(
-                text(
-                    "UPDATE agent_instances SET status = 'active' "
-                    "WHERE id = :instance_id"
-                ),
+                text("UPDATE agent_instances SET status = 'active' WHERE id = :instance_id"),
                 {"instance_id": instance["id"]},
             )
 
