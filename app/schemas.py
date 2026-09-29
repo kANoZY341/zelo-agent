@@ -535,6 +535,7 @@ class MemoryRetrievalResponse(StrictModel):
 class ModelPerformanceEvidence(StrictModel):
     source_kind: Literal["mind_turn", "task_attempt"]
     source_id: str = Field(min_length=1, max_length=128)
+    task_id: TaskId | None = None
     task_kind: str | None = Field(default=None, max_length=32)
     attempt_number: int | None = Field(default=None, ge=1)
     alias: str | None = Field(default=None, max_length=64)
