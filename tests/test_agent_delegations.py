@@ -225,17 +225,24 @@ def test_delegation_fails_closed_for_authority_scope_and_idempotency(database, c
 def test_delegation_requires_valid_budget_and_child_capabilities(database, client):
     project, _goal, campaign = create_project_goal_campaign(client)
     parent_spec = spec("manager", allow_subagents=True, max_subagents=2)
+    capable_child_spec = spec("capable")
     weak_child_spec = spec("weak", capabilities=("research",))
-    instances, controls, delegations = services(database, parent_spec, weak_child_spec)
+    instances, controls, delegations = services(
+        database,
+        parent_spec,
+        capable_child_spec,
+        weak_child_spec,
+    )
     parent = create_instance(instances, "manager", project["id"])
+    capable = create_instance(instances, "capable", project["id"])
     weak = create_instance(instances, "weak", project["id"])
 
-    wrong_owner = reserve(controls, campaign["id"], weak.id, key="budget:wrong-owner")
+    wrong_owner = reserve(controls, campaign["id"], capable.id, key="budget:wrong-owner")
     with pytest.raises(DomainError, match="budget proof"):
         delegations.create(
             parent.id,
             request(
-                weak.id,
+                capable.id,
                 campaign["id"],
                 wrong_owner.id,
                 key="delegate:wrong-owner",
