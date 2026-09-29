@@ -365,6 +365,80 @@ def test_performance_evidence_separates_cancelled_from_failed(client, database):
     assert summary["other_outcomes"] == 1
 
 
+def test_performance_evidence_limits_model_and_worker_sources_independently(client, database):
+    model_task_id = "00000000-0000-0000-0000-000000000501"
+    model_attempt_id = "00000000-0000-0000-0000-000000000502"
+    developer_task_id = "00000000-0000-0000-0000-000000000503"
+    developer_attempt_id = "00000000-0000-0000-0000-000000000504"
+    now = utcnow()
+
+    model_result = {
+        "alias": "local_general",
+        "actual_model": "model-limit",
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+    developer_result = {
+        "worker": "codex",
+        "worker_version": "codex-limit",
+        "worker_config_version": "cfg-limit",
+        "usage": {"input_tokens": 8, "output_tokens": 4},
+        "duration_seconds": 6.0,
+        "validation_passed": True,
+    }
+
+    model_attempt = _attempt(
+        attempt_id=model_attempt_id,
+        task_id=model_task_id,
+        number=1,
+        outcome="succeeded",
+        result=model_result,
+    )
+    model_attempt.started_at = now
+    model_attempt.ended_at = now + timedelta(seconds=2)
+
+    developer_attempt = _attempt(
+        attempt_id=developer_attempt_id,
+        task_id=developer_task_id,
+        number=1,
+        outcome="succeeded",
+        result=developer_result,
+    )
+    developer_attempt.started_at = now - timedelta(minutes=5)
+    developer_attempt.ended_at = developer_attempt.started_at + timedelta(seconds=6)
+
+    with database.transaction() as session:
+        session.add(
+            _task(
+                task_id=model_task_id,
+                kind="ai_prompt",
+                alias="local_general",
+                model="model-limit",
+                result=model_result,
+            )
+        )
+        session.add(model_attempt)
+        session.add(
+            _task(
+                task_id=developer_task_id,
+                kind="developer_run",
+                result=developer_result,
+            )
+        )
+        session.add(developer_attempt)
+
+    evidence = client.get("/performance/evidence?limit=1", headers=AUTH).json()
+
+    assert evidence["totals"]["returned_model_observations"] == 1
+    assert evidence["model_evidence"][0]["source_id"] == model_attempt_id
+    assert evidence["totals"]["returned_worker_observations"] == 1
+    assert evidence["worker_evidence"][0]["source_id"] == developer_attempt_id
+    assert evidence["worker_evidence"][0]["worker"] == "codex"
+
+
 def test_performance_evidence_route_is_bounded_and_requires_operator(client):
     assert client.get("/performance/evidence?limit=0", headers=AUTH).status_code == 422
     assert client.get("/performance/evidence?limit=501", headers=AUTH).status_code == 422
