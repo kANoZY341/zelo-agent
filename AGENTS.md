@@ -55,38 +55,37 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Storage abstraction
+## Current scope: v0.13 Release preparation
 
-Zelo Core v0.12.0 is published from `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
-The first four v0.13 slices are merged on `main`:
+Zelo Core v0.12.0 is the latest published release from
+`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
 
-- Memory foundation: `e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`;
-- bounded retrieval/context: `22f9ff24070ead799511657b656463bdaef54f2a`;
-- memory evaluation/contamination: `0ac35db90445a0a97201d584710faed90b7b6633`;
-- worker/model performance and cost evidence:
-  `25bb6f1c5cba5da0b0a416cc465eced9058f966e`.
+The complete v0.13 implementation is merged on `main` at:
 
-The active and final v0.13 slice is **storage abstraction**. Introduce a
-Zelo-owned backend-neutral persistence contract while preserving current SQLite
-behavior exactly.
+`fc244b59e0be1a10f838e668bd749aa7fb904a67`
+
+Merged v0.13 slices:
+
+- Memory foundation: PR #41;
+- bounded retrieval/context: PR #42;
+- memory evaluation/contamination boundaries: PR #43;
+- worker/model performance and cost evidence: PR #44;
+- storage abstraction: PR #45.
+
+This branch is **release preparation only** for v0.13.0.
 
 Rules for this slice:
 
-- Core services depend on a minimal transactional session-store contract rather
-  than SQLite-specific implementation details;
-- application assembly selects storage through a Zelo-owned factory;
-- SQLite remains the only enabled backend in v0.13;
-- preserve current SQLite privacy, WAL, foreign-key, transaction, migration and
-  single-runner guarantees;
-- configuration must fail closed rather than pretending an unimplemented
-  Postgres, Supabase or vector backend exists;
-- do not migrate data or add Postgres/Supabase/vector dependencies in this slice;
-- do not change memory retrieval, automatic memory retention, routing, task,
-  approval, scheduler, budget, merge or release authority;
-- do not begin v0.14 Agent Factory work from this branch.
-
-After this slice is verified and merged, v0.13 implementation is complete and
-the next step is v0.13 release preparation.
+- bump and verify version metadata for `0.13.0`;
+- align README, live status and roadmap baseline with the completed v0.13 implementation;
+- preserve all current runtime behavior and authority boundaries;
+- do not add features, migrations, dependencies or new backend implementations;
+- do not add automatic memory writes, embeddings/vector retrieval or model-retention authority;
+- do not change worker/model routing, approvals, scheduler, budgets, merge or release authority;
+- run diff check, Ruff lint, Ruff format and the full pytest suite;
+- require independent review before merge;
+- after a clean merge, tag and publish `v0.13.0` from the resulting `main` commit;
+- do not begin v0.14 Agent Factory work until v0.13.0 is published.
 
 ## Workspace decision
 
