@@ -81,7 +81,7 @@ def evaluate_memory_case(
     relevant = actual_set & case.expected_ids
     missing = case.expected_ids - actual_set
     forbidden = case.forbidden_ids & actual_set
-    unexpected = actual_set - case.expected_ids
+    unexpected = actual_set - case.expected_ids - case.forbidden_ids
     precision = _ratio(
         len(relevant),
         len(actual_ids),
