@@ -226,7 +226,13 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
         "independent_review": {
             "implementation": "claude-code",
             "worker_version": "claude-test",
-            "usage": {"input_tokens": 40, "output_tokens": 10},
+            "usage": {
+                "input_tokens": 40,
+                "output_tokens": 10,
+                "cache_creation_input_tokens": 7,
+                "cache_read_input_tokens": 9,
+                "ignored_cost_usd": 123,
+            },
             "duration_seconds": 4.5,
         },
     }
@@ -267,6 +273,8 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
     assert reviewer["duration_seconds"] == 4.5
     assert reviewer["validation_passed"] is None
     assert "ignored_cost_usd" not in reviewer["usage"]
+    assert reviewer["usage"]["cache_creation_input_tokens"] == 7
+    assert reviewer["usage"]["cache_read_input_tokens"] == 9
 
     codex_summary = next(
         item
