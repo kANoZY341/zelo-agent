@@ -7,6 +7,7 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 
+from app.context import CONTEXT_MAX_CHARS
 from app.gateway import ModelResult
 from app.main import create_app
 from app.models import Approval, ConversationTurn, Task, TaskAttempt, utcnow
@@ -202,6 +203,55 @@ def test_relevant_personal_memory_is_injected_into_mind_context(settings, databa
         )
         assert memory_payload["items"][0]["scope"] == {"kind": "personal", "id": None}
         assert "favorite interface color is black" in memory_payload["items"][0]["content"]
+
+
+def test_combined_project_and_memory_context_preserves_valid_bounded_memory_json(
+    settings,
+    database,
+):
+    provider = MindProvider(reply("We are building the memory retrieval slice."))
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        for index in range(6):
+            created = client.post(
+                "/memories",
+                headers=AUTH,
+                json={
+                    "scope": {"kind": "personal"},
+                    "kind": "experience",
+                    "content": (
+                        f"building zelo memory evidence {index} "
+                        + ("bounded context evidence " * 80)
+                    ),
+                    "provenance": {"kind": "operator"},
+                },
+            )
+            assert created.status_code == 201, created.text
+
+        conversation = new_conversation(client)
+        response = send_turn(
+            client,
+            conversation["id"],
+            "what are we currently building with Zelo memory?",
+            "memory-context-global-budget",
+        )
+        assert response.status_code == 201, response.text
+
+        context_message = next(
+            message
+            for message in provider.requests[0].messages
+            if message.role == "tool" and '"type":"zelo_context"' in message.content
+        )
+        assert len(context_message.content) <= CONTEXT_MAX_CHARS
+        envelope = json.loads(context_message.content)
+        assert envelope["purpose"] == "factual_project_and_memory_context"
+        memory_source = next(
+            source
+            for source in envelope["sources"]
+            if source["source"] == "core.memories.personal"
+        )
+        memory_payload = json.loads(memory_source["content"])
+        assert memory_payload["items"]
+        assert memory_payload["retrieval"] == "bounded_lexical_v1"
 
 
 def test_project_memory_is_not_implicitly_cross_scoped_into_mind(settings, database):
