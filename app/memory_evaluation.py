@@ -15,7 +15,7 @@ class MemoryEvaluationCase:
 
     name: str
     query: str
-    scopes: tuple[MemoryScope, ...]
+    scopes: tuple[tuple[str, str | None], ...]
     expected_ids: frozenset[str]
     forbidden_ids: frozenset[str] = frozenset()
     limit: int = 6
@@ -99,8 +99,11 @@ def evaluate_memory_case(
     passed = not missing and not forbidden and not unexpected
     return MemoryEvaluationResult(
         name=case.name,
-        query=case.query,
-        scopes=case.scopes,
+        query=response.query,
+        scopes=tuple(
+            (scope.kind, scope.id.strip() if scope.id is not None else None)
+            for scope in case.scopes
+        ),
         limit=case.limit,
         retrieval=response.retrieval,
         candidate_count=response.candidate_count,
@@ -154,7 +157,10 @@ def memory_evaluation_evidence(report: MemoryEvaluationReport) -> dict:
             {
                 "name": result.name,
                 "query": result.query,
-                "scopes": [scope.model_dump(mode="json") for scope in result.scopes],
+                "scopes": [
+                    {"kind": kind, "id": scope_id}
+                    for kind, scope_id in result.scopes
+                ],
                 "limit": result.limit,
                 "retrieval": result.retrieval,
                 "candidate_count": result.candidate_count,
