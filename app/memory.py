@@ -41,19 +41,26 @@ _MEMORY_STOP_TERMS = frozenset(
         "from",
         "how",
         "i",
+        "can",
+        "could",
         "in",
         "is",
         "it",
+        "like",
         "me",
         "my",
         "of",
         "on",
         "or",
         "our",
+        "that",
         "the",
+        "this",
         "to",
         "was",
         "we",
+        "would",
+        "should",
         "what",
         "when",
         "where",
@@ -309,11 +316,12 @@ class MemoryService:
             )
 
             meaningful_phrase = " ".join(terms)
+            minimum_matches = 1 if len(terms) == 1 else 2
             ranked: list[tuple[int, datetime, str, MemoryRecord, tuple[str, ...]]] = []
             for record in records:
                 content_terms = set(_memory_terms(record.content))
                 matched = tuple(term for term in terms if term in content_terms)
-                if not matched:
+                if len(matched) < minimum_matches:
                     continue
                 score = (len(matched) * 100) + sum(min(len(term), 20) for term in matched)
                 if meaningful_phrase and meaningful_phrase in record.content.casefold():
