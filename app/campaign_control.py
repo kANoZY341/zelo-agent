@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.campaigns import append_campaign_event
 from app.models import (
+    AgentDelegation,
     Campaign,
     CampaignBudgetLimit,
     CampaignBudgetReservation,
@@ -357,11 +358,42 @@ class CampaignControlService:
         return CampaignBudgetReservationResponse.model_validate(reservation)
 
     @staticmethod
-    def _expire_reservation(
+    def _active_delegation_for_reservation(
+        session: Session,
+        reservation_id: str,
+    ) -> AgentDelegation | None:
+        return session.scalar(
+            select(AgentDelegation).where(
+                AgentDelegation.budget_reservation_id == reservation_id,
+                AgentDelegation.status == "active",
+            )
+        )
+
+    @classmethod
+    def _revoke_expired_budget_delegation(
+        cls,
         session: Session,
         reservation: CampaignBudgetReservation,
         now: datetime,
     ) -> None:
+        delegation = cls._active_delegation_for_reservation(session, reservation.id)
+        if delegation is None:
+            return
+        delegation.status = "revoked"
+        delegation.revoked_at = now
+        delegation.revocation_reason = "budget_reservation_expired"
+        # The migration-level budget-binding guard requires the delegation to be
+        # non-active before the reservation can leave reserved state.
+        session.flush()
+
+    @classmethod
+    def _expire_reservation(
+        cls,
+        session: Session,
+        reservation: CampaignBudgetReservation,
+        now: datetime,
+    ) -> None:
+        cls._revoke_expired_budget_delegation(session, reservation, now)
         reservation.status = "expired"
         reservation.committed_units = 0
         reservation.updated_at = now
@@ -619,6 +651,11 @@ class CampaignControlService:
                         409,
                     )
                 return self._reservation_response(reservation)
+            if self._active_delegation_for_reservation(session, reservation.id) is not None:
+                raise DomainError(
+                    "Budget reservation is bound to an active agent delegation",
+                    409,
+                )
             if reservation.status != "reserved":
                 raise DomainError(
                     f"Budget reservation is already {reservation.status}",
@@ -648,6 +685,44 @@ class CampaignControlService:
             raise DomainError("Budget reservation expired", 409)
         raise DomainError("Budget commit failed")
 
+    def release_delegation_budget(
+        self,
+        session: Session,
+        campaign_id: str,
+        reservation_id: str,
+        *,
+        now: datetime,
+    ) -> CampaignBudgetReservationResponse:
+        """Release a delegation reservation inside the caller's revocation transaction."""
+        self._require_campaign(session, campaign_id)
+        reservation = session.get(CampaignBudgetReservation, reservation_id)
+        if reservation is None or reservation.campaign_id != campaign_id:
+            raise DomainError("Campaign budget reservation not found", 404)
+        if self._active_delegation_for_reservation(session, reservation.id) is not None:
+            raise DomainError("Agent delegation must be revoked before budget release", 409)
+        if reservation.status in {"released", "expired"}:
+            return self._reservation_response(reservation)
+        if reservation.status == "committed":
+            raise DomainError("Committed budget cannot be released", 409)
+        if reservation.expires_at <= now:
+            self._expire_reservation(session, reservation, now)
+            return self._reservation_response(reservation)
+
+        reservation.status = "released"
+        reservation.committed_units = 0
+        reservation.updated_at = now
+        append_campaign_event(
+            session,
+            campaign_id,
+            "budget_released",
+            reservation_id=reservation.id,
+            resource=reservation.resource,
+            owner_id=reservation.owner_id,
+            units=reservation.units,
+        )
+        session.flush()
+        return self._reservation_response(reservation)
+
     def release_budget(
         self,
         campaign_id: str,
@@ -661,6 +736,11 @@ class CampaignControlService:
                 raise DomainError("Campaign budget reservation not found", 404)
             if reservation.status in {"released", "expired"}:
                 return self._reservation_response(reservation)
+            if self._active_delegation_for_reservation(session, reservation.id) is not None:
+                raise DomainError(
+                    "Budget reservation is bound to an active agent delegation",
+                    409,
+                )
             if reservation.status == "committed":
                 raise DomainError("Committed budget cannot be released", 409)
             if reservation.expires_at <= now:
