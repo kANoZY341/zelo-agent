@@ -15,7 +15,6 @@ from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.config import ROOT, Settings
 from app.context import ContextResolver
-from app.storage import build_storage
 from app.developer import DeveloperRuntime
 from app.developer_contracts import DeveloperWorker
 from app.gateway import ModelGateway, ModelProvider, OllamaProvider
@@ -43,6 +42,7 @@ from app.scheduler_api import router as scheduler_router
 from app.self_improvement import RepositoryInspector
 from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
+from app.storage import build_storage
 from app.task_api import router as task_router
 from app.tasks import TaskService
 from app.tools import ToolGateway
