@@ -121,6 +121,8 @@ def evaluate_memory_suite(
     cases: Iterable[MemoryEvaluationCase],
 ) -> MemoryEvaluationReport:
     case_list = tuple(cases)
+    if not case_list:
+        raise ValueError("memory evaluation suite cannot be empty")
     names = [case.name for case in case_list]
     if len(names) != len(set(names)):
         raise ValueError("memory evaluation case names must be unique")
