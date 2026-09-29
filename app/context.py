@@ -99,6 +99,27 @@ def _fit_serialized_budget(envelope: dict) -> str:
     return serialized
 
 
+def _fit_memory_payload(payload: dict) -> str:
+    items = payload["items"]
+    serialized = _serialize(payload)
+    while len(serialized) > MEMORY_CONTEXT_CHARS and len(items) > 1:
+        items.pop()
+        serialized = _serialize(payload)
+
+    if len(serialized) > MEMORY_CONTEXT_CHARS and items:
+        item = items[0]
+        content = item["content"]
+        overhead = len(serialized) - len(content)
+        target = max(0, MEMORY_CONTEXT_CHARS - overhead - 32)
+        item["content"] = _bounded(content, target)
+        item["content_truncated"] = True
+        serialized = _serialize(payload)
+
+    if len(serialized) > MEMORY_CONTEXT_CHARS:
+        raise RuntimeError("Memory context metadata exceeds hard budget")
+    return serialized
+
+
 class ContextResolver:
     """Assemble factual context without creating or mutating memory."""
 
@@ -150,15 +171,7 @@ class ContextResolver:
             "source": "core.memories.personal",
             "provenance": "core_memory_records",
             "instruction_trust": "none",
-            "content": _bounded(
-                json.dumps(
-                    payload,
-                    ensure_ascii=False,
-                    allow_nan=False,
-                    separators=(",", ":"),
-                ),
-                MEMORY_CONTEXT_CHARS,
-            ),
+            "content": _fit_memory_payload(payload),
         }
 
     def resolve(self, text: str) -> str | None:
