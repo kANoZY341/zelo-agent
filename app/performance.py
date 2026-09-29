@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Iterable
+import math
 from typing import Any
 
 from sqlalchemy import select
@@ -19,19 +20,23 @@ from app.schemas import (
 )
 
 PERFORMANCE_EVIDENCE_SCHEMA = "zelo-performance-evidence-v1"
+MAX_USAGE_COUNTER = 1_000_000_000_000_000
 MODEL_TASK_KINDS = frozenset({"ai_prompt", "agent_run", "research_run", "self_improvement_run"})
 
 
 def _nonnegative_int(value: Any) -> int | None:
-    if type(value) is int and value >= 0:
+    if type(value) is int and 0 <= value <= MAX_USAGE_COUNTER:
         return value
     return None
 
 
 def _nonnegative_float(value: Any) -> float | None:
-    if type(value) in {int, float} and value >= 0:
-        return float(value)
-    return None
+    if type(value) not in {int, float}:
+        return None
+    normalized = float(value)
+    if normalized < 0 or not math.isfinite(normalized):
+        return None
+    return normalized
 
 
 def _sum_optional(values: Iterable[int | None]) -> int | None:
