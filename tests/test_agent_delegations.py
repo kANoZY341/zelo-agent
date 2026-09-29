@@ -1,5 +1,7 @@
 """v0.14 bounded parent-child delegation contract tests."""
 
+from datetime import timedelta
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -9,11 +11,13 @@ from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
 from app.campaign_control import CampaignControlService
 from app.memory import MemoryService
+from app.models import CampaignBudgetReservation, utcnow
 from app.policy import DomainError
 from app.schemas import (
     AgentDelegationCreate,
     AgentDelegationRevoke,
     AgentInstanceCreate,
+    CampaignBudgetCommit,
     CampaignBudgetReserve,
     CampaignBudgetSet,
 )
@@ -136,6 +140,17 @@ def test_create_replay_list_and_revoke_releases_budget(database, client):
     assert created.status == "active"
     assert delegations.get(created.id) == created
     assert delegations.list(parent.id, status="active", limit=20, offset=0).total == 1
+
+    with pytest.raises(DomainError, match="bound to an active agent delegation"):
+        controls.release_budget(campaign["id"], reservation.id)
+    with pytest.raises(DomainError, match="bound to an active agent delegation"):
+        controls.commit_budget(
+            campaign["id"],
+            reservation.id,
+            CampaignBudgetCommit(actual_units=1),
+        )
+    assert controls.list_reservations(campaign["id"], 20, 0).items[0].status == "reserved"
+    assert delegations.get(created.id).status == "active"
 
     revoked = delegations.revoke(
         created.id,
@@ -359,6 +374,35 @@ def test_nested_delegation_inherits_depth_and_blocks_multiple_parents(database, 
         )
 
 
+def test_expired_bound_budget_revokes_delegation_atomically(database, client):
+    project, _goal, campaign = create_project_goal_campaign(client)
+    parent_spec = spec("manager", allow_subagents=True, max_subagents=2)
+    child_spec = spec("producer")
+    instances, controls, delegations = services(database, parent_spec, child_spec)
+    parent = create_instance(instances, "manager", project["id"])
+    child = create_instance(instances, "producer", project["id"])
+    reservation = reserve(controls, campaign["id"], parent.id, key="budget:expiry")
+    created = delegations.create(
+        parent.id,
+        request(child.id, campaign["id"], reservation.id, key="delegate:expiry"),
+    )
+
+    with database.transaction() as session:
+        stored = session.get(CampaignBudgetReservation, reservation.id)
+        assert stored is not None
+        stored.expires_at = utcnow() - timedelta(seconds=1)
+
+    recovered = controls.recover_expired(campaign["id"])
+    assert recovered.expired_budget_reservations == 1
+
+    expired = controls.list_reservations(campaign["id"], 20, 0).items[0]
+    assert expired.status == "expired"
+    revoked = delegations.get(created.id)
+    assert revoked.status == "revoked"
+    assert revoked.revocation_reason == "budget_reservation_expired"
+    assert revoked.revoked_at is not None
+
+
 def test_database_guards_immutable_contract_and_cycle(database, client):
     project, _goal, campaign = create_project_goal_campaign(client)
     root_spec = spec("root", allow_subagents=True, max_subagents=2)
@@ -371,6 +415,16 @@ def test_database_guards_immutable_contract_and_cycle(database, client):
         root.id,
         request(middle.id, campaign["id"], root_budget.id, key="delegate:guard"),
     )
+
+    with pytest.raises(IntegrityError, match="owns budget reservation"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "UPDATE campaign_budget_reservations SET status = 'released' "
+                    "WHERE id = :reservation_id"
+                ),
+                {"reservation_id": root_budget.id},
+            )
 
     with pytest.raises(IntegrityError, match="immutable"):
         with database.transaction() as session:
