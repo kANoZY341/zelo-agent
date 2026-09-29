@@ -194,7 +194,14 @@ def test_relevant_personal_memory_is_injected_into_mind_context(settings, databa
             if source["source"] == "core.memories.personal"
         )
         assert memory_source["instruction_trust"] == "none"
-        assert "favorite interface color is black" in memory_source["content"]
+        memory_payload = json.loads(memory_source["content"])
+        assert memory_payload["retrieval"] == "bounded_lexical_v1"
+        assert (
+            memory_payload["scope_policy"]
+            == "personal_only_without_explicit_project_or_agent_binding"
+        )
+        assert memory_payload["items"][0]["scope"] == {"kind": "personal", "id": None}
+        assert "favorite interface color is black" in memory_payload["items"][0]["content"]
 
 
 def test_project_memory_is_not_implicitly_cross_scoped_into_mind(settings, database):
