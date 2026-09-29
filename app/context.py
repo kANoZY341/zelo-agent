@@ -124,7 +124,17 @@ def _fit_serialized_budget(envelope: dict) -> str:
         else:
             source["content"] = _bounded(source["content"], target)
         serialized = _serialize(envelope)
-    return serialized
+
+    has_memory = any(source["source"] == "core.memories.personal" for source in envelope["sources"])
+    has_project = any(source["source"] == "core.projects" for source in envelope["sources"])
+    if has_project and has_memory:
+        envelope["purpose"] = "factual_project_and_memory_context"
+    elif has_project:
+        envelope["purpose"] = "factual_project_context"
+    elif has_memory:
+        envelope["purpose"] = "personal_memory_context"
+
+    return _serialize(envelope)
 
 
 class ContextResolver:
