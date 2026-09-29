@@ -149,7 +149,9 @@ class PerformanceEvidenceService:
         result = attempt.result if isinstance(attempt.result, dict) else None
         prompt, completion, total = _model_usage(result, task.kind)
         alias = task.selected_alias or (
-            result.get("alias") if isinstance(result, dict) and isinstance(result.get("alias"), str) else None
+            result.get("alias")
+            if isinstance(result, dict) and isinstance(result.get("alias"), str)
+            else None
         )
         model = task.selected_model or (
             result.get("actual_model")
@@ -234,7 +236,9 @@ class PerformanceEvidenceService:
     def _model_summaries(
         evidence: list[ModelPerformanceEvidence],
     ) -> list[ModelPerformanceSummary]:
-        groups: dict[tuple[str | None, str | None], list[ModelPerformanceEvidence]] = defaultdict(list)
+        groups: dict[
+            tuple[str | None, str | None], list[ModelPerformanceEvidence]
+        ] = defaultdict(list)
         for item in evidence:
             groups[(item.alias, item.model)].append(item)
 
@@ -312,6 +316,7 @@ class PerformanceEvidenceService:
                 session.execute(
                     select(TaskAttempt, Task)
                     .join(Task, Task.id == TaskAttempt.task_id)
+                    .where(Task.kind.in_(tuple(MODEL_TASK_KINDS | {"developer_run"})))
                     .order_by(TaskAttempt.started_at.desc(), TaskAttempt.id.desc())
                     .limit(limit)
                 )
@@ -334,8 +339,8 @@ class PerformanceEvidenceService:
             generated_at=self.clock(),
             record_limit=limit,
             totals=PerformanceTotals(
-                model_observations=len(model_evidence),
-                worker_observations=len(worker_evidence),
+                returned_model_observations=len(model_evidence),
+                returned_worker_observations=len(worker_evidence),
             ),
             model_evidence=model_evidence,
             model_summaries=self._model_summaries(model_evidence),
