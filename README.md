@@ -151,6 +151,31 @@ local adapter and can be replaced later without changing Mind, Core,
 conversations, tasks, approvals, or the Workspace turn contract. Raw microphone
 audio is handled transiently and is not persisted by this slice.
 
+## v0.13 Memory foundation
+
+The in-development v0.13 foundation adds an authenticated, immutable memory
+record store owned by Core. This first slice does **not** automatically remember
+conversation content or inject stored memory into Mind prompts.
+
+Authenticated endpoints:
+
+```text
+POST /memories
+GET  /memories?scope_kind=personal
+GET  /memories/{memory_id}
+```
+
+Memory scopes are explicit: `personal`, `project`, or `agent`. Project scope
+IDs must resolve to an existing Core Project; agent scope IDs are namespace keys
+until Agent Factory arrives in v0.14. Records carry typed provenance and optional
+expiry. Corrections and supersessions are append-only replacement records, so
+history is preserved rather than edited in place. Default list reads return only
+active records; `include_inactive=true` includes expired and replaced history.
+
+There is no embedding/vector backend, automatic retention policy, or memory-to-Mind
+retrieval in this first slice.
+
+
 ## Fixed Research specialist
 
 v0.12 adds a fixed `research_run` specialist on top of the same Core task
