@@ -7,7 +7,6 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.storage import SessionStore
 from app.models import ConversationTurn, Task, TaskAttempt, utcnow
 from app.schemas import (
     ModelPerformanceEvidence,
@@ -18,6 +17,7 @@ from app.schemas import (
     WorkerPerformanceEvidence,
     WorkerPerformanceSummary,
 )
+from app.storage import SessionStore
 
 PERFORMANCE_EVIDENCE_SCHEMA = "zelo-performance-evidence-v1"
 MAX_USAGE_COUNTER = 1_000_000_000_000_000
