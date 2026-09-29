@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from app.campaign_control import CampaignControlService
 from app.campaigns import append_campaign_event
 from app.config import Settings
-from app.storage import SessionStore
 from app.mind import MindService
 from app.models import (
     Campaign,
@@ -42,6 +41,7 @@ from app.schemas import (
     CampaignScheduleRunPage,
     CampaignScheduleRunResponse,
 )
+from app.storage import SessionStore
 
 logger = logging.getLogger("zelo")
 
