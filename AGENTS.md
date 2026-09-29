@@ -55,25 +55,28 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.12 release preparation
+## Current scope: v0.13 Memory foundation
 
-The v0.12 implementation is complete on `main` at
-`7f72f8191a1b235e683bde6eaeef65281495f04b`. The milestone includes durable
-Project/Goal/Campaign ownership, Campaign controls, leases and shared budgets,
-bounded scheduler/Mind wake cycles, the fixed Research specialist, Core-backed
-Workspace project/progress views, Workspace hardening, local push-to-talk voice,
-and bounded autonomous continuation.
+Zelo Core v0.12.0 release preparation is merged on `main` at
+`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`. GitHub tag/release publication is
+a separate release operation; do not change v0.12 runtime behavior in this slice.
 
-This slice is release preparation only: align version metadata and repository
-status/documentation, run the full validation gates, and publish `v0.12.0` only
-after the release-prep PR is merged. Do not add new runtime behavior here.
+The active implementation slice is **v0.13 Memory foundation**. Add typed,
+durable, operator-controlled memory records with explicit personal, project and
+agent scopes; provenance; optional expiry; and immutable correction/supersession
+chains.
 
-After the v0.12.0 release, the active milestone becomes **v0.13 — Memory, context
-and evidence**. Start narrowly with typed durable memory records and explicit
-personal/project/agent scopes, provenance, expiry, correction and supersession.
-Do not introduce a vector database, automatic forever-memory policy, Agent
-Factory, broad new worker capabilities, external channels, or new merge/release
-authority in the first memory slice.
+This first slice must keep memory separate from operational Task/Campaign state.
+It may expose authenticated Core creation/read/list contracts, but it must not
+automatically write memories from conversations, inject memory into Mind context,
+add embeddings/vector search, silently infer what should be retained, or create
+an Agent Factory. Corrections and supersessions create new immutable records; do
+not rewrite history in place.
+
+Project-scoped memory must validate Project ownership. Agent-scoped identifiers
+are typed namespaces only until the v0.14 Agent Factory exists. Retrieval/context
+assembly, evaluation evidence, model/worker performance evidence and storage
+abstraction remain later v0.13 slices.
 
 ## Workspace decision
 
