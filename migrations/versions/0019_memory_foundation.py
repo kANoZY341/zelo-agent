@@ -81,6 +81,20 @@ def upgrade() -> None:
     )
     op.execute(
         """
+        CREATE TRIGGER memory_records_existing_replacement_guard
+        BEFORE INSERT ON memory_records
+        FOR EACH ROW
+        WHEN NEW.replaces_id IS NOT NULL
+         AND EXISTS (
+            SELECT 1 FROM memory_records WHERE replaces_id = NEW.replaces_id
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Memory has already been replaced');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER memory_records_existing_id_guard
         BEFORE INSERT ON memory_records
         FOR EACH ROW
