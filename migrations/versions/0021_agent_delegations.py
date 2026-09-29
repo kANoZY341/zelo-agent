@@ -177,6 +177,24 @@ def upgrade() -> None:
     )
     op.execute(
         """
+        CREATE TRIGGER agent_delegations_budget_binding_guard
+        BEFORE UPDATE OF status ON campaign_budget_reservations
+        FOR EACH ROW
+        WHEN OLD.status = 'reserved'
+         AND NEW.status <> 'reserved'
+         AND EXISTS (
+            SELECT 1
+            FROM agent_delegations AS delegation
+            WHERE delegation.budget_reservation_id = OLD.id
+              AND delegation.status = 'active'
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Active agent delegation owns budget reservation');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER agent_delegations_budget_guard
         BEFORE INSERT ON agent_delegations
         FOR EACH ROW
