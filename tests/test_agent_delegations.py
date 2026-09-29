@@ -288,6 +288,28 @@ def test_nested_delegation_inherits_depth_and_blocks_multiple_parents(database, 
     )
     assert first.depth == 1
 
+    cycle_budget = controls.reserve_budget(
+        campaign["id"],
+        CampaignBudgetReserve(
+            resource="agent_steps",
+            owner_id=middle.id,
+            idempotency_key="budget:cycle",
+            units=3,
+            ttl_seconds=3600,
+        ),
+    )
+    with pytest.raises(DomainError, match="cycle"):
+        delegations.create(
+            middle.id,
+            request(
+                root.id,
+                campaign["id"],
+                cycle_budget.id,
+                key="delegate:cycle",
+                max_depth=2,
+            ),
+        )
+
     middle_budget = controls.reserve_budget(
         campaign["id"],
         CampaignBudgetReserve(
