@@ -280,9 +280,41 @@ def test_memory_records_are_database_append_only_and_project_scope_is_guarded(da
     for statement in (
         "UPDATE memory_records SET content='mutated' "
         "WHERE id='00000000-0000-0000-0000-000000000092'",
-        "DELETE FROM memory_records "
-        "WHERE id='00000000-0000-0000-0000-000000000092'",
+        "DELETE FROM memory_records WHERE id='00000000-0000-0000-0000-000000000092'",
     ):
         with pytest.raises(IntegrityError, match="append-only"):
             with database.transaction() as session:
                 session.execute(text(statement))
+
+
+    with pytest.raises(IntegrityError, match="already exists"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    """
+                    INSERT OR REPLACE INTO memory_records (
+                        id, scope_kind, kind, content,
+                        provenance_kind, provenance_note, created_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-000000000092',
+                        'personal',
+                        'fact',
+                        'Replacement must not overwrite history',
+                        'operator',
+                        '',
+                        '2026-09-29 00:01:00'
+                    )
+                    """
+                )
+            )
+
+    with database.read() as session:
+        assert (
+            session.scalar(
+                text(
+                    "SELECT content FROM memory_records "
+                    "WHERE id='00000000-0000-0000-0000-000000000092'"
+                )
+            )
+            == "Immutable memory"
+        )
