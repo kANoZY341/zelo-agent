@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.campaigns import append_campaign_event
 from app.config import Settings
-from app.database import Database
+from app.storage import SessionStore
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
 from app.models import (
@@ -602,7 +602,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
 class TaskService:
     def __init__(
         self,
-        database: Database,
+        database: SessionStore,
         settings: Settings,
         gateway: ModelGateway | None = None,
         tool_gateway: ToolGateway | None = None,
