@@ -18,10 +18,25 @@ class MemoryEvaluationCase:
     forbidden_ids: frozenset[str] = frozenset()
     limit: int = 6
 
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("memory evaluation case name cannot be blank")
+        if not self.query.strip():
+            raise ValueError("memory evaluation query cannot be blank")
+        if not self.scopes:
+            raise ValueError("memory evaluation requires at least one scope")
+        if not 1 <= self.limit <= 20:
+            raise ValueError("memory evaluation limit must be between 1 and 20")
+        overlap = self.expected_ids & self.forbidden_ids
+        if overlap:
+            raise ValueError("expected and forbidden memory IDs must be disjoint")
+
 
 @dataclass(frozen=True)
 class MemoryEvaluationResult:
     name: str
+    retrieval: str
+    candidate_count: int
     actual_ids: tuple[str, ...]
     expected_ids: frozenset[str]
     missing_expected_ids: frozenset[str]
@@ -78,6 +93,8 @@ def evaluate_memory_case(
     passed = not missing and not forbidden and not unexpected
     return MemoryEvaluationResult(
         name=case.name,
+        retrieval=response.retrieval,
+        candidate_count=response.candidate_count,
         actual_ids=actual_ids,
         expected_ids=case.expected_ids,
         missing_expected_ids=missing,
@@ -93,7 +110,11 @@ def evaluate_memory_suite(
     memories: MemoryService,
     cases: Iterable[MemoryEvaluationCase],
 ) -> MemoryEvaluationReport:
-    results = tuple(evaluate_memory_case(memories, case) for case in cases)
+    case_list = tuple(cases)
+    names = [case.name for case in case_list]
+    if len(names) != len(set(names)):
+        raise ValueError("memory evaluation case names must be unique")
+    results = tuple(evaluate_memory_case(memories, case) for case in case_list)
     cases_passed = sum(result.passed for result in results)
     contamination_hits = sum(len(result.forbidden_ids_present) for result in results)
     unexpected_hits = sum(len(result.unexpected_ids) for result in results)
