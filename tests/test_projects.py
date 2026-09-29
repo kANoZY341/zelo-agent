@@ -105,7 +105,7 @@ def test_context_budget_is_enforced_after_unicode_serialization(database, tmp_pa
         encoding="utf-8",
     )
     (docs / "zelo-canonical-architecture-roadmap.md").write_text(
-        "### v0.13 — Memory, context and evidence\n\n" + ("é" * 5000),
+        "### v0.14 — Agent Factory\n\n" + ("é" * 5000),
         encoding="utf-8",
     )
 
