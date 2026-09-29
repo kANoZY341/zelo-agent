@@ -182,6 +182,29 @@ explicit scope. They remain available through explicit retrieval requests.
 There are still no automatic memory writes from conversation, model-decided
 retention rules, embeddings/vector search, or Agent Factory behavior.
 
+### v0.13 Performance and cost evidence
+
+Core exposes a bounded authenticated read-only evidence view at:
+
+```text
+GET /performance/evidence?limit=200
+```
+
+The evidence is derived from already-persisted conversation turns, model-task
+attempts, developer-worker results and independent reviewer results. It includes
+model/worker identity, exact source IDs, outcomes, reported token/usage counters
+and observed durations, plus per-model and per-worker summaries.
+
+Current local model and coding-worker records do **not** report monetary billing
+cost. Zelo therefore returns
+`reported_cost.status = "not_reported_by_current_sources"` and does not convert
+tokens into guessed currency. Token usage is evidence of resource consumption,
+not a price.
+
+The evidence response intentionally excludes prompts, replies, diffs and worker
+summaries. This slice does not use the evidence for automatic worker/model
+routing; evidence-based routing remains a later autonomy milestone.
+
 v0.13 also includes a deterministic memory evaluation harness in
 `app/memory_evaluation.py`. It records exact expected/actual memory IDs,
 missing/forbidden/unexpected hits, precision/recall and the retrieval version for

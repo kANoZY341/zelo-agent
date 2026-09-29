@@ -41,40 +41,39 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.13 Memory evaluation and contamination boundaries
+## Active increment: v0.13 Worker/model performance and cost evidence
 
-The second v0.13 bounded retrieval/context slice merged to `main` at:
+The third v0.13 memory evaluation/contamination slice merged to `main` at:
 
-`22f9ff24070ead799511657b656463bdaef54f2a`
+`0ac35db90445a0a97201d584710faed90b7b6633`
 
 The active implementation branch is:
 
-`feat/v0.13-memory-evaluation`
+`feat/v0.13-performance-cost-evidence`
 
-This third v0.13 slice adds deterministic baseline evidence for memory quality
-and contamination boundaries:
+This fourth v0.13 slice adds read-only evidence derived from existing Core state:
 
-- exact expected/actual retrieval case results;
-- precision/recall evidence tied to exact memory IDs;
-- contamination and unexpected-hit counts;
-- current-vs-corrected/expired selection checks;
-- unrelated-query rejection;
-- Unicode/Arabic recall;
-- explicit project and agent scope isolation;
-- automatic Mind-context personal-only isolation;
-- memory-instruction trust-boundary checks;
-- canonical project/runtime precedence over conflicting remembered context;
-- irrelevant-memory non-injection.
+- Zelo Mind turn model identity and reported token usage;
+- model-task attempt identity, outcome, duration and reported token usage;
+- developer worker identity/version/config, outcome, duration and reported usage;
+- independent reviewer worker evidence when already persisted in developer results;
+- per-model and per-worker summaries;
+- explicit succeeded/failed/other outcome counts;
+- bounded source records with exact IDs;
+- an authenticated `GET /performance/evidence` surface;
+- explicit monetary-cost status when current providers/workers report no price.
 
-The evaluation path performs no model calls and grants no new runtime authority.
-There are still no automatic memory writes, embeddings/vector database,
-model-decided retention rules, Agent Factory, or approval/merge/release bypasses.
+The evidence layer does **not** estimate token prices or invent monetary spend.
+Current sources expose usage/timing but not monetary billing data, so monetary cost
+is reported as unavailable/not reported.
 
-## Later v0.13 slices
+The slice does not change worker/model routing, execution authority, approvals,
+merge/release policy, or memory retention.
 
-After evaluation/contamination evidence is verified:
+## Remaining v0.13 slice
 
-1. worker/model performance and cost evidence;
-2. storage abstraction for future Postgres/Supabase/vector backends.
+After performance/cost evidence is verified:
+
+1. storage abstraction for future Postgres/Supabase/vector backends.
 
 Do not advance into v0.14 Agent Factory work from this branch.

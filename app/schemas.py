@@ -532,6 +532,101 @@ class MemoryRetrievalResponse(StrictModel):
     retrieval: Literal["bounded_lexical_v1"] = "bounded_lexical_v1"
 
 
+class ModelPerformanceEvidence(StrictModel):
+    source_kind: Literal["mind_turn", "task_attempt"]
+    source_id: str = Field(min_length=1, max_length=128)
+    task_id: TaskId | None = None
+    task_kind: str | None = Field(default=None, max_length=32)
+    attempt_number: int | None = Field(default=None, ge=1)
+    alias: str | None = Field(default=None, max_length=64)
+    model: str | None = Field(default=None, max_length=256)
+    outcome: str = Field(min_length=1, max_length=32)
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
+    usage_status: Literal["reported", "partial", "unreported"]
+    duration_seconds: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    observed_at: datetime
+
+
+class ModelPerformanceSummary(StrictModel):
+    alias: str | None = Field(default=None, max_length=64)
+    model: str | None = Field(default=None, max_length=256)
+    observations: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    other_outcomes: int = Field(ge=0)
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    usage_observations: int = Field(ge=0)
+    duration_observations: int = Field(ge=0)
+    duration_seconds: float = Field(ge=0, allow_inf_nan=False)
+
+
+class WorkerPerformanceEvidence(StrictModel):
+    source_id: str = Field(min_length=1, max_length=128)
+    task_id: TaskId
+    attempt_number: int = Field(ge=1)
+    role: Literal["developer", "reviewer"]
+    worker: str = Field(min_length=1, max_length=128)
+    worker_version: str = Field(min_length=1, max_length=256)
+    worker_config_version: str | None = Field(default=None, max_length=256)
+    outcome: str = Field(min_length=1, max_length=32)
+    usage: dict[str, int] = Field(default_factory=dict)
+    duration_seconds: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    validation_passed: bool | None = None
+    observed_at: datetime
+
+
+class WorkerPerformanceSummary(StrictModel):
+    role: Literal["developer", "reviewer"]
+    worker: str = Field(min_length=1, max_length=128)
+    worker_version: str = Field(min_length=1, max_length=256)
+    observations: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    other_outcomes: int = Field(ge=0)
+    usage_observations: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    cached_input_tokens: int = Field(ge=0)
+    cache_creation_input_tokens: int = Field(ge=0)
+    cache_read_input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    duration_observations: int = Field(ge=0)
+    duration_seconds: float = Field(ge=0, allow_inf_nan=False)
+    validation_passes: int = Field(ge=0)
+    validation_failures: int = Field(ge=0)
+
+
+class ReportedCostEvidence(StrictModel):
+    status: Literal["not_reported_by_current_sources"]
+    currency: str | None = Field(default=None, max_length=16)
+    amount_micros: int | None = Field(default=None, ge=0)
+    note: str = Field(min_length=1, max_length=512)
+
+
+class PerformanceTotals(StrictModel):
+    returned_model_observations: int = Field(ge=0)
+    returned_worker_observations: int = Field(ge=0)
+
+
+class PerformanceCostEvidence(StrictModel):
+    schema: Literal["zelo-performance-evidence-v1"]
+    generated_at: datetime
+    record_limit: int = Field(ge=1, le=500)
+    summary_scope: Literal["returned_evidence_only"] = "returned_evidence_only"
+    totals: PerformanceTotals
+    model_evidence: list[ModelPerformanceEvidence]
+    model_summaries: list[ModelPerformanceSummary]
+    worker_evidence: list[WorkerPerformanceEvidence]
+    worker_summaries: list[WorkerPerformanceSummary]
+    reported_cost: ReportedCostEvidence
+
+
 class GoalSpec(StrictModel):
     objective: str = Field(min_length=1, max_length=2048)
     success_criteria: list[GoalText] = Field(default_factory=list, max_length=16)

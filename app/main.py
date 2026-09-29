@@ -24,6 +24,8 @@ from app.memory import MemoryService
 from app.memory_api import router as memory_router
 from app.mind import MindService
 from app.mind_api import router as mind_router
+from app.performance import PerformanceEvidenceService
+from app.performance_api import router as performance_router
 from app.policy import DomainError
 from app.project_api import router as project_router
 from app.projects import ProjectService
@@ -80,6 +82,7 @@ def create_app(
             tool_gateway = ToolGateway(configuration)
             projects = ProjectService(database)
             memories = MemoryService(database)
+            performance_evidence = PerformanceEvidenceService(database)
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
             context_resolver = ContextResolver(projects, memories=memories)
@@ -158,6 +161,7 @@ def create_app(
             application.state.tasks = tasks
             application.state.projects = projects
             application.state.memories = memories
+            application.state.performance_evidence = performance_evidence
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
             application.state.mind = mind
@@ -181,6 +185,7 @@ def create_app(
     application.include_router(task_router)
     application.include_router(project_router)
     application.include_router(memory_router)
+    application.include_router(performance_router)
     application.include_router(campaign_router)
     application.include_router(campaign_control_router)
     application.include_router(scheduler_router)
