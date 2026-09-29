@@ -9,6 +9,7 @@ from app.memory_evaluation import (
     evaluate_memory_case,
     evaluate_memory_suite,
 )
+from app.policy import DomainError
 from app.schemas import MemoryScope
 from tests.conftest import AUTH
 
@@ -193,7 +194,7 @@ def test_memory_evaluation_case_requires_explicit_scope_validation(client):
         expected_ids=frozenset(),
     )
 
-    with pytest.raises(Exception, match="Project not found"):
+    with pytest.raises(DomainError, match="Project not found"):
         evaluate_memory_case(client.app.state.memories, case)
 
 
