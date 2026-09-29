@@ -41,37 +41,48 @@ v0.12 does not grant autonomous merge/release, approval bypasses, unrestricted
 worker authority, a second scheduler authority, or self-created continuation
 schedules.
 
-## Active increment: v0.13 Storage abstraction
+## Active increment: v0.13 Release preparation
 
-The fourth v0.13 performance/cost evidence slice merged to `main` at:
+The complete v0.13 implementation is merged to `main` at:
 
-`25bb6f1c5cba5da0b0a416cc465eced9058f966e`
+`fc244b59e0be1a10f838e668bd749aa7fb904a67`
 
-The active implementation branch is:
+The release-preparation branch is:
 
-`feat/v0.13-storage-abstraction`
+`chore/v0.13-release-prep`
 
-This final v0.13 slice introduces a Zelo-owned storage boundary:
+v0.13 — Memory, Context and Evidence now includes:
 
-- `SessionStore` for Core service read/write sessions;
-- `CoreStorage` for schema, runner ownership, descriptor and lifecycle;
-- backend selection through `build_storage(settings)`;
-- explicit `ZELO_STORAGE_BACKEND` configuration;
-- the existing SQLite implementation as the only enabled v0.13 adapter;
-- backend metadata declaring relational support and no vector-search support;
-- tests proving Core service behavior through the interface rather than the
-  concrete `Database` type.
+- scoped personal, project and agent memory records;
+- provenance, expiry, correction and supersession;
+- deterministic bounded lexical retrieval with explicit scopes;
+- bounded personal-memory injection into Zelo Mind with untrusted-instruction handling;
+- deterministic memory evaluation and contamination-boundary coverage;
+- worker/model performance and reported-cost evidence with no invented pricing;
+- Zelo-owned storage contracts and backend selection;
+- SQLite retained as the only enabled backend, with current transaction, migration,
+  WAL, privacy and single-runner guarantees preserved.
 
-SQLite semantics remain unchanged. The slice does not migrate data, add a
-Postgres/Supabase driver, add vector retrieval, or change Core authority.
+Merged v0.13 work is PRs #41, #42, #43, #44 and #45.
 
-## v0.13 completion path
+The final storage slice was verified on head
+`3a6ddbbddfe613862d043f0c9b1e497595ba2267` by CI #1590 before merge.
 
-After storage abstraction is verified and merged:
+This release-preparation slice changes version metadata and documentation only.
+It does not add runtime authority, automatic memory writes, embeddings/vector
+search, a Postgres/Supabase backend, Agent Factory behavior, approval bypasses,
+or new merge/release authority.
 
-1. prepare the v0.13 release;
-2. run the full release gates;
-3. publish v0.13;
-4. only then start v0.14 Agent Factory.
+## v0.13 release gate
 
-Do not advance into v0.14 Agent Factory work from this branch.
+Before publishing `v0.13.0`:
+
+1. diff check;
+2. Ruff lint;
+3. Ruff format;
+4. full pytest;
+5. independent/adversarial review;
+6. merge the exact reviewed release-prep head;
+7. tag and publish `v0.13.0` from the resulting `main` commit.
+
+Only after v0.13.0 is published does the active roadmap move to v0.14 Agent Factory.
