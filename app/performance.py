@@ -249,7 +249,10 @@ class PerformanceEvidenceService:
                     model=model,
                     observations=len(items),
                     succeeded=sum(item.outcome == "succeeded" for item in items),
-                    failed=sum(item.outcome != "succeeded" for item in items),
+                    failed=sum(item.outcome == "failed" for item in items),
+                    other_outcomes=sum(
+                        item.outcome not in {"succeeded", "failed"} for item in items
+                    ),
                     prompt_tokens=sum(item.prompt_tokens or 0 for item in items),
                     completion_tokens=sum(item.completion_tokens or 0 for item in items),
                     total_tokens=sum(item.total_tokens or 0 for item in items),
@@ -278,7 +281,10 @@ class PerformanceEvidenceService:
                     worker_version=version,
                     observations=len(items),
                     succeeded=sum(item.outcome == "succeeded" for item in items),
-                    failed=sum(item.outcome != "succeeded" for item in items),
+                    failed=sum(item.outcome == "failed" for item in items),
+                    other_outcomes=sum(
+                        item.outcome not in {"succeeded", "failed"} for item in items
+                    ),
                     usage_observations=sum(bool(item.usage) for item in items),
                     input_tokens=sum(item.usage.get("input_tokens", 0) for item in items),
                     cached_input_tokens=sum(
