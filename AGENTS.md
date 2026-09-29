@@ -55,35 +55,40 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Memory evaluation and contamination boundaries
+## Current scope: v0.13 Worker/model performance and cost evidence
 
 Zelo Core v0.12.0 is published from `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
-The first two v0.13 slices are merged on `main`:
+The first three v0.13 slices are merged on `main`:
 
 - Memory foundation: `e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`;
-- bounded retrieval/context: `22f9ff24070ead799511657b656463bdaef54f2a`.
+- bounded retrieval/context: `22f9ff24070ead799511657b656463bdaef54f2a`;
+- memory evaluation/contamination: `0ac35db90445a0a97201d584710faed90b7b6633`.
 
-The active slice is **baseline memory evaluation and contamination boundaries**.
-Add deterministic quality evidence over the existing retrieval/context path
-without changing memory authority or introducing model-based grading.
+The active slice is **worker/model performance and cost evidence**. Build a
+read-only evidence layer over already-persisted Core task, attempt, conversation,
+model-usage and developer-worker records so later routing and workspace views can
+compare observed outcomes without inventing data.
 
 Rules for this slice:
 
-- evaluation cases must be deterministic and runnable without external model/API
-  calls;
-- baseline cases must cover correct recall, unrelated-query rejection,
-  correction/expiry behavior, Unicode/Arabic recall and explicit scope isolation;
-- contamination checks must cover personal/project/agent separation, untrusted
-  memory instructions, canonical-state precedence and irrelevant-memory
-  non-injection;
-- evaluation evidence must expose exact expected/actual IDs and contamination
-  failures rather than hiding them behind one aggregate score;
-- keep memory retrieval/context read-only and bounded;
-- do not automatically write memories from conversations;
-- do not add embeddings/vector search, model-decided retention, Agent Factory,
-  new execution authority, approval bypasses, or merge/release authority;
-Later v0.13 slices cover worker/model performance and cost evidence, then storage
-abstraction for future backend swaps.
+- derive evidence only from authoritative persisted Core records;
+- expose exact source/attempt IDs and model/worker identity where already stored;
+- preserve reported token/usage counters and observed durations;
+- distinguish succeeded, failed and other terminal outcomes;
+- never estimate or fabricate monetary prices when providers/workers did not
+  report a monetary cost;
+- make monetary cost unavailability explicit rather than treating token counts
+  as currency;
+- do not persist prompts, replies, diffs, worker summaries or other private
+  payload contents into the evidence response;
+- keep the evidence API authenticated, bounded and read-only;
+- do not use evidence to auto-route workers/models yet; v0.18 owns
+  evidence-based routing;
+- do not add automatic memory writes, Agent Factory, approval bypasses or new
+  merge/release authority.
+
+The remaining v0.13 slice is storage abstraction for future
+Postgres/Supabase/vector backends.
 
 ## Workspace decision
 
