@@ -604,14 +604,15 @@ class ReportedCostEvidence(StrictModel):
 
 
 class PerformanceTotals(StrictModel):
-    model_observations: int = Field(ge=0)
-    worker_observations: int = Field(ge=0)
+    returned_model_observations: int = Field(ge=0)
+    returned_worker_observations: int = Field(ge=0)
 
 
 class PerformanceCostEvidence(StrictModel):
     schema: Literal["zelo-performance-evidence-v1"]
     generated_at: datetime
     record_limit: int = Field(ge=1, le=500)
+    summary_scope: Literal["returned_evidence_only"] = "returned_evidence_only"
     totals: PerformanceTotals
     model_evidence: list[ModelPerformanceEvidence]
     model_summaries: list[ModelPerformanceSummary]
