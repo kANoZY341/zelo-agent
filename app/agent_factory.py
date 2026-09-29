@@ -133,9 +133,7 @@ def _registry_version(
     payload = {
         "schema": AGENT_REGISTRY_SCHEMA,
         "agents": [agents[item].model_dump(mode="json") for item in sorted(agents)],
-        "departments": [
-            departments[item].model_dump(mode="json") for item in sorted(departments)
-        ],
+        "departments": [departments[item].model_dump(mode="json") for item in sorted(departments)],
     }
     return hashlib.sha256(_canonical_json(payload)).hexdigest()
 
@@ -201,9 +199,7 @@ class AgentRegistry:
                 continue
             if missing := set(spec.allowed_task_kinds).difference(task_kinds):
                 missing_task = sorted(missing)[0]
-                raise ValueError(
-                    f"agent_task_kind_unavailable:{spec.agent_id}:{missing_task}"
-                )
+                raise ValueError(f"agent_task_kind_unavailable:{spec.agent_id}:{missing_task}")
             if missing := set(spec.allowed_tools).difference(tools):
                 raise ValueError(f"agent_tool_unavailable:{spec.agent_id}:{sorted(missing)[0]}")
 
@@ -216,9 +212,7 @@ class AgentRegistry:
             for agent_id in assigned:
                 agent = self._agents[agent_id]
                 if agent.lifecycle != "active":
-                    raise ValueError(
-                        f"department_agent_not_active:{spec.department_id}:{agent_id}"
-                    )
+                    raise ValueError(f"department_agent_not_active:{spec.department_id}:{agent_id}")
 
 
 class AgentFactory:
@@ -267,8 +261,7 @@ def coding_agent_spec() -> AgentSpec:
         agent_id="coding",
         role="coding",
         objective=(
-            "Plan, implement, and review bounded software changes through "
-            "Zelo-owned runtimes."
+            "Plan, implement, and review bounded software changes through Zelo-owned runtimes."
         ),
         capabilities=("code_change", "code_planning", "code_review"),
         allowed_task_kinds=("developer_run",),
