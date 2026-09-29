@@ -172,11 +172,7 @@ class AgentDelegationService:
             if campaign is None:
                 raise DomainError("Campaign not found", 404)
             goal = session.get(Goal, campaign.goal_id)
-            if (
-                goal is None
-                or goal.project_id != parent.project_id
-                or campaign.status != "active"
-            ):
+            if goal is None or goal.project_id != parent.project_id or campaign.status != "active":
                 raise DomainError("Delegation campaign is not active in the bound Project", 409)
 
             incoming = session.scalar(
@@ -254,11 +250,7 @@ class AgentDelegationService:
             if status is not None:
                 conditions.append(AgentDelegation.status == status)
             total = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(AgentDelegation)
-                    .where(*conditions)
-                )
+                session.scalar(select(func.count()).select_from(AgentDelegation).where(*conditions))
                 or 0
             )
             items = list(
