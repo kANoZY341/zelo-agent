@@ -1,5 +1,9 @@
 """Storage abstraction boundaries for the final v0.13 slice."""
 
+import pytest
+from pydantic import ValidationError
+
+from app.config import Settings
 from app.projects import ProjectService
 from app.schemas import ProjectCreate
 from app.storage import CoreStorage, SQLITE_STORAGE, SessionStore, build_storage
@@ -30,6 +34,15 @@ def test_storage_factory_builds_declared_sqlite_backend(settings):
     finally:
         storage.close()
 
+
+
+def test_unimplemented_storage_backend_fails_closed(runtime_path):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            runtime_dir=runtime_path,
+            storage_backend="postgres",
+        )
 
 def test_core_service_accepts_session_store_without_database_concrete_type(database):
     storage = DelegatingSessionStore(database)
