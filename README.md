@@ -1,12 +1,13 @@
-# Zelo Core v0.12.0 — Durable Goals and Bounded Autonomy
+# Zelo Core v0.13.0 — Memory, Context and Evidence
 
-Zelo Core is the trusted local authority and execution runtime for Zelo. v0.12
-builds on the v0.11 self-improvement seed with persistent Talk-to-Zelo
-conversation, Project/Goal/Campaign ownership, leases and shared budgets,
-bounded scheduling and Mind wake cycles, completion-aware continuation, a fixed
-Research specialist, Core-backed Workspace project/progress views, and local
-push-to-talk voice. Existing worker authority, approvals, validation, promotion,
-and merge/release boundaries remain in force.
+Zelo Core is the trusted local authority and execution runtime for Zelo. v0.13
+builds on the v0.12 durable-goals foundation with scoped immutable memory,
+bounded retrieval and Mind context, deterministic memory evaluation and
+contamination boundaries, worker/model performance and reported-cost evidence,
+and a Zelo-owned storage abstraction that keeps SQLite as the current backend
+while preserving a future path to Postgres/Supabase/vector storage. Existing
+task, worker, approval, scheduling, budget, validation, promotion, merge and
+release boundaries remain in force.
 
 ## Setup
 
@@ -39,7 +40,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.12.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.13.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -110,8 +111,8 @@ process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
 A linked task is projected back into the conversation from canonical TaskService
 state, so a workspace can show pending/running/approval/result state without
 duplicating it. The first proof path is documented in
-`docs/early-zelo-chat.md`. Durable memory now begins in v0.13; Agent Factory, broad capabilities,
-and external channels remain in their later canonical milestones.
+`docs/early-zelo-chat.md`. Durable scoped memory is now included in v0.13; Agent Factory, broad
+capabilities, and external channels remain in their later canonical milestones.
 
 ## Optional local push-to-talk voice
 
