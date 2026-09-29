@@ -219,6 +219,7 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
             "input_tokens": 100,
             "cached_input_tokens": 20,
             "output_tokens": 30,
+            "total_tokens": 10**30,
             "ignored_secret_counter": 999,
         },
         "duration_seconds": 12.5,
@@ -269,6 +270,7 @@ def test_performance_evidence_reports_developer_and_reviewer_worker_observations
         "cached_input_tokens": 20,
         "output_tokens": 30,
     }
+    assert "total_tokens" not in developer["usage"]
     assert reviewer["worker"] == "claude-code"
     assert reviewer["duration_seconds"] == 4.5
     assert reviewer["validation_passed"] is None
