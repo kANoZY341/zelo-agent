@@ -259,6 +259,20 @@ def test_retrieval_returns_only_active_current_personal_memory(client):
     assert payload["items"][0]["matched_terms"] == ["favorite", "interface", "color"]
 
 
+def test_retrieval_does_not_return_single_generic_overlap_for_multi_term_query(client):
+    _create_personal(client, "My favorite interface color is black.")
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={
+            "query": "what is my favorite dessert?",
+            "scopes": [{"kind": "personal"}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["items"] == []
+
+
 def test_retrieval_keeps_project_and_agent_scopes_explicit(client):
     alpha = client.post(
         "/projects",
