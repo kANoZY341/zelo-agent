@@ -570,7 +570,7 @@ class WorkerPerformanceEvidence(StrictModel):
     role: Literal["developer", "reviewer"]
     worker: str = Field(min_length=1, max_length=128)
     worker_version: str = Field(min_length=1, max_length=256)
-    worker_config_version: str | None = Field(default=None, max_length=128)
+    worker_config_version: str | None = Field(default=None, max_length=256)
     outcome: str = Field(min_length=1, max_length=32)
     usage: dict[str, int] = Field(default_factory=dict)
     duration_seconds: float | None = Field(default=None, ge=0, allow_inf_nan=False)
