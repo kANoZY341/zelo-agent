@@ -2,8 +2,9 @@
 
 from collections.abc import Callable
 from datetime import datetime
+import re
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.database import Database
@@ -11,12 +12,88 @@ from app.models import MemoryRecord, Project, utcnow
 from app.policy import DomainError
 from app.schemas import (
     MemoryCreate,
+    MemoryHit,
     MemoryPage,
     MemoryProvenance,
     MemoryResponse,
+    MemoryRetrievalResponse,
+    MemoryRetrieveRequest,
     MemoryScope,
     MemoryScopeKind,
 )
+
+
+MEMORY_RETRIEVAL_CANDIDATES = 256
+MEMORY_HIT_CONTENT_CHARS = 1200
+_MEMORY_TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
+_MEMORY_STOP_TERMS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "do",
+        "does",
+        "for",
+        "from",
+        "how",
+        "i",
+        "in",
+        "is",
+        "it",
+        "me",
+        "my",
+        "of",
+        "on",
+        "or",
+        "our",
+        "the",
+        "to",
+        "was",
+        "we",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+        "you",
+        "your",
+    }
+)
+
+
+def _memory_terms(value: str) -> tuple[str, ...]:
+    seen: set[str] = set()
+    terms: list[str] = []
+    for raw in _MEMORY_TOKEN.findall(value.casefold()):
+        if len(raw) < 2 or raw in _MEMORY_STOP_TERMS or raw in seen:
+            continue
+        seen.add(raw)
+        terms.append(raw)
+    return tuple(terms)
+
+
+def _memory_snippet(content: str, matched_terms: tuple[str, ...]) -> tuple[str, bool]:
+    if len(content) <= MEMORY_HIT_CONTENT_CHARS:
+        return content, False
+
+    folded = content.casefold()
+    positions = [folded.find(term) for term in matched_terms]
+    positions = [position for position in positions if position >= 0]
+    first = min(positions) if positions else 0
+    start = max(0, first - 200)
+    prefix = "...[bounded] " if start > 0 else ""
+    available = MEMORY_HIT_CONTENT_CHARS - len(prefix)
+    body = content[start : start + available]
+    if start + available < len(content):
+        marker = " ...[bounded]"
+        body = body[: max(0, available - len(marker))] + marker
+    return prefix + body, True
 
 
 class MemoryService:
@@ -179,4 +256,91 @@ class MemoryService:
                 limit=limit,
                 offset=offset,
                 total=total,
+            )
+
+    def retrieve(self, body: MemoryRetrieveRequest) -> MemoryRetrievalResponse:
+        query = " ".join(body.query.split())
+        terms = _memory_terms(query)
+        if not terms:
+            return MemoryRetrievalResponse(
+                query=query,
+                items=[],
+                candidate_count=0,
+                limit=body.limit,
+            )
+
+        now = self.clock()
+        with self.database.read() as session:
+            scope_conditions = []
+            for scope in body.scopes:
+                scope_id = scope.id.strip() if scope.id is not None else None
+                self._validate_scope(session, scope.kind, scope_id)
+                if scope_id is None:
+                    scope_conditions.append(
+                        and_(
+                            MemoryRecord.scope_kind == scope.kind,
+                            MemoryRecord.scope_id.is_(None),
+                        )
+                    )
+                else:
+                    scope_conditions.append(
+                        and_(
+                            MemoryRecord.scope_kind == scope.kind,
+                            MemoryRecord.scope_id == scope_id,
+                        )
+                    )
+
+            replacement = aliased(MemoryRecord)
+            records = list(
+                session.scalars(
+                    select(MemoryRecord)
+                    .where(
+                        or_(*scope_conditions),
+                        or_(MemoryRecord.expires_at.is_(None), MemoryRecord.expires_at > now),
+                        ~exists(select(1).where(replacement.replaces_id == MemoryRecord.id)),
+                    )
+                    .order_by(MemoryRecord.created_at.desc(), MemoryRecord.id)
+                    .limit(MEMORY_RETRIEVAL_CANDIDATES)
+                )
+            )
+
+            meaningful_phrase = " ".join(terms)
+            ranked: list[tuple[int, datetime, str, MemoryRecord, tuple[str, ...]]] = []
+            for record in records:
+                content_terms = set(_memory_terms(record.content))
+                matched = tuple(term for term in terms if term in content_terms)
+                if not matched:
+                    continue
+                score = (len(matched) * 100) + sum(min(len(term), 20) for term in matched)
+                if meaningful_phrase and meaningful_phrase in record.content.casefold():
+                    score += 500
+                ranked.append((score, record.created_at, record.id, record, matched))
+
+            ranked.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+            items: list[MemoryHit] = []
+            for score, _created_at, _id, record, matched in ranked[: body.limit]:
+                snippet, truncated = _memory_snippet(record.content, matched)
+                items.append(
+                    MemoryHit(
+                        id=record.id,
+                        scope=MemoryScope(kind=record.scope_kind, id=record.scope_id),
+                        kind=record.kind,
+                        content=snippet,
+                        content_truncated=truncated,
+                        provenance=MemoryProvenance(
+                            kind=record.provenance_kind,
+                            ref=record.provenance_ref,
+                            note=record.provenance_note,
+                        ),
+                        score=score,
+                        matched_terms=list(matched),
+                        created_at=record.created_at,
+                    )
+                )
+
+            return MemoryRetrievalResponse(
+                query=query,
+                items=items,
+                candidate_count=len(records),
+                limit=body.limit,
             )
