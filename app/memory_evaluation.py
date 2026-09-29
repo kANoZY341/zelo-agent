@@ -15,7 +15,7 @@ class MemoryEvaluationCase:
 
     name: str
     query: str
-    scopes: tuple[tuple[str, str | None], ...]
+    scopes: tuple[MemoryScope, ...]
     expected_ids: frozenset[str]
     forbidden_ids: frozenset[str] = frozenset()
     limit: int = 6
@@ -38,7 +38,7 @@ class MemoryEvaluationCase:
 class MemoryEvaluationResult:
     name: str
     query: str
-    scopes: tuple[MemoryScope, ...]
+    scopes: tuple[tuple[str, str | None], ...]
     limit: int
     retrieval: str
     candidate_count: int
