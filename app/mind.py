@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 
 from app.config import Settings
 from app.context import ContextResolver
-from app.database import Database
+from app.storage import SessionStore
 from app.gateway import ModelGateway, ModelGatewayError, ModelMessage
 from app.models import Conversation, ConversationTurn, utcnow
 from app.policy import DomainError
@@ -190,7 +190,7 @@ class MindService:
 
     def __init__(
         self,
-        database: Database,
+        database: SessionStore,
         settings: Settings,
         gateway: ModelGateway,
         tasks: TaskService,
