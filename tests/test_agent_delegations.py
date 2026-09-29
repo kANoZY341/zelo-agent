@@ -55,9 +55,11 @@ def create_project_goal_campaign(client, name: str = "Delegation") -> tuple[dict
         headers=AUTH,
         json={
             "title": "Ship bounded delegation",
-            "outcome": "Delegation contracts are bounded",
-            "success_criteria": ["contracts persist"],
-            "constraints": ["no execution"],
+            "spec": {
+                "objective": "Delegation contracts are bounded",
+                "success_criteria": ["contracts persist"],
+                "constraints": ["no execution"],
+            },
         },
     )
     assert goal_response.status_code == 201, goal_response.text
