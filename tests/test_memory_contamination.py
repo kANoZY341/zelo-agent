@@ -31,9 +31,7 @@ def _resolver(client) -> ContextResolver:
 
 def _memory_payload(envelope: dict) -> dict:
     source = next(
-        item
-        for item in envelope["sources"]
-        if item["source"] == "core.memories.personal"
+        item for item in envelope["sources"] if item["source"] == "core.memories.personal"
     )
     assert source["instruction_trust"] == "none"
     return json.loads(source["content"])
