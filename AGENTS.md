@@ -57,9 +57,9 @@
 
 ## Current scope: v0.13 Memory foundation
 
-Zelo Core v0.12.0 release preparation is merged on `main` at
-`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`. GitHub tag/release publication is
-a separate release operation; do not change v0.12 runtime behavior in this slice.
+Zelo Core v0.12.0 is published from `main` commit
+`9f4d1c76b555fdca912e47ec8f5f90efd31217fb` with tag `v0.12.0`. Do not change
+v0.12 runtime behavior in this slice.
 
 The active implementation slice is **v0.13 Memory foundation**. Add typed,
 durable, operator-controlled memory records with explicit personal, project and
