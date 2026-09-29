@@ -35,7 +35,6 @@ def test_storage_factory_builds_declared_sqlite_backend(settings):
         storage.close()
 
 
-
 def test_unimplemented_storage_backend_fails_closed(runtime_path):
     with pytest.raises(ValidationError):
         Settings(
@@ -43,6 +42,7 @@ def test_unimplemented_storage_backend_fails_closed(runtime_path):
             runtime_dir=runtime_path,
             storage_backend="postgres",
         )
+
 
 def test_core_service_accepts_session_store_without_database_concrete_type(database):
     storage = DelegatingSessionStore(database)
