@@ -37,10 +37,14 @@ class MemoryEvaluationCase:
 @dataclass(frozen=True)
 class MemoryEvaluationResult:
     name: str
+    query: str
+    scopes: tuple[MemoryScope, ...]
+    limit: int
     retrieval: str
     candidate_count: int
     actual_ids: tuple[str, ...]
     expected_ids: frozenset[str]
+    forbidden_ids: frozenset[str]
     missing_expected_ids: frozenset[str]
     forbidden_ids_present: frozenset[str]
     unexpected_ids: frozenset[str]
@@ -95,10 +99,14 @@ def evaluate_memory_case(
     passed = not missing and not forbidden and not unexpected
     return MemoryEvaluationResult(
         name=case.name,
+        query=case.query,
+        scopes=case.scopes,
+        limit=case.limit,
         retrieval=response.retrieval,
         candidate_count=response.candidate_count,
         actual_ids=actual_ids,
         expected_ids=case.expected_ids,
+        forbidden_ids=case.forbidden_ids,
         missing_expected_ids=missing,
         forbidden_ids_present=forbidden,
         unexpected_ids=unexpected,
@@ -143,10 +151,14 @@ def memory_evaluation_evidence(report: MemoryEvaluationReport) -> dict:
         "cases": [
             {
                 "name": result.name,
+                "query": result.query,
+                "scopes": [scope.model_dump(mode="json") for scope in result.scopes],
+                "limit": result.limit,
                 "retrieval": result.retrieval,
                 "candidate_count": result.candidate_count,
                 "actual_ids": list(result.actual_ids),
                 "expected_ids": sorted(result.expected_ids),
+                "forbidden_ids": sorted(result.forbidden_ids),
                 "missing_expected_ids": sorted(result.missing_expected_ids),
                 "forbidden_ids_present": sorted(result.forbidden_ids_present),
                 "unexpected_ids": sorted(result.unexpected_ids),
