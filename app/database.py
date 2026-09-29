@@ -16,6 +16,7 @@ from sqlalchemy import URL, create_engine, event, text
 from sqlalchemy.orm import Session
 
 from app.config import ROOT
+from app.storage import SQLITE_STORAGE
 
 
 def migration_config() -> Config:
@@ -25,6 +26,8 @@ def migration_config() -> Config:
 
 
 class Database:
+    descriptor = SQLITE_STORAGE
+
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         # Create privately before SQLite opens it. Also preserve protection on an existing DB.
