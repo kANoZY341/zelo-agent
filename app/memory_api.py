@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.auth import require_operator
 from app.memory import MemoryService
-from app.schemas import MemoryCreate, MemoryPage, MemoryResponse, MemoryScopeKind
+from app.schemas import (
+    MemoryCreate,
+    MemoryPage,
+    MemoryResponse,
+    MemoryRetrievalResponse,
+    MemoryRetrieveRequest,
+    MemoryScopeKind,
+)
 
 router = APIRouter(prefix="/memories", dependencies=[Depends(require_operator)])
 
@@ -23,6 +30,14 @@ Offset = Annotated[int, Query(ge=0, le=1_000_000)]
 @router.post("", response_model=MemoryResponse, status_code=201)
 def create_memory(body: MemoryCreate, memories: Memories) -> MemoryResponse:
     return memories.create(body)
+
+
+@router.post("/retrieve", response_model=MemoryRetrievalResponse)
+def retrieve_memories(
+    body: MemoryRetrieveRequest,
+    memories: Memories,
+) -> MemoryRetrievalResponse:
+    return memories.retrieve(body)
 
 
 @router.get("", response_model=MemoryPage)
