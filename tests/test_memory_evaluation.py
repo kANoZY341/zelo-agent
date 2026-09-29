@@ -162,8 +162,13 @@ def test_memory_baseline_evaluation_suite_has_exact_recall_and_zero_contaminatio
     evidence = memory_evaluation_evidence(report)
     assert evidence["schema"] == MEMORY_EVALUATION_SCHEMA
     assert evidence["passed"] is True
-    assert evidence["cases"][0]["actual_ids"] == [corrected["id"]]
-    assert evidence["cases"][0]["expected_ids"] == [corrected["id"]]
+    first_case = evidence["cases"][0]
+    assert first_case["query"] == "what is my favorite interface color?"
+    assert first_case["scopes"] == [{"kind": "personal", "id": None}]
+    assert first_case["limit"] == 6
+    assert first_case["actual_ids"] == [corrected["id"]]
+    assert first_case["expected_ids"] == [corrected["id"]]
+    assert original["id"] in first_case["forbidden_ids"]
     json.dumps(evidence, ensure_ascii=False, allow_nan=False)
 
 
