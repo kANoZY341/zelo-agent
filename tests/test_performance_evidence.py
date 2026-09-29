@@ -333,6 +333,38 @@ def test_performance_evidence_keeps_failed_unreported_model_attempt_visible(clie
     assert summary["usage_observations"] == 0
 
 
+def test_performance_evidence_separates_cancelled_from_failed(client, database):
+    task_id = "00000000-0000-0000-0000-000000000401"
+    attempt_id = "00000000-0000-0000-0000-000000000402"
+    with database.transaction() as session:
+        session.add(
+            _task(
+                task_id=task_id,
+                kind="agent_run",
+                status="cancelled",
+                alias="local_general",
+                model="model-c",
+                result=None,
+            )
+        )
+        session.add(
+            _attempt(
+                attempt_id=attempt_id,
+                task_id=task_id,
+                number=1,
+                outcome="cancelled",
+                result=None,
+            )
+        )
+
+    evidence = client.get("/performance/evidence", headers=AUTH).json()
+    summary = next(entry for entry in evidence["model_summaries"] if entry["model"] == "model-c")
+    assert summary["observations"] == 1
+    assert summary["succeeded"] == 0
+    assert summary["failed"] == 0
+    assert summary["other_outcomes"] == 1
+
+
 def test_performance_evidence_route_is_bounded_and_requires_operator(client):
     assert client.get("/performance/evidence?limit=0", headers=AUTH).status_code == 422
     assert client.get("/performance/evidence?limit=501", headers=AUTH).status_code == 422
