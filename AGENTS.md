@@ -55,28 +55,36 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Memory foundation
+## Current scope: v0.13 Memory retrieval and context
 
-Zelo Core v0.12.0 is published from `main` commit
-`9f4d1c76b555fdca912e47ec8f5f90efd31217fb` with tag `v0.12.0`. Do not change
-v0.12 runtime behavior in this slice.
+Zelo Core v0.12.0 is published from `9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
+The first v0.13 Memory foundation slice is merged on `main` at
+`e4172464d6279ff1cd7e639ce3c4bed1ef255c8f`.
 
-The active implementation slice is **v0.13 Memory foundation**. Add typed,
-durable, operator-controlled memory records with explicit personal, project and
-agent scopes; provenance; optional expiry; and immutable correction/supersession
-chains.
+The active slice is **bounded scope-aware memory retrieval and context assembly**.
+Build a deterministic read-only retrieval path over the immutable MemoryRecord
+store and allow Zelo Mind to receive relevant bounded personal memory as
+untrusted factual context.
 
-This first slice must keep memory separate from operational Task/Campaign state.
-It may expose authenticated Core creation/read/list contracts, but it must not
-automatically write memories from conversations, inject memory into Mind context,
-add embeddings/vector search, silently infer what should be retained, or create
-an Agent Factory. Corrections and supersessions create new immutable records; do
-not rewrite history in place.
+Rules for this slice:
 
-Project-scoped memory must validate Project ownership. Agent-scoped identifiers
-are typed namespaces only until the v0.14 Agent Factory exists. Retrieval/context
-assembly, evaluation evidence, model/worker performance evidence and storage
-abstraction remain later v0.13 slices.
+- retrieval must consider only active, non-expired, non-replaced records;
+- project and agent scopes are explicit and must never leak into Mind merely
+  because their text happens to match;
+- until conversations have an explicit project/agent binding, automatic Mind
+  retrieval is personal-scope only;
+- retrieval and assembled context must have hard candidate, item and character
+  budgets;
+- memory provenance and scope must remain visible in retrieved evidence;
+- all `zelo_context` remains `instruction_trust: none`;
+- memory/project context may inform Mind routing/replies but must stay excluded
+  from authority-bearing Core task construction;
+- do not automatically write memories from conversations;
+- do not add embeddings/vector search, model-decided retention, Agent Factory,
+  new execution authority, approval bypasses, or merge/release authority.
+
+Later v0.13 slices cover evaluation cases/contamination boundaries,
+worker/model performance and cost evidence, and storage abstraction.
 
 ## Workspace decision
 
