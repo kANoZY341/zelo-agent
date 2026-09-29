@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.database import Database
+from app.storage import SessionStore
 from app.models import ConversationTurn, Task, TaskAttempt, utcnow
 from app.schemas import (
     ModelPerformanceEvidence,
@@ -125,7 +125,7 @@ def _worker_usage(raw: Any) -> dict[str, int]:
 class PerformanceEvidenceService:
     """Derive bounded evidence only from already-persisted Core records."""
 
-    def __init__(self, database: Database, *, clock=utcnow) -> None:
+    def __init__(self, database: SessionStore, *, clock=utcnow) -> None:
         self.database = database
         self.clock = clock
 
