@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -42,7 +41,10 @@ def _sum_optional(values: Iterable[int | None]) -> int | None:
     return sum(present) if present else None
 
 
-def _model_usage(result: dict[str, Any] | None, kind: str) -> tuple[int | None, int | None, int | None]:
+def _model_usage(
+    result: dict[str, Any] | None,
+    kind: str,
+) -> tuple[int | None, int | None, int | None]:
     if not isinstance(result, dict):
         return None, None, None
 
@@ -248,7 +250,11 @@ class PerformanceEvidenceService:
         for (alias, model), items in sorted(
             groups.items(), key=lambda pair: ((pair[0][0] or ""), (pair[0][1] or ""))
         ):
-            durations = [item.duration_seconds for item in items if item.duration_seconds is not None]
+            durations = [
+                item.duration_seconds
+                for item in items
+                if item.duration_seconds is not None
+            ]
             summaries.append(
                 ModelPerformanceSummary(
                     alias=alias,
@@ -279,7 +285,11 @@ class PerformanceEvidenceService:
 
         summaries = []
         for (role, worker, version), items in sorted(groups.items()):
-            durations = [item.duration_seconds for item in items if item.duration_seconds is not None]
+            durations = [
+                item.duration_seconds
+                for item in items
+                if item.duration_seconds is not None
+            ]
             summaries.append(
                 WorkerPerformanceSummary(
                     role=role,
@@ -343,7 +353,10 @@ class PerformanceEvidenceService:
             worker_evidence.extend(self._worker_from_attempt(task, attempt))
 
         model_evidence.sort(key=lambda item: (item.observed_at, item.source_id), reverse=True)
-        worker_evidence.sort(key=lambda item: (item.observed_at, item.source_id, item.role), reverse=True)
+        worker_evidence.sort(
+            key=lambda item: (item.observed_at, item.source_id, item.role),
+            reverse=True,
+        )
         model_evidence = model_evidence[:limit]
         worker_evidence = worker_evidence[:limit]
 
