@@ -271,13 +271,6 @@ class MemoryService:
         if not query:
             raise DomainError("Memory retrieval query cannot be blank", 422)
         terms = _memory_terms(query, limit=32)
-        if not terms:
-            return MemoryRetrievalResponse(
-                query=query,
-                items=[],
-                candidate_count=0,
-                limit=body.limit,
-            )
 
         now = self.clock()
         with self.database.read() as session:
@@ -299,6 +292,14 @@ class MemoryService:
                             MemoryRecord.scope_id == scope_id,
                         )
                     )
+
+            if not terms:
+                return MemoryRetrievalResponse(
+                    query=query,
+                    items=[],
+                    candidate_count=0,
+                    limit=body.limit,
+                )
 
             replacement = aliased(MemoryRecord)
             records = list(
