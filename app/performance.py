@@ -19,9 +19,7 @@ from app.schemas import (
 )
 
 PERFORMANCE_EVIDENCE_SCHEMA = "zelo-performance-evidence-v1"
-MODEL_TASK_KINDS = frozenset(
-    {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}
-)
+MODEL_TASK_KINDS = frozenset({"ai_prompt", "agent_run", "research_run", "self_improvement_run"})
 
 
 def _nonnegative_int(value: Any) -> int | None:
@@ -240,9 +238,9 @@ class PerformanceEvidenceService:
     def _model_summaries(
         evidence: list[ModelPerformanceEvidence],
     ) -> list[ModelPerformanceSummary]:
-        groups: dict[
-            tuple[str | None, str | None], list[ModelPerformanceEvidence]
-        ] = defaultdict(list)
+        groups: dict[tuple[str | None, str | None], list[ModelPerformanceEvidence]] = defaultdict(
+            list
+        )
         for item in evidence:
             groups[(item.alias, item.model)].append(item)
 
@@ -251,9 +249,7 @@ class PerformanceEvidenceService:
             groups.items(), key=lambda pair: ((pair[0][0] or ""), (pair[0][1] or ""))
         ):
             durations = [
-                item.duration_seconds
-                for item in items
-                if item.duration_seconds is not None
+                item.duration_seconds for item in items if item.duration_seconds is not None
             ]
             summaries.append(
                 ModelPerformanceSummary(
@@ -286,9 +282,7 @@ class PerformanceEvidenceService:
         summaries = []
         for (role, worker, version), items in sorted(groups.items()):
             durations = [
-                item.duration_seconds
-                for item in items
-                if item.duration_seconds is not None
+                item.duration_seconds for item in items if item.duration_seconds is not None
             ]
             summaries.append(
                 WorkerPerformanceSummary(
@@ -314,9 +308,7 @@ class PerformanceEvidenceService:
                     ),
                     output_tokens=sum(item.usage.get("output_tokens", 0) for item in items),
                     prompt_tokens=sum(item.usage.get("prompt_tokens", 0) for item in items),
-                    completion_tokens=sum(
-                        item.usage.get("completion_tokens", 0) for item in items
-                    ),
+                    completion_tokens=sum(item.usage.get("completion_tokens", 0) for item in items),
                     total_tokens=sum(item.usage.get("total_tokens", 0) for item in items),
                     duration_observations=len(durations),
                     duration_seconds=sum(durations),
