@@ -12,8 +12,6 @@ from typing import Protocol, runtime_checkable
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.database import Database
-
 
 @dataclass(frozen=True)
 class StorageDescriptor:
@@ -68,5 +66,7 @@ def build_storage(settings: Settings) -> CoreStorage:
     than changing service authority or persistence semantics.
     """
     if settings.storage_backend == "sqlite":
+        from app.database import Database
+
         return Database(settings.database_path)
     raise RuntimeError(f"Unsupported storage backend: {settings.storage_backend}")
