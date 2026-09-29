@@ -336,9 +336,7 @@ def test_retrieval_keeps_project_and_agent_scopes_explicit(client):
         },
     )
     assert agent_response.status_code == 200, agent_response.text
-    assert [item["id"] for item in agent_response.json()["items"]] == [
-        research_memory["id"]
-    ]
+    assert [item["id"] for item in agent_response.json()["items"]] == [research_memory["id"]]
 
 
 def test_retrieval_is_bounded_and_rejects_duplicate_scopes(client):
