@@ -55,37 +55,42 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.13 Release preparation
+## Current scope: v0.14 Agent registry foundation
 
-Zelo Core v0.12.0 is the latest published release from
-`9f4d1c76b555fdca912e47ec8f5f90efd31217fb`.
+Zelo Core v0.13.0 is published from
+`adc43d856a29fdcacdba80a273566aefaa0b98f0`.
 
-The complete v0.13 implementation is merged on `main` at:
+The active branch is:
 
-`fc244b59e0be1a10f838e668bd749aa7fb904a67`
+`feat/v0.14-agent-registry-foundation`
 
-Merged v0.13 slices:
-
-- Memory foundation: PR #41;
-- bounded retrieval/context: PR #42;
-- memory evaluation/contamination boundaries: PR #43;
-- worker/model performance and cost evidence: PR #44;
-- storage abstraction: PR #45.
-
-This branch is **release preparation only** for v0.13.0.
+This first v0.14 slice establishes trusted agent and department identity
+contracts before generic specialist execution is enabled.
 
 Rules for this slice:
 
-- bump and verify version metadata for `0.13.0`;
-- align README, live status and roadmap baseline with the completed v0.13 implementation;
-- preserve all current runtime behavior and authority boundaries;
-- do not add features, migrations, dependencies or new backend implementations;
-- do not add automatic memory writes, embeddings/vector retrieval or model-retention authority;
-- do not change worker/model routing, approvals, scheduler, budgets, merge or release authority;
+- define frozen, versioned `AgentSpec` and `DepartmentSpec` contracts;
+- keep agent IDs, memory namespaces, task/tool upper bounds and worker
+  requirements canonical and deterministic;
+- keep worker requirements vendor-neutral; never name concrete workers, models,
+  executables or credentials in generic agent contracts;
+- make registry ordering and fingerprinting deterministic;
+- fail closed for unknown, inactive or invalidly assigned agents/departments;
+- validate active task/tool references against trusted Core surfaces at startup;
+- describe existing Coding and Research specialists without replacing their
+  current execution paths yet;
+- do not add a new task kind or database migration in this slice;
+- do not add dynamic prompt-created agents, persisted agent instances, recursive
+  subagents, new tools or new worker authority;
+- do not let Agent Factory bypass Core tasks, ToolPolicy, Supervisor selection,
+  approvals, budgets, audit, promotion, merge or release boundaries;
+- inspect the parked `feat/v1.0-agent-factory` branch for compatible patterns
+  only; do not merge it wholesale;
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
-- require independent review before merge;
-- after a clean merge, tag and publish `v0.13.0` from the resulting `main` commit;
-- do not begin v0.14 Agent Factory work until v0.13.0 is published.
+- require independent/adversarial review before merge.
+
+After this slice, continue v0.14 with persisted lifecycle/project binding and
+bounded parent-child delegation before enabling generic subagent creation.
 
 ## Workspace decision
 

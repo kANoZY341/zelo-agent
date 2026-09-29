@@ -202,9 +202,9 @@ class ContextResolver:
             status = self._read("docs/zelo-project-status.md")
             active_status = _markdown_section(status, "## Active increment:")
             roadmap = self._read("docs/zelo-canonical-architecture-roadmap.md")
-            roadmap_v013 = _markdown_section(
+            roadmap_v014 = _markdown_section(
                 roadmap,
-                "### v0.13 — Memory, context and evidence",
+                "### v0.14 — Agent Factory",
             )
 
             project_records = self.projects.context_snapshot()
@@ -217,10 +217,10 @@ class ContextResolver:
                         "content": _bounded(active_status, ACTIVE_STATUS_CHARS),
                     },
                     {
-                        "source": "docs/zelo-canonical-architecture-roadmap.md#v0.13",
+                        "source": "docs/zelo-canonical-architecture-roadmap.md#v0.14",
                         "provenance": "canonical_repository",
                         "instruction_trust": "none",
-                        "content": _bounded(roadmap_v013, ROADMAP_CHARS),
+                        "content": _bounded(roadmap_v014, ROADMAP_CHARS),
                     },
                     {
                         "source": "core.projects",

@@ -552,17 +552,17 @@ Live implementation status is maintained separately in
 `docs/zelo-project-status.md` so architecture and roadmap documents do not
 become stale.
 
-Current verified baseline as of 29 September 2026:
+Current verified baseline as of 30 September 2026:
 
-- Zelo Core v0.12.0 remains the latest published release while v0.13 release
-  preparation is in progress;
-- the complete v0.13 implementation is on `main` at
-  `fc244b59e0be1a10f838e668bd749aa7fb904a67`;
-- v0.13 now includes scoped memory, bounded retrieval/context, deterministic
-  memory evaluation and contamination boundaries, worker/model performance and
+- Zelo Core v0.13.0 is published from
+  `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
+- v0.13 includes scoped memory, bounded retrieval/context, deterministic memory
+  evaluation and contamination boundaries, worker/model performance and
   reported-cost evidence, and the Zelo-owned storage abstraction;
-- after v0.13.0 is published, the next active milestone is v0.14 Agent Factory;
-- parked experiment `feat/v1.0-agent-factory` remains deferred until that milestone.
+- the active milestone is v0.14 Agent Factory, beginning with versioned agent
+  and department registry contracts on `feat/v0.14-agent-registry-foundation`;
+- parked experiment `feat/v1.0-agent-factory` is reference material only and
+  must not be merged wholesale.
 
 ## Decision rule for new ideas
 
