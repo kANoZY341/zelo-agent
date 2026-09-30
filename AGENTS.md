@@ -55,7 +55,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Parent-child delegation contracts
+## Current scope: v0.14 Generic agent execution identity
 
 Zelo Core v0.13.0 is published from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
@@ -64,38 +64,42 @@ Merged v0.14 slices:
 
 - registry foundation: PR #47, merge `8609ee583513f24d312785b7158a90d40a8458ef`;
 - agent lifecycle and project binding: PR #48, merge
-  `8259141834869c09241dc22ea1fb5cbf89615565`.
+  `8259141834869c09241dc22ea1fb5cbf89615565`;
+- bounded parent-child delegation: PR #49, merge
+  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`.
 
 The active branch is:
 
-`feat/v0.14-parent-child-delegation`
+`feat/v0.14-agent-execution-identity`
 
-This third v0.14 slice establishes explicit bounded parent-child delegation
-contracts without enabling generic child-agent execution.
+This fourth v0.14 slice binds the existing Coding and Research execution paths
+to exact persisted Agent Factory identity without creating a parallel task
+system.
 
 Rules for this slice:
 
-- persist immutable parent/child delegation contracts;
-- require both instances to be active, current-registry and Project-bound;
-- keep every delegation inside the same Project and an active Campaign;
-- require explicit parent `allow_subagents` authority and `max_subagents` capacity;
-- narrow delegated task kinds to both parent and child allowed-task surfaces;
-- require declared child capabilities before delegation;
-- bind every delegation to an existing reserved Campaign budget owned by the parent;
-- enforce one active parent per child;
-- enforce bounded inherited depth with a hard maximum of four;
-- reject cycles at the service and database boundaries;
-- make delegation revocation terminal and preserve immutable contract history;
-- release unused reserved budget through the existing Campaign control authority;
-- do not execute child tasks, create child instances automatically, recurse from
-  model output, or add agent-to-agent messaging in this slice;
-- do not add new tools, worker authority, scheduler authority, automatic memory
-  writes or approval/budget/promotion/release bypasses;
+- create specialist work only through trusted active/current AgentSpec instances;
+- support only the existing `developer_run` and `research_run` Core task kinds;
+- persist exact agent spec, registry, Project and optional delegation snapshots
+  on the Core task;
+- include the agent/delegation execution binding in task request fingerprints and
+  immutable action hashes;
+- revalidate bound agent identity at approval, retry and claim boundaries;
+- require delegated work to keep the exact active delegation, Campaign and
+  reserved parent-owned budget proof;
+- derive Coding worker capability requirements from trusted AgentSpec metadata;
+- preserve Coding's explicit independent-review requirement and fail closed when
+  no eligible independent reviewer exists;
+- keep Research on the existing bounded read-only retrieval runtime;
+- preserve ordinary unbound Core task behavior exactly;
+- do not add new task kinds, automatic child creation, recursive/model-authored
+  subagents, new tools, worker authority, automatic memory writes or
+  approval/budget/scheduler/promotion/release bypasses;
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
-- require independent/adversarial review before merge.
+- require independent/adversarial review and exact-head GitHub CI before merge.
 
-After this slice, route the existing Coding/Research specialist execution through
-generic agent identity snapshots before enabling bounded subagent creation.
+After this slice, v0.14 moves to bounded subagent creation and activation/
+evaluation gates before release preparation.
 
 ## Workspace decision
 
