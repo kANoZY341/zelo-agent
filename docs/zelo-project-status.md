@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Verified: 30 September 2026
+Verified: 1 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -75,14 +75,38 @@ instances, enable recursive/model-authored subagents, widen tools/workers,
 write memory automatically, or bypass approvals, budgets, scheduler, promotion,
 merge or release authority.
 
+## Canonical organizational authority update
+
+The 1 October 2026 operator decision establishes the company hierarchy:
+
+```text
+Human Managing Director
+  -> Zelo Group CEO
+    -> VP
+      -> Director
+        -> Manager
+          -> Specialist Agent
+            -> Worker
+              -> Tool
+```
+
+The Managing Director and Zelo CEO are reserved principals. Divisions,
+departments and teams are containers, not authority levels. Durable reporting
+relationships are separate from temporary task-delegation contracts.
+
+Canonical details live in `docs/zelo-organizational-authority-model.md`.
+
 ## v0.14 planned continuation
 
 After generic execution identity is verified and merged:
 
-1. add bounded child-agent creation behind explicit parent/delegation/depth/budget
-   contracts;
-2. add activation/evaluation gates for AgentSpec/DepartmentSpec rollout;
-3. complete v0.14 release preparation.
+1. add organization-role, organization-unit and reporting-assignment contracts;
+2. evolve the transitional flat DepartmentSpec manager/producer model into the
+   hierarchy-aware container model without rewriting historical registry data;
+3. add hierarchy-aware bounded child-agent creation behind explicit
+   parent/delegation/depth/budget contracts;
+4. add activation/evaluation gates for executive and specialist templates;
+5. complete v0.14 release preparation.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.
