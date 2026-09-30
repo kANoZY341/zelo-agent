@@ -116,9 +116,7 @@ def test_agent_idempotency_key_cannot_replay_across_instances(database, settings
     _factory, instances, _tasks, execution = direct_services(database, settings)
     first_project = project(database, "First")
     second_project = project(database, "Second")
-    first = instances.create(
-        AgentInstanceCreate(agent_id="research", project_id=first_project.id)
-    )
+    first = instances.create(AgentInstanceCreate(agent_id="research", project_id=first_project.id))
     second = instances.create(
         AgentInstanceCreate(agent_id="research", project_id=second_project.id)
     )
@@ -167,9 +165,7 @@ def test_coding_agent_approval_revalidates_identity(
         developer_runtime=developer_case,
     )
     owned_project = project(database)
-    instance = instances.create(
-        AgentInstanceCreate(agent_id="coding", project_id=owned_project.id)
-    )
+    instance = instances.create(AgentInstanceCreate(agent_id="coding", project_id=owned_project.id))
 
     task, created = execution.submit(
         instance.id,
@@ -255,9 +251,7 @@ def make_delegation(database, settings):
     )
     owned_project = project(database, "Delegated")
     run_campaign = campaign(database, owned_project.id)
-    parent = instances.create(
-        AgentInstanceCreate(agent_id="manager", project_id=owned_project.id)
-    )
+    parent = instances.create(AgentInstanceCreate(agent_id="manager", project_id=owned_project.id))
     child = instances.create(
         AgentInstanceCreate(agent_id="research_child", project_id=owned_project.id)
     )
@@ -400,9 +394,6 @@ def test_execution_binding_is_database_immutable_and_campaign_scoped(
     with pytest.raises(IntegrityError, match="immutable"):
         with database.transaction() as session:
             session.execute(
-                text(
-                    "UPDATE tasks SET agent_execution_spec = NULL "
-                    "WHERE id = :task_id"
-                ),
+                text("UPDATE tasks SET agent_execution_spec = NULL WHERE id = :task_id"),
                 {"task_id": task.id},
             )
