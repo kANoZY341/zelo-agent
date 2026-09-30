@@ -61,6 +61,9 @@ def upgrade() -> None:
                 NEW.agent_execution_spec,
                 '$.registry_version'
             )
+              AND json(instance.spec) = json(
+                json_extract(NEW.agent_execution_spec, '$.spec')
+            )
          )
         BEGIN
             SELECT RAISE(ABORT, 'Agent execution identity is invalid');
@@ -95,6 +98,46 @@ def upgrade() -> None:
               AND delegation.request_hash = json_extract(
                 NEW.agent_execution_spec,
                 '$.delegation.request_hash'
+            )
+              AND delegation.budget_reservation_id = json_extract(
+                NEW.agent_execution_spec,
+                '$.delegation.budget_reservation_id'
+            )
+              AND delegation.idempotency_key = json_extract(
+                NEW.agent_execution_spec,
+                '$.delegation.idempotency_key'
+            )
+              AND delegation.objective = json_extract(
+                NEW.agent_execution_spec,
+                '$.delegation.objective'
+            )
+              AND json(delegation.allowed_task_kinds) = json(
+                json_extract(
+                    NEW.agent_execution_spec,
+                    '$.delegation.allowed_task_kinds'
+                )
+            )
+              AND json(delegation.required_capabilities) = json(
+                json_extract(
+                    NEW.agent_execution_spec,
+                    '$.delegation.required_capabilities'
+                )
+            )
+              AND delegation.depth = CAST(
+                json_extract(NEW.agent_execution_spec, '$.delegation.depth')
+                AS INTEGER
+            )
+              AND delegation.max_depth = CAST(
+                json_extract(NEW.agent_execution_spec, '$.delegation.max_depth')
+                AS INTEGER
+            )
+              AND delegation.budget_resource = json_extract(
+                NEW.agent_execution_spec,
+                '$.delegation.budget_resource'
+            )
+              AND delegation.budget_units = CAST(
+                json_extract(NEW.agent_execution_spec, '$.delegation.budget_units')
+                AS INTEGER
             )
          )
         BEGIN
