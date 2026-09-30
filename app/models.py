@@ -186,6 +186,66 @@ class AgentInstanceEvent(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class AgentDelegation(Base):
+    __tablename__ = "agent_delegations"
+    __table_args__ = (
+        UniqueConstraint(
+            "parent_instance_id",
+            "idempotency_key",
+            name="uq_agent_delegation_idempotency",
+        ),
+        UniqueConstraint(
+            "budget_reservation_id",
+            name="uq_agent_delegation_budget_reservation",
+        ),
+        CheckConstraint(
+            "parent_instance_id <> child_instance_id",
+            name="ck_agent_delegation_not_self",
+        ),
+        CheckConstraint(
+            "status IN ('active','revoked')",
+            name="ck_agent_delegation_status",
+        ),
+        CheckConstraint(
+            "depth >= 1 AND depth <= max_depth AND max_depth <= 4",
+            name="ck_agent_delegation_depth",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND revoked_at IS NULL AND revocation_reason IS NULL) OR "
+            "(status = 'revoked' AND revoked_at IS NOT NULL)",
+            name="ck_agent_delegation_revocation_shape",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    parent_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        index=True,
+    )
+    child_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        index=True,
+    )
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    budget_reservation_id: Mapped[str] = mapped_column(
+        ForeignKey("campaign_budget_reservations.id"),
+        unique=True,
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    objective: Mapped[str] = mapped_column(Text)
+    allowed_task_kinds: Mapped[list[str]] = mapped_column(JSON)
+    required_capabilities: Mapped[list[str]] = mapped_column(JSON)
+    depth: Mapped[int] = mapped_column(Integer)
+    max_depth: Mapped[int] = mapped_column(Integer)
+    budget_resource: Mapped[str] = mapped_column(String(64))
+    budget_units: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    revocation_reason: Mapped[str | None] = mapped_column(String(512))
+
+
 class MemoryRecord(Base):
     __tablename__ = "memory_records"
     __table_args__ = (
