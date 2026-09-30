@@ -247,6 +247,75 @@ class AgentDelegation(Base):
     revocation_reason: Mapped[str | None] = mapped_column(String(512))
 
 
+class OrganizationUnit(Base):
+    __tablename__ = "organization_units"
+    __table_args__ = (
+        CheckConstraint(
+            "unit_type IN ('division','department','team')",
+            name="ck_organization_unit_type",
+        ),
+        CheckConstraint(
+            "status IN ('active','retired')",
+            name="ck_organization_unit_status",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND retired_at IS NULL) OR "
+            "(status = 'retired' AND retired_at IS NOT NULL)",
+            name="ck_organization_unit_retirement_shape",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(160))
+    unit_type: Mapped[str] = mapped_column(String(16), index=True)
+    parent_unit_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organization_units.id"),
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class OrganizationAssignment(Base):
+    __tablename__ = "organization_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "level IN ('vp','director','manager','specialist')",
+            name="ck_organization_assignment_level",
+        ),
+        CheckConstraint(
+            "status IN ('active','ended')",
+            name="ck_organization_assignment_status",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND ended_at IS NULL AND end_reason IS NULL) OR "
+            "(status = 'ended' AND ended_at IS NOT NULL AND end_reason IS NOT NULL)",
+            name="ck_organization_assignment_end_shape",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        index=True,
+    )
+    unit_id: Mapped[str] = mapped_column(
+        ForeignKey("organization_units.id"),
+        index=True,
+    )
+    level: Mapped[str] = mapped_column(String(16), index=True)
+    reports_to_assignment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organization_assignments.id"),
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    end_reason: Mapped[str | None] = mapped_column(String(512))
+
+
 class MemoryRecord(Base):
     __tablename__ = "memory_records"
     __table_args__ = (
