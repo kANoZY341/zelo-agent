@@ -47,9 +47,7 @@ class DelegationExecutionBinding(AgentExecutionContract):
 
 
 class AgentExecutionBinding(AgentExecutionContract):
-    schema_version: Literal["zelo-agent-execution-binding-v1"] = (
-        "zelo-agent-execution-binding-v1"
-    )
+    schema_version: Literal["zelo-agent-execution-binding-v1"] = "zelo-agent-execution-binding-v1"
     agent_instance_id: Uuid
     project_id: Uuid
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
