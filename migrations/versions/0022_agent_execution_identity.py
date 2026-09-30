@@ -20,10 +20,13 @@ def upgrade() -> None:
         CREATE TRIGGER tasks_agent_execution_spec_kind_guard
         BEFORE INSERT ON tasks
         FOR EACH ROW
-        WHEN NEW.agent_execution_spec IS NOT NULL
-         AND (
-            NEW.kind NOT IN ('developer_run','research_run')
-            OR json_extract(NEW.agent_execution_spec, '$.task_kind') <> NEW.kind
+        WHEN json_type(NEW.agent_execution_spec) NOT IN ('null','object')
+          OR (
+            json_type(NEW.agent_execution_spec) = 'object'
+            AND (
+                NEW.kind NOT IN ('developer_run','research_run')
+                OR json_extract(NEW.agent_execution_spec, '$.task_kind') <> NEW.kind
+            )
          )
         BEGIN
             SELECT RAISE(ABORT, 'Agent execution task kind is invalid');
@@ -35,7 +38,7 @@ def upgrade() -> None:
         CREATE TRIGGER tasks_agent_execution_spec_identity_guard
         BEFORE INSERT ON tasks
         FOR EACH ROW
-        WHEN NEW.agent_execution_spec IS NOT NULL
+        WHEN json_type(NEW.agent_execution_spec) = 'object'
          AND NOT EXISTS (
             SELECT 1
             FROM agent_instances AS instance
