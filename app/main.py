@@ -9,9 +9,9 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.agent import AgentRuntime
 from app.agent_delegation_api import router as agent_delegation_router
+from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
 from app.agent_execution_api import router as agent_execution_router
-from app.agent_delegations import AgentDelegationService
 from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
 from app.agent_instance_api import router as agent_instance_router
 from app.agent_instances import AgentInstanceService
