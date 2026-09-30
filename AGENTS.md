@@ -45,9 +45,11 @@
   and `docs/zelo-workspace-decision.md` as the current workspace decision.
   Feature designs may refine the active milestone but must not silently redefine
   Zelo's identity or reorder future milestones.
-- Zelo is the persistent personal AI. Zelo Mind is the reasoning/conversation
-  identity; Zelo Core is the trusted authority and execution boundary. Models
-  think, agents specialize, workers work, tools act, and Zelo decides.
+- Zelo is the persistent personal AI and Group CEO under the human Managing
+  Director. Zelo Mind is the reasoning/conversation identity; Zelo Core is the
+  trusted authority and execution boundary. Factory-managed authority descends
+  VP -> Director -> Manager -> Specialist. Models think, agents specialize,
+  workers work, tools act, and Zelo decides.
 - Map newly discovered frameworks/repositories to the canonical architecture
   before integrating them. Do not reshape Zelo around a third-party project.
 - Reuse before rebuild: inspect mature open-source implementations first, verify
@@ -98,8 +100,9 @@ Rules for this slice:
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
 - require independent/adversarial review and exact-head GitHub CI before merge.
 
-After this slice, v0.14 moves to bounded subagent creation and activation/
-evaluation gates before release preparation.
+After this slice, v0.14 first adds organizational role/unit/reporting-assignment
+contracts. Only after that may it add hierarchy-aware bounded child-agent creation,
+then activation/evaluation gates and release preparation.
 
 ## Workspace decision
 
