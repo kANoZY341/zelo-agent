@@ -556,16 +556,18 @@ Current verified baseline as of 30 September 2026:
 
 - Zelo Core v0.13.0 is published from
   `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
-- v0.13 includes scoped memory, bounded retrieval/context, deterministic memory
-  evaluation and contamination boundaries, worker/model performance and
-  reported-cost evidence, and the Zelo-owned storage abstraction;
-- v0.14 Agent Factory is active; the registry foundation is merged through
-  PR #47 at `8609ee583513f24d312785b7158a90d40a8458ef`;
-- the active slice persists project-bound agent instances, lifecycle state,
-  append-only lifecycle events and bounded Project + Agent memory context on
-  `feat/v0.14-agent-lifecycle-project-binding`;
-- parent-child delegation and generic agent execution remain future v0.14
-  slices and must not be enabled by this persistence work;
+- v0.14 Agent Factory is active;
+- registry foundation is merged through PR #47 at
+  `8609ee583513f24d312785b7158a90d40a8458ef`;
+- project-bound lifecycle and scoped agent/project memory assembly are merged
+  through PR #48 at `8259141834869c09241dc22ea1fb5cbf89615565`;
+- bounded parent-child delegation contracts are merged through PR #49 at
+  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
+- the active slice binds existing Coding/Research execution to exact persisted
+  agent and optional delegation identity on
+  `feat/v0.14-agent-execution-identity`;
+- automatic child creation and activation/evaluation gates remain later bounded
+  v0.14 slices and are not enabled by the execution-identity work;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 
