@@ -4,25 +4,29 @@
 
 This document is the repository-facing roadmap summary.
 
-The current canonical product plan is Zelo Canonical Architecture revision 3.1,
-as amended by `docs/zelo-workspace-decision.md`. The workspace decision is later
-and therefore supersedes revision 3.1 wherever the two conflict.
+The current canonical product plan is Zelo Canonical Architecture revision 3.2,
+as amended by `docs/zelo-workspace-decision.md` and
+`docs/zelo-organizational-authority-model.md`. The later explicit decisions win
+where they refine older shorthand.
 
 Feature design documents may refine an individual milestone, but they must not
 silently redefine Zelo's identity or reorder the roadmap. Material roadmap or
 architecture changes require an explicit operator decision.
 
-This repository summary is governed by the 24 September 2026 Canonical
-Architecture revision 3.1 plus `docs/zelo-workspace-decision.md`. When they
-conflict with older shorthand in this repository, the later explicit decision
-wins.
+This repository summary is governed by Canonical Architecture revision 3.2.
+Revision 3.2 incorporates the 1 October 2026 organizational authority decision:
+the human Managing Director is the ultimate human principal, Zelo is Group CEO,
+and factory-managed authority descends through VP, Director, Manager and
+Specialist levels. `docs/zelo-organizational-authority-model.md` is canonical for
+that hierarchy.
 
 The product model is:
 
 > Zelo is Ahmad's persistent personal AI. Zelo Mind reasons, remembers, discusses,
 > plans, delegates, verifies and follows up. Zelo Core is the trusted authority and
-> execution boundary. The company of managers, supervisors, producers, specialists
-> and interchangeable workers operates underneath those two layers.
+> execution boundary. Human authority starts with the Managing Director; Zelo serves
+> as Group CEO; factory-managed VPs, Directors, Managers and Specialist Agents operate
+> beneath Zelo, with interchangeable workers and tools below the agent layer.
 
 The permanent rule remains:
 
@@ -70,9 +74,28 @@ authoritative operational state.
 
 ### Company runtime
 
-Managers, supervisors, producers and specialists that coordinate bounded work
-under Core authority. These are responsibilities and persistent role records,
-not necessarily separate always-running model processes.
+The durable AI organization operating under Core authority.
+
+Canonical reporting hierarchy:
+
+```text
+Human Managing Director
+  -> Zelo Group CEO
+    -> VP
+      -> Director
+        -> Manager
+          -> Specialist Agent
+            -> Worker
+              -> Tool
+```
+
+The Managing Director and Zelo CEO are reserved principals, not ordinary
+factory-created agents. VPs, Directors, Managers and Specialists are persistent
+factory-managed roles/instances. Divisions, departments and teams are
+organizational containers, not authority levels.
+
+The organizational reporting graph is separate from the temporary task
+delegation graph. A delegation never silently changes the org chart.
 
 ### Model / brain
 
@@ -158,9 +181,9 @@ worker, validation, review, approval, and audit boundaries as other work.
                                v
         +---------------------------------------------+
         |          COMPANY + AGENT RUNTIME            |
-        | managers / supervisors / producers          |
-        | specialists / Goal Manager / Planner        |
-        | Scheduler / Verifier / Agent Factory later |
+        | Managing Director -> Zelo CEO               |
+        | VP -> Director -> Manager -> Specialist     |
+        | org units / Agent Factory / Scheduler       |
         +----------------------+----------------------+
                                |
                                v
@@ -200,6 +223,12 @@ need them. The UI, model and worker layers never become the authority boundary.
 11. Hidden reasoning is not persisted as system memory or audit data.
 12. Architecture may borrow code aggressively without surrendering control-plane
     ownership.
+13. The human Managing Director and Zelo CEO are reserved principals and cannot be
+    created, replaced or impersonated by Agent Factory.
+14. Organizational reporting and temporary task delegation are separate graphs;
+    neither may silently mutate the other.
+15. Titles do not grant tool/worker authority. Every action still requires explicit
+    Core capabilities, policy, budgets and approvals.
 
 ## Reuse before rebuild
 
@@ -395,16 +424,47 @@ Add:
 
 ### v0.14 — Agent Factory
 
-Generalize the fixed Coding and Research specialists into versioned
-`AgentSpec` templates and `DepartmentSpec` records with manager/producer
-assignments, registry, activation tests and lifecycle controls.
+Generalize the fixed Coding and Research specialists into versioned `AgentSpec`
+templates, persisted AgentInstances, durable organization units/assignments and
+bounded delegation/execution contracts.
 
-Add bounded subagent creation, explicit parent-child contracts and
-project-scoped memory. Inspect the parked Agent Factory experiment and reuse only
-compatible parts; do not merge it wholesale.
+Canonical authority is:
+
+```text
+Human Managing Director
+  -> Zelo Group CEO
+    -> VP
+      -> Director
+        -> Manager
+          -> Specialist Agent
+            -> Worker
+              -> Tool
+```
+
+The Managing Director and Zelo CEO are reserved principals outside ordinary
+Agent Factory creation. Factory-managed organizational levels are `vp`,
+`director`, `manager` and `specialist`.
+
+Divisions, departments and teams are organizational containers. The durable
+reporting graph is separate from the temporary delegation graph.
+
+v0.14 adds:
+
+- trusted/versioned AgentSpec registry and activation checks;
+- persisted project-bound AgentInstances and scoped agent/project memory;
+- explicit bounded parent-child task delegation contracts;
+- exact agent/delegation execution identity on Core tasks;
+- organizational role, unit and reporting-assignment contracts;
+- hierarchy-aware bounded child-agent creation;
+- activation/evaluation gates before new executive/specialist templates;
+- lifecycle, budgets, depth, cycle and audit enforcement.
 
 Agents bind roles, goals, memory namespaces, capabilities, tools, permissions,
 procedures, worker requirements, review requirements, budgets and lifecycle.
+Titles never widen tool/worker authority by themselves.
+
+Inspect the parked Agent Factory experiment and reuse only compatible parts; do
+not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
@@ -441,19 +501,26 @@ contract. Messaging support does not imply calling support. If continuous
 presence is required while the laptop is offline, choose and verify an always-on
 host deliberately.
 
-### v0.17 — Real specialist agents
+### v0.17 — Real specialist organizations and agents
 
-Add domain specialists such as:
+Add real domain organizations under the canonical executive hierarchy. Examples
+may include Business, Media/YouTube, Trading, Product, Security and Personal
+domains.
 
-- Business Agent;
-- YouTube Agent;
-- Trading Agent;
-- Marketing Agent;
-- Product Agent;
-- Security Agent;
-- Personal Agent.
+Each organization can contain the required VP, Director and Manager layers plus
+narrow Specialist Agents such as:
 
-Each gets only the tools, memory and authority required by its role.
+- Business / market / sourcing specialists;
+- YouTube research / strategy / script / thumbnail / analytics specialists;
+- Trading research / strategy / risk / backtesting / reporting specialists;
+- Marketing specialists;
+- Product specialists;
+- Security specialists;
+- Personal-assistant specialists.
+
+Executive roles coordinate and govern; Specialist Agents perform domain work.
+Every role receives only the tools, memory and authority explicitly required by
+its trusted specification and organizational assignment.
 
 ### v0.18 — Learning, self-healing and advanced autonomy
 
@@ -556,16 +623,20 @@ Current verified baseline as of 30 September 2026:
 
 - Zelo Core v0.13.0 is published from
   `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
-- v0.13 includes scoped memory, bounded retrieval/context, deterministic memory
-  evaluation and contamination boundaries, worker/model performance and
-  reported-cost evidence, and the Zelo-owned storage abstraction;
-- v0.14 Agent Factory is active; the registry foundation is merged through
-  PR #47 at `8609ee583513f24d312785b7158a90d40a8458ef`;
-- the active slice persists project-bound agent instances, lifecycle state,
-  append-only lifecycle events and bounded Project + Agent memory context on
-  `feat/v0.14-agent-lifecycle-project-binding`;
-- parent-child delegation and generic agent execution remain future v0.14
-  slices and must not be enabled by this persistence work;
+- v0.14 Agent Factory is active;
+- registry foundation is merged through PR #47 at
+  `8609ee583513f24d312785b7158a90d40a8458ef`;
+- project-bound lifecycle and scoped agent/project memory assembly are merged
+  through PR #48 at `8259141834869c09241dc22ea1fb5cbf89615565`;
+- bounded parent-child delegation contracts are merged through PR #49 at
+  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
+- the active slice binds existing Coding/Research execution to exact persisted
+  agent and optional delegation identity on
+  `feat/v0.14-agent-execution-identity`;
+- the next bounded slice adds organizational role/unit/reporting assignments under
+  the Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist model;
+- hierarchy-aware child creation and activation/evaluation gates remain later
+  bounded v0.14 slices and are not enabled by the execution-identity work;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 
@@ -593,8 +664,9 @@ Zelo's user experience has three connected views:
 1. **Talk to Zelo** — the primary text/voice conversation with Zelo Mind for ideas,
    goals, decisions, delegation, progress and follow-up.
 2. **Company world** — an optional visual office/town representation of real Core
-   state, inspired by Agent Town. It is a view over actual departments, agents,
-   assignments and outputs; animation must never become execution authority.
+   state, inspired by Agent Town. It visualizes the actual Managing Director/Zelo
+   CEO/VP/Director/Manager/Specialist hierarchy, organizational units, assignments,
+   work and outputs; animation must never become execution authority.
 3. **Control desk** — practical project, file, policy, procedure, approval, budget,
    artifact and activity management.
 

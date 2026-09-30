@@ -2,12 +2,14 @@
 
 Confirmed by Ahmad on 24 September 2026.
 Implementation choice selected after the live Core proof on 26 September 2026.
+Company hierarchy visualization refined on 1 October 2026.
 
 Zelo is the persistent personal AI Ahmad talks to: he reasons, remembers,
-discusses ideas, plans, delegates, verifies results and follows up. His expandable
-company includes managers, supervisors, producers, specialists and interchangeable
-workers. The workspace presents this system; it does not define or replace Zelo's
-intelligence.
+discusses ideas, plans, delegates, verifies results and follows up. The canonical
+company hierarchy is human Managing Director -> Zelo Group CEO -> VP -> Director
+-> Manager -> Specialist Agent -> Worker -> Tool. Divisions, departments and
+teams are containers around that authority structure. The workspace presents
+this system; it does not define or replace Zelo's intelligence.
 
 ## One workspace, three connected views
 
@@ -15,8 +17,10 @@ intelligence.
    goals, decisions and updates. Linked WhatsApp, email and call channels connect
    to the same identity and relevant conversation/project context.
 2. **Company World:** an optional visual office or town, inspired by Agent Town.
-   Departments appear as rooms and agents as characters. Selecting a character
-   opens real assignments, progress, evidence and outputs.
+   It visualizes the real Managing Director/Zelo CEO/VP/Director/Manager/
+   Specialist reporting tree together with divisions, departments and teams.
+   Selecting a role or character opens real assignments, progress, evidence and
+   outputs.
 3. **Control Desk:** practical project, file, policy, procedure, approval, budget
    and activity management, drawing strongly on Mission Control's useful patterns.
 
@@ -85,6 +89,9 @@ Requirements:
   walking around is optional.
 - All views share canonical Core state and authority. UI choice does not change
   Zelo's identity, memory or company contracts.
+- Company World must render the durable reporting graph separately from temporary
+  task-delegation edges; a visual delegation must never imply a permanent org-chart
+  change.
 - The workspace may cache presentation data later, but a cache never becomes the
   source of truth for task/approval authority.
 - New third-party code must pass license, provenance, dependency and security

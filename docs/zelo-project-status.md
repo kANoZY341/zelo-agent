@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Verified: 30 September 2026
+Verified: 1 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -36,53 +36,77 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Parent-child delegation contracts
+## Active increment: v0.14 Generic agent execution identity
 
-The registry foundation and durable lifecycle/project-binding slices are merged:
+The first three Agent Factory slices are merged:
 
 - PR #47 → `8609ee583513f24d312785b7158a90d40a8458ef`;
-- PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`.
+- PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`;
+- PR #49 → `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`.
 
 The active branch is:
 
-`feat/v0.14-parent-child-delegation`
+`feat/v0.14-agent-execution-identity`
 
-This third bounded Agent Factory slice adds Core-owned delegation contracts while
-keeping execution disabled.
+This fourth bounded slice connects persisted Agent Factory identity to the
+existing trusted Coding and Research task paths.
 
 Current slice behavior:
 
-- immutable parent/child delegation identity and objective;
-- same-Project and active-Campaign binding;
-- active/current-registry parent and child requirements;
-- explicit parent `allow_subagents` + `max_subagents` authority;
-- delegated task kinds must fit both parent and child task surfaces;
-- child capability requirements must be satisfied;
-- one active parent per child;
-- inherited depth contracts with hard maximum depth 4;
-- service-level and database-level cycle prevention;
-- Campaign budget reservation proof owned by the parent instance;
-- idempotent creation with request fingerprinting;
-- terminal revocation with unused reserved budget released through existing
-  Campaign control authority.
+- authenticated `POST /agents/{instance_id}/tasks` submits only
+  `developer_run` or `research_run`;
+- callers provide specialist work and an optional existing delegation ID, never
+  worker IDs, model IDs, AgentSpec snapshots or authority metadata;
+- Core constructs and persists an exact immutable execution binding containing
+  the AgentSpec snapshot, registry fingerprint, Project and optional delegation;
+- the binding is included in request idempotency and task action hashes;
+- approval, retry and claim boundaries revalidate current active agent identity;
+- delegated child tasks require the exact still-active delegation, same Campaign,
+  current parent/child identities and still-reserved parent-owned budget proof;
+- Coding capability routing comes from its worker-neutral AgentSpec requirement;
+- Coding's independent-review requirement fails closed when no eligible reviewer
+  exists;
+- Research keeps the existing bounded read-only specialist runtime;
+- migration `0022_agent_execution_identity` adds the immutable task binding and
+  database identity/kind/delegation guards while preserving legacy unbound tasks.
 
-Migration `0021_agent_delegations` adds `agent_delegations` and database
-guards for immutability, valid relations, parent authority, budget proof, depth,
-cycles and deletion prevention.
+This slice does **not** add a new Core task kind, automatically create child
+instances, enable recursive/model-authored subagents, widen tools/workers,
+write memory automatically, or bypass approvals, budgets, scheduler, promotion,
+merge or release authority.
 
-This slice does **not** execute delegated tasks, automatically create child
-instances, allow recursive model-authored subagents, add agent-to-agent
-messaging, add tools/worker authority, or bypass approvals, budgets, scheduler,
-promotion, merge or release authority.
+## Canonical organizational authority update
+
+The 1 October 2026 operator decision establishes the company hierarchy:
+
+```text
+Human Managing Director
+  -> Zelo Group CEO
+    -> VP
+      -> Director
+        -> Manager
+          -> Specialist Agent
+            -> Worker
+              -> Tool
+```
+
+The Managing Director and Zelo CEO are reserved principals. Divisions,
+departments and teams are containers, not authority levels. Durable reporting
+relationships are separate from temporary task-delegation contracts.
+
+Canonical details live in `docs/zelo-organizational-authority-model.md`.
 
 ## v0.14 planned continuation
 
-After bounded delegation contracts are verified and merged:
+After generic execution identity is verified and merged:
 
-1. bind existing Coding/Research execution to persisted generic agent identity;
-2. carry exact delegation identity into child task authority/evidence;
-3. enable bounded subagent creation only behind explicit depth/budget limits;
-4. add activation/evaluation gates before additional specialist templates.
+1. add organization-role, organization-unit and reporting-assignment contracts;
+2. evolve the transitional flat DepartmentSpec manager/producer model into the
+   hierarchy-aware container model without rewriting historical registry data;
+3. add hierarchy-aware bounded child-agent creation behind explicit
+   parent/delegation/depth/budget contracts;
+4. add activation/evaluation gates for executive and specialist templates;
+5. complete v0.14 release preparation.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.

@@ -76,6 +76,7 @@ class Task(Base):
     promotion_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     merge_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     release_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    agent_execution_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class TaskAttempt(Base):

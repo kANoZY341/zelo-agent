@@ -10,15 +10,25 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.agent_execution_contracts import (
+    AgentExecutionBinding,
+    DelegationExecutionBinding,
+)
+from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
 from app.models import (
+    AgentDelegation,
+    AgentInstance,
     Approval,
     AuditEvent,
     Campaign,
+    CampaignBudgetReservation,
     CampaignTaskLink,
+    Goal,
+    Project,
     Task,
     TaskAttempt,
     TaskDependency,
@@ -94,6 +104,7 @@ class Execution:
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
+    agent_execution: AgentExecutionBinding | None = None
 
 
 def audit(
@@ -582,6 +593,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
+        "agent_execution_spec": task.agent_execution_spec,
     }
     response = TaskResponse.model_validate(values)
     response.attempts = [
@@ -610,6 +622,7 @@ class TaskService:
         promotion_reviewer: PromotionReviewer | None = None,
         promotion_ci_verifier: PromotionCIVerifier | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
+        agent_factory: AgentFactory | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -619,6 +632,145 @@ class TaskService:
         self.promotion_reviewer = promotion_reviewer
         self.promotion_ci_verifier = promotion_ci_verifier
         self.promotion_release_runtime = promotion_release_runtime
+        self.agent_factory = agent_factory
+
+    @staticmethod
+    def _agent_execution_selection(
+        selection: dict[str, Any] | None,
+        agent_execution_spec: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if agent_execution_spec is None:
+            return selection
+        return {
+            "runtime": selection,
+            "agent_execution": agent_execution_spec,
+        }
+
+    @staticmethod
+    def _delegation_execution_binding(item: AgentDelegation) -> DelegationExecutionBinding:
+        return DelegationExecutionBinding(
+            delegation_id=item.id,
+            parent_instance_id=item.parent_instance_id,
+            child_instance_id=item.child_instance_id,
+            campaign_id=item.campaign_id,
+            budget_reservation_id=item.budget_reservation_id,
+            idempotency_key=item.idempotency_key,
+            request_hash=item.request_hash,
+            objective=item.objective,
+            allowed_task_kinds=tuple(item.allowed_task_kinds),
+            required_capabilities=tuple(item.required_capabilities),
+            depth=item.depth,
+            max_depth=item.max_depth,
+            budget_resource=item.budget_resource,
+            budget_units=item.budget_units,
+        )
+
+    def _current_agent_binding(self, instance: AgentInstance) -> AgentBinding:
+        try:
+            spec = AgentSpec.model_validate(instance.spec)
+            return AgentBinding(spec=spec, registry_version=instance.registry_version)
+        except ValueError:
+            raise DomainError("Agent execution identity is invalid", 409) from None
+
+    def _validate_agent_execution(
+        self,
+        session: Session,
+        binding: AgentExecutionBinding,
+        *,
+        campaign_id: str | None,
+    ) -> None:
+        if self.agent_factory is None:
+            raise DomainError("Agent execution unavailable", 503)
+
+        instance = session.get(AgentInstance, binding.agent_instance_id)
+        if instance is None:
+            raise DomainError("Agent instance not found", 404)
+        if instance.status != "active":
+            raise DomainError("Agent instance is not active", 409)
+        project = session.get(Project, instance.project_id)
+        if project is None or project.status != "active":
+            raise DomainError("Agent Project is not active", 409)
+        if (
+            instance.project_id != binding.project_id
+            or instance.agent_id != binding.spec.agent_id
+            or instance.agent_version != binding.spec.version
+            or instance.registry_version != binding.registry_version
+            or instance.spec != binding.spec.model_dump(mode="json")
+            or not self.agent_factory.matches_agent(self._current_agent_binding(instance))
+            or binding.task_kind not in binding.spec.allowed_task_kinds
+        ):
+            raise DomainError("Agent execution identity is stale", 409)
+
+        if campaign_id is not None:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                raise DomainError("Campaign not found", 404)
+            goal = session.get(Goal, campaign.goal_id)
+            if goal is None or goal.project_id != binding.project_id or campaign.status != "active":
+                raise DomainError("Agent task campaign is outside the bound Project", 409)
+
+        delegated = binding.delegation
+        if delegated is None:
+            return
+        if campaign_id != delegated.campaign_id:
+            raise DomainError("Delegated agent task must use the delegation Campaign", 409)
+
+        item = session.get(AgentDelegation, delegated.delegation_id)
+        if (
+            item is None
+            or item.status != "active"
+            or self._delegation_execution_binding(item) != delegated
+        ):
+            raise DomainError("Agent delegation is not active and exact", 409)
+
+        parent = session.get(AgentInstance, delegated.parent_instance_id)
+        if parent is None or parent.status != "active":
+            raise DomainError("Delegating parent agent is not active", 409)
+        if parent.project_id != binding.project_id or not self.agent_factory.matches_agent(
+            self._current_agent_binding(parent)
+        ):
+            raise DomainError("Delegating parent agent identity is stale", 409)
+
+        reservation = session.get(CampaignBudgetReservation, delegated.budget_reservation_id)
+        if (
+            reservation is None
+            or reservation.status != "reserved"
+            or reservation.expires_at <= utcnow()
+            or reservation.campaign_id != delegated.campaign_id
+            or reservation.owner_id != delegated.parent_instance_id
+            or reservation.resource != delegated.budget_resource
+            or reservation.units != delegated.budget_units
+        ):
+            raise DomainError("Agent delegation budget is not valid", 409)
+
+    @staticmethod
+    def _runtime_selection(task: Task) -> dict[str, Any] | None:
+        if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
+            return {
+                "alias": task.selected_alias,
+                "model": task.selected_model,
+                "config_version": task.config_version,
+                "profile": (
+                    "general"
+                    if task.kind in {"research_run", "self_improvement_run"}
+                    else task.payload.get("profile")
+                ),
+            }
+        if task.kind == "developer_run":
+            return task.developer_spec
+        if task.kind == "promotion_run":
+            return task.promotion_spec
+        if task.kind == "merge_run":
+            return task.merge_spec
+        if task.kind == "release_run":
+            return task.release_spec
+        return None
+
+    def _action_selection(self, task: Task) -> dict[str, Any] | None:
+        return self._agent_execution_selection(
+            self._runtime_selection(task),
+            task.agent_execution_spec,
+        )
 
     def _bind_campaign_task(self, session: Session, task: Task, request: TaskCreate) -> None:
         dependency_ids = list(request.depends_on_task_ids)
@@ -1384,14 +1536,34 @@ class TaskService:
             )
             return snapshot(session, task), True
 
-    def submit(self, request: TaskCreate, key: str | None) -> tuple[TaskResponse, bool]:
+    def submit(
+        self,
+        request: TaskCreate,
+        key: str | None,
+        agent_execution: AgentExecutionBinding | None = None,
+    ) -> tuple[TaskResponse, bool]:
+        if agent_execution is not None and request.kind not in {"developer_run", "research_run"}:
+            raise DomainError("Agent execution supports only specialist task kinds", 422)
         if request.kind == "promotion_run":
             return self._submit_promotion(request, key)
         if request.kind == "merge_run":
             return self._submit_merge(request, key)
         if request.kind == "release_run":
             return self._submit_release(request, key)
-        request_hash = fingerprint(request.model_dump(mode="json"))
+
+        agent_execution_spec = (
+            agent_execution.model_dump(mode="json") if agent_execution is not None else None
+        )
+        request_payload = request.model_dump(mode="json")
+        request_hash = fingerprint(
+            request_payload
+            if agent_execution_spec is None
+            else {
+                "request": request_payload,
+                "agent_execution": agent_execution_spec,
+            }
+        )
+
         with self.database.transaction() as session:
             if key is not None:
                 existing = session.scalar(select(Task).where(Task.idempotency_key == key))
@@ -1401,7 +1573,15 @@ class TaskService:
                             "Idempotency key was already used with a different request"
                         )
                     return snapshot(session, existing), False
+
             self._check_capacity(session)
+            if agent_execution is not None:
+                self._validate_agent_execution(
+                    session,
+                    agent_execution,
+                    campaign_id=request.campaign_id,
+                )
+
             payload = request.payload.model_dump(mode="json")
             task = Task(
                 kind=request.kind,
@@ -1409,10 +1589,18 @@ class TaskService:
                 timeout_seconds=request.timeout_seconds,
                 status=State.PENDING,
                 action_version=1,
-                action_hash=action_hash(request.kind, payload, request.timeout_seconds, 1),
+                action_hash=action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(None, agent_execution_spec),
+                ),
                 idempotency_key=key,
                 request_hash=request_hash,
+                agent_execution_spec=agent_execution_spec,
             )
+
             if request.kind in {
                 "ai_prompt",
                 "agent_run",
@@ -1435,13 +1623,17 @@ class TaskService:
                     payload,
                     request.timeout_seconds,
                     1,
-                    {
-                        "profile": profile,
-                        "alias": alias,
-                        "model": model,
-                        "config_version": task.config_version,
-                    },
+                    self._agent_execution_selection(
+                        {
+                            "profile": profile,
+                            "alias": alias,
+                            "model": model,
+                            "config_version": task.config_version,
+                        },
+                        agent_execution_spec,
+                    ),
                 )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -1449,26 +1641,62 @@ class TaskService:
                     self.tool_gateway.validate(payload["tool"], payload["arguments"])
                 except ToolRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
+
             developer_request = None
             developer_running_counts: dict[str, int] = {}
             if request.kind == "developer_run":
+                capabilities = ("zelo_core_development",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "developer":
+                        raise DomainError("Agent developer worker requirement is invalid", 409)
+                    capabilities = tuple(requirement.capabilities)
+
                 developer_request, developer_running_counts = self._prepare_developer_request(
                     session,
                     payload=payload,
                     timeout_seconds=request.timeout_seconds,
+                    capabilities=capabilities,
                 )
+                if (
+                    agent_execution is not None
+                    and agent_execution.spec.review_required
+                    and developer_request.reviewer is None
+                ):
+                    raise DomainError("Agent execution requires independent review", 409)
                 task.developer_spec = developer_request.model_dump(mode="json")
                 task.action_hash = action_hash(
                     request.kind,
                     payload,
                     request.timeout_seconds,
                     1,
-                    task.developer_spec,
+                    self._agent_execution_selection(
+                        task.developer_spec,
+                        agent_execution_spec,
+                    ),
                 )
+
             session.add(task)
             session.flush()
             self._bind_campaign_task(session, task, request)
             audit(session, task, "task_submitted")
+            if agent_execution is not None:
+                audit(
+                    session,
+                    task,
+                    "agent_execution_bound",
+                    agent_instance_id=agent_execution.agent_instance_id,
+                    agent_id=agent_execution.spec.agent_id,
+                    agent_version=agent_execution.spec.version,
+                    registry_version=agent_execution.registry_version,
+                    project_id=agent_execution.project_id,
+                    delegation_id=(
+                        agent_execution.delegation.delegation_id
+                        if agent_execution.delegation is not None
+                        else None
+                    ),
+                )
+
             if task.kind == "developer_run":
                 if developer_request is None:
                     raise DomainError("Developer routing state unavailable", 503)
@@ -1478,6 +1706,7 @@ class TaskService:
                     developer_request,
                     developer_running_counts,
                 )
+
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
                 audit(
                     session,
@@ -1497,7 +1726,6 @@ class TaskService:
                 "merge_run",
                 "release_run",
             }:
-                # Initial gating is explicit; no externally observable ungated pending state.
                 task.status = State.AWAITING_APPROVAL
                 audit(
                     session,
@@ -1879,6 +2107,7 @@ class TaskService:
                 return False
             except (ValueError, TypeError, KeyError):
                 return False
+        selection = self._agent_execution_selection(selection, task.agent_execution_spec)
         current = action_hash(
             task.kind, task.payload, task.timeout_seconds, task.action_version, selection
         )
@@ -1948,7 +2177,16 @@ class TaskService:
             ):
                 return None
             try:
+                if task.agent_execution_spec is not None:
+                    binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                    self._validate_agent_execution(
+                        session,
+                        binding,
+                        campaign_id=_task_campaign_id(session, task),
+                    )
                 return self._valid_action(task, approval, live=True)
+            except (ValueError, DomainError):
+                return False
             except DeveloperRuntimeError as error:
                 if str(error) == "approval_revalidation_unavailable":
                     raise DomainError(
@@ -2029,6 +2267,19 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            agent_execution = None
+            if task.agent_execution_spec is not None:
+                try:
+                    agent_execution = AgentExecutionBinding.model_validate(
+                        task.agent_execution_spec
+                    )
+                except ValueError:
+                    raise DomainError("Agent execution identity is invalid", 409) from None
+                self._validate_agent_execution(
+                    session,
+                    agent_execution,
+                    campaign_id=_task_campaign_id(session, task),
+                )
             if task.status == State.RUNNING:
                 raise DomainError(f"Cannot retry task in state {task.status}")
             if (
@@ -2074,11 +2325,28 @@ class TaskService:
                 if self.developer_runtime is None:
                     raise DomainError("Developer runtime unavailable", 503)
                 try:
-                    task.developer_spec = self.developer_runtime.request(
+                    kwargs: dict[str, Any] = {}
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if requirement is None or requirement.role != "developer":
+                            raise DomainError(
+                                "Agent developer worker requirement is invalid",
+                                409,
+                            )
+                        kwargs["capabilities"] = tuple(requirement.capabilities)
+                    refreshed = self.developer_runtime.request(
                         task.payload["instruction"],
                         task.payload["validation_profile"],
                         task.timeout_seconds,
-                    ).model_dump(mode="json")
+                        **kwargs,
+                    )
+                    if (
+                        agent_execution is not None
+                        and agent_execution.spec.review_required
+                        and refreshed.reviewer is None
+                    ):
+                        raise DomainError("Agent execution requires independent review", 409)
+                    task.developer_spec = refreshed.model_dump(mode="json")
                 except DeveloperRuntimeError as error:
                     raise DomainError(str(error), 422) from None
                 selection = DeveloperRequest.model_validate(task.developer_spec).worker_selection
@@ -2104,30 +2372,7 @@ class TaskService:
                 task.payload,
                 task.timeout_seconds,
                 task.action_version,
-                {
-                    "profile": (
-                        "general"
-                        if task.kind in {"research_run", "self_improvement_run"}
-                        else task.payload.get("profile")
-                    ),
-                    "alias": task.selected_alias,
-                    "model": task.selected_model,
-                    "config_version": task.config_version,
-                }
-                if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}
-                else (
-                    task.developer_spec
-                    if task.kind == "developer_run"
-                    else (
-                        task.promotion_spec
-                        if task.kind == "promotion_run"
-                        else (
-                            task.merge_spec
-                            if task.kind == "merge_run"
-                            else (task.release_spec if task.kind == "release_run" else None)
-                        )
-                    )
-                ),
+                self._action_selection(task),
             )
             task.cancel_requested = False
             task.result = None
@@ -2241,6 +2486,35 @@ class TaskService:
             task = self._claimable_task(session)
             if task is None:
                 return None
+
+            agent_execution = None
+            if task.agent_execution_spec is not None:
+                try:
+                    agent_execution = AgentExecutionBinding.model_validate(
+                        task.agent_execution_spec
+                    )
+                    self._validate_agent_execution(
+                        session,
+                        agent_execution,
+                        campaign_id=_task_campaign_id(session, task),
+                    )
+                except (ValueError, DomainError):
+                    task.error = "agent_execution_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "agent_execution_validated",
+                    agent_instance_id=agent_execution.agent_instance_id,
+                    delegation_id=(
+                        agent_execution.delegation.delegation_id
+                        if agent_execution.delegation is not None
+                        else None
+                    ),
+                )
+
             if task.kind in {
                 "approval_demo",
                 "ai_prompt",
@@ -2303,30 +2577,7 @@ class TaskService:
                 task.payload,
                 task.timeout_seconds,
                 task.action_version,
-                {
-                    "alias": task.selected_alias,
-                    "model": task.selected_model,
-                    "config_version": task.config_version,
-                    "profile": (
-                        "general"
-                        if task.kind in {"research_run", "self_improvement_run"}
-                        else task.payload.get("profile")
-                    ),
-                }
-                if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}
-                else (
-                    task.developer_spec
-                    if task.kind == "developer_run"
-                    else (
-                        task.promotion_spec
-                        if task.kind == "promotion_run"
-                        else (
-                            task.merge_spec
-                            if task.kind == "merge_run"
-                            else (task.release_spec if task.kind == "release_run" else None)
-                        )
-                    )
-                ),
+                self._action_selection(task),
             )
             if current_hash != task.action_hash:
                 task.error = "action_changed"
@@ -2466,6 +2717,7 @@ class TaskService:
                 promotion_request,
                 merge_request,
                 release_request,
+                agent_execution,
             )
 
     def finish(
