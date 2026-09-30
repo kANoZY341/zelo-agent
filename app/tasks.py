@@ -10,6 +10,11 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.agent_execution_contracts import (
+    AgentExecutionBinding,
+    DelegationExecutionBinding,
+)
+from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
@@ -17,8 +22,13 @@ from app.gateway import ModelGateway
 from app.models import (
     Approval,
     AuditEvent,
+    AgentDelegation,
+    AgentInstance,
     Campaign,
+    CampaignBudgetReservation,
     CampaignTaskLink,
+    Goal,
+    Project,
     Task,
     TaskAttempt,
     TaskDependency,
@@ -94,6 +104,7 @@ class Execution:
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
+    agent_execution: AgentExecutionBinding | None = None
 
 
 def audit(
@@ -610,6 +621,7 @@ class TaskService:
         promotion_reviewer: PromotionReviewer | None = None,
         promotion_ci_verifier: PromotionCIVerifier | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
+        agent_factory: AgentFactory | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -619,6 +631,150 @@ class TaskService:
         self.promotion_reviewer = promotion_reviewer
         self.promotion_ci_verifier = promotion_ci_verifier
         self.promotion_release_runtime = promotion_release_runtime
+        self.agent_factory = agent_factory
+
+    @staticmethod
+    def _agent_execution_selection(
+        selection: dict[str, Any] | None,
+        agent_execution_spec: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if agent_execution_spec is None:
+            return selection
+        return {
+            "runtime": selection,
+            "agent_execution": agent_execution_spec,
+        }
+
+    @staticmethod
+    def _delegation_execution_binding(item: AgentDelegation) -> DelegationExecutionBinding:
+        return DelegationExecutionBinding(
+            delegation_id=item.id,
+            parent_instance_id=item.parent_instance_id,
+            child_instance_id=item.child_instance_id,
+            campaign_id=item.campaign_id,
+            budget_reservation_id=item.budget_reservation_id,
+            idempotency_key=item.idempotency_key,
+            request_hash=item.request_hash,
+            objective=item.objective,
+            allowed_task_kinds=tuple(item.allowed_task_kinds),
+            required_capabilities=tuple(item.required_capabilities),
+            depth=item.depth,
+            max_depth=item.max_depth,
+            budget_resource=item.budget_resource,
+            budget_units=item.budget_units,
+        )
+
+    def _current_agent_binding(self, instance: AgentInstance) -> AgentBinding:
+        try:
+            spec = AgentSpec.model_validate(instance.spec)
+            return AgentBinding(spec=spec, registry_version=instance.registry_version)
+        except ValueError:
+            raise DomainError("Agent execution identity is invalid", 409) from None
+
+    def _validate_agent_execution(
+        self,
+        session: Session,
+        binding: AgentExecutionBinding,
+        *,
+        campaign_id: str | None,
+    ) -> None:
+        if self.agent_factory is None:
+            raise DomainError("Agent execution unavailable", 503)
+
+        instance = session.get(AgentInstance, binding.agent_instance_id)
+        if instance is None:
+            raise DomainError("Agent instance not found", 404)
+        if instance.status != "active":
+            raise DomainError("Agent instance is not active", 409)
+        project = session.get(Project, instance.project_id)
+        if project is None or project.status != "active":
+            raise DomainError("Agent Project is not active", 409)
+        if (
+            instance.project_id != binding.project_id
+            or instance.agent_id != binding.spec.agent_id
+            or instance.agent_version != binding.spec.version
+            or instance.registry_version != binding.registry_version
+            or instance.spec != binding.spec.model_dump(mode="json")
+            or not self.agent_factory.matches_agent(self._current_agent_binding(instance))
+            or binding.task_kind not in binding.spec.allowed_task_kinds
+        ):
+            raise DomainError("Agent execution identity is stale", 409)
+
+        if campaign_id is not None:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                raise DomainError("Campaign not found", 404)
+            goal = session.get(Goal, campaign.goal_id)
+            if (
+                goal is None
+                or goal.project_id != binding.project_id
+                or campaign.status != "active"
+            ):
+                raise DomainError("Agent task campaign is outside the bound Project", 409)
+
+        delegated = binding.delegation
+        if delegated is None:
+            return
+        if campaign_id != delegated.campaign_id:
+            raise DomainError("Delegated agent task must use the delegation Campaign", 409)
+
+        item = session.get(AgentDelegation, delegated.delegation_id)
+        if (
+            item is None
+            or item.status != "active"
+            or self._delegation_execution_binding(item) != delegated
+        ):
+            raise DomainError("Agent delegation is not active and exact", 409)
+
+        parent = session.get(AgentInstance, delegated.parent_instance_id)
+        if parent is None or parent.status != "active":
+            raise DomainError("Delegating parent agent is not active", 409)
+        if (
+            parent.project_id != binding.project_id
+            or not self.agent_factory.matches_agent(self._current_agent_binding(parent))
+        ):
+            raise DomainError("Delegating parent agent identity is stale", 409)
+
+        reservation = session.get(CampaignBudgetReservation, delegated.budget_reservation_id)
+        if (
+            reservation is None
+            or reservation.status != "reserved"
+            or reservation.expires_at <= utcnow()
+            or reservation.campaign_id != delegated.campaign_id
+            or reservation.owner_id != delegated.parent_instance_id
+            or reservation.resource != delegated.budget_resource
+            or reservation.units != delegated.budget_units
+        ):
+            raise DomainError("Agent delegation budget is not valid", 409)
+
+    @staticmethod
+    def _runtime_selection(task: Task) -> dict[str, Any] | None:
+        if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
+            return {
+                "alias": task.selected_alias,
+                "model": task.selected_model,
+                "config_version": task.config_version,
+                "profile": (
+                    "general"
+                    if task.kind in {"research_run", "self_improvement_run"}
+                    else task.payload.get("profile")
+                ),
+            }
+        if task.kind == "developer_run":
+            return task.developer_spec
+        if task.kind == "promotion_run":
+            return task.promotion_spec
+        if task.kind == "merge_run":
+            return task.merge_spec
+        if task.kind == "release_run":
+            return task.release_spec
+        return None
+
+    def _action_selection(self, task: Task) -> dict[str, Any] | None:
+        return self._agent_execution_selection(
+            self._runtime_selection(task),
+            task.agent_execution_spec,
+        )
 
     def _bind_campaign_task(self, session: Session, task: Task, request: TaskCreate) -> None:
         dependency_ids = list(request.depends_on_task_ids)
