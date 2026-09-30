@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentSpec
 from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
 from app.policy import State
@@ -94,6 +95,17 @@ class DeveloperRunInput(TaskInput):
     kind: Literal["developer_run"]
     payload: DeveloperPayload
     timeout_seconds: float = Field(default=900.0, ge=1.0, le=3600, allow_inf_nan=False)
+
+
+AgentExecutableTask = Annotated[
+    ResearchRunInput | DeveloperRunInput,
+    Field(discriminator="kind"),
+]
+
+
+class AgentTaskCreate(StrictModel):
+    task: AgentExecutableTask
+    delegation_id: TaskId | None = None
 
 
 class PromotionPayload(StrictModel):
@@ -348,6 +360,7 @@ class TaskResponse(StrictModel):
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None
+    agent_execution_spec: AgentExecutionBinding | None = None
 
 
 class TaskPage(StrictModel):
