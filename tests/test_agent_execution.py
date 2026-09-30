@@ -29,6 +29,7 @@ from app.schemas import (
     ResearchRunInput,
 )
 from app.tasks import TaskService
+from tests.test_independent_review import review_runtime
 
 
 class StubGateway:
@@ -158,11 +159,12 @@ def test_coding_agent_approval_revalidates_identity(
     database,
     developer_case,
 ):
-    settings = developer_case.settings
+    runtime, _producer, _reviewer = review_runtime(developer_case)
+    settings = runtime.settings
     _factory, instances, tasks, execution = direct_services(
         database,
         settings,
-        developer_runtime=developer_case,
+        developer_runtime=runtime,
     )
     owned_project = project(database)
     instance = instances.create(AgentInstanceCreate(agent_id="coding", project_id=owned_project.id))
