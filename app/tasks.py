@@ -20,10 +20,10 @@ from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway
 from app.models import (
-    Approval,
-    AuditEvent,
     AgentDelegation,
     AgentInstance,
+    Approval,
+    AuditEvent,
     Campaign,
     CampaignBudgetReservation,
     CampaignTaskLink,
@@ -706,11 +706,7 @@ class TaskService:
             if campaign is None:
                 raise DomainError("Campaign not found", 404)
             goal = session.get(Goal, campaign.goal_id)
-            if (
-                goal is None
-                or goal.project_id != binding.project_id
-                or campaign.status != "active"
-            ):
+            if goal is None or goal.project_id != binding.project_id or campaign.status != "active":
                 raise DomainError("Agent task campaign is outside the bound Project", 409)
 
         delegated = binding.delegation
@@ -730,9 +726,8 @@ class TaskService:
         parent = session.get(AgentInstance, delegated.parent_instance_id)
         if parent is None or parent.status != "active":
             raise DomainError("Delegating parent agent is not active", 409)
-        if (
-            parent.project_id != binding.project_id
-            or not self.agent_factory.matches_agent(self._current_agent_binding(parent))
+        if parent.project_id != binding.project_id or not self.agent_factory.matches_agent(
+            self._current_agent_binding(parent)
         ):
             raise DomainError("Delegating parent agent identity is stale", 409)
 
