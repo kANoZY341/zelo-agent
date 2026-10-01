@@ -158,9 +158,9 @@ audio is handled transiently and is not persisted by this slice.
 
 v0.13 starts from an authenticated, immutable memory record store owned by Core.
 Memory scopes are explicit: `personal`, `project`, or `agent`. Project scope
-IDs must resolve to an existing Core Project; agent scope IDs remain namespace
-keys until Agent Factory arrives in v0.14. Records carry typed provenance,
-optional expiry, and append-only correction/supersession history.
+IDs must resolve to an existing Core Project. v0.14 AgentInstances now bind
+agent/project memory namespaces through the Agent Factory while retaining the
+same immutable record, provenance, expiry and correction/supersession model.
 
 Authenticated endpoints:
 
@@ -176,14 +176,14 @@ query plus explicit scopes. Retrieval considers only active records, uses bounde
 lexical matching, returns bounded snippets and preserves scope/provenance. It does
 not use embeddings or a vector backend.
 
-Talk-to-Zelo may now receive relevant **personal** memory through the existing
+Talk-to-Zelo may receive relevant **personal** memory through the existing
 `zelo_context` tool envelope. This context is marked `instruction_trust: none`
-and is excluded from Core task construction. Project and agent memories are not
-automatically injected until a future conversation/project binding gives Core an
-explicit scope. They remain available through explicit retrieval requests.
+and is excluded from Core task construction. Talk-to-Zelo automatic injection
+remains personal-only; v0.14 AgentInstances assemble explicitly scoped
+agent/project memory through the Agent Factory context path.
 
 There are still no automatic memory writes from conversation, model-decided
-retention rules, embeddings/vector search, or Agent Factory behavior.
+retention rules, or embeddings/vector search.
 
 ### v0.13 Performance and cost evidence
 
@@ -285,9 +285,10 @@ ecosystem; that remains the v0.15 milestone.
 
 ## Fixed Research specialist
 
-v0.12 adds a fixed `research_run` specialist on top of the same Core task
-lifecycle. It is intentionally narrower than the generic Agent Runtime and does
-not introduce the later Agent Factory or Browser/Research workers.
+v0.12 added a fixed `research_run` specialist on top of the same Core task
+lifecycle. That fixed path remains intentionally narrow: it does not itself
+grant Agent Factory hierarchy authority or the broader Browser/Research worker
+capabilities planned for v0.15.
 
 ```text
 research_run
