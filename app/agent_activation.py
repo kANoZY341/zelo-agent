@@ -28,6 +28,7 @@ class AgentActivationEvaluation(ActivationContract):
     agent_version: int = Field(ge=1)
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     organizational_level: Literal["vp", "director", "manager", "specialist"]
+    surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     status: Literal["accepted", "rejected"]
     checks: tuple[AgentActivationCheck, ...]
     failure_codes: tuple[str, ...]
@@ -37,6 +38,7 @@ class AgentActivationEvaluation(ActivationContract):
 class AgentActivationReport(ActivationContract):
     policy_version: Literal["zelo-agent-activation-policy-v1"] = AGENT_ACTIVATION_POLICY
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     status: Literal["accepted", "rejected"]
     evaluations: tuple[AgentActivationEvaluation, ...]
     report_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -76,6 +78,13 @@ class AgentActivationEvaluator:
                 key=lambda item: item.worker_id,
             )
         )
+        self.surface_digest = _canonical_digest(
+            {
+                "task_kinds": sorted(self.task_kinds),
+                "tools": sorted(self.tools),
+                "workers": [item.model_dump(mode="json") for item in self.workers],
+            }
+        )
 
     @staticmethod
     def _check(
@@ -98,7 +107,7 @@ class AgentActivationEvaluator:
             for worker in self.workers
         )
 
-    def _evaluate(self, spec: AgentSpec) -> AgentActivationEvaluation:
+    def evaluate_spec(self, spec: AgentSpec) -> AgentActivationEvaluation:
         missing_tasks = tuple(sorted(set(spec.allowed_task_kinds).difference(self.task_kinds)))
         missing_tools = tuple(sorted(set(spec.allowed_tools).difference(self.tools)))
         executive = spec.organizational_level in {"vp", "director", "manager"}
@@ -222,6 +231,7 @@ class AgentActivationEvaluator:
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
             "registry_version": self.registry.version,
+            "surface_digest": self.surface_digest,
             "agent": spec.model_dump(mode="json"),
             "checks": [item.model_dump(mode="json") for item in checks],
             "failure_codes": failures,
@@ -231,6 +241,7 @@ class AgentActivationEvaluator:
             agent_version=spec.version,
             registry_version=self.registry.version,
             organizational_level=spec.organizational_level,
+            surface_digest=self.surface_digest,
             status="rejected" if failures else "accepted",
             checks=checks,
             failure_codes=failures,
@@ -239,7 +250,7 @@ class AgentActivationEvaluator:
 
     def evaluate(self) -> AgentActivationReport:
         evaluations = tuple(
-            self._evaluate(spec)
+            self.evaluate_spec(spec)
             for spec in self.registry.list_agents()
             if spec.lifecycle == "active"
         )
@@ -249,15 +260,24 @@ class AgentActivationEvaluator:
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
             "registry_version": self.registry.version,
+            "surface_digest": self.surface_digest,
             "status": status,
             "evaluations": [item.model_dump(mode="json") for item in evaluations],
         }
         return AgentActivationReport(
             registry_version=self.registry.version,
+            surface_digest=self.surface_digest,
             status=status,
             evaluations=evaluations,
             report_digest=_canonical_digest(payload),
         )
+
+    def require_spec(self, spec: AgentSpec) -> AgentActivationEvaluation:
+        evaluation = self.evaluate_spec(spec)
+        if evaluation.status == "rejected":
+            first = evaluation.failure_codes[0]
+            raise ValueError(f"agent_activation_rejected:{evaluation.agent_id}:{first}")
+        return evaluation
 
     def require(self) -> AgentActivationReport:
         report = self.evaluate()
