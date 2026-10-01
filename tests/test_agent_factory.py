@@ -212,7 +212,7 @@ def test_registry_version_changes_for_material_agent_or_department_change():
 def test_specialist_organizational_level_preserves_legacy_registry_identity():
     registry = default_agent_registry()
 
-    assert registry.version == "b02890f40e6c0892260d8c75603fd5dce00df91ac8d4dc60d57f60ca87d9b25a"
+    assert registry.version == "ea9738d7ca520c07ae467b4cc7f3d6d8b56ab7e83cd6475dac38e662b0db8fe6"
     assert coding_agent_spec().organizational_level == "specialist"
     assert research_agent_spec().organizational_level == "specialist"
 
@@ -292,7 +292,10 @@ def test_default_registry_generalizes_existing_coding_and_research_specialists()
     assert research == research_agent_spec()
     assert coding is not None and coding.worker_requirement is not None
     assert coding.worker_requirement.role == "developer"
-    assert research is not None and research.worker_requirement is None
+    assert research is not None and research.worker_requirement is not None
+    assert research.version == 2
+    assert research.worker_requirement.role == "research"
+    assert research.worker_requirement.capabilities == ("research",)
     assert "system_info" not in coding.allowed_tools
     assert "system_info" not in research.allowed_tools
     assert [item.department_id for item in registry.list_departments()] == [
