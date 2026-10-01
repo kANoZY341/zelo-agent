@@ -124,9 +124,7 @@ def upgrade() -> None:
         "organization_assignments",
         ["unit_id", "level"],
         unique=True,
-        sqlite_where=sa.text(
-            "status = 'active' AND level IN ('vp','director','manager')"
-        ),
+        sqlite_where=sa.text("status = 'active' AND level IN ('vp','director','manager')"),
     )
 
     op.execute(
