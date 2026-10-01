@@ -159,7 +159,11 @@ def request(
         idempotency_key=key,
         objective="Perform bounded delegated research.",
         allowed_task_kinds=["research_run"],
-        required_capabilities=["research"] if child_agent_id == "research_specialist" else ["coordination"],
+        required_capabilities=(
+            ["research"]
+            if child_agent_id == "research_specialist"
+            else ["coordination"]
+        ),
         max_depth=max_depth,
         budget_resource="agent_steps",
         budget_units=2,
@@ -259,7 +263,9 @@ def test_child_creation_rejects_hierarchy_jump_without_side_effect(database):
 
     with database.read() as session:
         before_instances = session.scalar(select(func.count()).select_from(AgentInstance))
-        before_assignments = session.scalar(select(func.count()).select_from(OrganizationAssignment))
+        before_assignments = session.scalar(
+            select(func.count()).select_from(OrganizationAssignment)
+        )
 
     with pytest.raises(DomainError, match="next organizational level"):
         children.create(
