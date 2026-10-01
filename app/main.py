@@ -211,7 +211,6 @@ def create_app(
                 promotion_merge_runtime,
                 promotion_release_runtime,
                 self_improvement_runtime,
-                research_runtime=research_runtime,
                 research_supervisor=research_supervisor,
             )
             application.state.capability_registry = capability_registry

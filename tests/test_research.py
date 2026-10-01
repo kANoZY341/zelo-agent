@@ -1,6 +1,8 @@
 """v0.12 fixed Research specialist tests."""
 
+import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -11,7 +13,8 @@ from app.config import ROOT
 from app.gateway import ModelGateway, ModelGatewayError, ModelResult
 from app.main import create_app
 from app.models import Task
-from app.research import RESEARCH_ACTION, ResearchRuntime
+from app.research import RESEARCH_ACTION, ResearchRuntime, ResearchRuntimeError
+from app.runner import Runner
 from app.schemas import ResearchRunInput
 from app.tasks import TaskService, _project_task_result
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
@@ -410,6 +413,29 @@ def research_supervisor(worker_id: str = "research_core") -> Supervisor[object]:
         ((descriptor_for_research_worker(worker_id=worker_id), object()),)
     )
     return Supervisor[object](registry)
+
+
+def test_runner_requires_bound_research_worker_selection(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None
+    assert execution.research_selection is not None
+
+    unbound = replace(execution, research_selection=None)
+    runner = Runner(service, research_supervisor=supervisor)
+
+    with pytest.raises(ResearchRuntimeError, match="research_worker_selection_unavailable"):
+        asyncio.run(runner._research_worker(unbound))
 
 
 def test_research_worker_selection_fails_closed_if_registry_changes(settings, database):

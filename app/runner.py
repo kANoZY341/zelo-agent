@@ -38,14 +38,12 @@ class Runner:
         promotion_merge_runtime: PromotionMergeRuntime | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         self_improvement_runtime: SelfImprovementRuntime | None = None,
-        research_runtime: ResearchRuntime | None = None,
         research_supervisor: Supervisor[ResearchRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
-        self.research_runtime = research_runtime
         self.research_supervisor = research_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
@@ -398,20 +396,16 @@ class Runner:
         )
 
     async def _research_worker(self, execution: Execution) -> dict[str, Any]:
-        runtime = self.research_runtime
-        if execution.research_selection is not None:
-            if self.research_supervisor is None:
-                raise ResearchRuntimeError("research_worker_registry_unavailable")
-            selected = self.research_supervisor.registry.get(
-                execution.research_selection.descriptor.worker_id
-            )
-            if selected is None or not self.research_supervisor.matches(
-                execution.research_selection
-            ):
-                raise ResearchRuntimeError("research_worker_selection_stale")
-            runtime = selected.worker
-        if runtime is None:
-            raise ResearchRuntimeError("research_runtime_unavailable")
+        if execution.research_selection is None:
+            raise ResearchRuntimeError("research_worker_selection_unavailable")
+        if self.research_supervisor is None:
+            raise ResearchRuntimeError("research_worker_registry_unavailable")
+        selected = self.research_supervisor.registry.get(
+            execution.research_selection.descriptor.worker_id
+        )
+        if selected is None or not self.research_supervisor.matches(execution.research_selection):
+            raise ResearchRuntimeError("research_worker_selection_stale")
+        runtime = selected.worker
 
         def emit(event: str, details: dict[str, Any]) -> None:
             self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
