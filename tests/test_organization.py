@@ -216,7 +216,7 @@ def test_unit_and_reporting_shape_fail_closed(database):
             reports_to_assignment_id=vp.id,
         )
     )
-    with pytest.raises(DomainError, match="same team"):
+    with pytest.raises(DomainError, match="specialist must report to manager"):
         organization.create_assignment(
             OrganizationAssignmentCreate(
                 agent_instance_id=agents["coding_specialist"].id,
@@ -335,6 +335,7 @@ def test_default_application_exposes_reserved_organization_snapshot(client):
 
 
 def test_organization_routes_require_operator_auth(client):
-    assert client.get("/organization/snapshot").status_code == 401
-    assert client.get("/organization/units").status_code == 401
-    assert client.get("/organization/assignments").status_code == 401
+    bad_auth = {"Authorization": "Bearer invalid-operator-token"}
+    assert client.get("/organization/snapshot", headers=bad_auth).status_code == 401
+    assert client.get("/organization/units", headers=bad_auth).status_code == 401
+    assert client.get("/organization/assignments", headers=bad_auth).status_code == 401
