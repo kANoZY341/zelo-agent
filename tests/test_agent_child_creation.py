@@ -44,7 +44,7 @@ def spec(
         capabilities=capabilities,
         allowed_task_kinds=("research_run",),
         allowed_tools=(),
-        permissions=(),
+        permissions=(("organization_hire",) if allow_children else ()),
         procedures=("organization",),
         memory_namespace=f"agent/{agent_id}",
         lifecycle="active",
