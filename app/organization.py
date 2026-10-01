@@ -63,8 +63,7 @@ class OrganizationService:
             reports_to_assignment_id=assignment.reports_to_assignment_id,
             reports_to_principal=(
                 ZELO_CEO_PRINCIPAL
-                if assignment.level == "vp"
-                and assignment.reports_to_assignment_id is None
+                if assignment.level == "vp" and assignment.reports_to_assignment_id is None
                 else None
             ),
             status=assignment.status,
@@ -168,9 +167,7 @@ class OrganizationService:
                 conditions.append(OrganizationUnit.status == status)
             total = (
                 session.scalar(
-                    select(func.count())
-                    .select_from(OrganizationUnit)
-                    .where(*conditions)
+                    select(func.count()).select_from(OrganizationUnit).where(*conditions)
                 )
                 or 0
             )
@@ -333,9 +330,7 @@ class OrganizationService:
 
             total = (
                 session.scalar(
-                    select(func.count())
-                    .select_from(OrganizationAssignment)
-                    .where(*conditions)
+                    select(func.count()).select_from(OrganizationAssignment).where(*conditions)
                 )
                 or 0
             )
