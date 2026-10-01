@@ -632,10 +632,12 @@ Current verified baseline as of 30 September 2026:
   `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
 - generic Coding/Research execution identity is merged through PR #50 at
   `6554dd402ca4553efed6032f448bbdf8bb813239`;
-- the active slice persists organizational roles, units and reporting assignments
-  on `feat/v0.14-organizational-hierarchy`;
-- hierarchy-aware child creation and activation/evaluation gates remain later
-  bounded v0.14 slices and are not enabled by the hierarchy work;
+- durable organizational hierarchy is merged through PR #51 at
+  `86315a5b61924b36cc04ae1e964ebe1a496ede0b`;
+- the active slice adds hierarchy-aware bounded child creation on
+  `feat/v0.14-hierarchy-child-creation`;
+- activation/evaluation gates remain the final bounded implementation slice
+  before v0.14 release preparation;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 

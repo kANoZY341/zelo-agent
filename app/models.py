@@ -247,6 +247,54 @@ class AgentDelegation(Base):
     revocation_reason: Mapped[str | None] = mapped_column(String(512))
 
 
+class AgentChildCreation(Base):
+    __tablename__ = "agent_child_creations"
+    __table_args__ = (
+        UniqueConstraint(
+            "parent_instance_id",
+            "idempotency_key",
+            name="uq_agent_child_creation_idempotency",
+        ),
+        UniqueConstraint(
+            "child_instance_id",
+            name="uq_agent_child_creation_child",
+        ),
+        UniqueConstraint(
+            "child_assignment_id",
+            name="uq_agent_child_creation_assignment",
+        ),
+        UniqueConstraint(
+            "delegation_id",
+            name="uq_agent_child_creation_delegation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    parent_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        index=True,
+    )
+    parent_assignment_id: Mapped[str] = mapped_column(
+        ForeignKey("organization_assignments.id"),
+        index=True,
+    )
+    child_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        unique=True,
+    )
+    child_assignment_id: Mapped[str] = mapped_column(
+        ForeignKey("organization_assignments.id"),
+        unique=True,
+    )
+    delegation_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_delegations.id"),
+        unique=True,
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class OrganizationUnit(Base):
     __tablename__ = "organization_units"
     __table_args__ = (

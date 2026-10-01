@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.agent import AgentRuntime
+from app.agent_child_creation import AgentChildCreationService
+from app.agent_child_creation_api import router as agent_child_creation_router
 from app.agent_delegation_api import router as agent_delegation_router
 from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
@@ -103,6 +105,7 @@ def create_app(
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
             agent_delegations = AgentDelegationService(database, agent_factory, campaign_controls)
+            agent_child_creation = AgentChildCreationService(database, agent_factory)
             context_resolver = ContextResolver(projects, memories=memories)
             self_improvement_runtime = SelfImprovementRuntime(
                 RepositoryInspector(ROOT),
@@ -190,6 +193,7 @@ def create_app(
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
             application.state.agent_delegations = agent_delegations
+            application.state.agent_child_creation = agent_child_creation
             application.state.agent_execution = agent_execution
             application.state.mind = mind
             application.state.scheduler = scheduler
@@ -211,6 +215,7 @@ def create_app(
     application.include_router(router)
     application.include_router(task_router)
     application.include_router(agent_instance_router)
+    application.include_router(agent_child_creation_router)
     application.include_router(agent_delegation_router)
     application.include_router(agent_execution_router)
     application.include_router(organization_router)
