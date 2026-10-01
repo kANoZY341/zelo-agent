@@ -38,7 +38,9 @@ merge/release authority.
 
 ## Active increment: v0.14 Release preparation
 
-The complete v0.14 Agent Factory implementation is represented by PRs #47-#53:
+The complete v0.14 Agent Factory implementation is merged on `main` through
+PRs #47-#53 at merge commit
+`927f63b55babeb8eca8f6b9a67d59d49241b3088`:
 
 - PR #47 → trusted/versioned AgentSpec registry;
 - PR #48 → project-bound AgentInstance lifecycle and scoped memory;
@@ -76,13 +78,13 @@ dependencies, capabilities or v0.15 work.
 
 Before publishing `v0.14.0`:
 
-1. merge the exact reviewed PR #53 implementation head;
-2. rebase/finalize release preparation on the resulting `main`;
-3. run diff check, Ruff lint and Ruff format;
-4. run the full pytest suite from a real repository clone;
-5. require independent/adversarial release review;
-6. require exact-head GitHub CI;
-7. merge the exact reviewed release-prep head;
+1. keep release preparation based on the merged PR #53 `main` baseline;
+2. run diff check, Ruff lint and Ruff format;
+3. run the full pytest suite from a real repository clone;
+4. require independent/adversarial release review;
+5. require exact-head GitHub CI;
+6. merge the exact reviewed release-prep head;
+7. require post-merge `main` CI;
 8. tag and publish `v0.14.0` from the resulting `main` commit.
 
 Only after v0.14.0 is published does implementation advance to v0.15 Capability

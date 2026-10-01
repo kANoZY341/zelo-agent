@@ -62,7 +62,9 @@
 Zelo Core v0.13.0 is the latest published release from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
 
-The complete v0.14 Agent Factory implementation is represented by PRs #47-#53:
+The complete v0.14 Agent Factory implementation is merged on `main` through
+PRs #47-#53 at merge commit
+`927f63b55babeb8eca8f6b9a67d59d49241b3088`:
 
 - registry foundation: PR #47;
 - agent lifecycle and project binding: PR #48;
@@ -94,7 +96,7 @@ Rules for this slice:
   capabilities from this branch;
 - do not weaken fail-closed lifecycle, delegation, hierarchy, execution-identity
   or activation checks;
-- merge the exact reviewed PR #53 head before finalizing this branch on `main`;
+- keep this branch based on the merged PR #53 `main` baseline;
 - run diff check, Ruff lint, Ruff format and the full pytest suite from a real
   repository clone;
 - require independent/adversarial review and exact-head GitHub CI before merge;
