@@ -57,52 +57,40 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Release preparation
+## Current scope: v0.15 Capability Registry foundation
 
-Zelo Core v0.13.0 is the latest published release from
-`adc43d856a29fdcacdba80a273566aefaa0b98f0`.
+Zelo Core v0.14.0 — Agent Factory is published from
+`3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
 
-The complete v0.14 Agent Factory implementation is merged on `main` through
-PRs #47-#53 at merge commit
-`927f63b55babeb8eca8f6b9a67d59d49241b3088`:
+The active branch is:
 
-- registry foundation: PR #47;
-- agent lifecycle and project binding: PR #48;
-- bounded parent-child delegation: PR #49;
-- generic Coding/Research execution identity: PR #50;
-- durable organizational hierarchy: PR #51;
-- hierarchy-aware permanent child creation: PR #52;
-- deterministic activation/evaluation gates: PR #53, exact implementation head
-  `4e23c8ad49f2132cf27f12a5a11062dfd61f17a0`.
+`feat/v0.15-capability-registry-foundation`
 
-The release-preparation branch is:
-
-`chore/v0.14-release-prep`
-
-This branch is release preparation only for v0.14.0.
+This first v0.15 slice creates the trusted capability vocabulary that later
+Browser, Computer, Python, API, Shell, Research, Media, skill, MCP/plugin and
+swarm adapters must integrate through.
 
 Rules for this slice:
 
-- bump and verify public Core version metadata for `0.14.0`;
-- align README, live status and canonical roadmap with the completed v0.14
-  implementation;
+- capability definitions are trusted immutable Core configuration, never model-authored;
+- capability metadata describes satisfiable functions but never grants execution authority;
+- validate active AgentSpec capabilities and WorkerRequirement capabilities against
+  the registry;
+- validate configured WorkerDescriptor capabilities before Supervisor routing;
+- bind Capability Registry identity into Agent Factory activation policy/evidence;
+- expose only an operator-authenticated read-only capability snapshot;
+- describe only capabilities already present in the published v0.14 runtime;
+- do not add browser, computer, Python, shell, API, media or external-network execution;
+- do not add Skill Registry execution, MCP/plugin adapters, Ruflo or dynamic registration yet;
+- do not add database migrations or runtime capability mutation;
 - preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager ->
   Specialist -> Worker -> Tool;
-- preserve the separation between durable organizational reporting and temporary
-  task delegation;
-- preserve existing task, tool, worker, approval, scheduler, budget, promotion,
-  merge and release authority boundaries;
-- do not add features, migrations, dependencies, new AgentSpecs or v0.15
-  capabilities from this branch;
-- do not weaken fail-closed lifecycle, delegation, hierarchy, execution-identity
-  or activation checks;
-- keep this branch based on the merged PR #53 `main` baseline;
-- run diff check, Ruff lint, Ruff format and the full pytest suite from a real
-  repository clone;
-- require independent/adversarial review and exact-head GitHub CI before merge;
-- after a clean release-prep merge, tag and publish `v0.14.0` from the resulting
-  `main` commit;
-- do not begin v0.15 capability/skills implementation until v0.14.0 is published.
+- preserve task, tool, worker, approval, scheduler, budget, promotion, merge and
+  release authority boundaries;
+- run diff check, Ruff lint, Ruff format, focused tests and the full pytest suite;
+- require adversarial review and exact-head GitHub CI before merge.
+
+After this slice, the next bounded v0.15 slice is the trusted Skill Registry.
 
 ## Workspace decision
 

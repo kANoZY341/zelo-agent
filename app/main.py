@@ -24,6 +24,8 @@ from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
 from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
+from app.capabilities import default_capability_registry
+from app.capability_api import router as capability_router
 from app.config import ROOT, Settings
 from app.context import ContextResolver
 from app.developer import DeveloperRuntime
@@ -94,6 +96,8 @@ def create_app(
             )
             tool_gateway = ToolGateway(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
+            capability_registry = default_capability_registry()
+            capability_registry.validate_workers(developer_runtime.registry.list())
             agent_registry = default_agent_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(
@@ -105,6 +109,7 @@ def create_app(
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
                 available_tools=available_tools,
                 worker_descriptors=developer_runtime.registry.list(),
+                capability_registry=capability_registry,
             ).require()
             agent_factory = AgentFactory(agent_registry)
             projects = ProjectService(database)
@@ -189,6 +194,7 @@ def create_app(
                 self_improvement_runtime,
                 research_runtime=research_runtime,
             )
+            application.state.capability_registry = capability_registry
             application.state.agent_registry = agent_registry
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
@@ -224,6 +230,7 @@ def create_app(
     application.state.settings = configuration
     application.include_router(router)
     application.include_router(task_router)
+    application.include_router(capability_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
     application.include_router(agent_child_creation_router)

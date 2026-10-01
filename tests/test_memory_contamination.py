@@ -111,7 +111,7 @@ def test_conflicting_memory_keeps_canonical_project_context_and_precedence_rule(
     assert envelope["purpose"] == "factual_project_and_memory_context"
     sources = {source["source"]: source for source in envelope["sources"]}
     assert "docs/zelo-project-status.md#active" in sources
-    assert "docs/zelo-canonical-architecture-roadmap.md#v0.14" in sources
+    assert "docs/zelo-canonical-architecture-roadmap.md#v0.15" in sources
     payload = json.loads(sources["core.memories.personal"]["content"])
     assert payload["items"][0]["id"] == remembered["id"]
     assert "prefer canonical" in MIND_ROUTER_PROMPT
