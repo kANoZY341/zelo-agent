@@ -22,6 +22,7 @@ MemoryNamespace = Annotated[
     Field(min_length=7, max_length=128, pattern=r"^agent/[a-z][a-z0-9_-]*$"),
 ]
 Lifecycle = Literal["draft", "active", "retired"]
+OrganizationalLevel = Literal["vp", "director", "manager", "specialist"]
 
 
 class AgentContract(BaseModel):
@@ -48,6 +49,7 @@ class AgentSpec(AgentContract):
     agent_id: Identifier
     version: int = Field(default=1, ge=1, le=1_000_000)
     role: Identifier
+    organizational_level: OrganizationalLevel = "specialist"
     objective: str = Field(min_length=1, max_length=1024)
     capabilities: tuple[Identifier, ...] = Field(min_length=1, max_length=32)
     allowed_task_kinds: tuple[Identifier, ...] = Field(default=(), max_length=32)
