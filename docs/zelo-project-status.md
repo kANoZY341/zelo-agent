@@ -36,56 +36,54 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Agent activation and evaluation gates
+## Active increment: v0.14 Release preparation
 
-The first six Agent Factory implementation slices are merged:
+The complete v0.14 Agent Factory implementation is represented by PRs #47-#53:
 
-- PR #47 → registry foundation;
-- PR #48 → project-bound lifecycle and scoped memory;
+- PR #47 → trusted/versioned AgentSpec registry;
+- PR #48 → project-bound AgentInstance lifecycle and scoped memory;
 - PR #49 → bounded parent-child delegation;
 - PR #50 → generic Coding/Research execution identity;
 - PR #51 → durable organizational hierarchy;
-- PR #52 → hierarchy-aware permanent child creation,
-  merge `91e23172a303786d02d196ed5c6c13cc80e9f217`.
+- PR #52 → hierarchy-aware permanent child creation;
+- PR #53 → deterministic AgentSpec activation/evaluation gates, exact
+  implementation head `a1bada390f88b04a267300160a60dbbb0494cb10`.
 
-The active branch is:
+The release-preparation branch is:
 
-`feat/v0.14-agent-activation-evaluation`
+`chore/v0.14-release-prep`
 
-This final bounded implementation slice adds deterministic activation evidence
-before an active AgentSpec is allowed to enter the runtime.
+v0.14 now provides trusted AgentSpec templates, durable project-bound
+AgentInstances, explicit lifecycle transitions, scoped agent/project memory,
+bounded delegation, exact task/delegation identity, durable divisions /
+departments / teams and reporting assignments, hierarchy-aware child creation,
+and deterministic activation evidence.
 
-Current behavior:
+The canonical authority chain remains:
 
-- active AgentSpecs are evaluated against available Core task kinds;
-- declared Zelo tools must exist;
-- worker-neutral WorkerRequirements must be satisfiable by configured enabled
-  WorkerDescriptors;
-- `developer_run` requires an explicit worker requirement;
-- review-required templates must declare the developer/review contract;
-- VP/Director/Manager templates must carry explicit bounded
-  `organization_hire` authority;
-- Specialist templates cannot carry permanent `organization_hire`;
-- draft trusted AgentSpecs can be evaluated before their lifecycle is changed;
-- evaluation evidence is deterministic and bound to policy version, registry
-  version and an exact task/tool/worker surface digest;
-- rejected active templates fail application startup;
-- the current accepted report is inspectable through
-  `GET /agent-factory/activation` with operator authentication.
+`Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist -> Worker -> Tool`
 
-This slice does **not** create new templates, run model judgment, perform worker
-preflight execution, widen title-based authority, create children, or bypass
-Core task/tool/worker/approval/budget/scheduler/promotion/release boundaries.
+Organizational reporting and temporary task delegation remain separate graphs.
+Titles never widen tool or worker authority. Stale/paused/retired agents,
+revoked delegations, incompatible hierarchy assignments and rejected active
+AgentSpecs fail closed.
 
-## v0.14 planned continuation
+This release-preparation slice changes version metadata, tests and documentation
+only. It does not add new runtime authority, AgentSpecs, migrations,
+dependencies, capabilities or v0.15 work.
 
-After this activation/evaluation slice is verified and merged:
+## v0.14 release gate
 
-1. prepare the v0.14.0 release only;
-2. run exact-head release CI and independent/adversarial release review;
-3. publish v0.14.0;
-4. begin v0.15 only from the published v0.14 baseline.
+Before publishing `v0.14.0`:
 
-Every release gate must preserve the Managing Director -> Zelo CEO -> VP ->
-Director -> Manager -> Specialist hierarchy and the separation between durable
-reporting and temporary delegation.
+1. merge the exact reviewed PR #53 implementation head;
+2. rebase/finalize release preparation on the resulting `main`;
+3. run diff check, Ruff lint and Ruff format;
+4. run the full pytest suite from a real repository clone;
+5. require independent/adversarial release review;
+6. require exact-head GitHub CI;
+7. merge the exact reviewed release-prep head;
+8. tag and publish `v0.14.0` from the resulting `main` commit.
+
+Only after v0.14.0 is published does implementation advance to v0.15 Capability
+and skills ecosystem.
