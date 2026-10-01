@@ -111,6 +111,38 @@ def upgrade() -> None:
     )
     op.execute(
         """
+        CREATE TRIGGER agent_child_creations_capacity_guard
+        BEFORE INSERT ON agent_child_creations
+        FOR EACH ROW
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM organization_assignments AS parent_assignment
+            JOIN agent_instances AS parent
+              ON parent.id = NEW.parent_instance_id
+            WHERE parent_assignment.id = NEW.parent_assignment_id
+              AND parent_assignment.agent_instance_id = parent.id
+              AND (
+                  SELECT COUNT(*)
+                  FROM (
+                      SELECT delegation.child_instance_id AS child_id
+                      FROM agent_delegations AS delegation
+                      WHERE delegation.parent_instance_id = parent.id
+                        AND delegation.status = 'active'
+                      UNION
+                      SELECT assignment.agent_instance_id AS child_id
+                      FROM organization_assignments AS assignment
+                      WHERE assignment.reports_to_assignment_id = parent_assignment.id
+                        AND assignment.status = 'active'
+                  )
+              ) <= CAST(json_extract(parent.spec, '$.max_subagents') AS INTEGER)
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'Parent agent permanent child capacity exceeded');
+        END
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER agent_child_creations_immutable
         BEFORE UPDATE ON agent_child_creations
         BEGIN
