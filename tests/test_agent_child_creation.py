@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.agent_child_creation import AgentChildCreationService
+from app.agent_delegations import AgentDelegationService
 from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
 from app.campaign_control import CampaignControlService
@@ -15,6 +16,7 @@ from app.policy import DomainError
 from app.projects import ProjectService
 from app.schemas import (
     AgentChildCreate,
+    AgentDelegationRevoke,
     AgentInstanceCreate,
     CampaignBudgetReserve,
     CampaignBudgetSet,
@@ -376,3 +378,70 @@ def test_child_creation_route_requires_operator_auth(client):
     assert response.status_code == 401
 
     assert client.get("/organization/snapshot", headers=AUTH).status_code == 200
+
+
+
+def test_permanent_reports_continue_to_consume_child_capacity_after_delegation_revoke(
+    database,
+):
+    (
+        _instances,
+        _organization,
+        controls,
+        children,
+        _project,
+        campaign,
+        team,
+        manager,
+    ) = build_manager_parent(database)
+    delegations = AgentDelegationService(database, children.factory, controls)
+
+    for index in range(4):
+        reservation = reserve(
+            controls,
+            campaign.id,
+            manager.id,
+            f"budget:permanent:{index}",
+        )
+        created = children.create(
+            manager.id,
+            request(
+                child_agent_id="research_specialist",
+                unit_id=team.id,
+                campaign_id=campaign.id,
+                reservation_id=reservation.id,
+                key=f"child:permanent:{index}",
+            ),
+        )
+        delegations.revoke(
+            created.delegation.id,
+            AgentDelegationRevoke(reason="Initial delegated objective complete."),
+        )
+
+    fifth_reservation = reserve(
+        controls,
+        campaign.id,
+        manager.id,
+        "budget:permanent:overflow",
+    )
+    with pytest.raises(DomainError, match="child limit"):
+        children.create(
+            manager.id,
+            request(
+                child_agent_id="research_specialist",
+                unit_id=team.id,
+                campaign_id=campaign.id,
+                reservation_id=fifth_reservation.id,
+                key="child:permanent:overflow",
+            ),
+        )
+
+    snapshot = _organization.snapshot()
+    reports = [
+        item
+        for item in snapshot.assignments
+        if item.status == "active"
+        and item.reports_to_assignment_id is not None
+        and item.level == "specialist"
+    ]
+    assert len(reports) == 4
