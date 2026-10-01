@@ -198,7 +198,7 @@ def test_unit_and_reporting_shape_fail_closed(database):
             level="vp",
         )
     )
-    with pytest.raises(DomainError, match="director must report to vp"):
+    with pytest.raises(DomainError, match="requires a reporting parent"):
         organization.create_assignment(
             OrganizationAssignmentCreate(
                 agent_instance_id=agents["software_director"].id,
