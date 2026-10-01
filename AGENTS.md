@@ -57,35 +57,37 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 Skill Registry foundation
+## Current scope: v0.15 Generic Worker Registry foundation
 
 Zelo Core v0.14.0 — Agent Factory is published from
 `3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
 
-The first v0.15 Capability Registry slice is merged through PR #55 at:
+Merged v0.15 foundations:
 
-`4dcc5bf03dfe761d64df49f848762a163158d8df`
+- Capability Registry: PR #55 at
+  `4dcc5bf03dfe761d64df49f848762a163158d8df`;
+- Skill Registry: PR #56 at
+  `7e0936750967be79ec49ee5858a508935d7ad3e0`.
 
 The active branch is:
 
-`feat/v0.15-skill-registry`
+`feat/v0.15-generic-worker-registry`
 
-This second v0.15 slice creates trusted, versioned skill metadata on top of
-capability identities while keeping execution authority unchanged.
+This third v0.15 slice separates worker selection metadata from the
+DeveloperWorker backend type without changing execution behavior.
 
 Rules for this slice:
 
-- SkillSpec definitions are trusted immutable Core configuration, never model-authored;
-- skills describe procedure/capability/task/tool compatibility but never grant authority;
-- validate active skills against the trusted Capability Registry and current bounded
-  task/tool surfaces;
-- require every active published AgentSpec procedure to have a compatible active skill;
-- expose only an operator-authenticated read-only skill snapshot;
-- initial skills describe only existing Coding/Research procedures;
-- SkillRegistry must have no run/execute path and no mutation endpoint;
-- do not add browser, computer, Python, shell, API, media or external-network execution;
-- do not add MCP/plugin adapters, Ruflo/swarm execution or dynamic skill registration;
-- do not add database migrations or runtime AgentSpec mutation;
+- make RegisteredWorker, WorkerRegistry and Supervisor generic over backend type;
+- keep WorkerDescriptor, registry fingerprint, routing policy, priority, capacity,
+  exclusion and authority-profile semantics unchanged;
+- keep DeveloperRuntime explicitly bound to WorkerRegistry[DeveloperWorker];
+- prove Supervisor can select an opaque backend without invoking backend methods;
+- do not add Research/Browser/Computer/Python/API/Shell/Media workers yet;
+- do not change task kinds, tools, capabilities, skills or AgentSpecs;
+- do not change WorkerAuthority or realized sandbox/network policy;
+- do not add network, filesystem, subprocess or credential authority;
+- do not add database migrations or new runtime state;
 - preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager ->
   Specialist -> Worker -> Tool;
 - preserve task, tool, worker, approval, scheduler, budget, promotion, merge and
@@ -93,8 +95,8 @@ Rules for this slice:
 - run diff check, Ruff lint, Ruff format, focused tests and the full pytest suite;
 - require adversarial review and exact-head GitHub CI before merge.
 
-After this slice, introduce new v0.15 worker/tool surfaces only one bounded
-capability at a time behind Zelo-owned policy and authority boundaries.
+After this slice, a read-only Research Worker can be introduced as a separately
+bounded adapter behind the shared Supervisor.
 
 ## Workspace decision
 

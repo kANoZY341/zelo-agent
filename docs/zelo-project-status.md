@@ -40,68 +40,66 @@ Titles never widen tool or worker authority.
 Merged v0.14 implementation work is PRs #47 through #53.
 Release preparation is PR #54.
 
-## v0.15 merged foundation
+## v0.15 merged foundations
 
-The first v0.15 Capability Registry foundation is merged through PR #55 at:
+Capability Registry is merged through PR #55 at:
 
 `4dcc5bf03dfe761d64df49f848762a163158d8df`
 
-It provides immutable capability identity, agent/worker subject validation,
-fail-closed AgentSpec/WorkerRequirement/WorkerDescriptor checks, activation
-policy v2 evidence binding, and operator-authenticated read-only
-`GET /capabilities`.
+Skill Registry is merged through PR #56 at:
 
-Capability metadata remains non-authoritative. Supervisor routing,
+`7e0936750967be79ec49ee5858a508935d7ad3e0`
+
+Together they provide trusted capability identity, agent/worker subject checks,
+activation policy v2 evidence binding, immutable skill/procedure compatibility,
+and operator-authenticated read-only `GET /capabilities` and `GET /skills`.
+
+Capability and skill metadata remain non-authoritative. Supervisor routing,
 WorkerAuthority, ToolPolicy, task validation, approvals, budgets and audit remain
 authoritative.
 
-## Active increment: v0.15 Skill Registry foundation
+## Active increment: v0.15 Generic Worker Registry foundation
 
 The active branch is:
 
-`feat/v0.15-skill-registry`
+`feat/v0.15-generic-worker-registry`
 
-This second v0.15 slice adds trusted procedure metadata on top of capability
-identities without adding an execution path.
+This third v0.15 slice separates trusted worker selection metadata from the
+DeveloperWorker backend type without changing runtime execution.
 
 Current implementation includes:
 
-- immutable versioned `SkillSpec` definitions;
-- deterministic immutable `SkillRegistry`;
-- required capability identities;
-- procedure, compatible task-kind and tool identities;
-- draft/active/retired skill lifecycle;
-- fail-closed validation against active agent capabilities;
-- fail-closed validation against current task/tool surfaces;
-- validation that each active default AgentSpec procedure has a compatible
-  active trusted skill;
-- operator-authenticated read-only `GET /skills`;
-- explicit tests that `SkillRegistry` has no `run` or `execute` method and
-  that `POST /skills` is rejected.
+- PEP 695 generic `RegisteredWorker[Backend]`;
+- generic `WorkerRegistry[Backend]`;
+- generic `Supervisor[Backend]`;
+- unchanged WorkerDescriptor and authority-profile storage;
+- unchanged registry fingerprint and routing policy semantics;
+- DeveloperRuntime explicitly typed as `WorkerRegistry[DeveloperWorker]`;
+- an opaque-backend regression test proving selection does not invoke
+  DeveloperWorker methods.
 
-Initial built-ins describe only published Coding/Research procedures:
-`core_implementation`, `core_review`, and `evidence_retrieval`.
+The current worker registry schema remains `zelo-worker-registry-v2` because
+its serialized trusted descriptor/authority fingerprint is unchanged.
 
-## v0.15 Skill Registry boundaries
+## v0.15 Generic Worker Registry boundaries
 
 This slice does **not** add:
 
-- skill execution or model-authored/dynamic skill registration;
-- AgentSpec mutation from skills;
-- Browser, Computer, Python, API, Shell, Research or Media worker execution;
-- new task kinds or tools;
+- Research, Browser, Computer, Python, API, Shell or Media workers;
+- new task kinds, tools, capabilities, skills or AgentSpecs;
+- new WorkerAuthority profiles or sandbox behavior;
 - external network, filesystem, subprocess or credential authority;
-- MCP/plugin or Ruflo/swarm adapters;
+- execution-interface unification;
 - database migrations;
 - new approval, scheduler, merge or release authority.
 
 ## v0.15 continuation
 
-After the Skill Registry foundation passes full verification and merges:
+After this generic selection foundation passes full verification and merges:
 
-1. introduce new worker/tool surfaces one bounded capability at a time;
-2. require capability identity plus compatible trusted skill metadata;
-3. separately enforce WorkerAuthority, ToolPolicy, sandbox/network/filesystem
-   boundaries, approvals and audit for every execution surface;
-4. keep focused tests, full pytest, adversarial review and exact-head CI as
-   mandatory gates for each slice.
+1. add a separately bounded read-only Research Worker adapter behind Supervisor;
+2. define its trusted descriptor, capability and skill compatibility;
+3. preserve workspace-read/no-network authority and existing Research evidence
+   semantics;
+4. require focused tests, real-clone full pytest, adversarial review and
+   exact-head CI before merge.
