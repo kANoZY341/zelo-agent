@@ -93,10 +93,15 @@ def upgrade() -> None:
               ON delegation.id = NEW.delegation_id
             WHERE parent_assignment.id = NEW.parent_assignment_id
               AND parent_assignment.agent_instance_id = parent.id
+              AND parent_assignment.status = 'active'
               AND child_assignment.agent_instance_id = child.id
               AND child_assignment.reports_to_assignment_id = parent_assignment.id
+              AND child_assignment.status = 'active'
               AND delegation.parent_instance_id = parent.id
               AND delegation.child_instance_id = child.id
+              AND delegation.status = 'active'
+              AND parent.status = 'active'
+              AND child.status = 'active'
               AND parent.project_id = child.project_id
         )
         BEGIN
