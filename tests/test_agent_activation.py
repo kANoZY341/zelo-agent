@@ -2,8 +2,9 @@
 
 import pytest
 
-from app.agent_activation import AgentActivationEvaluator
+from app.agent_activation import AgentActivationEvaluator as CoreAgentActivationEvaluator
 from app.agent_factory import AgentRegistry, AgentSpec, WorkerRequirement, default_agent_registry
+from app.capabilities import CapabilityRegistry, CapabilitySpec, default_capability_registry
 from app.developer_contracts import WorkerDescriptor
 from tests.conftest import AUTH
 
@@ -21,6 +22,35 @@ def worker(
         implementation="test",
         priority=1,
         max_concurrency=1,
+    )
+
+
+def activation_capability_registry() -> CapabilityRegistry:
+    base = default_capability_registry().list()
+    return CapabilityRegistry(
+        (
+            *base,
+            CapabilitySpec(
+                capability_id="analysis",
+                description="Synthetic analysis capability for activation tests.",
+                subjects=("agent",),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
+                capability_id="coordination",
+                description="Synthetic coordination capability for activation tests.",
+                subjects=("agent",),
+                lifecycle="active",
+            ),
+        )
+    )
+
+
+def activation_evaluator(registry: AgentRegistry, **kwargs) -> CoreAgentActivationEvaluator:
+    return CoreAgentActivationEvaluator(
+        registry,
+        capability_registry=activation_capability_registry(),
+        **kwargs,
     )
 
 
@@ -61,7 +91,7 @@ def specialist_spec(**updates) -> AgentSpec:
 @pytest.mark.parametrize("level", ["vp", "director", "manager"])
 def test_executive_templates_require_bounded_organization_authority(level):
     valid = executive_spec(level)
-    accepted = AgentActivationEvaluator(
+    accepted = activation_evaluator(
         AgentRegistry((valid,)),
         available_task_kinds=("research_run",),
         available_tools=(),
@@ -75,7 +105,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
             "permissions": (),
         }
     )
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((invalid,)),
         available_task_kinds=("research_run",),
         available_tools=(),
@@ -88,7 +118,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
         ValueError,
         match=f"agent_activation_rejected:{invalid.agent_id}:executive_hiring_authority",
     ):
-        AgentActivationEvaluator(
+        activation_evaluator(
             AgentRegistry((invalid,)),
             available_task_kinds=("research_run",),
             available_tools=(),
@@ -97,7 +127,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
 
 def test_candidate_evaluation_requires_exact_registry_membership():
     registered = executive_spec("manager").model_copy(update={"lifecycle": "draft"})
-    evaluator = AgentActivationEvaluator(
+    evaluator = activation_evaluator(
         AgentRegistry((registered,)),
         available_task_kinds=("research_run",),
         available_tools=(),
@@ -112,7 +142,7 @@ def test_candidate_evaluation_requires_exact_registry_membership():
 
 def test_executive_hiring_requires_delegation_task_surface():
     invalid = executive_spec("vp").model_copy(update={"allowed_task_kinds": ()})
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((invalid,)),
         available_task_kinds=("research_run",),
         available_tools=(),
@@ -128,7 +158,7 @@ def test_specialist_cannot_activate_with_permanent_hiring_permission():
         allow_subagents=True,
         max_subagents=1,
     )
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((invalid,)),
         available_task_kinds=("research_run",),
         available_tools=("repo_status",),
@@ -144,7 +174,7 @@ def test_developer_task_requires_worker_requirement_and_available_worker():
         capabilities=("code_change",),
         procedures=("implementation",),
     )
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((missing_requirement,)),
         available_task_kinds=("developer_run",),
         available_tools=("repo_status",),
@@ -160,7 +190,7 @@ def test_developer_task_requires_worker_requirement_and_available_worker():
             )
         }
     )
-    unavailable = AgentActivationEvaluator(
+    unavailable = activation_evaluator(
         AgentRegistry((required,)),
         available_task_kinds=("developer_run",),
         available_tools=("repo_status",),
@@ -168,7 +198,7 @@ def test_developer_task_requires_worker_requirement_and_available_worker():
     ).evaluate()
     assert "worker_requirement" in unavailable.evaluations[0].failure_codes
 
-    accepted = AgentActivationEvaluator(
+    accepted = activation_evaluator(
         AgentRegistry((required,)),
         available_task_kinds=("developer_run",),
         available_tools=("repo_status",),
@@ -188,7 +218,7 @@ def test_review_required_template_must_declare_review_contract():
         ),
         review_required=True,
     )
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((invalid,)),
         available_task_kinds=("developer_run",),
         available_tools=("repo_status",),
@@ -203,7 +233,7 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
         allowed_task_kinds=("research_run",),
         allowed_tools=("repo_status",),
     )
-    report = AgentActivationEvaluator(
+    report = activation_evaluator(
         AgentRegistry((spec,)),
         available_task_kinds=(),
         available_tools=(),
@@ -214,7 +244,7 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
 
 def test_draft_candidate_can_be_evaluated_before_activation():
     draft = executive_spec("director").model_copy(update={"lifecycle": "draft"})
-    evaluator = AgentActivationEvaluator(
+    evaluator = activation_evaluator(
         AgentRegistry((draft,)),
         available_task_kinds=("research_run",),
         available_tools=(),
@@ -229,12 +259,12 @@ def test_draft_candidate_can_be_evaluated_before_activation():
 
 def test_surface_digest_changes_when_runtime_surface_changes():
     registry = AgentRegistry((specialist_spec(),))
-    first = AgentActivationEvaluator(
+    first = activation_evaluator(
         registry,
         available_task_kinds=("research_run",),
         available_tools=("repo_status",),
     ).require()
-    second = AgentActivationEvaluator(
+    second = activation_evaluator(
         registry,
         available_task_kinds=("research_run",),
         available_tools=("repo_status", "system_info"),
@@ -256,8 +286,8 @@ def test_default_registry_activation_report_is_deterministic():
         ),
         "worker_descriptors": (worker(),),
     }
-    first = AgentActivationEvaluator(registry, **kwargs).require()
-    second = AgentActivationEvaluator(registry, **kwargs).require()
+    first = activation_evaluator(registry, **kwargs).require()
+    second = activation_evaluator(registry, **kwargs).require()
 
     assert first == second
     assert first.status == "accepted"

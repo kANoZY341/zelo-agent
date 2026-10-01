@@ -28,7 +28,7 @@ class AgentActivationEvaluation(ActivationContract):
     agent_id: str
     agent_version: int = Field(ge=1)
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
-    capability_registry_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    capability_registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     organizational_level: Literal["vp", "director", "manager", "specialist"]
     surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     status: Literal["accepted", "rejected"]
@@ -40,7 +40,7 @@ class AgentActivationEvaluation(ActivationContract):
 class AgentActivationReport(ActivationContract):
     policy_version: Literal["zelo-agent-activation-policy-v2"] = AGENT_ACTIVATION_POLICY
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
-    capability_registry_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    capability_registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     status: Literal["accepted", "rejected"]
     evaluations: tuple[AgentActivationEvaluation, ...]
@@ -67,8 +67,8 @@ class AgentActivationEvaluator:
         *,
         available_task_kinds: Iterable[str],
         available_tools: Iterable[str],
+        capability_registry: CapabilityRegistry,
         worker_descriptors: Iterable[WorkerDescriptor] = (),
-        capability_registry: CapabilityRegistry | None = None,
     ) -> None:
         self.registry = registry
         self.capability_registry = capability_registry
@@ -88,11 +88,7 @@ class AgentActivationEvaluator:
                 "task_kinds": sorted(self.task_kinds),
                 "tools": sorted(self.tools),
                 "workers": [item.model_dump(mode="json") for item in self.workers],
-                "capability_registry_version": (
-                    self.capability_registry.version
-                    if self.capability_registry is not None
-                    else None
-                ),
+                "capability_registry_version": self.capability_registry.version,
             }
         )
 
@@ -122,9 +118,7 @@ class AgentActivationEvaluator:
         capabilities: Iterable[str],
         *,
         subject: Literal["agent", "worker"],
-    ) -> tuple[bool | None, str]:
-        if self.capability_registry is None:
-            return None, "capability registry validation is not configured"
+    ) -> tuple[bool, str]:
         try:
             self.capability_registry.validate(capabilities, subject=subject)
         except ValueError as error:
@@ -304,9 +298,7 @@ class AgentActivationEvaluator:
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
             "registry_version": self.registry.version,
-            "capability_registry_version": (
-                self.capability_registry.version if self.capability_registry is not None else None
-            ),
+            "capability_registry_version": self.capability_registry.version,
             "surface_digest": self.surface_digest,
             "agent": spec.model_dump(mode="json"),
             "checks": [item.model_dump(mode="json") for item in checks],
@@ -316,9 +308,7 @@ class AgentActivationEvaluator:
             agent_id=spec.agent_id,
             agent_version=spec.version,
             registry_version=self.registry.version,
-            capability_registry_version=(
-                self.capability_registry.version if self.capability_registry is not None else None
-            ),
+            capability_registry_version=self.capability_registry.version,
             organizational_level=spec.organizational_level,
             surface_digest=self.surface_digest,
             status="rejected" if failures else "accepted",
@@ -339,18 +329,14 @@ class AgentActivationEvaluator:
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
             "registry_version": self.registry.version,
-            "capability_registry_version": (
-                self.capability_registry.version if self.capability_registry is not None else None
-            ),
+            "capability_registry_version": self.capability_registry.version,
             "surface_digest": self.surface_digest,
             "status": status,
             "evaluations": [item.model_dump(mode="json") for item in evaluations],
         }
         return AgentActivationReport(
             registry_version=self.registry.version,
-            capability_registry_version=(
-                self.capability_registry.version if self.capability_registry is not None else None
-            ),
+            capability_registry_version=self.capability_registry.version,
             surface_digest=self.surface_digest,
             status=status,
             evaluations=evaluations,
