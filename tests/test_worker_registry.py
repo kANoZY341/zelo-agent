@@ -70,6 +70,20 @@ def descriptor(
     )
 
 
+def test_registry_and_supervisor_are_backend_generic_without_execution_calls():
+    backend = object()
+    registry = WorkerRegistry[object]([(descriptor("opaque"), backend)])
+
+    selected, snapshot = Supervisor[object](registry).select(
+        role="developer",
+        capabilities=("zelo_core_development",),
+    )
+
+    assert selected.worker is backend
+    assert selected.descriptor.worker_id == "opaque"
+    assert snapshot.descriptor == selected.descriptor
+
+
 def test_registry_rejects_duplicate_ids_and_lists_stably():
     with pytest.raises(ValueError, match="duplicate_worker_id"):
         WorkerRegistry(
