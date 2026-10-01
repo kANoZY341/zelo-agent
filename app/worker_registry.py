@@ -1,4 +1,4 @@
-"""Trusted, deterministic developer worker registration and selection."""
+"""Trusted, deterministic worker registration and selection."""
 
 import hashlib
 import json
@@ -28,7 +28,9 @@ def _registry_value(value: str, name: str) -> str:
     return value
 
 
-def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
+def _registry_version[WorkerBackendT](
+    workers: Mapping[str, "RegisteredWorker[WorkerBackendT]"],
+) -> str:
     payload = {
         "schema": REGISTRY_SCHEMA_VERSION,
         "authority_policy_version": authority_policy_version(),
@@ -51,22 +53,22 @@ def _registry_version(workers: Mapping[str, "RegisteredWorker"]) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class RegisteredWorker:
+class RegisteredWorker[WorkerBackendT]:
     descriptor: WorkerDescriptor
-    worker: DeveloperWorker
+    worker: WorkerBackendT
     authority_profile: WorkerAuthorityProfile
 
 
-class WorkerRegistry:
+class WorkerRegistry[WorkerBackendT]:
     """A process-local registry populated only by trusted application assembly."""
 
     def __init__(
         self,
-        registrations: Iterable[tuple[WorkerDescriptor, DeveloperWorker]] = (),
+        registrations: Iterable[tuple[WorkerDescriptor, WorkerBackendT]] = (),
         *,
         routing_policy: str = "available-capacity-priority-worker-id-v2",
     ) -> None:
-        workers: dict[str, RegisteredWorker] = {}
+        workers: dict[str, RegisteredWorker[WorkerBackendT]] = {}
         for descriptor, worker in registrations:
             trusted_descriptor = WorkerDescriptor.model_validate(descriptor.model_dump(mode="json"))
             if trusted_descriptor.worker_id in workers:
@@ -77,7 +79,7 @@ class WorkerRegistry:
             )
         self._version = _registry_version(workers)
         self._routing_policy = _registry_value(routing_policy, "routing_policy")
-        self._workers: Mapping[str, RegisteredWorker] = MappingProxyType(workers)
+        self._workers: Mapping[str, RegisteredWorker[WorkerBackendT]] = MappingProxyType(workers)
 
     @property
     def version(self) -> str:
@@ -95,10 +97,12 @@ class WorkerRegistry:
             )
         )
 
-    def get(self, worker_id: str) -> RegisteredWorker | None:
+    def get(self, worker_id: str) -> RegisteredWorker[WorkerBackendT] | None:
         return self._workers.get(worker_id)
 
-    def eligible(self, role: str, capabilities: Iterable[str]) -> tuple[RegisteredWorker, ...]:
+    def eligible(
+        self, role: str, capabilities: Iterable[str]
+    ) -> tuple[RegisteredWorker[WorkerBackendT], ...]:
         required = frozenset(capabilities)
         return tuple(
             registration
@@ -109,8 +113,8 @@ class WorkerRegistry:
         )
 
 
-class Supervisor:
-    def __init__(self, registry: WorkerRegistry) -> None:
+class Supervisor[WorkerBackendT]:
+    def __init__(self, registry: WorkerRegistry[WorkerBackendT]) -> None:
         self.registry = registry
 
     def select(
@@ -120,7 +124,7 @@ class Supervisor:
         capabilities: Iterable[str],
         running_counts: Mapping[str, int] | None = None,
         exclude_worker_ids: Iterable[str] = (),
-    ) -> tuple[RegisteredWorker, WorkerSelectionSnapshot]:
+    ) -> tuple[RegisteredWorker[WorkerBackendT], WorkerSelectionSnapshot]:
         requested_capabilities = tuple(sorted(set(capabilities)))
         excluded_worker_ids = tuple(sorted(set(exclude_worker_ids)))
         if not requested_capabilities:

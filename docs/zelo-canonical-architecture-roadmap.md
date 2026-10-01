@@ -631,15 +631,19 @@ Current verified baseline as of 2 October 2026:
 - durable organizational reporting and temporary task delegation remain
   separate graphs, and titles do not grant capability authority;
 - the active milestone is v0.15 Capability and skills ecosystem;
-- the first bounded v0.15 Capability Registry foundation is merged through
-  PR #55 at `4dcc5bf03dfe761d64df49f848762a163158d8df`;
-- the active second slice is the trusted Skill Registry foundation on
-  `feat/v0.15-skill-registry`;
-- Capability and Skill registries are trusted descriptive metadata only and do
-  not grant browser, computer, Python, shell, API, media, network or subprocess
-  execution authority;
-- after Skill Registry, new worker/tool surfaces must be introduced one bounded
-  capability at a time behind Zelo-owned authority, policy, sandbox and audit;
+- Capability Registry is merged through PR #55 at
+  `4dcc5bf03dfe761d64df49f848762a163158d8df`;
+- Skill Registry is merged through PR #56 at
+  `7e0936750967be79ec49ee5858a508935d7ad3e0`;
+- the active third slice is the Generic Worker Registry foundation on
+  `feat/v0.15-generic-worker-registry`;
+- this slice generalizes trusted selection/storage types only; DeveloperRuntime
+  remains explicitly DeveloperWorker-bound and no new worker execution surface
+  is added;
+- after the generic selection foundation, a read-only Research Worker may be
+  introduced as the first separately bounded shared-Supervisor adapter;
+- Capability/Skill metadata and generic registration never grant execution
+  authority by themselves;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only
   and must not be merged wholesale.
 

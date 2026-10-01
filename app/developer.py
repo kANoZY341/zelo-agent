@@ -457,7 +457,7 @@ class DeveloperRuntime:
         settings: Settings,
         worker: DeveloperWorker | None = None,
         source_repository: Path = ROOT,
-        registry: WorkerRegistry | None = None,
+        registry: WorkerRegistry[DeveloperWorker] | None = None,
     ) -> None:
         self.settings = settings
         self.source_repository = source_repository.resolve()
