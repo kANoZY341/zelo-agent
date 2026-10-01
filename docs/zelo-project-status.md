@@ -40,58 +40,68 @@ Titles never widen tool or worker authority.
 Merged v0.14 implementation work is PRs #47 through #53.
 Release preparation is PR #54.
 
-## Active increment: v0.15 Capability Registry foundation
+## v0.15 merged foundation
 
-The active branch is:
+The first v0.15 Capability Registry foundation is merged through PR #55 at:
 
-`feat/v0.15-capability-registry-foundation`
+`4dcc5bf03dfe761d64df49f848762a163158d8df`
 
-This first v0.15 slice creates Zelo's trusted capability vocabulary before new
-execution surfaces are introduced.
+It provides immutable capability identity, agent/worker subject validation,
+fail-closed AgentSpec/WorkerRequirement/WorkerDescriptor checks, activation
+policy v2 evidence binding, and operator-authenticated read-only
+`GET /capabilities`.
 
-Current implementation on the branch includes:
-
-- immutable versioned `CapabilitySpec` definitions;
-- deterministic immutable `CapabilityRegistry`;
-- explicit agent/worker subject compatibility;
-- draft/active/retired capability lifecycle;
-- fail-closed unknown, inactive and subject-mismatch validation;
-- validation of active AgentSpec capabilities;
-- validation of WorkerRequirement and configured WorkerDescriptor capabilities;
-- Capability Registry identity bound into Agent Factory activation evidence;
-- Agent Factory activation policy advanced to
-  `zelo-agent-activation-policy-v2`;
-- operator-authenticated read-only `GET /capabilities`;
-- bounded project context now points at the active v0.15 roadmap section.
-
-The first built-in registry describes only already-published v0.14 vocabulary:
-`code_change`, `code_planning`, `code_review`, `evidence_synthesis`,
-`research`, and `zelo_core_development`.
-
-Capability metadata does not grant execution authority. Supervisor routing,
+Capability metadata remains non-authoritative. Supervisor routing,
 WorkerAuthority, ToolPolicy, task validation, approvals, budgets and audit remain
 authoritative.
 
-## v0.15 foundation boundaries
+## Active increment: v0.15 Skill Registry foundation
+
+The active branch is:
+
+`feat/v0.15-skill-registry`
+
+This second v0.15 slice adds trusted procedure metadata on top of capability
+identities without adding an execution path.
+
+Current implementation includes:
+
+- immutable versioned `SkillSpec` definitions;
+- deterministic immutable `SkillRegistry`;
+- required capability identities;
+- procedure, compatible task-kind and tool identities;
+- draft/active/retired skill lifecycle;
+- fail-closed validation against active agent capabilities;
+- fail-closed validation against current task/tool surfaces;
+- validation that each active default AgentSpec procedure has a compatible
+  active trusted skill;
+- operator-authenticated read-only `GET /skills`;
+- explicit tests that `SkillRegistry` has no `run` or `execute` method and
+  that `POST /skills` is rejected.
+
+Initial built-ins describe only published Coding/Research procedures:
+`core_implementation`, `core_review`, and `evidence_retrieval`.
+
+## v0.15 Skill Registry boundaries
 
 This slice does **not** add:
 
+- skill execution or model-authored/dynamic skill registration;
+- AgentSpec mutation from skills;
 - Browser, Computer, Python, API, Shell, Research or Media worker execution;
 - new task kinds or tools;
 - external network, filesystem, subprocess or credential authority;
-- Skill Registry execution;
-- MCP/plugin adapters;
-- Ruflo/swarm execution;
-- dynamic/model-authored capability registration;
+- MCP/plugin or Ruflo/swarm adapters;
 - database migrations;
 - new approval, scheduler, merge or release authority.
 
 ## v0.15 continuation
 
-After this Capability Registry foundation passes full verification and merges:
+After the Skill Registry foundation passes full verification and merges:
 
-1. add the trusted Skill Registry on top of capability identities;
-2. then introduce new worker/tool surfaces one bounded capability at a time;
-3. keep every adapter behind Zelo-owned policy, authority and audit boundaries;
-4. require focused tests, full pytest, adversarial review and exact-head CI for
-   every slice.
+1. introduce new worker/tool surfaces one bounded capability at a time;
+2. require capability identity plus compatible trusted skill metadata;
+3. separately enforce WorkerAuthority, ToolPolicy, sandbox/network/filesystem
+   boundaries, approvals and audit for every execution surface;
+4. keep focused tests, full pytest, adversarial review and exact-head CI as
+   mandatory gates for each slice.

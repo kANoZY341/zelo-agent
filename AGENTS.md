@@ -57,32 +57,35 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 Capability Registry foundation
+## Current scope: v0.15 Skill Registry foundation
 
 Zelo Core v0.14.0 — Agent Factory is published from
 `3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
 
+The first v0.15 Capability Registry slice is merged through PR #55 at:
+
+`4dcc5bf03dfe761d64df49f848762a163158d8df`
+
 The active branch is:
 
-`feat/v0.15-capability-registry-foundation`
+`feat/v0.15-skill-registry`
 
-This first v0.15 slice creates the trusted capability vocabulary that later
-Browser, Computer, Python, API, Shell, Research, Media, skill, MCP/plugin and
-swarm adapters must integrate through.
+This second v0.15 slice creates trusted, versioned skill metadata on top of
+capability identities while keeping execution authority unchanged.
 
 Rules for this slice:
 
-- capability definitions are trusted immutable Core configuration, never model-authored;
-- capability metadata describes satisfiable functions but never grants execution authority;
-- validate active AgentSpec capabilities and WorkerRequirement capabilities against
-  the registry;
-- validate configured WorkerDescriptor capabilities before Supervisor routing;
-- bind Capability Registry identity into Agent Factory activation policy/evidence;
-- expose only an operator-authenticated read-only capability snapshot;
-- describe only capabilities already present in the published v0.14 runtime;
+- SkillSpec definitions are trusted immutable Core configuration, never model-authored;
+- skills describe procedure/capability/task/tool compatibility but never grant authority;
+- validate active skills against the trusted Capability Registry and current bounded
+  task/tool surfaces;
+- require every active published AgentSpec procedure to have a compatible active skill;
+- expose only an operator-authenticated read-only skill snapshot;
+- initial skills describe only existing Coding/Research procedures;
+- SkillRegistry must have no run/execute path and no mutation endpoint;
 - do not add browser, computer, Python, shell, API, media or external-network execution;
-- do not add Skill Registry execution, MCP/plugin adapters, Ruflo or dynamic registration yet;
-- do not add database migrations or runtime capability mutation;
+- do not add MCP/plugin adapters, Ruflo/swarm execution or dynamic skill registration;
+- do not add database migrations or runtime AgentSpec mutation;
 - preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager ->
   Specialist -> Worker -> Tool;
 - preserve task, tool, worker, approval, scheduler, budget, promotion, merge and
@@ -90,7 +93,8 @@ Rules for this slice:
 - run diff check, Ruff lint, Ruff format, focused tests and the full pytest suite;
 - require adversarial review and exact-head GitHub CI before merge.
 
-After this slice, the next bounded v0.15 slice is the trusted Skill Registry.
+After this slice, introduce new v0.15 worker/tool surfaces only one bounded
+capability at a time behind Zelo-owned policy and authority boundaries.
 
 ## Workspace decision
 

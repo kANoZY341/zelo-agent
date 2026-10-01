@@ -631,12 +631,15 @@ Current verified baseline as of 2 October 2026:
 - durable organizational reporting and temporary task delegation remain
   separate graphs, and titles do not grant capability authority;
 - the active milestone is v0.15 Capability and skills ecosystem;
-- the first bounded v0.15 slice is the Capability Registry foundation on
-  `feat/v0.15-capability-registry-foundation`;
-- this foundation adds trusted capability identity/validation only and does not
-  add new browser, computer, Python, shell, API, media, network or subprocess
+- the first bounded v0.15 Capability Registry foundation is merged through
+  PR #55 at `4dcc5bf03dfe761d64df49f848762a163158d8df`;
+- the active second slice is the trusted Skill Registry foundation on
+  `feat/v0.15-skill-registry`;
+- Capability and Skill registries are trusted descriptive metadata only and do
+  not grant browser, computer, Python, shell, API, media, network or subprocess
   execution authority;
-- the next bounded slice after Capability Registry is the trusted Skill Registry;
+- after Skill Registry, new worker/tool surfaces must be introduced one bounded
+  capability at a time behind Zelo-owned authority, policy, sandbox and audit;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only
   and must not be merged wholesale.
 
