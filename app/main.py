@@ -57,6 +57,8 @@ from app.scheduler_api import router as scheduler_router
 from app.self_improvement import RepositoryInspector
 from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
+from app.skill_api import router as skill_router
+from app.skills import default_skill_registry
 from app.storage import build_storage
 from app.task_api import router as task_router
 from app.tasks import TaskService
@@ -99,11 +101,18 @@ def create_app(
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(developer_runtime.registry.list())
             agent_registry = default_agent_registry()
+            skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
                 available_tools=available_tools,
             )
+            skill_registry.validate(
+                capability_registry,
+                available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
+                available_tools=available_tools,
+            )
+            skill_registry.validate_agents(agent_registry.list_agents())
             agent_activation_report = AgentActivationEvaluator(
                 agent_registry,
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
@@ -195,6 +204,7 @@ def create_app(
                 research_runtime=research_runtime,
             )
             application.state.capability_registry = capability_registry
+            application.state.skill_registry = skill_registry
             application.state.agent_registry = agent_registry
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
@@ -231,6 +241,7 @@ def create_app(
     application.include_router(router)
     application.include_router(task_router)
     application.include_router(capability_router)
+    application.include_router(skill_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
     application.include_router(agent_child_creation_router)
