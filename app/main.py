@@ -63,6 +63,7 @@ from app.storage import build_storage
 from app.task_api import router as task_router
 from app.tasks import TaskService
 from app.tools import ToolGateway
+from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
 from app.workers import Worker, execute
 
 
@@ -98,8 +99,14 @@ def create_app(
             )
             tool_gateway = ToolGateway(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
+            research_runtime = ResearchRuntime(configuration, gateway, tool_gateway)
+            research_registry = WorkerRegistry[ResearchRuntime](
+                ((descriptor_for_research_worker(), research_runtime),)
+            )
+            research_supervisor = Supervisor[ResearchRuntime](research_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(developer_runtime.registry.list())
+            capability_registry.validate_workers(research_registry.list())
             agent_registry = default_agent_registry()
             skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
@@ -117,7 +124,10 @@ def create_app(
                 agent_registry,
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
                 available_tools=available_tools,
-                worker_descriptors=developer_runtime.registry.list(),
+                worker_descriptors=(
+                    *developer_runtime.registry.list(),
+                    *research_registry.list(),
+                ),
                 capability_registry=capability_registry,
             ).require()
             agent_factory = AgentFactory(agent_registry)
@@ -170,6 +180,7 @@ def create_app(
                 promotion_ci_verifier,
                 promotion_release_runtime,
                 agent_factory=agent_factory,
+                research_supervisor=research_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -190,7 +201,6 @@ def create_app(
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
-            research_runtime = ResearchRuntime(configuration, gateway, tool_gateway)
             runner = Runner(
                 tasks,
                 worker,
@@ -202,6 +212,7 @@ def create_app(
                 promotion_release_runtime,
                 self_improvement_runtime,
                 research_runtime=research_runtime,
+                research_supervisor=research_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -224,6 +235,8 @@ def create_app(
             application.state.mind = mind
             application.state.scheduler = scheduler
             application.state.research_runtime = research_runtime
+            application.state.research_registry = research_registry
+            application.state.research_supervisor = research_supervisor
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()

@@ -213,3 +213,19 @@ def descriptor_for_reviewer(
         priority=100,
         max_concurrency=1,
     )
+
+
+def descriptor_for_research_worker(
+    *,
+    implementation: str = "core_research",
+    worker_id: str = "research_core",
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="research",
+        capabilities=("research",),
+        authority=("workspace-read",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )

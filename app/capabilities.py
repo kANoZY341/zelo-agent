@@ -155,10 +155,11 @@ def default_capability_registry() -> CapabilityRegistry:
             ),
             CapabilitySpec(
                 capability_id="research",
+                version=2,
                 description=(
                     "Conduct bounded evidence-grounded research using approved retrieval surfaces."
                 ),
-                subjects=("agent",),
+                subjects=("agent", "worker"),
                 lifecycle="active",
             ),
             CapabilitySpec(

@@ -1,4 +1,4 @@
-"""Fixed bounded Research specialist over Zelo-owned read-only retrieval tools."""
+"""Bounded Research Worker backend over Zelo-owned read-only retrieval tools."""
 
 import asyncio
 import hashlib
@@ -41,7 +41,7 @@ RESEARCH_ACTION = TypeAdapter(
 )
 ResearchEventSink = Callable[[str, dict[str, Any]], None]
 
-SYSTEM_PROMPT = """You are Zelo's fixed Research specialist.
+SYSTEM_PROMPT = """You are Zelo's bounded Research specialist.
 Your only job is to investigate the operator's question using the registered read-only retrieval
 tools Zelo exposes below, then return a concise evidence-grounded answer. You are not an execution
 authority and you cannot write files, run commands, browse the public web, call APIs, create tasks,
@@ -89,7 +89,7 @@ def parse_research_action(text: str) -> ResearchFinalAction | ResearchToolAction
 
 
 class ResearchRuntime:
-    """One fixed v0.12 specialist; Agent Factory generalization remains v0.14."""
+    """Read-only Research backend selected through the v0.15 Worker Registry."""
 
     def __init__(self, settings: Settings, models: ModelGateway, tools: ToolGateway) -> None:
         self.settings = settings
