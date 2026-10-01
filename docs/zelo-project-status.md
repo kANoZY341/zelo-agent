@@ -36,74 +36,55 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Organizational hierarchy
+## Active increment: v0.14 Hierarchy-aware child creation
 
-The first four Agent Factory slices are merged:
+The first five Agent Factory slices are merged:
 
 - PR #47 → `8609ee583513f24d312785b7158a90d40a8458ef`;
 - PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`;
 - PR #49 → `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
-- PR #50 → `6554dd402ca4553efed6032f448bbdf8bb813239`.
+- PR #50 → `6554dd402ca4553efed6032f448bbdf8bb813239`;
+- PR #51 → `86315a5b61924b36cc04ae1e964ebe1a496ede0b`.
 
 The active branch is:
 
-`feat/v0.14-organizational-hierarchy`
+`feat/v0.14-hierarchy-child-creation`
 
-This fifth bounded slice persists the company reporting hierarchy without
-widening task, worker or tool authority.
+This sixth bounded Agent Factory slice adds the first Core-owned permanent
+subordinate creation path under the canonical organization hierarchy.
 
 Current slice behavior:
 
-- AgentSpec includes trusted `organizational_level`:
-  `vp`, `director`, `manager`, or `specialist`;
-- Coding and Research remain Specialists;
-- durable organization units model divisions, departments and teams;
-- durable assignments enforce Zelo CEO -> VP -> Director -> Manager -> Specialist;
-- Managing Director and Zelo CEO remain reserved principals, not AgentInstances;
-- assignment level must exactly match the holder's trusted AgentSpec;
-- reporting assignments and temporary task delegations remain separate graphs;
-- active leaders/reporting parents and unit ownership are validated;
-- assignments are immutable historical records and cannot be deleted;
-- AgentInstances cannot pause/retire while actively assigned;
-- authenticated organization routes expose units, assignments and the canonical
-  organization snapshot;
-- migration `0023_organizational_hierarchy` enforces the hierarchy invariants in SQLite;
-- migration `0024_agent_spec_organization_compat` preserves legacy Specialist task
-  identity across the AgentSpec schema extension without weakening executive-level checks.
+- parent must be active/current and have an active organization assignment;
+- permanent creation requires explicit trusted `organization_hire` permission
+  plus bounded subagent authority;
+- only next-level creation is allowed:
+  VP -> Director -> Manager -> Specialist;
+- Specialist Agents cannot create permanent reports;
+- target organization unit must remain within the parent's reporting scope;
+- child AgentSpec must be trusted, active, current and match the next level;
+- child remains in the same Project as the parent;
+- active Campaign and exact parent-owned reserved budget proof are required;
+- task kinds and required capabilities are narrowed against trusted parent/child
+  AgentSpecs;
+- nested delegation depth is inherited and bounded to four;
+- AgentInstance + reporting assignment + task delegation + immutable creation
+  receipt are persisted atomically;
+- idempotent replay returns the same creation receipt;
+- migration `0025_hierarchy_child_creation` protects receipt relationships,
+  immutability and no-delete history.
 
-This slice does **not** automatically create agents, widen tools/workers based on
-title, merge reporting with delegation, add new task kinds, write memory
-automatically, or bypass approvals/budgets/scheduler/promotion/merge/release.
-
-## Canonical organizational authority update
-
-The 1 October 2026 operator decision establishes the company hierarchy:
-
-```text
-Human Managing Director
-  -> Zelo Group CEO
-    -> VP
-      -> Director
-        -> Manager
-          -> Specialist Agent
-            -> Worker
-              -> Tool
-```
-
-The Managing Director and Zelo CEO are reserved principals. Divisions,
-departments and teams are containers, not authority levels. Durable reporting
-relationships are separate from temporary task-delegation contracts.
-
-Canonical details live in `docs/zelo-organizational-authority-model.md`.
+This slice does **not** permit model-authored AgentSpecs, hierarchy jumps,
+title-based worker/tool authority, unrestricted spawning, new Core task kinds,
+automatic memory writes, or approval/budget/scheduler/promotion/release bypass.
 
 ## v0.14 planned continuation
 
-After organizational hierarchy is verified and merged:
+After hierarchy-aware child creation is verified and merged:
 
-1. add hierarchy-aware bounded child-agent creation behind explicit
-   organization/delegation/depth/budget contracts;
-2. add activation/evaluation gates for executive and specialist templates;
-3. complete v0.14 release preparation.
+1. add activation/evaluation gates for executive and specialist templates;
+2. complete v0.14 release preparation;
+3. publish v0.14 only after exact-head CI and release verification.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.
