@@ -184,8 +184,6 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
     assert report.evaluations[0].failure_codes == ("task_surface", "tool_surface")
 
 
-
-
 def test_draft_candidate_can_be_evaluated_before_activation():
     draft = executive_spec("director").model_copy(update={"lifecycle": "draft"})
     evaluator = AgentActivationEvaluator(
