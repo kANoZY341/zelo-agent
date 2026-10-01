@@ -551,6 +551,50 @@ class AgentDelegationPage(StrictModel):
     total: int = Field(ge=0)
 
 
+class AgentChildCreate(StrictModel):
+    child_agent_id: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    )
+    unit_id: TaskId
+    campaign_id: TaskId
+    budget_reservation_id: TaskId
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    objective: str = Field(min_length=1, max_length=2048)
+    allowed_task_kinds: list[str] = Field(min_length=1, max_length=16)
+    required_capabilities: list[str] = Field(min_length=1, max_length=32)
+    max_depth: int = Field(default=4, ge=1, le=4)
+    budget_resource: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_.:-]{0,63}$",
+    )
+    budget_units: int = Field(ge=1, le=1_000_000_000_000_000)
+
+    @model_validator(mode="after")
+    def validate_child_creation(self) -> "AgentChildCreate":
+        for field in ("allowed_task_kinds", "required_capabilities"):
+            value = getattr(self, field)
+            if value != sorted(set(value)):
+                raise ValueError(f"{field} must be sorted and unique")
+        if not self.objective.strip():
+            raise ValueError("objective cannot be blank")
+        return self
+
+
+class AgentChildCreationResponse(StrictModel):
+    id: TaskId
+    parent_instance_id: TaskId
+    parent_assignment_id: TaskId
+    child_instance: AgentInstanceResponse
+    child_assignment: "OrganizationAssignmentResponse"
+    delegation: AgentDelegationResponse
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: datetime
+
+
 OrganizationUnitType = Literal["division", "department", "team"]
 OrganizationUnitStatus = Literal["active", "retired"]
 OrganizationLevel = Literal["vp", "director", "manager", "specialist"]
