@@ -81,9 +81,7 @@ def build_units(organization: OrganizationService):
 
 def build_instances(instances: AgentInstanceService, project_id: str):
     return {
-        agent_id: instances.create(
-            AgentInstanceCreate(agent_id=agent_id, project_id=project_id)
-        )
+        agent_id: instances.create(AgentInstanceCreate(agent_id=agent_id, project_id=project_id))
         for agent_id in (
             "vp_engineering",
             "software_director",
