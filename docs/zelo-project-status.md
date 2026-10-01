@@ -47,7 +47,7 @@ The complete v0.14 Agent Factory implementation is represented by PRs #47-#53:
 - PR #51 → durable organizational hierarchy;
 - PR #52 → hierarchy-aware permanent child creation;
 - PR #53 → deterministic AgentSpec activation/evaluation gates, exact
-  implementation head `a1bada390f88b04a267300160a60dbbb0494cb10`.
+  implementation head `4e23c8ad49f2132cf27f12a5a11062dfd61f17a0`.
 
 The release-preparation branch is:
 
