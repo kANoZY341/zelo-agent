@@ -635,13 +635,15 @@ Current verified baseline as of 2 October 2026:
   `4dcc5bf03dfe761d64df49f848762a163158d8df`;
 - Skill Registry is merged through PR #56 at
   `7e0936750967be79ec49ee5858a508935d7ad3e0`;
-- the active third slice is the Generic Worker Registry foundation on
-  `feat/v0.15-generic-worker-registry`;
-- this slice generalizes trusted selection/storage types only; DeveloperRuntime
-  remains explicitly DeveloperWorker-bound and no new worker execution surface
-  is added;
-- after the generic selection foundation, a read-only Research Worker may be
-  introduced as the first separately bounded shared-Supervisor adapter;
+- Generic Worker Registry is merged through PR #57 at
+  `9d2e897a6c8bebf63fc52dec7b6442c24cc9f8aa`;
+- the active fourth slice is the read-only Research Worker on
+  `feat/v0.15-research-worker`;
+- Research now uses the shared Supervisor with an exact persisted worker
+  selection while retaining the existing workspace-read/no-network runtime and
+  evidence/citation contract;
+- Browser, Computer, Python, API, Shell and Media workers remain separate future
+  slices and receive no authority from this Research Worker work;
 - Capability/Skill metadata and generic registration never grant execution
   authority by themselves;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only
