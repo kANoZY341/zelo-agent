@@ -11,6 +11,7 @@ from app.agent_instances import AgentInstanceService
 from app.campaign_control import CampaignControlService
 from app.campaigns import CampaignService
 from app.memory import MemoryService
+from app.models import AgentInstance, utcnow
 from app.policy import DomainError, State
 from app.projects import ProjectService
 from app.schemas import (
@@ -111,6 +112,55 @@ def test_research_agent_task_binds_exact_identity_and_replays(database, settings
     bound = [event for event in events if event.event == "agent_execution_bound"]
     assert len(bound) == 1
     assert bound[0].details["agent_instance_id"] == instance.id
+
+
+def test_pre_hierarchy_specialist_instance_remains_execution_compatible(
+    database,
+    settings,
+):
+    factory, _instances, tasks, execution = direct_services(database, settings)
+    owned_project = project(database, "Legacy specialist")
+    spec = factory.registry.get_agent("research")
+    assert spec is not None
+    legacy_spec = spec.model_dump(mode="json")
+    legacy_spec.pop("organizational_level")
+
+    now = utcnow()
+    with database.transaction() as session:
+        instance = AgentInstance(
+            agent_id=spec.agent_id,
+            agent_version=spec.version,
+            registry_version=factory.registry.version,
+            project_id=owned_project.id,
+            spec=legacy_spec,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(instance)
+        session.flush()
+        instance_id = instance.id
+
+    task, created = execution.submit(
+        instance_id,
+        AgentTaskCreate(
+            task=ResearchRunInput(
+                kind="research_run",
+                payload={"query": "Verify legacy Specialist compatibility."},
+            )
+        ),
+        "agent-research:legacy-specialist",
+    )
+
+    assert created is True
+    assert task.agent_execution_spec is not None
+    assert task.agent_execution_spec.spec.organizational_level == "specialist"
+
+    claimed = tasks.claim()
+    assert claimed is not None
+    assert claimed.task_id == task.id
+    assert claimed.agent_execution is not None
+    assert claimed.agent_execution.spec.organizational_level == "specialist"
 
 
 def test_agent_idempotency_key_cannot_replay_across_instances(database, settings):

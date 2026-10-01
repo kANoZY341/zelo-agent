@@ -36,44 +36,44 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Generic agent execution identity
+## Active increment: v0.14 Organizational hierarchy
 
-The first three Agent Factory slices are merged:
+The first four Agent Factory slices are merged:
 
 - PR #47 → `8609ee583513f24d312785b7158a90d40a8458ef`;
 - PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`;
-- PR #49 → `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`.
+- PR #49 → `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
+- PR #50 → `6554dd402ca4553efed6032f448bbdf8bb813239`.
 
 The active branch is:
 
-`feat/v0.14-agent-execution-identity`
+`feat/v0.14-organizational-hierarchy`
 
-This fourth bounded slice connects persisted Agent Factory identity to the
-existing trusted Coding and Research task paths.
+This fifth bounded slice persists the company reporting hierarchy without
+widening task, worker or tool authority.
 
 Current slice behavior:
 
-- authenticated `POST /agents/{instance_id}/tasks` submits only
-  `developer_run` or `research_run`;
-- callers provide specialist work and an optional existing delegation ID, never
-  worker IDs, model IDs, AgentSpec snapshots or authority metadata;
-- Core constructs and persists an exact immutable execution binding containing
-  the AgentSpec snapshot, registry fingerprint, Project and optional delegation;
-- the binding is included in request idempotency and task action hashes;
-- approval, retry and claim boundaries revalidate current active agent identity;
-- delegated child tasks require the exact still-active delegation, same Campaign,
-  current parent/child identities and still-reserved parent-owned budget proof;
-- Coding capability routing comes from its worker-neutral AgentSpec requirement;
-- Coding's independent-review requirement fails closed when no eligible reviewer
-  exists;
-- Research keeps the existing bounded read-only specialist runtime;
-- migration `0022_agent_execution_identity` adds the immutable task binding and
-  database identity/kind/delegation guards while preserving legacy unbound tasks.
+- AgentSpec includes trusted `organizational_level`:
+  `vp`, `director`, `manager`, or `specialist`;
+- Coding and Research remain Specialists;
+- durable organization units model divisions, departments and teams;
+- durable assignments enforce Zelo CEO -> VP -> Director -> Manager -> Specialist;
+- Managing Director and Zelo CEO remain reserved principals, not AgentInstances;
+- assignment level must exactly match the holder's trusted AgentSpec;
+- reporting assignments and temporary task delegations remain separate graphs;
+- active leaders/reporting parents and unit ownership are validated;
+- assignments are immutable historical records and cannot be deleted;
+- AgentInstances cannot pause/retire while actively assigned;
+- authenticated organization routes expose units, assignments and the canonical
+  organization snapshot;
+- migration `0023_organizational_hierarchy` enforces the hierarchy invariants in SQLite;
+- migration `0024_agent_spec_organization_compat` preserves legacy Specialist task
+  identity across the AgentSpec schema extension without weakening executive-level checks.
 
-This slice does **not** add a new Core task kind, automatically create child
-instances, enable recursive/model-authored subagents, widen tools/workers,
-write memory automatically, or bypass approvals, budgets, scheduler, promotion,
-merge or release authority.
+This slice does **not** automatically create agents, widen tools/workers based on
+title, merge reporting with delegation, add new task kinds, write memory
+automatically, or bypass approvals/budgets/scheduler/promotion/merge/release.
 
 ## Canonical organizational authority update
 
@@ -98,15 +98,12 @@ Canonical details live in `docs/zelo-organizational-authority-model.md`.
 
 ## v0.14 planned continuation
 
-After generic execution identity is verified and merged:
+After organizational hierarchy is verified and merged:
 
-1. add organization-role, organization-unit and reporting-assignment contracts;
-2. evolve the transitional flat DepartmentSpec manager/producer model into the
-   hierarchy-aware container model without rewriting historical registry data;
-3. add hierarchy-aware bounded child-agent creation behind explicit
-   parent/delegation/depth/budget contracts;
-4. add activation/evaluation gates for executive and specialist templates;
-5. complete v0.14 release preparation.
+1. add hierarchy-aware bounded child-agent creation behind explicit
+   organization/delegation/depth/budget contracts;
+2. add activation/evaluation gates for executive and specialist templates;
+3. complete v0.14 release preparation.
 
 Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
 approvals, budgets, audit, promotion and release boundaries.

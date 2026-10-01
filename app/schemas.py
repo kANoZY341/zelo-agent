@@ -551,6 +551,81 @@ class AgentDelegationPage(StrictModel):
     total: int = Field(ge=0)
 
 
+OrganizationUnitType = Literal["division", "department", "team"]
+OrganizationUnitStatus = Literal["active", "retired"]
+OrganizationLevel = Literal["vp", "director", "manager", "specialist"]
+OrganizationAssignmentStatus = Literal["active", "ended"]
+
+
+class OrganizationUnitCreate(StrictModel):
+    name: str = Field(min_length=1, max_length=160)
+    unit_type: OrganizationUnitType
+    parent_unit_id: TaskId | None = None
+
+
+class OrganizationUnitResponse(StrictModel):
+    id: TaskId
+    name: str = Field(min_length=1, max_length=160)
+    unit_type: OrganizationUnitType
+    parent_unit_id: TaskId | None = None
+    status: OrganizationUnitStatus
+    created_at: datetime
+    updated_at: datetime
+    retired_at: datetime | None = None
+
+
+class OrganizationUnitPage(StrictModel):
+    items: list[OrganizationUnitResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class OrganizationAssignmentCreate(StrictModel):
+    agent_instance_id: TaskId
+    unit_id: TaskId
+    level: OrganizationLevel
+    reports_to_assignment_id: TaskId | None = None
+
+
+class OrganizationAssignmentEnd(StrictModel):
+    reason: str = Field(min_length=1, max_length=512)
+
+
+class OrganizationAssignmentResponse(StrictModel):
+    id: TaskId
+    agent_instance_id: TaskId
+    unit_id: TaskId
+    level: OrganizationLevel
+    reports_to_assignment_id: TaskId | None = None
+    reports_to_principal: Literal["zelo_ceo"] | None = None
+    status: OrganizationAssignmentStatus
+    created_at: datetime
+    ended_at: datetime | None = None
+    end_reason: str | None = Field(default=None, max_length=512)
+
+
+class OrganizationAssignmentPage(StrictModel):
+    items: list[OrganizationAssignmentResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class OrganizationPrincipal(StrictModel):
+    id: Literal["human_managing_director", "zelo_ceo"]
+    role: Literal["managing_director", "ceo"]
+    kind: Literal["human", "system"]
+    reports_to: Literal["human_managing_director"] | None = None
+
+
+class OrganizationSnapshot(StrictModel):
+    managing_director: OrganizationPrincipal
+    ceo: OrganizationPrincipal
+    units: list[OrganizationUnitResponse]
+    assignments: list[OrganizationAssignmentResponse]
+
+
 MemoryScopeKind = Literal["personal", "project", "agent"]
 MemoryKind = Literal["fact", "preference", "decision", "experience"]
 MemoryProvenanceKind = Literal[

@@ -22,6 +22,7 @@ MemoryNamespace = Annotated[
     Field(min_length=7, max_length=128, pattern=r"^agent/[a-z][a-z0-9_-]*$"),
 ]
 Lifecycle = Literal["draft", "active", "retired"]
+OrganizationalLevel = Literal["vp", "director", "manager", "specialist"]
 
 
 class AgentContract(BaseModel):
@@ -48,6 +49,7 @@ class AgentSpec(AgentContract):
     agent_id: Identifier
     version: int = Field(default=1, ge=1, le=1_000_000)
     role: Identifier
+    organizational_level: OrganizationalLevel = "specialist"
     objective: str = Field(min_length=1, max_length=1024)
     capabilities: tuple[Identifier, ...] = Field(min_length=1, max_length=32)
     allowed_task_kinds: tuple[Identifier, ...] = Field(default=(), max_length=32)
@@ -126,13 +128,24 @@ def _canonical_json(value: object) -> bytes:
     ).encode("ascii")
 
 
+def _agent_registry_payload(spec: AgentSpec) -> dict:
+    payload = spec.model_dump(mode="json")
+    # Pre-hierarchy AgentSpec records had no organizational_level field. Treat
+    # absence as the canonical Specialist default so existing Specialist
+    # instances keep their exact registry identity across this schema extension.
+    # Non-Specialist executive levels remain explicit and therefore fingerprinted.
+    if spec.organizational_level == "specialist":
+        payload.pop("organizational_level", None)
+    return payload
+
+
 def _registry_version(
     agents: Mapping[str, AgentSpec],
     departments: Mapping[str, DepartmentSpec],
 ) -> str:
     payload = {
         "schema": AGENT_REGISTRY_SCHEMA,
-        "agents": [agents[item].model_dump(mode="json") for item in sorted(agents)],
+        "agents": [_agent_registry_payload(agents[item]) for item in sorted(agents)],
         "departments": [departments[item].model_dump(mode="json") for item in sorted(departments)],
     }
     return hashlib.sha256(_canonical_json(payload)).hexdigest()

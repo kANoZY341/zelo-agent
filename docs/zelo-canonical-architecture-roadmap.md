@@ -630,13 +630,12 @@ Current verified baseline as of 30 September 2026:
   through PR #48 at `8259141834869c09241dc22ea1fb5cbf89615565`;
 - bounded parent-child delegation contracts are merged through PR #49 at
   `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
-- the active slice binds existing Coding/Research execution to exact persisted
-  agent and optional delegation identity on
-  `feat/v0.14-agent-execution-identity`;
-- the next bounded slice adds organizational role/unit/reporting assignments under
-  the Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist model;
+- generic Coding/Research execution identity is merged through PR #50 at
+  `6554dd402ca4553efed6032f448bbdf8bb813239`;
+- the active slice persists organizational roles, units and reporting assignments
+  on `feat/v0.14-organizational-hierarchy`;
 - hierarchy-aware child creation and activation/evaluation gates remain later
-  bounded v0.14 slices and are not enabled by the execution-identity work;
+  bounded v0.14 slices and are not enabled by the hierarchy work;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 

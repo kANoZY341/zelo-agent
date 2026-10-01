@@ -209,6 +209,22 @@ def test_registry_version_changes_for_material_agent_or_department_change():
     assert baseline.version != changed_department.version
 
 
+def test_specialist_organizational_level_preserves_legacy_registry_identity():
+    registry = default_agent_registry()
+
+    assert registry.version == "b02890f40e6c0892260d8c75603fd5dce00df91ac8d4dc60d57f60ca87d9b25a"
+    assert coding_agent_spec().organizational_level == "specialist"
+    assert research_agent_spec().organizational_level == "specialist"
+
+    promoted_coding = coding_agent_spec().model_copy(update={"organizational_level": "manager"})
+    changed = AgentRegistry(
+        (promoted_coding, research_agent_spec()),
+        registry.list_departments(),
+    )
+
+    assert changed.version != registry.version
+
+
 def test_activation_validation_rejects_missing_surfaces_and_inactive_assignments():
     active = agent_spec()
     registry = AgentRegistry((active,))

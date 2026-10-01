@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.memory import MemoryService
-from app.models import AgentInstance, AgentInstanceEvent, Project, utcnow
+from app.models import AgentInstance, AgentInstanceEvent, OrganizationAssignment, Project, utcnow
 from app.policy import DomainError
 from app.schemas import (
     AgentInstanceCreate,
@@ -223,6 +223,19 @@ class AgentInstanceService:
                     raise DomainError("Retired agent instances are terminal", 409)
                 target = "retired"
                 event = "retired"
+
+            if target != "active":
+                active_assignment = session.scalar(
+                    select(OrganizationAssignment.id).where(
+                        OrganizationAssignment.agent_instance_id == instance.id,
+                        OrganizationAssignment.status == "active",
+                    )
+                )
+                if active_assignment is not None:
+                    raise DomainError(
+                        "Active organization assignment must end before agent lifecycle change",
+                        409,
+                    )
 
             now = utcnow()
             previous = instance.status

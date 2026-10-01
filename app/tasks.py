@@ -690,13 +690,14 @@ class TaskService:
         project = session.get(Project, instance.project_id)
         if project is None or project.status != "active":
             raise DomainError("Agent Project is not active", 409)
+        current_binding = self._current_agent_binding(instance)
         if (
             instance.project_id != binding.project_id
             or instance.agent_id != binding.spec.agent_id
             or instance.agent_version != binding.spec.version
             or instance.registry_version != binding.registry_version
-            or instance.spec != binding.spec.model_dump(mode="json")
-            or not self.agent_factory.matches_agent(self._current_agent_binding(instance))
+            or current_binding.spec != binding.spec
+            or not self.agent_factory.matches_agent(current_binding)
             or binding.task_kind not in binding.spec.allowed_task_kinds
         ):
             raise DomainError("Agent execution identity is stale", 409)
