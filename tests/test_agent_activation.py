@@ -31,6 +31,7 @@ def executive_spec(level: str = "manager") -> AgentSpec:
         organizational_level=level,
         objective=f"Coordinate bounded {level} work.",
         capabilities=("coordination",),
+        allowed_task_kinds=("research_run",),
         permissions=("organization_hire",),
         procedures=("organization",),
         memory_namespace=f"agent/{level}_ops",
@@ -62,7 +63,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
     valid = executive_spec(level)
     accepted = AgentActivationEvaluator(
         AgentRegistry((valid,)),
-        available_task_kinds=(),
+        available_task_kinds=("research_run",),
         available_tools=(),
     ).require()
     assert accepted.status == "accepted"
@@ -76,7 +77,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
     )
     report = AgentActivationEvaluator(
         AgentRegistry((invalid,)),
-        available_task_kinds=(),
+        available_task_kinds=("research_run",),
         available_tools=(),
     ).evaluate()
 
@@ -92,6 +93,33 @@ def test_executive_templates_require_bounded_organization_authority(level):
             available_task_kinds=(),
             available_tools=(),
         ).require()
+
+
+def test_candidate_evaluation_requires_exact_registry_membership():
+    registered = executive_spec("manager").model_copy(update={"lifecycle": "draft"})
+    evaluator = AgentActivationEvaluator(
+        AgentRegistry((registered,)),
+        available_task_kinds=("research_run",),
+        available_tools=(),
+    )
+    unregistered = registered.model_copy(update={"version": 2})
+
+    report = evaluator.evaluate_spec(unregistered)
+
+    assert report.status == "rejected"
+    assert "registry_binding" in report.failure_codes
+
+
+def test_executive_hiring_requires_delegation_task_surface():
+    invalid = executive_spec("vp").model_copy(update={"allowed_task_kinds": ()})
+    report = AgentActivationEvaluator(
+        AgentRegistry((invalid,)),
+        available_task_kinds=("research_run",),
+        available_tools=(),
+    ).evaluate()
+
+    assert report.status == "rejected"
+    assert "executive_delegation_surface" in report.evaluations[0].failure_codes
 
 
 def test_specialist_cannot_activate_with_permanent_hiring_permission():
@@ -177,7 +205,7 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
     )
     report = AgentActivationEvaluator(
         AgentRegistry((spec,)),
-        available_task_kinds=(),
+        available_task_kinds=("research_run",),
         available_tools=(),
     ).evaluate()
 
@@ -188,7 +216,7 @@ def test_draft_candidate_can_be_evaluated_before_activation():
     draft = executive_spec("director").model_copy(update={"lifecycle": "draft"})
     evaluator = AgentActivationEvaluator(
         AgentRegistry((draft,)),
-        available_task_kinds=(),
+        available_task_kinds=("research_run",),
         available_tools=(),
     )
 
