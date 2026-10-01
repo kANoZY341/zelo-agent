@@ -94,9 +94,7 @@ def project_campaign(database):
 
 
 def units(organization: OrganizationService):
-    division = organization.create_unit(
-        OrganizationUnitCreate(name="Media", unit_type="division")
-    )
+    division = organization.create_unit(OrganizationUnitCreate(name="Media", unit_type="division"))
     department = organization.create_unit(
         OrganizationUnitCreate(
             name="YouTube",
@@ -160,9 +158,7 @@ def request(
         objective="Perform bounded delegated research.",
         allowed_task_kinds=["research_run"],
         required_capabilities=(
-            ["research"]
-            if child_agent_id == "research_specialist"
-            else ["coordination"]
+            ["research"] if child_agent_id == "research_specialist" else ["coordination"]
         ),
         max_depth=max_depth,
         budget_resource="agent_steps",
@@ -242,10 +238,7 @@ def test_manager_creates_specialist_atomically_and_replays(database):
     assert created.delegation.status == "active"
 
     snapshot = organization.snapshot()
-    assert any(
-        item.agent_instance_id == created.child_instance.id
-        for item in snapshot.assignments
-    )
+    assert any(item.agent_instance_id == created.child_instance.id for item in snapshot.assignments)
 
 
 def test_child_creation_rejects_hierarchy_jump_without_side_effect(database):
