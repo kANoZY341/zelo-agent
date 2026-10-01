@@ -456,7 +456,8 @@ v0.14 adds:
 - exact agent/delegation execution identity on Core tasks;
 - organizational role, unit and reporting-assignment contracts;
 - hierarchy-aware bounded child-agent creation;
-- activation/evaluation gates before new executive/specialist templates;
+- deterministic activation/evaluation gates before new executive/specialist
+  templates become active;
 - lifecycle, budgets, depth, cycle and audit enforcement.
 
 Agents bind roles, goals, memory namespaces, capabilities, tools, permissions,
@@ -619,7 +620,7 @@ Live implementation status is maintained separately in
 `docs/zelo-project-status.md` so architecture and roadmap documents do not
 become stale.
 
-Current verified baseline as of 30 September 2026:
+Current verified baseline as of 1 October 2026:
 
 - Zelo Core v0.13.0 is published from
   `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
@@ -634,10 +635,12 @@ Current verified baseline as of 30 September 2026:
   `6554dd402ca4553efed6032f448bbdf8bb813239`;
 - durable organizational hierarchy is merged through PR #51 at
   `86315a5b61924b36cc04ae1e964ebe1a496ede0b`;
-- the active slice adds hierarchy-aware bounded child creation on
-  `feat/v0.14-hierarchy-child-creation`;
-- activation/evaluation gates remain the final bounded implementation slice
-  before v0.14 release preparation;
+- hierarchy-aware bounded child creation is merged through PR #52 at
+  `91e23172a303786d02d196ed5c6c13cc80e9f217`;
+- the active final implementation slice adds deterministic AgentSpec
+  activation/evaluation evidence on
+  `feat/v0.14-agent-activation-evaluation`;
+- after that slice, only v0.14 release preparation remains;
 - parked experiment `feat/v1.0-agent-factory` is reference material only and
   must not be merged wholesale.
 

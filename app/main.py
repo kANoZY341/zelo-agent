@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.agent import AgentRuntime
+from app.agent_activation import AgentActivationEvaluator
+from app.agent_activation_api import router as agent_activation_router
 from app.agent_child_creation import AgentChildCreationService
 from app.agent_child_creation_api import router as agent_child_creation_router
 from app.agent_delegation_api import router as agent_delegation_router
@@ -91,11 +93,19 @@ def create_app(
                 mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
+            developer_runtime = DeveloperRuntime(configuration, developer_worker)
             agent_registry = default_agent_registry()
+            available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
-                available_tools={item["name"] for item in tool_gateway.registry.metadata()},
+                available_tools=available_tools,
             )
+            agent_activation_report = AgentActivationEvaluator(
+                agent_registry,
+                available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
+                available_tools=available_tools,
+                worker_descriptors=developer_runtime.registry.list(),
+            ).require()
             agent_factory = AgentFactory(agent_registry)
             projects = ProjectService(database)
             memories = MemoryService(database)
@@ -114,7 +124,6 @@ def create_app(
                     timeout_seconds=configuration.model_timeout_seconds,
                 ),
             )
-            developer_runtime = DeveloperRuntime(configuration, developer_worker)
             promotion_reviewer = PromotionReviewer(developer_runtime)
             promotion_committer = PromotionCommitter(developer_runtime, promotion_reviewer)
             promotion_runtime = None
@@ -181,6 +190,7 @@ def create_app(
                 research_runtime=research_runtime,
             )
             application.state.agent_registry = agent_registry
+            application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
             application.state.storage = database
             application.state.database = database
@@ -214,6 +224,7 @@ def create_app(
     application.state.settings = configuration
     application.include_router(router)
     application.include_router(task_router)
+    application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
     application.include_router(agent_child_creation_router)
     application.include_router(agent_delegation_router)
