@@ -108,6 +108,8 @@ class AgentActivationEvaluator:
         )
 
     def evaluate_spec(self, spec: AgentSpec) -> AgentActivationEvaluation:
+        registered = self.registry.get_agent(spec.agent_id)
+        registry_bound = registered == spec
         missing_tasks = tuple(sorted(set(spec.allowed_task_kinds).difference(self.task_kinds)))
         missing_tools = tuple(sorted(set(spec.allowed_tools).difference(self.tools)))
         executive = spec.organizational_level in {"vp", "director", "manager"}
@@ -115,6 +117,15 @@ class AgentActivationEvaluator:
         worker_match = self._worker_matches(spec)
 
         checks = (
+            self._check(
+                "registry_binding",
+                registry_bound,
+                (
+                    "template exactly matches the trusted registry"
+                    if registry_bound
+                    else "template is not an exact trusted registry member"
+                ),
+            ),
             self._check(
                 "task_surface",
                 not missing_tasks,
@@ -208,6 +219,19 @@ class AgentActivationEvaluator:
                     and "organization" in spec.procedures
                     else (
                         "VP/Director/Manager requires bounded organization_hire authority"
+                        if executive
+                        else "template is not an executive organizational level"
+                    )
+                ),
+            ),
+            self._check(
+                "executive_delegation_surface",
+                bool(spec.allowed_task_kinds) if executive else None,
+                (
+                    "executive template declares at least one bounded task kind for child delegation"
+                    if executive and spec.allowed_task_kinds
+                    else (
+                        "VP/Director/Manager hiring authority requires a delegation task surface"
                         if executive
                         else "template is not an executive organizational level"
                     )
