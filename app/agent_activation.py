@@ -228,7 +228,10 @@ class AgentActivationEvaluator:
                 "executive_delegation_surface",
                 bool(spec.allowed_task_kinds) if executive else None,
                 (
-                    "executive template declares at least one bounded task kind for child delegation"
+                    (
+                        "executive template declares at least one bounded task kind "
+                        "for child delegation"
+                    )
                     if executive and spec.allowed_task_kinds
                     else (
                         "VP/Director/Manager hiring authority requires a delegation task surface"
