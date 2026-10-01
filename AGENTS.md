@@ -57,7 +57,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Organizational hierarchy
+## Current scope: v0.14 Hierarchy-aware child creation
 
 Zelo Core v0.13.0 is published from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
@@ -70,43 +70,45 @@ Merged v0.14 slices:
 - bounded parent-child delegation: PR #49, merge
   `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
 - generic Coding/Research execution identity: PR #50, merge
-  `6554dd402ca4553efed6032f448bbdf8bb813239`.
+  `6554dd402ca4553efed6032f448bbdf8bb813239`;
+- durable organizational hierarchy: PR #51, merge
+  `86315a5b61924b36cc04ae1e964ebe1a496ede0b`.
 
 The active branch is:
 
-`feat/v0.14-organizational-hierarchy`
+`feat/v0.14-hierarchy-child-creation`
 
-This fifth v0.14 slice persists the canonical company hierarchy:
-
-```text
-Human Managing Director
-  -> Zelo Group CEO
-    -> VP
-      -> Director
-        -> Manager
-          -> Specialist Agent
-```
+This sixth v0.14 slice enables bounded permanent child creation under the
+canonical organization hierarchy without allowing free-form agent spawning.
 
 Rules for this slice:
 
-- Managing Director and Zelo CEO remain reserved principals outside Agent Factory;
-- AgentSpec organizational level is trusted, immutable and registry-versioned;
-- factory-managed levels are only `vp`, `director`, `manager`, `specialist`;
-- divisions, departments and teams are containers, not authority levels;
-- enforce unit shape division -> department -> team;
-- enforce reporting shape Zelo CEO -> VP -> Director -> Manager -> Specialist;
-- require assignment level to exactly match the trusted AgentSpec level;
-- keep organizational reporting separate from temporary task delegation;
-- prevent pause/retire while an AgentInstance has an active organization assignment;
-- preserve assignment history and forbid destructive deletion/reparenting;
-- expose only authenticated Core-backed organization routes/snapshot;
-- do not add automatic child creation, recursive/model-authored subagents, new
-  workers/tools, automatic memory writes or authority bypasses;
+- create only trusted, already-registered active AgentSpecs;
+- require an active/current parent AgentInstance and active organization assignment;
+- require explicit `organization_hire` permission in addition to bounded
+  `allow_subagents` / `max_subagents`;
+- allow only the next permanent organization level:
+  VP -> Director -> Manager -> Specialist;
+- Specialists cannot create permanent organization reports;
+- require the target unit to stay inside the parent's reporting scope;
+- keep parent and child in the same active Project;
+- require an active Campaign in that Project;
+- require an exact, reserved, unexpired parent-owned Campaign budget proof;
+- narrow task kinds to both parent and child AgentSpec authority;
+- require child capabilities explicitly;
+- inherit bounded delegation depth with hard maximum four;
+- create child AgentInstance, organization assignment, delegation and immutable
+  child-creation receipt atomically in one transaction;
+- preserve idempotent replay and fail closed on changed requests;
+- keep permanent reporting and temporary work delegation as distinct records;
+- do not allow model-authored AgentSpecs, hierarchy skips, title-based worker/tool
+  authority, new task kinds, new workers/tools, automatic memory writes or
+  approval/budget/scheduler/promotion/release bypasses;
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
-- require adversarial review and exact-head GitHub CI before merge.
+- require independent/adversarial review and exact-head GitHub CI before merge.
 
-After this slice, v0.14 moves to hierarchy-aware bounded child-agent creation,
-then activation/evaluation gates and release preparation.
+After this slice, v0.14 moves to activation/evaluation gates for executive and
+specialist templates, then release preparation.
 
 ## Workspace decision
 
