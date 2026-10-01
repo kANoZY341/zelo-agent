@@ -30,6 +30,8 @@ from app.memory import MemoryService
 from app.memory_api import router as memory_router
 from app.mind import MindService
 from app.mind_api import router as mind_router
+from app.organization import OrganizationService
+from app.organization_api import router as organization_router
 from app.performance import PerformanceEvidenceService
 from app.performance_api import router as performance_router
 from app.policy import DomainError
@@ -96,6 +98,7 @@ def create_app(
             projects = ProjectService(database)
             memories = MemoryService(database)
             agent_instances = AgentInstanceService(database, agent_factory, memories)
+            organization = OrganizationService(database, agent_factory)
             performance_evidence = PerformanceEvidenceService(database)
             campaigns = CampaignService(database)
             campaign_controls = CampaignControlService(database)
@@ -182,6 +185,7 @@ def create_app(
             application.state.projects = projects
             application.state.memories = memories
             application.state.agent_instances = agent_instances
+            application.state.organization = organization
             application.state.performance_evidence = performance_evidence
             application.state.campaigns = campaigns
             application.state.campaign_controls = campaign_controls
@@ -209,6 +213,7 @@ def create_app(
     application.include_router(agent_instance_router)
     application.include_router(agent_delegation_router)
     application.include_router(agent_execution_router)
+    application.include_router(organization_router)
     application.include_router(project_router)
     application.include_router(memory_router)
     application.include_router(performance_router)
