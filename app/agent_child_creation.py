@@ -212,18 +212,24 @@ class AgentChildCreationService:
             if live_count >= child_spec.max_active_instances:
                 raise DomainError("Child AgentSpec instance limit reached for Project", 409)
 
-            active_children = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(AgentDelegation)
-                    .where(
+            delegated_children = set(
+                session.scalars(
+                    select(AgentDelegation.child_instance_id).where(
                         AgentDelegation.parent_instance_id == parent.id,
                         AgentDelegation.status == "active",
                     )
                 )
-                or 0
             )
-            if active_children >= parent_spec.max_subagents:
+            permanent_children = set(
+                session.scalars(
+                    select(OrganizationAssignment.agent_instance_id).where(
+                        OrganizationAssignment.reports_to_assignment_id == parent_assignment.id,
+                        OrganizationAssignment.status == "active",
+                    )
+                )
+            )
+            active_children = delegated_children | permanent_children
+            if len(active_children) >= parent_spec.max_subagents:
                 raise DomainError("Parent agent child limit reached", 409)
 
             allowed_task_kinds = tuple(body.allowed_task_kinds)
