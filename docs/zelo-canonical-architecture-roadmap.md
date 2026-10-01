@@ -622,27 +622,25 @@ become stale.
 
 Current verified baseline as of 1 October 2026:
 
-- Zelo Core v0.13.0 is published from
+- Zelo Core v0.13.0 is the latest published release from
   `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
-- v0.14 Agent Factory is active;
-- registry foundation is merged through PR #47 at
-  `8609ee583513f24d312785b7158a90d40a8458ef`;
-- project-bound lifecycle and scoped agent/project memory assembly are merged
-  through PR #48 at `8259141834869c09241dc22ea1fb5cbf89615565`;
-- bounded parent-child delegation contracts are merged through PR #49 at
-  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
-- generic Coding/Research execution identity is merged through PR #50 at
-  `6554dd402ca4553efed6032f448bbdf8bb813239`;
-- durable organizational hierarchy is merged through PR #51 at
-  `86315a5b61924b36cc04ae1e964ebe1a496ede0b`;
-- hierarchy-aware bounded child creation is merged through PR #52 at
-  `91e23172a303786d02d196ed5c6c13cc80e9f217`;
-- the active final implementation slice adds deterministic AgentSpec
-  activation/evaluation evidence on
-  `feat/v0.14-agent-activation-evaluation`;
-- after that slice, only v0.14 release preparation remains;
-- parked experiment `feat/v1.0-agent-factory` is reference material only and
-  must not be merged wholesale.
+- the complete v0.14 Agent Factory implementation is represented by PRs #47-#53;
+- the final activation/evaluation implementation head is
+  `a1bada390f88b04a267300160a60dbbb0494cb10`;
+- v0.14 includes trusted/versioned AgentSpecs, project-bound AgentInstances,
+  bounded delegation, exact execution identity, durable organization units and
+  reporting assignments, hierarchy-aware child creation, and deterministic
+  activation/evaluation evidence;
+- the canonical authority chain is Managing Director -> Zelo CEO -> VP ->
+  Director -> Manager -> Specialist -> Worker -> Tool;
+- durable organizational reporting and temporary task delegation remain
+  separate graphs, and titles do not grant capability authority;
+- the active milestone is v0.14.0 release preparation on
+  `chore/v0.14-release-prep`;
+- v0.15 Capability and skills ecosystem must not begin until v0.14.0 is
+  published from a verified release commit;
+- parked experiment `feat/v1.0-agent-factory` remains reference material only
+  and must not be merged wholesale.
 
 ## Decision rule for new ideas
 
