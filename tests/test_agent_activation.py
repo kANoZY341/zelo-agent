@@ -184,6 +184,39 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
     assert report.evaluations[0].failure_codes == ("task_surface", "tool_surface")
 
 
+
+
+def test_draft_candidate_can_be_evaluated_before_activation():
+    draft = executive_spec("director").model_copy(update={"lifecycle": "draft"})
+    evaluator = AgentActivationEvaluator(
+        AgentRegistry((draft,)),
+        available_task_kinds=(),
+        available_tools=(),
+    )
+
+    evaluation = evaluator.require_spec(draft)
+
+    assert evaluation.status == "accepted"
+    assert evaluation.agent_id == draft.agent_id
+    assert evaluator.evaluate().evaluations == ()
+
+
+def test_surface_digest_changes_when_runtime_surface_changes():
+    registry = AgentRegistry((specialist_spec(),))
+    first = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("research_run",),
+        available_tools=("repo_status",),
+    ).require()
+    second = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("research_run",),
+        available_tools=("repo_status", "system_info"),
+    ).require()
+
+    assert first.surface_digest != second.surface_digest
+    assert first.report_digest != second.report_digest
+
 def test_default_registry_activation_report_is_deterministic():
     registry = default_agent_registry()
     kwargs = {
@@ -202,6 +235,7 @@ def test_default_registry_activation_report_is_deterministic():
     assert first == second
     assert first.status == "accepted"
     assert [item.agent_id for item in first.evaluations] == ["coding", "research"]
+    assert len(first.surface_digest) == 64
     assert len(first.report_digest) == 64
 
 
