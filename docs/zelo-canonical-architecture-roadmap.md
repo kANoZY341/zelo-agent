@@ -620,26 +620,23 @@ Live implementation status is maintained separately in
 `docs/zelo-project-status.md` so architecture and roadmap documents do not
 become stale.
 
-Current verified baseline as of 1 October 2026:
+Current verified baseline as of 2 October 2026:
 
-- Zelo Core v0.13.0 is the latest published release from
-  `adc43d856a29fdcacdba80a273566aefaa0b98f0` with tag `v0.13.0`;
-- the complete v0.14 Agent Factory implementation is merged through PRs #47-#53
-  at `927f63b55babeb8eca8f6b9a67d59d49241b3088`;
-- the final activation/evaluation implementation head is
-  `4e23c8ad49f2132cf27f12a5a11062dfd61f17a0`;
-- v0.14 includes trusted/versioned AgentSpecs, project-bound AgentInstances,
-  bounded delegation, exact execution identity, durable organization units and
-  reporting assignments, hierarchy-aware child creation, and deterministic
-  activation/evaluation evidence;
+- Zelo Core v0.14.0 — Agent Factory is published from
+  `3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`;
+- v0.14 implementation PRs #47-#53 and release-prep PR #54 are merged;
+- the post-merge release-commit CI run #36913099766 passed;
 - the canonical authority chain is Managing Director -> Zelo CEO -> VP ->
   Director -> Manager -> Specialist -> Worker -> Tool;
 - durable organizational reporting and temporary task delegation remain
   separate graphs, and titles do not grant capability authority;
-- the active milestone is v0.14.0 release preparation on
-  `chore/v0.14-release-prep`;
-- v0.15 Capability and skills ecosystem must not begin until v0.14.0 is
-  published from a verified release commit;
+- the active milestone is v0.15 Capability and skills ecosystem;
+- the first bounded v0.15 slice is the Capability Registry foundation on
+  `feat/v0.15-capability-registry-foundation`;
+- this foundation adds trusted capability identity/validation only and does not
+  add new browser, computer, Python, shell, API, media, network or subprocess
+  execution authority;
+- the next bounded slice after Capability Registry is the trusted Skill Registry;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only
   and must not be merged wholesale.
 
