@@ -90,7 +90,7 @@ def test_executive_templates_require_bounded_organization_authority(level):
     ):
         AgentActivationEvaluator(
             AgentRegistry((invalid,)),
-            available_task_kinds=(),
+            available_task_kinds=("research_run",),
             available_tools=(),
         ).require()
 
@@ -205,7 +205,7 @@ def test_activation_rejects_missing_task_and_tool_surfaces():
     )
     report = AgentActivationEvaluator(
         AgentRegistry((spec,)),
-        available_task_kinds=("research_run",),
+        available_task_kinds=(),
         available_tools=(),
     ).evaluate()
 
