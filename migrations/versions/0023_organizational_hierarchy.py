@@ -281,6 +281,10 @@ def upgrade() -> None:
             JOIN organization_units AS unit ON unit.id = NEW.unit_id
             WHERE holder.id = NEW.agent_instance_id
               AND holder.status = 'active'
+              AND COALESCE(
+                    json_extract(holder.spec, '$.organizational_level'),
+                    'specialist'
+                  ) = NEW.level
               AND unit.status = 'active'
               AND (
                 (
@@ -388,6 +392,24 @@ def upgrade() -> None:
          )
         BEGIN
             SELECT RAISE(ABORT, 'Organization assignment still has active reports');
+        END
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER agent_instances_organization_assignment_guard
+        BEFORE UPDATE OF status ON agent_instances
+        FOR EACH ROW
+        WHEN OLD.status = 'active'
+         AND NEW.status <> 'active'
+         AND EXISTS (
+            SELECT 1
+            FROM organization_assignments AS assignment
+            WHERE assignment.agent_instance_id = OLD.id
+              AND assignment.status = 'active'
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Active organization assignment must end first');
         END
         """
     )
