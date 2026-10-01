@@ -165,7 +165,10 @@ class AgentActivationEvaluator:
                     else None
                 ),
                 (
-                    "review-required template declares developer task, review capability and procedure"
+                    (
+                        "review-required template declares developer task, "
+                        "review capability and procedure"
+                    )
                     if spec.review_required
                     and "developer_run" in spec.allowed_task_kinds
                     and "code_review" in spec.capabilities
@@ -240,7 +243,11 @@ class AgentActivationEvaluator:
             for spec in self.registry.list_agents()
             if spec.lifecycle == "active"
         )
-        status = "rejected" if any(item.status == "rejected" for item in evaluations) else "accepted"
+        status = (
+            "rejected"
+            if any(item.status == "rejected" for item in evaluations)
+            else "accepted"
+        )
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
             "registry_version": self.registry.version,
