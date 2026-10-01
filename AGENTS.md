@@ -57,7 +57,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Generic agent execution identity
+## Current scope: v0.14 Organizational hierarchy
 
 Zelo Core v0.13.0 is published from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
@@ -68,40 +68,44 @@ Merged v0.14 slices:
 - agent lifecycle and project binding: PR #48, merge
   `8259141834869c09241dc22ea1fb5cbf89615565`;
 - bounded parent-child delegation: PR #49, merge
-  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`.
+  `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
+- generic Coding/Research execution identity: PR #50, merge
+  `6554dd402ca4553efed6032f448bbdf8bb813239`.
 
 The active branch is:
 
-`feat/v0.14-agent-execution-identity`
+`feat/v0.14-organizational-hierarchy`
 
-This fourth v0.14 slice binds the existing Coding and Research execution paths
-to exact persisted Agent Factory identity without creating a parallel task
-system.
+This fifth v0.14 slice persists the canonical company hierarchy:
+
+```text
+Human Managing Director
+  -> Zelo Group CEO
+    -> VP
+      -> Director
+        -> Manager
+          -> Specialist Agent
+```
 
 Rules for this slice:
 
-- create specialist work only through trusted active/current AgentSpec instances;
-- support only the existing `developer_run` and `research_run` Core task kinds;
-- persist exact agent spec, registry, Project and optional delegation snapshots
-  on the Core task;
-- include the agent/delegation execution binding in task request fingerprints and
-  immutable action hashes;
-- revalidate bound agent identity at approval, retry and claim boundaries;
-- require delegated work to keep the exact active delegation, Campaign and
-  reserved parent-owned budget proof;
-- derive Coding worker capability requirements from trusted AgentSpec metadata;
-- preserve Coding's explicit independent-review requirement and fail closed when
-  no eligible independent reviewer exists;
-- keep Research on the existing bounded read-only retrieval runtime;
-- preserve ordinary unbound Core task behavior exactly;
-- do not add new task kinds, automatic child creation, recursive/model-authored
-  subagents, new tools, worker authority, automatic memory writes or
-  approval/budget/scheduler/promotion/release bypasses;
+- Managing Director and Zelo CEO remain reserved principals outside Agent Factory;
+- AgentSpec organizational level is trusted, immutable and registry-versioned;
+- factory-managed levels are only `vp`, `director`, `manager`, `specialist`;
+- divisions, departments and teams are containers, not authority levels;
+- enforce unit shape division -> department -> team;
+- enforce reporting shape Zelo CEO -> VP -> Director -> Manager -> Specialist;
+- require assignment level to exactly match the trusted AgentSpec level;
+- keep organizational reporting separate from temporary task delegation;
+- prevent pause/retire while an AgentInstance has an active organization assignment;
+- preserve assignment history and forbid destructive deletion/reparenting;
+- expose only authenticated Core-backed organization routes/snapshot;
+- do not add automatic child creation, recursive/model-authored subagents, new
+  workers/tools, automatic memory writes or authority bypasses;
 - run diff check, Ruff lint, Ruff format and the full pytest suite;
-- require independent/adversarial review and exact-head GitHub CI before merge.
+- require adversarial review and exact-head GitHub CI before merge.
 
-After this slice, v0.14 first adds organizational role/unit/reporting-assignment
-contracts. Only after that may it add hierarchy-aware bounded child-agent creation,
+After this slice, v0.14 moves to hierarchy-aware bounded child-agent creation,
 then activation/evaluation gates and release preparation.
 
 ## Workspace decision
