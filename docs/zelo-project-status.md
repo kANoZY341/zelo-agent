@@ -67,7 +67,9 @@ Current slice behavior:
 - AgentInstances cannot pause/retire while actively assigned;
 - authenticated organization routes expose units, assignments and the canonical
   organization snapshot;
-- migration `0023_organizational_hierarchy` enforces the same invariants in SQLite.
+- migration `0023_organizational_hierarchy` enforces the hierarchy invariants in SQLite;
+- migration `0024_agent_spec_organization_compat` preserves legacy Specialist task
+  identity across the AgentSpec schema extension without weakening executive-level checks.
 
 This slice does **not** automatically create agents, widen tools/workers based on
 title, merge reporting with delegation, add new task kinds, write memory
