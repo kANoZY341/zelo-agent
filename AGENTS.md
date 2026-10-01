@@ -57,53 +57,52 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.14 Agent activation and evaluation gates
+## Current scope: v0.14 Release preparation
 
-Zelo Core v0.13.0 is published from
+Zelo Core v0.13.0 is the latest published release from
 `adc43d856a29fdcacdba80a273566aefaa0b98f0`.
 
-Merged v0.14 slices:
+The complete v0.14 Agent Factory implementation is merged on `main` through
+PRs #47-#53 at merge commit
+`927f63b55babeb8eca8f6b9a67d59d49241b3088`:
 
 - registry foundation: PR #47;
 - agent lifecycle and project binding: PR #48;
 - bounded parent-child delegation: PR #49;
 - generic Coding/Research execution identity: PR #50;
 - durable organizational hierarchy: PR #51;
-- hierarchy-aware permanent child creation: PR #52, merge
-  `91e23172a303786d02d196ed5c6c13cc80e9f217`.
+- hierarchy-aware permanent child creation: PR #52;
+- deterministic activation/evaluation gates: PR #53, exact implementation head
+  `4e23c8ad49f2132cf27f12a5a11062dfd61f17a0`.
 
-The active branch is:
+The release-preparation branch is:
 
-`feat/v0.14-agent-activation-evaluation`
+`chore/v0.14-release-prep`
 
-This seventh and final bounded implementation slice adds deterministic
-activation/evaluation gates before v0.14 release preparation.
+This branch is release preparation only for v0.14.0.
 
 Rules for this slice:
 
-- evaluate active AgentSpecs against exact trusted task, tool and configured
-  worker surfaces;
-- produce deterministic inspectable evidence with policy, registry, surface,
-  per-agent and report digests;
-- allow trusted draft candidates to be evaluated before activation;
-- require VP/Director/Manager templates to declare bounded organization authority
-  before activation;
-- forbid Specialist templates from declaring permanent `organization_hire`;
-- require `developer_run` templates to bind a worker-neutral WorkerRequirement;
-- require review-required templates to declare the developer/review capability
-  and procedure contract;
-- preserve the existing AgentRegistry structural checks;
-- fail application startup if any active AgentSpec is rejected;
-- expose the accepted report only through an operator-authenticated endpoint;
-- do not let model output author or activate AgentSpecs;
-- do not run worker commands as part of activation evaluation;
-- do not widen task, tool, worker, hierarchy, approval, scheduler, budget,
-  promotion, merge or release authority;
-- run diff check, Ruff lint, Ruff format and the full pytest suite;
-- require independent/adversarial review and exact-head GitHub CI before merge.
-
-After this slice, v0.14 moves only to release preparation. v0.15 must not begin
-until v0.14.0 is published from a verified release commit.
+- bump and verify public Core version metadata for `0.14.0`;
+- align README, live status and canonical roadmap with the completed v0.14
+  implementation;
+- preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager ->
+  Specialist -> Worker -> Tool;
+- preserve the separation between durable organizational reporting and temporary
+  task delegation;
+- preserve existing task, tool, worker, approval, scheduler, budget, promotion,
+  merge and release authority boundaries;
+- do not add features, migrations, dependencies, new AgentSpecs or v0.15
+  capabilities from this branch;
+- do not weaken fail-closed lifecycle, delegation, hierarchy, execution-identity
+  or activation checks;
+- keep this branch based on the merged PR #53 `main` baseline;
+- run diff check, Ruff lint, Ruff format and the full pytest suite from a real
+  repository clone;
+- require independent/adversarial review and exact-head GitHub CI before merge;
+- after a clean release-prep merge, tag and publish `v0.14.0` from the resulting
+  `main` commit;
+- do not begin v0.15 capability/skills implementation until v0.14.0 is published.
 
 ## Workspace decision
 

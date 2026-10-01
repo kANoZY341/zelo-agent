@@ -1,13 +1,14 @@
-# Zelo Core v0.13.0 — Memory, Context and Evidence
+# Zelo Core v0.14.0 — Agent Factory
 
-Zelo Core is the trusted local authority and execution runtime for Zelo. v0.13
-builds on the v0.12 durable-goals foundation with scoped immutable memory,
-bounded retrieval and Mind context, deterministic memory evaluation and
-contamination boundaries, worker/model performance and reported-cost evidence,
-and a Zelo-owned storage abstraction that keeps SQLite as the current backend
-while preserving a future path to Postgres/Supabase/vector storage. Existing
-task, worker, approval, scheduling, budget, validation, promotion, merge and
-release boundaries remain in force.
+Zelo Core is the trusted local authority and execution runtime for Zelo. v0.14
+builds on the v0.13 memory/context foundation with trusted versioned AgentSpec
+templates, persisted project-bound AgentInstances, bounded parent-child
+delegation, exact execution identity, durable organizational hierarchy,
+hierarchy-aware child creation, and deterministic activation/evaluation gates.
+The canonical company chain is Managing Director -> Zelo CEO -> VP -> Director
+-> Manager -> Specialist -> Worker -> Tool. Existing task, tool, worker,
+approval, scheduling, budget, validation, promotion, merge and release
+boundaries remain in force.
 
 ## Setup
 
@@ -40,7 +41,7 @@ only for local access. Interactive API documentation is at
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.13.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.14.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}
@@ -111,8 +112,9 @@ process-wide admission limit configured with `ZELO_MIND_MAX_CONCURRENCY` and
 A linked task is projected back into the conversation from canonical TaskService
 state, so a workspace can show pending/running/approval/result state without
 duplicating it. The first proof path is documented in
-`docs/early-zelo-chat.md`. Durable scoped memory is now included in v0.13; Agent Factory, broad
-capabilities, and external channels remain in their later canonical milestones.
+`docs/early-zelo-chat.md`. Durable scoped memory is included in v0.13 and the bounded Agent
+Factory is included in v0.14; broad capabilities and external channels remain in
+their later canonical milestones.
 
 ## Optional local push-to-talk voice
 
@@ -156,9 +158,9 @@ audio is handled transiently and is not persisted by this slice.
 
 v0.13 starts from an authenticated, immutable memory record store owned by Core.
 Memory scopes are explicit: `personal`, `project`, or `agent`. Project scope
-IDs must resolve to an existing Core Project; agent scope IDs remain namespace
-keys until Agent Factory arrives in v0.14. Records carry typed provenance,
-optional expiry, and append-only correction/supersession history.
+IDs must resolve to an existing Core Project. v0.14 AgentInstances now bind
+agent/project memory namespaces through the Agent Factory while retaining the
+same immutable record, provenance, expiry and correction/supersession model.
 
 Authenticated endpoints:
 
@@ -174,14 +176,14 @@ query plus explicit scopes. Retrieval considers only active records, uses bounde
 lexical matching, returns bounded snippets and preserves scope/provenance. It does
 not use embeddings or a vector backend.
 
-Talk-to-Zelo may now receive relevant **personal** memory through the existing
+Talk-to-Zelo may receive relevant **personal** memory through the existing
 `zelo_context` tool envelope. This context is marked `instruction_trust: none`
-and is excluded from Core task construction. Project and agent memories are not
-automatically injected until a future conversation/project binding gives Core an
-explicit scope. They remain available through explicit retrieval requests.
+and is excluded from Core task construction. Talk-to-Zelo automatic injection
+remains personal-only; v0.14 AgentInstances assemble explicitly scoped
+agent/project memory through the Agent Factory context path.
 
 There are still no automatic memory writes from conversation, model-decided
-retention rules, embeddings/vector search, or Agent Factory behavior.
+retention rules, or embeddings/vector search.
 
 ### v0.13 Performance and cost evidence
 
@@ -233,11 +235,60 @@ retrieval, or alter task/approval/scheduler authority. See
 `docs/v0.13-storage-abstraction.md`.
 
 
+## v0.14 Agent Factory
+
+v0.14 generalizes the fixed Coding and Research specialists into trusted,
+versioned AgentSpec templates and durable AgentInstances without creating a
+second execution authority. Agent instances are project-bound, carry explicit
+lifecycle state and scoped memory, and may act only through Core capabilities,
+workers, tools, budgets and approvals declared by their trusted specification.
+
+Authenticated Agent Factory and organization surfaces include:
+
+```text
+POST /agents
+GET  /agents
+GET  /agents/{instance_id}
+POST /agents/{instance_id}/transition
+POST /agents/{instance_id}/memory-context
+POST /agents/{instance_id}/tasks
+POST /agents/{parent_instance_id}/delegations
+GET  /agents/{parent_instance_id}/delegations
+POST /agents/{parent_instance_id}/children
+GET  /organization/snapshot
+POST /organization/units
+GET  /organization/units
+POST /organization/assignments
+GET  /organization/assignments
+GET  /agent-factory/activation
+```
+
+Task execution stores the exact AgentSpec and delegation identity used for the
+action and binds that identity into idempotency/action hashes. Approval, retry
+and claim-time checks revalidate the current lifecycle and delegation state.
+Paused, stale or retired agents and revoked delegations fail closed.
+
+Permanent child creation follows the canonical hierarchy and enforces trusted
+spec compatibility, organizational placement, depth, budget and direct-report
+capacity. Durable organizational reporting is separate from temporary task
+delegation; neither graph silently mutates the other. Titles alone never grant
+tool or worker authority.
+
+Before an active AgentSpec enters runtime, deterministic activation evaluation
+checks its declared task kinds, tools, configured worker requirements, review
+contracts and organization authority. The accepted evidence report is bound to
+policy, registry and runtime-surface digests and is available only through the
+operator-authenticated activation endpoint.
+
+v0.14 does not add the broad Browser/Computer/Python/API/Shell/Media capability
+ecosystem; that remains the v0.15 milestone.
+
 ## Fixed Research specialist
 
-v0.12 adds a fixed `research_run` specialist on top of the same Core task
-lifecycle. It is intentionally narrower than the generic Agent Runtime and does
-not introduce the later Agent Factory or Browser/Research workers.
+v0.12 added a fixed `research_run` specialist on top of the same Core task
+lifecycle. That fixed path remains intentionally narrow: it does not itself
+grant Agent Factory hierarchy authority or the broader Browser/Research worker
+capabilities planned for v0.15.
 
 ```text
 research_run
