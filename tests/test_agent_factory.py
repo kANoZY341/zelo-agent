@@ -216,9 +216,7 @@ def test_specialist_organizational_level_preserves_legacy_registry_identity():
     assert coding_agent_spec().organizational_level == "specialist"
     assert research_agent_spec().organizational_level == "specialist"
 
-    promoted_coding = coding_agent_spec().model_copy(
-        update={"organizational_level": "manager"}
-    )
+    promoted_coding = coding_agent_spec().model_copy(update={"organizational_level": "manager"})
     changed = AgentRegistry(
         (promoted_coding, research_agent_spec()),
         registry.list_departments(),
