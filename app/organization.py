@@ -284,7 +284,10 @@ class OrganizationService:
                     OrganizationAssignment.status == "active",
                 )
             ):
-                raise DomainError("Agent instance already has an active organization assignment", 409)
+                raise DomainError(
+                    "Agent instance already has an active organization assignment",
+                    409,
+                )
 
             if body.level in {"vp", "director", "manager"} and session.scalar(
                 select(OrganizationAssignment.id).where(
@@ -293,7 +296,10 @@ class OrganizationService:
                     OrganizationAssignment.status == "active",
                 )
             ):
-                raise DomainError("Organization unit already has an active leader at this level", 409)
+                raise DomainError(
+                    "Organization unit already has an active leader at this level",
+                    409,
+                )
 
             self._validate_assignment_relation(session, body, unit, holder)
 
