@@ -583,18 +583,6 @@ class AgentChildCreate(StrictModel):
         return self
 
 
-class AgentChildCreationResponse(StrictModel):
-    id: TaskId
-    parent_instance_id: TaskId
-    parent_assignment_id: TaskId
-    child_instance: AgentInstanceResponse
-    child_assignment: "OrganizationAssignmentResponse"
-    delegation: AgentDelegationResponse
-    idempotency_key: str = Field(min_length=1, max_length=128)
-    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
-    created_at: datetime
-
-
 OrganizationUnitType = Literal["division", "department", "team"]
 OrganizationUnitStatus = Literal["active", "retired"]
 OrganizationLevel = Literal["vp", "director", "manager", "specialist"]
@@ -654,6 +642,18 @@ class OrganizationAssignmentPage(StrictModel):
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)
+
+
+class AgentChildCreationResponse(StrictModel):
+    id: TaskId
+    parent_instance_id: TaskId
+    parent_assignment_id: TaskId
+    child_instance: AgentInstanceResponse
+    child_assignment: OrganizationAssignmentResponse
+    delegation: AgentDelegationResponse
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: datetime
 
 
 class OrganizationPrincipal(StrictModel):
