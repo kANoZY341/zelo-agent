@@ -97,7 +97,6 @@ class AgentChildCreationService:
     def _target_unit_valid(
         parent_assignment: OrganizationAssignment,
         target_unit: OrganizationUnit,
-        session,
     ) -> bool:
         if parent_assignment.level == "vp":
             return (
@@ -164,7 +163,11 @@ class AgentChildCreationService:
                 raise DomainError("Parent organization level cannot create a permanent child", 409)
             if parent_spec.organizational_level != parent_assignment.level:
                 raise DomainError("Parent organization assignment is stale", 409)
-            if not parent_spec.allow_subagents or parent_spec.max_subagents < 1:
+            if (
+                not parent_spec.allow_subagents
+                or parent_spec.max_subagents < 1
+                or "organization_hire" not in parent_spec.permissions
+            ):
                 raise DomainError("Parent agent is not authorized to create children", 409)
 
             try:
@@ -182,7 +185,7 @@ class AgentChildCreationService:
                 raise DomainError("Organization unit not found", 404)
             if target_unit.status != "active":
                 raise DomainError("Organization unit is not active", 409)
-            if not self._target_unit_valid(parent_assignment, target_unit, session):
+            if not self._target_unit_valid(parent_assignment, target_unit):
                 raise DomainError("Child organization unit is outside parent reporting scope", 409)
 
             if expected_child_level in {"director", "manager"} and session.scalar(
