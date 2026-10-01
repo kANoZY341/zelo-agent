@@ -244,9 +244,7 @@ class AgentActivationEvaluator:
             if spec.lifecycle == "active"
         )
         status = (
-            "rejected"
-            if any(item.status == "rejected" for item in evaluations)
-            else "accepted"
+            "rejected" if any(item.status == "rejected" for item in evaluations) else "accepted"
         )
         payload = {
             "policy_version": AGENT_ACTIVATION_POLICY,
