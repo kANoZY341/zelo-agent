@@ -217,6 +217,7 @@ def test_surface_digest_changes_when_runtime_surface_changes():
     assert first.surface_digest != second.surface_digest
     assert first.report_digest != second.report_digest
 
+
 def test_default_registry_activation_report_is_deterministic():
     registry = default_agent_registry()
     kwargs = {
