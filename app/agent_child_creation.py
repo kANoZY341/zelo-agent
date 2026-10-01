@@ -110,10 +110,7 @@ class AgentChildCreationService:
                 and target_unit.parent_unit_id == parent_assignment.unit_id
             )
         if parent_assignment.level == "manager":
-            return (
-                target_unit.unit_type == "team"
-                and target_unit.id == parent_assignment.unit_id
-            )
+            return target_unit.unit_type == "team" and target_unit.id == parent_assignment.unit_id
         return False
 
     def create(
@@ -239,11 +236,7 @@ class AgentChildCreationService:
             if campaign is None:
                 raise DomainError("Campaign not found", 404)
             goal = session.get(Goal, campaign.goal_id)
-            if (
-                goal is None
-                or goal.project_id != parent.project_id
-                or campaign.status != "active"
-            ):
+            if goal is None or goal.project_id != parent.project_id or campaign.status != "active":
                 raise DomainError("Campaign is not active in the parent Project", 409)
 
             incoming = session.scalar(
