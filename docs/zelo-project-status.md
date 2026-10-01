@@ -36,55 +36,56 @@ v0.13 does not add automatic memory writes, embeddings/vector retrieval,
 Postgres/Supabase storage, Agent Factory execution, approval bypasses or new
 merge/release authority.
 
-## Active increment: v0.14 Hierarchy-aware child creation
+## Active increment: v0.14 Agent activation and evaluation gates
 
-The first five Agent Factory slices are merged:
+The first six Agent Factory implementation slices are merged:
 
-- PR #47 → `8609ee583513f24d312785b7158a90d40a8458ef`;
-- PR #48 → `8259141834869c09241dc22ea1fb5cbf89615565`;
-- PR #49 → `d787c9cc86ea8ad680d2981e8d18b1e6b73d18a4`;
-- PR #50 → `6554dd402ca4553efed6032f448bbdf8bb813239`;
-- PR #51 → `86315a5b61924b36cc04ae1e964ebe1a496ede0b`.
+- PR #47 → registry foundation;
+- PR #48 → project-bound lifecycle and scoped memory;
+- PR #49 → bounded parent-child delegation;
+- PR #50 → generic Coding/Research execution identity;
+- PR #51 → durable organizational hierarchy;
+- PR #52 → hierarchy-aware permanent child creation,
+  merge `91e23172a303786d02d196ed5c6c13cc80e9f217`.
 
 The active branch is:
 
-`feat/v0.14-hierarchy-child-creation`
+`feat/v0.14-agent-activation-evaluation`
 
-This sixth bounded Agent Factory slice adds the first Core-owned permanent
-subordinate creation path under the canonical organization hierarchy.
+This final bounded implementation slice adds deterministic activation evidence
+before an active AgentSpec is allowed to enter the runtime.
 
-Current slice behavior:
+Current behavior:
 
-- parent must be active/current and have an active organization assignment;
-- permanent creation requires explicit trusted `organization_hire` permission
-  plus bounded subagent authority;
-- only next-level creation is allowed:
-  VP -> Director -> Manager -> Specialist;
-- Specialist Agents cannot create permanent reports;
-- target organization unit must remain within the parent's reporting scope;
-- child AgentSpec must be trusted, active, current and match the next level;
-- child remains in the same Project as the parent;
-- active Campaign and exact parent-owned reserved budget proof are required;
-- task kinds and required capabilities are narrowed against trusted parent/child
-  AgentSpecs;
-- nested delegation depth is inherited and bounded to four;
-- AgentInstance + reporting assignment + task delegation + immutable creation
-  receipt are persisted atomically;
-- idempotent replay returns the same creation receipt;
-- migration `0025_hierarchy_child_creation` protects receipt relationships,
-  immutability and no-delete history.
+- active AgentSpecs are evaluated against available Core task kinds;
+- declared Zelo tools must exist;
+- worker-neutral WorkerRequirements must be satisfiable by configured enabled
+  WorkerDescriptors;
+- `developer_run` requires an explicit worker requirement;
+- review-required templates must declare the developer/review contract;
+- VP/Director/Manager templates must carry explicit bounded
+  `organization_hire` authority;
+- Specialist templates cannot carry permanent `organization_hire`;
+- draft trusted AgentSpecs can be evaluated before their lifecycle is changed;
+- evaluation evidence is deterministic and bound to policy version, registry
+  version and an exact task/tool/worker surface digest;
+- rejected active templates fail application startup;
+- the current accepted report is inspectable through
+  `GET /agent-factory/activation` with operator authentication.
 
-This slice does **not** permit model-authored AgentSpecs, hierarchy jumps,
-title-based worker/tool authority, unrestricted spawning, new Core task kinds,
-automatic memory writes, or approval/budget/scheduler/promotion/release bypass.
+This slice does **not** create new templates, run model judgment, perform worker
+preflight execution, widen title-based authority, create children, or bypass
+Core task/tool/worker/approval/budget/scheduler/promotion/release boundaries.
 
 ## v0.14 planned continuation
 
-After hierarchy-aware child creation is verified and merged:
+After this activation/evaluation slice is verified and merged:
 
-1. add activation/evaluation gates for executive and specialist templates;
-2. complete v0.14 release preparation;
-3. publish v0.14 only after exact-head CI and release verification.
+1. prepare the v0.14.0 release only;
+2. run exact-head release CI and independent/adversarial release review;
+3. publish v0.14.0;
+4. begin v0.15 only from the published v0.14 baseline.
 
-Every slice must preserve Core task authority, ToolPolicy, Worker Supervisor,
-approvals, budgets, audit, promotion and release boundaries.
+Every release gate must preserve the Managing Director -> Zelo CEO -> VP ->
+Director -> Manager -> Specialist hierarchy and the separation between durable
+reporting and temporary delegation.
