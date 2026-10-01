@@ -94,12 +94,7 @@ class OrganizationService:
             raise DomainError("Organization unit name cannot be blank", 422)
         return name
 
-    def _require_current_instance(self, session, instance_id: str) -> AgentInstance:
-        instance = session.get(AgentInstance, instance_id)
-        if instance is None:
-            raise DomainError("Agent instance not found", 404)
-        if instance.status != "active":
-            raise DomainError("Organization assignment requires an active agent instance", 409)
+    def _current_spec(self, instance: AgentInstance) -> AgentSpec:
         try:
             spec = AgentSpec.model_validate(instance.spec)
             binding = AgentBinding(spec=spec, registry_version=instance.registry_version)
@@ -107,6 +102,15 @@ class OrganizationService:
             raise DomainError("Agent instance spec is invalid", 409) from None
         if not self.factory.matches_agent(binding):
             raise DomainError("Agent instance spec is stale", 409)
+        return spec
+
+    def _require_current_instance(self, session, instance_id: str) -> AgentInstance:
+        instance = session.get(AgentInstance, instance_id)
+        if instance is None:
+            raise DomainError("Agent instance not found", 404)
+        if instance.status != "active":
+            raise DomainError("Organization assignment requires an active agent instance", 409)
+        self._current_spec(instance)
         return instance
 
     def create_unit(self, body: OrganizationUnitCreate) -> OrganizationUnitResponse:
@@ -264,6 +268,12 @@ class OrganizationService:
     ) -> OrganizationAssignmentResponse:
         with self.database.transaction() as session:
             holder = self._require_current_instance(session, body.agent_instance_id)
+            holder_spec = self._current_spec(holder)
+            if holder_spec.organizational_level != body.level:
+                raise DomainError(
+                    "Organization assignment level does not match AgentSpec",
+                    409,
+                )
             unit = self._load_unit(session, body.unit_id)
             if unit.status != "active":
                 raise DomainError("Organization unit is not active", 409)
