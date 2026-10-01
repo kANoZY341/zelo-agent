@@ -380,7 +380,6 @@ def test_child_creation_route_requires_operator_auth(client):
     assert client.get("/organization/snapshot", headers=AUTH).status_code == 200
 
 
-
 def test_permanent_reports_continue_to_consume_child_capacity_after_delegation_revoke(
     database,
 ):
