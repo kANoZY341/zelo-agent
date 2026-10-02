@@ -284,7 +284,10 @@ def test_default_registry_activation_report_is_deterministic():
             "repo_status",
             "system_info",
         ),
-        "worker_descriptors": (worker(),),
+        "worker_descriptors": (
+            worker(),
+            worker(role="research", capabilities=("research",)),
+        ),
     }
     first = activation_evaluator(registry, **kwargs).require()
     second = activation_evaluator(registry, **kwargs).require()

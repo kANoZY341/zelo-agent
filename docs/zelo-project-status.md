@@ -58,48 +58,54 @@ Capability and skill metadata remain non-authoritative. Supervisor routing,
 WorkerAuthority, ToolPolicy, task validation, approvals, budgets and audit remain
 authoritative.
 
-## Active increment: v0.15 Generic Worker Registry foundation
+Generic Worker Registry is merged through PR #57 at:
+
+`9d2e897a6c8bebf63fc52dec7b6442c24cc9f8aa`
+
+## Active increment: v0.15 Research Worker
 
 The active branch is:
 
-`feat/v0.15-generic-worker-registry`
+`feat/v0.15-research-worker`
 
-This third v0.15 slice separates trusted worker selection metadata from the
-DeveloperWorker backend type without changing runtime execution.
+This fourth v0.15 slice turns the existing bounded ResearchRuntime into the first
+separately registered non-developer worker behind the shared Supervisor.
 
 Current implementation includes:
 
-- PEP 695 generic `RegisteredWorker[Backend]`;
-- generic `WorkerRegistry[Backend]`;
-- generic `Supervisor[Backend]`;
-- unchanged WorkerDescriptor and authority-profile storage;
-- unchanged registry fingerprint and routing policy semantics;
-- DeveloperRuntime explicitly typed as `WorkerRegistry[DeveloperWorker]`;
-- an opaque-backend regression test proving selection does not invoke
-  DeveloperWorker methods.
+- `research` capability v2 for agent and worker subjects;
+- Research AgentSpec v2 with an explicit `research` WorkerRequirement;
+- trusted `research_core` WorkerDescriptor;
+- workspace-read/no-network WorkerAuthority;
+- migration `0026_research_worker_selection`;
+- exact persisted Research `WorkerSelectionSnapshot` on Core tasks;
+- worker identity bound into action hashing and task audit events;
+- fresh Supervisor selection on retry;
+- claim-time registry/requirement revalidation;
+- Runner resolution of the exact selected Research backend;
+- unchanged evidence/citation and read-only retrieval semantics.
 
-The current worker registry schema remains `zelo-worker-registry-v2` because
-its serialized trusted descriptor/authority fingerprint is unchanged.
-
-## v0.15 Generic Worker Registry boundaries
+## v0.15 Research Worker boundaries
 
 This slice does **not** add:
 
-- Research, Browser, Computer, Python, API, Shell or Media workers;
-- new task kinds, tools, capabilities, skills or AgentSpecs;
-- new WorkerAuthority profiles or sandbox behavior;
-- external network, filesystem, subprocess or credential authority;
-- execution-interface unification;
-- database migrations;
+- public web browsing or arbitrary network access;
+- Browser, Computer, Python, API, Shell or Media workers;
+- new Research tools or task kinds;
+- write-capable filesystem authority;
+- subprocess or credential authority;
+- dynamic/model-authored workers, capabilities or skills;
 - new approval, scheduler, merge or release authority.
+
+The Research Worker continues to use only `repo_status`,
+`list_workspace_files`, and `read_workspace_file` through ToolPolicy.
 
 ## v0.15 continuation
 
-After this generic selection foundation passes full verification and merges:
+After this Research Worker slice passes full verification and merges:
 
-1. add a separately bounded read-only Research Worker adapter behind Supervisor;
-2. define its trusted descriptor, capability and skill compatibility;
-3. preserve workspace-read/no-network authority and existing Research evidence
-   semantics;
-4. require focused tests, real-clone full pytest, adversarial review and
-   exact-head CI before merge.
+1. choose the next bounded worker/tool surface independently;
+2. add only the minimum capability/skill/authority contract required for it;
+3. keep network, filesystem, subprocess and credential permissions explicit;
+4. require focused tests, full pytest, adversarial review and exact-head CI for
+   every slice.

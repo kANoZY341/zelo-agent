@@ -18,6 +18,7 @@ from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
+from app.developer_contracts import WorkerSelectionSnapshot
 from app.gateway import ModelGateway
 from app.models import (
     AgentDelegation,
@@ -69,6 +70,7 @@ from app.self_improvement_runtime import (
 )
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
+from app.worker_registry import Supervisor
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
 TERMINAL_STATES = frozenset({State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED})
@@ -101,6 +103,7 @@ class Execution:
     tool_name: str | None = None
     tool_arguments: dict[str, Any] | None = None
     developer_request: DeveloperRequest | None = None
+    research_selection: WorkerSelectionSnapshot | None = None
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
@@ -590,6 +593,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "selected_model": task.selected_model,
         "config_version": task.config_version,
         "developer_spec": task.developer_spec,
+        "research_spec": task.research_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
@@ -623,6 +627,7 @@ class TaskService:
         promotion_ci_verifier: PromotionCIVerifier | None = None,
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         agent_factory: AgentFactory | None = None,
+        research_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -633,6 +638,7 @@ class TaskService:
         self.promotion_ci_verifier = promotion_ci_verifier
         self.promotion_release_runtime = promotion_release_runtime
         self.agent_factory = agent_factory
+        self.research_supervisor = research_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -746,16 +752,24 @@ class TaskService:
 
     @staticmethod
     def _runtime_selection(task: Task) -> dict[str, Any] | None:
-        if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
+        if task.kind in {"ai_prompt", "agent_run", "self_improvement_run"}:
             return {
                 "alias": task.selected_alias,
                 "model": task.selected_model,
                 "config_version": task.config_version,
                 "profile": (
                     "general"
-                    if task.kind in {"research_run", "self_improvement_run"}
+                    if task.kind == "self_improvement_run"
                     else task.payload.get("profile")
                 ),
+            }
+        if task.kind == "research_run":
+            return {
+                "alias": task.selected_alias,
+                "model": task.selected_model,
+                "config_version": task.config_version,
+                "profile": "general",
+                "worker_selection": task.research_spec,
             }
         if task.kind == "developer_run":
             return task.developer_spec
@@ -1635,6 +1649,43 @@ class TaskService:
                     ),
                 )
 
+            research_selection = None
+            if request.kind == "research_run":
+                if self.research_supervisor is None:
+                    raise DomainError("Research worker unavailable", 503)
+                role = "research"
+                capabilities = ("research",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "research":
+                        raise DomainError("Agent research worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    _, research_selection = self.research_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                task.research_spec = research_selection.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(
+                        {
+                            "profile": "general",
+                            "alias": task.selected_alias,
+                            "model": task.selected_model,
+                            "config_version": task.config_version,
+                            "worker_selection": task.research_spec,
+                        },
+                        agent_execution_spec,
+                    ),
+                )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -1706,6 +1757,27 @@ class TaskService:
                     task,
                     developer_request,
                     developer_running_counts,
+                )
+
+            if task.kind == "research_run":
+                if research_selection is None:
+                    raise DomainError("Research routing state unavailable", 503)
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=research_selection.requested_role,
+                    capabilities=list(research_selection.requested_capabilities),
+                    routing_policy=research_selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=research_selection.descriptor.worker_id,
+                    implementation=research_selection.descriptor.implementation,
+                    registry_version=research_selection.registry_version,
+                    authority_profile=research_selection.authority_profile,
                 )
 
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
@@ -2368,6 +2440,42 @@ class TaskService:
                     registry_version=selection.registry_version,
                     priority=selection.descriptor.priority,
                 )
+            if task.kind == "research_run":
+                if self.research_supervisor is None:
+                    raise DomainError("Research worker unavailable", 503)
+                role = "research"
+                capabilities = ("research",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "research":
+                        raise DomainError("Agent research worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    _, selection = self.research_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                task.research_spec = selection.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -2559,6 +2667,37 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            research_selection = None
+            if task.kind == "research_run":
+                try:
+                    if self.research_supervisor is None or task.research_spec is None:
+                        raise ValueError("research_worker_selection_unavailable")
+                    research_selection = WorkerSelectionSnapshot.model_validate(task.research_spec)
+                    if not self.research_supervisor.matches(research_selection):
+                        raise ValueError("research_worker_selection_stale")
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if (
+                            requirement is None
+                            or research_selection.requested_role != requirement.role
+                            or tuple(research_selection.requested_capabilities)
+                            != tuple(requirement.capabilities)
+                        ):
+                            raise ValueError("research_worker_requirement_mismatch")
+                except ValueError:
+                    task.error = "research_worker_selection_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=research_selection.descriptor.worker_id,
+                    registry_version=research_selection.registry_version,
+                    authority_profile=research_selection.authority_profile,
+                )
+
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -2715,6 +2854,7 @@ class TaskService:
                 task.payload.get("tool"),
                 task.payload.get("arguments"),
                 developer_request,
+                research_selection,
                 promotion_request,
                 merge_request,
                 release_request,

@@ -7,7 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentSpec
-from app.developer_contracts import DeveloperRequest, ReviewerReport, ValidationResult
+from app.developer_contracts import (
+    DeveloperRequest,
+    ReviewerReport,
+    ValidationResult,
+    WorkerSelectionSnapshot,
+)
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
 
@@ -357,6 +362,7 @@ class TaskResponse(StrictModel):
     selected_model: str | None = None
     config_version: str | None = None
     developer_spec: DeveloperRequest | None = None
+    research_spec: WorkerSelectionSnapshot | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None

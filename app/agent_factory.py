@@ -294,6 +294,7 @@ def coding_agent_spec() -> AgentSpec:
 def research_agent_spec() -> AgentSpec:
     return AgentSpec(
         agent_id="research",
+        version=2,
         role="research",
         objective="Produce bounded evidence-grounded research through Zelo-owned retrieval tools.",
         capabilities=("evidence_synthesis", "research"),
@@ -302,6 +303,10 @@ def research_agent_spec() -> AgentSpec:
         permissions=("workspace_read",),
         procedures=("evidence_retrieval",),
         memory_namespace="agent/research",
+        worker_requirement=WorkerRequirement(
+            role="research",
+            capabilities=("research",),
+        ),
         lifecycle="active",
     )
 

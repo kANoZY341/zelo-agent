@@ -119,7 +119,7 @@ class CapabilityRegistry:
 
 
 def default_capability_registry() -> CapabilityRegistry:
-    """Describe only capabilities already present in the published v0.14 runtime."""
+    """Describe capabilities already published through the current trusted runtime slices."""
 
     return CapabilityRegistry(
         (
@@ -155,10 +155,11 @@ def default_capability_registry() -> CapabilityRegistry:
             ),
             CapabilitySpec(
                 capability_id="research",
+                version=2,
                 description=(
                     "Conduct bounded evidence-grounded research using approved retrieval surfaces."
                 ),
-                subjects=("agent",),
+                subjects=("agent", "worker"),
                 lifecycle="active",
             ),
             CapabilitySpec(

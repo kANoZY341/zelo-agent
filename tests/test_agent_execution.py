@@ -6,7 +6,13 @@ from sqlalchemy.exc import IntegrityError
 
 from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
-from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec, default_agent_registry
+from app.agent_factory import (
+    AgentFactory,
+    AgentRegistry,
+    AgentSpec,
+    WorkerRequirement,
+    default_agent_registry,
+)
 from app.agent_instances import AgentInstanceService
 from app.campaign_control import CampaignControlService
 from app.campaigns import CampaignService
@@ -30,6 +36,7 @@ from app.schemas import (
     ResearchRunInput,
 )
 from app.tasks import TaskService
+from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
 from tests.test_independent_review import review_runtime
 
 
@@ -70,12 +77,14 @@ def campaign(database, project_id: str):
 def direct_services(database, settings, *, developer_runtime=None):
     factory = AgentFactory(default_agent_registry())
     instances = AgentInstanceService(database, factory, MemoryService(database))
+    research_registry = WorkerRegistry[object](((descriptor_for_research_worker(), object()),))
     tasks = TaskService(
         database,
         settings,
         gateway=StubGateway(),
         developer_runtime=developer_runtime,
         agent_factory=factory,
+        research_supervisor=Supervisor[object](research_registry),
     )
     execution = AgentExecutionService(database, factory, tasks)
     return factory, instances, tasks, execution
@@ -277,6 +286,10 @@ def child_spec() -> AgentSpec:
         permissions=("workspace_read",),
         procedures=("evidence_retrieval",),
         memory_namespace="agent/research_child",
+        worker_requirement=WorkerRequirement(
+            role="research",
+            capabilities=("research",),
+        ),
         lifecycle="active",
     )
 
@@ -286,11 +299,13 @@ def delegated_services(database, settings):
     instances = AgentInstanceService(database, factory, MemoryService(database))
     controls = CampaignControlService(database)
     delegations = AgentDelegationService(database, factory, controls)
+    research_registry = WorkerRegistry[object](((descriptor_for_research_worker(), object()),))
     tasks = TaskService(
         database,
         settings,
         gateway=StubGateway(),
         agent_factory=factory,
+        research_supervisor=Supervisor[object](research_registry),
     )
     execution = AgentExecutionService(database, factory, tasks)
     return instances, controls, delegations, tasks, execution

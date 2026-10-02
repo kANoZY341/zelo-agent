@@ -29,10 +29,14 @@ def capability(
     )
 
 
-def worker(*capabilities: str) -> WorkerDescriptor:
+def worker(
+    *capabilities: str,
+    role: str = "developer",
+    worker_id: str | None = None,
+) -> WorkerDescriptor:
     return WorkerDescriptor(
-        worker_id="worker",
-        role="developer",
+        worker_id=worker_id or f"{role}_worker",
+        role=role,
         capabilities=tuple(sorted(capabilities or ("zelo_core_development",))),
         authority=("workspace-read",),
         implementation="test",
@@ -106,7 +110,7 @@ def test_unknown_inactive_and_subject_mismatch_fail_closed():
         registry.require("agent_only", subject="worker")
 
 
-def test_default_registry_describes_only_published_v014_vocabulary():
+def test_default_registry_extends_research_for_v015_worker_routing():
     registry = default_capability_registry()
 
     assert [item.capability_id for item in registry.list()] == [
@@ -118,16 +122,17 @@ def test_default_registry_describes_only_published_v014_vocabulary():
         "zelo_core_development",
     ]
     assert registry.get("code_review").subjects == ("agent", "worker")
-    assert registry.get("research").subjects == ("agent",)
+    assert registry.get("research").subjects == ("agent", "worker")
+    assert registry.get("research").version == 2
     assert registry.get("zelo_core_development").subjects == ("worker",)
 
 
 def test_worker_descriptors_are_validated_against_subjects():
-    agent_only = CapabilityRegistry((capability("research"),))
+    agent_only = CapabilityRegistry((capability("agent_only"),))
     unknown = CapabilityRegistry((capability("zelo_core_development", subjects=("worker",)),))
 
-    with pytest.raises(ValueError, match="capability_subject_mismatch:research:worker"):
-        agent_only.validate_workers((worker("research"),))
+    with pytest.raises(ValueError, match="capability_subject_mismatch:agent_only:worker"):
+        agent_only.validate_workers((worker("agent_only"),))
     with pytest.raises(ValueError, match="capability_not_registered:missing"):
         unknown.validate_workers((worker("missing"),))
 
@@ -137,7 +142,7 @@ def test_default_agent_activation_binds_capability_registry_version():
     report = evaluator(
         default_agent_registry(),
         capability_registry=capabilities,
-        workers=(worker(),),
+        workers=(worker(), worker("research", role="research")),
     ).require()
 
     assert report.policy_version == "zelo-agent-activation-policy-v2"
@@ -179,8 +184,9 @@ def test_capability_registry_identity_changes_activation_surface():
     changed_specs[0] = changed_specs[0].model_copy(update={"version": 2})
     changed = CapabilityRegistry(changed_specs)
 
-    first = evaluator(agents, capability_registry=baseline, workers=(worker(),)).require()
-    second = evaluator(agents, capability_registry=changed, workers=(worker(),)).require()
+    workers = (worker(), worker("research", role="research"))
+    first = evaluator(agents, capability_registry=baseline, workers=workers).require()
+    second = evaluator(agents, capability_registry=changed, workers=workers).require()
 
     assert first.capability_registry_version != second.capability_registry_version
     assert first.surface_digest != second.surface_digest

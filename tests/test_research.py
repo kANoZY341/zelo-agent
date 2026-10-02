@@ -1,6 +1,8 @@
 """v0.12 fixed Research specialist tests."""
 
+import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -8,10 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import ROOT
-from app.gateway import ModelGatewayError, ModelResult
+from app.gateway import ModelGateway, ModelGatewayError, ModelResult
 from app.main import create_app
-from app.research import RESEARCH_ACTION, ResearchRuntime
-from app.tasks import _project_task_result
+from app.models import Task
+from app.research import RESEARCH_ACTION, ResearchRuntime, ResearchRuntimeError
+from app.runner import Runner
+from app.schemas import ResearchRunInput
+from app.tasks import TaskService, _project_task_result
+from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 from tests.test_campaigns import campaign_fixture
@@ -94,6 +100,11 @@ def test_research_retrieves_real_evidence_and_persists_cited_metadata(
         assert created["approvals"] == []
         assert created["selected_alias"] == "local_general"
         assert created["selected_model"] == "qwen3:4b-instruct"
+        selection = created["research_spec"]
+        assert selection["descriptor"]["worker_id"] == "research_core"
+        assert selection["descriptor"]["role"] == "research"
+        assert selection["descriptor"]["capabilities"] == ["research"]
+        assert selection["authority_profile"] == "workspace-read-no-network-v1"
 
         completed = wait_for(client, created["id"], "succeeded")
         result = completed["result"]
@@ -111,6 +122,9 @@ def test_research_retrieves_real_evidence_and_persists_cited_metadata(
         events = client.get(f"/tasks/{created['id']}/events", headers=AUTH).json()
         names = [event["event"] for event in events]
         assert "research_started" in names
+        assert "supervisor_routing_requested" in names
+        assert "supervisor_worker_selected" in names
+        assert "supervisor_worker_revalidated" in names
         assert names.count("research_tool_requested") == 2
         assert names.count("research_tool_completed") == 2
         assert "research_completed" in names
@@ -382,3 +396,169 @@ def test_zelo_mind_can_delegate_to_research_specialist(
         assert completed["result"]["answer"] == "Research found the workspace proof. [S1]"
         assert "research_run" in provider.requests[0].system_prompt
         assert '"kind":"research_run"' in provider.requests[1].system_prompt
+
+
+def research_gateway(settings, provider=None) -> ModelGateway:
+    return ModelGateway(
+        provider or ResearchProvider(),
+        settings.ollama_general_model,
+        settings.ollama_reasoning_model,
+        settings.model_config_version,
+        mind_model=settings.ollama_mind_model,
+    )
+
+
+def research_supervisor(worker_id: str = "research_core") -> Supervisor[object]:
+    registry = WorkerRegistry[object](
+        ((descriptor_for_research_worker(worker_id=worker_id), object()),)
+    )
+    return Supervisor[object](registry)
+
+
+def test_runner_requires_bound_research_worker_selection(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None
+    assert execution.research_selection is not None
+
+    unbound = replace(execution, research_selection=None)
+    runner = Runner(service, research_supervisor=supervisor)
+
+    with pytest.raises(ResearchRuntimeError, match="research_worker_selection_unavailable"):
+        asyncio.run(runner._research_worker(unbound))
+
+
+def test_runner_rejects_stale_research_worker_selection(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None
+    assert execution.research_selection is not None
+
+    runner = Runner(service, research_supervisor=research_supervisor("research_next"))
+
+    with pytest.raises(ResearchRuntimeError, match="research_worker_selection_stale"):
+        asyncio.run(runner._research_worker(execution))
+
+
+def test_research_action_hash_binds_worker_selection_snapshot(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+
+    with database.transaction() as session:
+        persisted = session.get(Task, created.id)
+        assert persisted is not None
+        tampered = dict(persisted.research_spec)
+        tampered["excluded_worker_ids"] = ["other_worker"]
+        persisted.research_spec = tampered
+
+    assert service.claim() is None
+    cancelled = service.get(created.id)
+    assert cancelled.status == "cancelled"
+    assert cancelled.error == "action_changed"
+
+
+def test_research_worker_selection_fails_closed_if_registry_changes(settings, database):
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=research_supervisor(),
+    )
+    created, was_created = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+
+    assert was_created is True
+    assert created.research_spec is not None
+    assert created.research_spec.descriptor.worker_id == "research_core"
+
+    service.research_supervisor = research_supervisor("research_next")
+
+    assert service.claim() is None
+    cancelled = service.get(created.id)
+    assert cancelled.status == "cancelled"
+    assert cancelled.error == "research_worker_selection_invalid"
+
+
+def test_research_retry_reselects_current_worker(settings, database):
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=research_supervisor(),
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+    service.cancel(created.id)
+    service.research_supervisor = research_supervisor("research_next")
+
+    retried = service.retry(created.id)
+
+    assert retried.action_version == 2
+    assert retried.status == "pending"
+    assert retried.research_spec is not None
+    assert retried.research_spec.descriptor.worker_id == "research_next"
+    execution = service.claim()
+    assert execution is not None
+    assert execution.research_selection is not None
+    assert execution.research_selection.descriptor.worker_id == "research_next"
+
+
+def test_pre_v015_pending_research_task_fails_closed_then_retry_rebinds(settings, database):
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=research_supervisor(),
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+
+    with database.transaction() as session:
+        persisted = session.get(Task, created.id)
+        assert persisted is not None
+        persisted.research_spec = None
+
+    assert service.claim() is None
+    cancelled = service.get(created.id)
+    assert cancelled.status == "cancelled"
+    assert cancelled.error == "research_worker_selection_invalid"
+
+    retried = service.retry(created.id)
+    assert retried.status == "pending"
+    assert retried.research_spec is not None
+    assert retried.research_spec.descriptor.worker_id == "research_core"

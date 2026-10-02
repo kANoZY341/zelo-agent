@@ -57,7 +57,7 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 Generic Worker Registry foundation
+## Current scope: v0.15 Research Worker
 
 Zelo Core v0.14.0 — Agent Factory is published from
 `3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
@@ -67,36 +67,41 @@ Merged v0.15 foundations:
 - Capability Registry: PR #55 at
   `4dcc5bf03dfe761d64df49f848762a163158d8df`;
 - Skill Registry: PR #56 at
-  `7e0936750967be79ec49ee5858a508935d7ad3e0`.
+  `7e0936750967be79ec49ee5858a508935d7ad3e0`;
+- Generic Worker Registry: PR #57 at
+  `9d2e897a6c8bebf63fc52dec7b6442c24cc9f8aa`.
 
 The active branch is:
 
-`feat/v0.15-generic-worker-registry`
+`feat/v0.15-research-worker`
 
-This third v0.15 slice separates worker selection metadata from the
-DeveloperWorker backend type without changing execution behavior.
+This fourth v0.15 slice moves existing bounded `research_run` execution behind
+the shared Supervisor without widening the Research surface.
 
 Rules for this slice:
 
-- make RegisteredWorker, WorkerRegistry and Supervisor generic over backend type;
-- keep WorkerDescriptor, registry fingerprint, routing policy, priority, capacity,
-  exclusion and authority-profile semantics unchanged;
-- keep DeveloperRuntime explicitly bound to WorkerRegistry[DeveloperWorker];
-- prove Supervisor can select an opaque backend without invoking backend methods;
-- do not add Research/Browser/Computer/Python/API/Shell/Media workers yet;
-- do not change task kinds, tools, capabilities, skills or AgentSpecs;
-- do not change WorkerAuthority or realized sandbox/network policy;
-- do not add network, filesystem, subprocess or credential authority;
-- do not add database migrations or new runtime state;
+- version the trusted `research` capability for both agent and worker subjects;
+- make the default Research AgentSpec explicitly require role `research` and
+  capability `research`;
+- register one trusted `research_core` backend with workspace-read/no-network
+  authority;
+- persist the exact Supervisor `WorkerSelectionSnapshot` on each research task;
+- bind Research Worker identity into action hashing, retry and audit evidence;
+- revalidate the exact worker selection at claim time and fail closed if stale;
+- Runner must invoke the exact registered backend selected for the task;
+- preserve the existing ResearchRuntime, evidence/citation protocol and read-only
+  ToolGateway policy;
+- do not add public web browsing, API calls, shell, subprocess, computer control,
+  write tools or credentials;
+- do not add new task kinds, model authority, approval bypasses or AgentSpec
+  mutation;
 - preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager ->
   Specialist -> Worker -> Tool;
-- preserve task, tool, worker, approval, scheduler, budget, promotion, merge and
-  release authority boundaries;
-- run diff check, Ruff lint, Ruff format, focused tests and the full pytest suite;
+- run diff check, Ruff lint, Ruff format, focused tests and full pytest;
 - require adversarial review and exact-head GitHub CI before merge.
 
-After this slice, a read-only Research Worker can be introduced as a separately
-bounded adapter behind the shared Supervisor.
+After this slice, the next v0.15 execution surface must be introduced separately
+with its own capability, skill, worker authority and sandbox/network boundaries.
 
 ## Workspace decision
 
