@@ -57,43 +57,33 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 API Worker
+## Current scope: v0.15 live conversation UI
 
-Zelo Core v0.14.0 — Agent Factory is published from
-`3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
+Ahmad accepted the conversation redesign with refined angular Z mark on 2 October
+2026 and explicitly authorized importing it and updating the delivery plan. Work
+in this dedicated `feat/v0.15-live-conversation-ui` worktree based on verified main
+`8d33d563070c58c487dd06e91fd9af617744dab3`. Do not edit or reset the source UI
+worktree at `~/zelo/core`; it contains intentional uncommitted design work.
 
-Merged v0.15 slices are Capability Registry PR #55, Skill Registry PR #56,
-Generic Worker Registry PR #57, Research Worker PR #58, and Python Worker PR #59.
-Python Worker is merged to main at
-`c8aab211b52cbc576d8457b61d01134fcab645e5`.
+Read `docs/zelo-live-ui-delivery-plan.md` and `docs/design/zelo-ui-import-manifest.json`.
+The next user-facing checkpoint is a real text-chat beta in the accepted UI.
+It must not wait for Browser Worker, Company World, channels or v0.18 autonomy.
 
-The active branch is:
+- Preserve the accepted charcoal/mint layout, centered conversation and angular Z.
+- Use existing current-Core conversation/task types and server-side proxy routes.
+- Keep credentials server-side. No new chat database, authority or approval system.
+- Keep original Workspace usable as fallback; add the new live UI at `/talk`.
+- Keep sample replies and simulated voice/approvals only in the labeled design route.
+- New `/talk` must show actual Core conversations/history/tasks or truthful errors.
+- Do not simulate live voice, uploads, approval execution or remote cancellation.
+- No backend edits, production DB migration, service installation or public bind here.
+- Use Astra Medium. One implementation owner in this worktree; no overlapping tests.
+- Run Workspace tests/typecheck/build and scoped UI tests; report exact results.
+- Do not push/merge as part of delegated implementation; the parent owns release gates.
 
-`feat/v0.15-api-worker`
-
-This sixth v0.15 slice adds bounded read-only HTTPS API access behind the shared
-Supervisor without granting arbitrary URL, credential, browser, shell, or workspace
-authority.
-
-Rules for this slice:
-
-- add explicit `api_read` capability and skill without adding a default AgentSpec;
-- register one trusted `api_core` backend with `public-api-read` authority;
-- allow only operator-configured named canonical HTTPS origins;
-- task input may choose only an endpoint ID, relative path, and bounded query values;
-- allow GET only; deny redirects, environment proxies, credentials and custom headers;
-- resolve immediately before execution, require only public IP results, and pin the
-  connection to a validated address while preserving the trusted TLS/Host identity;
-- accept bounded JSON responses only;
-- persist and action-bind endpoint registry, API policy and exact Worker selection;
-- reselect on retry and revalidate at claim time and Runner execution time;
-- keep `api_run` out of Mind routing until trusted endpoint names are surfaced safely;
-- preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist
-  -> Worker -> Tool;
-- require focused tests, full pytest, adversarial review and exact-head GitHub CI.
-
-After this slice, introduce the next v0.15 execution surface separately with its own
-capability, skill, authority, network, filesystem and credential boundaries.
+Browser qualification is preserved separately on
+`feat/v0.15-browser-worker-qualification`. The canonical v0.16/v0.17/v0.18
+milestone order is unchanged; this is a parallel user-facing integration checkpoint.
 
 ## Workspace decision
 

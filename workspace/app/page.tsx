@@ -899,6 +899,7 @@ export default function Home() {
             <h1>{activeConversation?.title ?? "Talk to Zelo"}</h1>
           </div>
           <div className="topbar-actions">
+            <a href="/talk" className="secondary-button">Try text beta</a>
             <button
               className="mobile-view-button"
               onClick={() => setActiveView("desk")}

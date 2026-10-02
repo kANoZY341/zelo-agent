@@ -118,3 +118,12 @@ flow before choosing the workspace implementation.
 
 - Mission Control: https://github.com/smolboon/mission-control
 - Agent Town: https://github.com/geezerrrr/agent-town
+
+## 2 October 2026 — accepted conversation UI and first-use gate
+
+Ahmad accepted the conversation-first redesign with the refined angular Z mark.
+Import its presentation onto current Core; preserve the old prototype worktree.
+The first usable deliverable is live text/history/task projection at `/talk`,
+tracked as U2 in `zelo-live-ui-delivery-plan.md`. Voice, approval controls and
+Company World follow as separately verified increments. Full v0.15 worker
+completion and v0.18 autonomy are not prerequisites for this first UI beta.

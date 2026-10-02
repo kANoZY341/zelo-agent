@@ -82,38 +82,30 @@ It provides the trusted `python_core` backend, isolated-compute authority, migra
 `0027_python_worker_selection`, exact persisted selection, claim/Runner
 revalidation, and bounded no-workspace/no-network Python computation.
 
-## Active increment: v0.15 API Worker
+## API Worker merged
 
-The active branch is:
+API Worker is merged through PR #60 at
+`8d33d563070c58c487dd06e91fd9af617744dab3`. Its reviewed JSON-only HTTPS
+authority and execution identity remain unchanged by UI integration.
 
-`feat/v0.15-api-worker`
+## Active increment: v0.15 live conversation UI
 
-This sixth v0.15 slice adds bounded read-only HTTPS access behind the shared
-Supervisor. Current implementation includes:
+Branch: `feat/v0.15-live-conversation-ui`. Ahmad accepted the conversation
+redesign and refined Z mark on 2 October 2026 and authorized import.
 
-- `api_read` capability for agent and worker subjects;
-- `api_read` skill with no new default AgentSpec or department;
-- trusted `api_core` WorkerDescriptor;
-- `public-api-read-no-credentials-v1` WorkerAuthority;
-- immutable operator-configured named HTTPS endpoint registry;
-- migration `0028_api_worker_selection`;
-- exact persisted API execution identity, including endpoint registry, API policy and
-  WorkerSelectionSnapshot;
-- fresh retry binding plus claim/Runner fail-closed revalidation;
-- public-IP-only DNS resolution and connection pinning with trusted TLS/Host identity;
-- GET-only requests, no redirects, proxies, credentials or custom headers;
-- bounded JSON-only responses.
+The accepted presentation is imported onto current Core without importing its
+old prototype backend. `/talk` uses the existing authenticated server proxies
+for text, durable Core history and task/result projection. `/` remains fallback.
+Unsupported live voice, uploads and approval actions are disabled explicitly.
 
-## v0.15 API Worker boundaries
-
-This slice does **not** add arbitrary URL access, credentials, authenticated APIs,
-POST/PUT/PATCH/DELETE, Browser or Computer control, Shell Worker authority, workspace
-access, file downloads, or package installation. Mind does not route `api_run` in
-this slice because configured endpoint names are not yet exposed as a trusted Mind
-surface.
+The next user-facing gate is U2 in `zelo-live-ui-delivery-plan.md`, not completion
+of Browser Worker or v0.18. The implementation has 27 passing host Workspace
+tests, passing typecheck/build, and a local beta backed by an isolated database.
+Real-model acceptance, independent review, exact-head CI and production-data
+rollout are separate gates. Existing user history has not been moved.
 
 ## v0.15 continuation
 
-After API Worker passes full verification and merges, introduce the next bounded
-worker surface independently with explicit capability, skill, authority, network,
-filesystem, credential and approval boundaries.
+Browser Worker qualification remains on its separate branch. Continue it after
+the live UI first-use checkpoint, with explicit capability, authority, network,
+filesystem and credential boundaries; do not delay text-beta use behind it.
