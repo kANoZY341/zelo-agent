@@ -21,7 +21,7 @@ class WorkerAuthorityProfile:
     workspace_write: bool
     network: bool
     workspace_read: bool = True
-    surface: Literal["workspace", "python", "api"] = "workspace"
+    surface: Literal["workspace", "python", "api", "browser"] = "workspace"
 
 
 _WORKSPACE_WRITE = WorkerAuthorityProfile(
@@ -56,7 +56,17 @@ _PUBLIC_API_READ = WorkerAuthorityProfile(
     surface="api",
 )
 
+_PUBLIC_DOCUMENT_RENDER = WorkerAuthorityProfile(
+    name="public-document-render-no-credentials-v1",
+    authority=("public-document-render",),
+    workspace_write=False,
+    network=True,
+    workspace_read=False,
+    surface="browser",
+)
+
 _PROFILES = {
+    _PUBLIC_DOCUMENT_RENDER.authority: _PUBLIC_DOCUMENT_RENDER,
     _ISOLATED_COMPUTE.authority: _ISOLATED_COMPUTE,
     _PUBLIC_API_READ.authority: _PUBLIC_API_READ,
     _WORKSPACE_READ.authority: _WORKSPACE_READ,

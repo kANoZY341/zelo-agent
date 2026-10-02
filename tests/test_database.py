@@ -192,7 +192,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0028_api_worker_selection"
+                == "0029_browser_worker_selection"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -419,7 +419,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0028_api_worker_selection"
+                "0029_browser_worker_selection"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
@@ -648,7 +648,9 @@ def test_api_migration_preserves_existing_trigger_definitions(settings):
         query = text("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
         with database.read() as session:
             before = session.execute(query).all()
-        database.migrate()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0028_api_worker_selection")
         with database.read() as session:
             assert session.execute(query).all() == before
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []

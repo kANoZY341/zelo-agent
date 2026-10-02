@@ -253,10 +253,12 @@ def test_reject_baseline_and_setting_changes(mutation):
         seccomp.validate_profile(raw, digest(raw))
 
 
-def test_no_production_import():
+def test_production_imports_confined_to_browser_binding():
     # Static source proof avoids importing/starting the production application.
     root = Path(__file__).resolve().parents[1]
     for source in (root / "app").rglob("*.py"):
+        if source.name in {"browser_worker.py", "browser_operator.py"}:
+            continue  # Qualified runtime/config adapter; no general worker authority.
         tree = ast.parse(source.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

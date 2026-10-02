@@ -22,6 +22,7 @@ from app.agent_instances import AgentInstanceService
 from app.api import router
 from app.api_contracts import ApiEndpointRegistry
 from app.api_worker import ApiRuntime
+from app.browser_worker import BrowserRuntime, configured_browser_runtime
 from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
 from app.campaign_control_api import router as campaign_control_router
@@ -70,6 +71,7 @@ from app.worker_registry import (
     Supervisor,
     WorkerRegistry,
     descriptor_for_api_worker,
+    descriptor_for_browser_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
 )
@@ -92,6 +94,7 @@ def create_app(
             raise RuntimeError("Set ZELO_OPERATOR_TOKEN before starting Zelo")
         configure_logging()
         database = build_storage(configuration)
+        browser_runtime = None
         runner = None
         scheduler = None
         try:
@@ -126,7 +129,13 @@ def create_app(
                 ((descriptor_for_api_worker(), api_runtime),)
             )
             api_supervisor = Supervisor[ApiRuntime](api_worker_registry)
+            browser_runtime = configured_browser_runtime(configuration)
+            browser_worker_registry = WorkerRegistry[BrowserRuntime](
+                ((descriptor_for_browser_worker(), browser_runtime),) if browser_runtime else ()
+            )
+            browser_supervisor = Supervisor[BrowserRuntime](browser_worker_registry)
             capability_registry = default_capability_registry()
+            capability_registry.validate_workers(browser_worker_registry.list())
             capability_registry.validate_workers(developer_runtime.registry.list())
             capability_registry.validate_workers(research_registry.list())
             capability_registry.validate_workers(python_registry.list())
@@ -153,6 +162,7 @@ def create_app(
                     *research_registry.list(),
                     *python_registry.list(),
                     *api_worker_registry.list(),
+                    *browser_worker_registry.list(),
                 ),
                 capability_registry=capability_registry,
             ).require()
@@ -209,6 +219,7 @@ def create_app(
                 research_supervisor=research_supervisor,
                 python_supervisor=python_supervisor,
                 api_supervisor=api_supervisor,
+                browser_supervisor=browser_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -242,6 +253,7 @@ def create_app(
                 research_supervisor=research_supervisor,
                 python_supervisor=python_supervisor,
                 api_supervisor=api_supervisor,
+                browser_supervisor=browser_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -273,17 +285,26 @@ def create_app(
             application.state.api_runtime = api_runtime
             application.state.api_worker_registry = api_worker_registry
             application.state.api_supervisor = api_supervisor
+            application.state.browser_runtime = browser_runtime
+            application.state.browser_supervisor = browser_supervisor
+            application.state.browser_worker_registry = browser_worker_registry
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()
             scheduler.start()
             yield
         finally:
-            if scheduler:
-                await scheduler.stop()
-            if runner:
-                await runner.stop()
-            database.close()
+            try:
+                if scheduler:
+                    await scheduler.stop()
+                if runner:
+                    await runner.stop()
+            finally:
+                try:
+                    if browser_runtime:
+                        await browser_runtime.aclose()
+                finally:
+                    database.close()
 
     application = FastAPI(title=configuration.app_name, version=__version__, lifespan=lifespan)
     application.state.settings = configuration

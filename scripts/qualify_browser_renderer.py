@@ -242,7 +242,9 @@ def export_bounded(docker: str, container: str, destination: Path) -> None:
         process.stderr.close()
 
 
-def cleanup_owned_setup(docker: str, run_id: str) -> list[str]:
+def cleanup_owned_setup(
+    docker: str, run_id: str, *, preserve_verified_image: str | None = None
+) -> list[str]:
     """Remove only setup resources labelled by this unpredictable probe run."""
     import re
 
@@ -276,6 +278,8 @@ def cleanup_owned_setup(docker: str, run_id: str) -> list[str]:
                 data = json.loads(command([*prefix, "inspect", identity]))[0]
                 if data.get("Config", {}).get("Labels", {}).get(LABEL) != run_id:
                     raise ValueError("setup_owner_mismatch")
+                if kind == "image" and identity == preserve_verified_image:
+                    continue
                 command([*prefix, "rm", *(["-f"] if kind == "container" else []), identity])
             except Exception as exc:
                 errors.append(f"{kind}_cleanup_unproven:{type(exc).__name__}")

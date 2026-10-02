@@ -52,7 +52,7 @@ class AgentExecutionBinding(AgentExecutionContract):
     project_id: Uuid
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     spec: AgentSpec
-    task_kind: Literal["api_run", "developer_run", "python_run", "research_run"]
+    task_kind: Literal["browser_run", "api_run", "developer_run", "python_run", "research_run"]
     delegation: DelegationExecutionBinding | None = None
 
     @model_validator(mode="after")
