@@ -291,6 +291,7 @@ def test_python_api_executes_and_audits_selection(client):
     assert "supervisor_worker_revalidated" in names
     assert "python_execution_started" in names
     assert "python_execution_completed" in names
+    assert "python_completed" in names
 
 
 def test_python_nonzero_exit_is_failed_with_bounded_result(client):
@@ -303,6 +304,29 @@ def test_python_nonzero_exit_is_failed_with_bounded_result(client):
     assert failed["error"] == "python_exit_nonzero"
     assert failed["result"]["exit_code"] != 0
     assert "ValueError: boom" in failed["result"]["stderr"]
+    events = client.get(f"/tasks/{response.json()['id']}/events").json()
+    assert "python_failed" in [item["event"] for item in events]
+
+
+def test_python_startup_recovery_audits_failure(settings, database):
+    service = TaskService(database, settings, python_supervisor=python_supervisor())
+    created, _ = service.submit(
+        PythonRunInput(kind="python_run", payload={"code": "print('safe')"}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None
+
+    service.recover()
+
+    recovered = service.get(created.id)
+    assert recovered.status == "interrupted"
+    assert recovered.error == "process_interrupted"
+    failures = [
+        item for item in service.events(created.id, 100, 0) if item.event == "python_failed"
+    ]
+    assert len(failures) == 1
+    assert failures[0].details["reason"] == "process_interrupted"
 
 
 @pytest.mark.parametrize("field,value", [("worker_id", "attacker"), ("authority", ["network"])])

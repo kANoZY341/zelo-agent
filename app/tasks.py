@@ -3119,6 +3119,20 @@ class TaskService:
                     attempt_id=attempt.id,
                     **details,
                 )
+            if task.kind == "python_run":
+                details = {"reason": error}
+                if result is not None:
+                    details.update(
+                        exit_code=result["exit_code"],
+                        duration_seconds=result["duration_seconds"],
+                    )
+                audit(
+                    session,
+                    task,
+                    "python_completed" if outcome == State.SUCCEEDED else "python_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
             if task.kind == "self_improvement_run":
                 details = (
                     {
@@ -3301,6 +3315,14 @@ class TaskService:
                         session,
                         task,
                         "research_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "python_run":
+                    audit(
+                        session,
+                        task,
+                        "python_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )
