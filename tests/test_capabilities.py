@@ -115,6 +115,7 @@ def test_default_registry_extends_research_for_v015_worker_routing():
 
     assert [item.capability_id for item in registry.list()] == [
         "api_read",
+        "browser_document",
         "code_change",
         "code_planning",
         "code_review",
@@ -126,6 +127,8 @@ def test_default_registry_extends_research_for_v015_worker_routing():
     assert registry.get("code_review").subjects == ("agent", "worker")
     assert registry.get("research").subjects == ("agent", "worker")
     assert registry.get("research").version == 2
+    assert registry.get("browser_document").subjects == ("agent", "worker")
+    assert registry.get("browser_document").lifecycle == "active"
     assert registry.get("zelo_core_development").subjects == ("worker",)
 
 
@@ -212,6 +215,7 @@ def test_application_exposes_operator_only_capability_snapshot(client):
     assert payload["registry_version"] == client.app.state.capability_registry.version
     assert [item["capability_id"] for item in payload["capabilities"]] == [
         "api_read",
+        "browser_document",
         "code_change",
         "code_planning",
         "code_review",
