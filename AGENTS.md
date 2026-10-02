@@ -57,37 +57,40 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 Python Worker
+## Current scope: v0.15 API Worker
 
 Zelo Core v0.14.0 — Agent Factory is published from
 `3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
 
-Merged v0.15 foundations are Capability Registry PR #55, Skill Registry PR #56,
-Generic Worker Registry PR #57, and Research Worker PR #58. Research Worker is
-merged to main at `c16f21381a2316435091f35faa82b609534cefa3`.
+Merged v0.15 slices are Capability Registry PR #55, Skill Registry PR #56,
+Generic Worker Registry PR #57, Research Worker PR #58, and Python Worker PR #59.
+Python Worker is merged to main at
+`c8aab211b52cbc576d8457b61d01134fcab645e5`.
 
 The active branch is:
 
-`feat/v0.15-python-worker`
+`feat/v0.15-api-worker`
 
-This fifth v0.15 slice adds bounded isolated Python computation behind the shared
-Supervisor without granting workspace, network, shell, credential, or arbitrary
-executable authority.
+This sixth v0.15 slice adds bounded read-only HTTPS API access behind the shared
+Supervisor without granting arbitrary URL, credential, browser, shell, or workspace
+authority.
 
 Rules for this slice:
 
-- add explicit `python_execution` capability and skill without adding a new default AgentSpec;
-- register one trusted `python_core` backend with `isolated-compute` authority;
-- persist and action-bind the exact Python `WorkerSelectionSnapshot`;
+- add explicit `api_read` capability and skill without adding a default AgentSpec;
+- register one trusted `api_core` backend with `public-api-read` authority;
+- allow only operator-configured named canonical HTTPS origins;
+- task input may choose only an endpoint ID, relative path, and bounded query values;
+- allow GET only; deny redirects, environment proxies, credentials and custom headers;
+- resolve immediately before execution, require only public IP results, and pin the
+  connection to a validated address while preserving the trusted TLS/Host identity;
+- accept bounded JSON responses only;
+- persist and action-bind endpoint registry, API policy and exact Worker selection;
 - reselect on retry and revalidate at claim time and Runner execution time;
-- run fixed system Python only through the trusted Bubblewrap compute sandbox;
-- expose no Zelo workspace, credentials, network, shell, package installation or
-  writable filesystem surface;
-- bind sandbox/bootstrap/resource-limit semantics into WorkerAuthority policy identity;
+- keep `api_run` out of Mind routing until trusted endpoint names are surfaced safely;
 - preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist
   -> Worker -> Tool;
-- run migration/security/regression tests, diff check, Ruff lint/format and full pytest;
-- require adversarial review and exact-head GitHub CI before merge.
+- require focused tests, full pytest, adversarial review and exact-head GitHub CI.
 
 After this slice, introduce the next v0.15 execution surface separately with its own
 capability, skill, authority, network, filesystem and credential boundaries.

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     scheduler_control_headroom_seconds: int = Field(default=30, ge=1, le=300)
     scheduler_max_active_per_campaign: int = Field(default=32, ge=1, le=1000)
     ollama_url: str = "http://127.0.0.1:11434"
+    api_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
     ollama_general_model: str = "qwen3:4b-instruct"
     ollama_mind_model: str | None = None
     ollama_reasoning_model: str = "deepseek-r1:7b"
@@ -113,6 +114,14 @@ class Settings(BaseSettings):
                 "Scheduler wake TTL must cover the bounded Mind window plus control headroom"
             )
         return self
+
+    @field_validator("api_worker_endpoints")
+    @classmethod
+    def validate_api_worker_endpoints(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        from app.api_contracts import ApiEndpointRegistry
+
+        ApiEndpointRegistry.from_entries(value)
+        return value
 
     @field_validator("ollama_url")
     @classmethod

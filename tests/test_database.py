@@ -192,7 +192,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0027_python_worker_selection"
+                == "0028_api_worker_selection"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -239,10 +239,16 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
                 for constraint in inspect(database.engine).get_check_constraints("tasks")
                 if constraint["name"] == "ck_task_kind"
             )
+            assert "api_run" in next(
+                constraint["sqltext"]
+                for constraint in inspect(database.engine).get_check_constraints("tasks")
+                if constraint["name"] == "ck_task_kind"
+            )
             columns = {column["name"] for column in inspect(database.engine).get_columns("tasks")}
             assert "developer_spec" in columns
             assert "research_spec" in columns
             assert "python_spec" in columns
+            assert "api_spec" in columns
             assert "agent_execution_spec" in columns
             assert "promotion_spec" in columns
             assert "merge_spec" in columns
@@ -413,7 +419,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0027_python_worker_selection"
+                "0028_api_worker_selection"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
@@ -623,3 +629,28 @@ def test_sqlite_backup_is_consistent(settings, database, client) -> None:
     finally:
         destination.close()
         source.close()
+
+
+def test_api_migration_preserves_existing_trigger_definitions(settings):
+    database = Database(settings.database_path)
+    try:
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0027_python_worker_selection")
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "CREATE TRIGGER custom_task_guard BEFORE DELETE ON tasks "
+                    "BEGIN SELECT RAISE(ABORT, 'custom guard'); END"
+                )
+            )
+        query = text("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
+        with database.read() as session:
+            before = session.execute(query).all()
+        database.migrate()
+        with database.read() as session:
+            assert session.execute(query).all() == before
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    finally:
+        database.close()

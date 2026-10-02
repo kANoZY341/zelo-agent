@@ -3,10 +3,12 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentSpec
+from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
 from app.developer_contracts import (
     DeveloperRequest,
     ReviewerReport,
@@ -92,6 +94,40 @@ class PythonRunInput(TaskInput):
     timeout_seconds: float = Field(default=10.0, ge=0.01, le=60.0, allow_inf_nan=False)
 
 
+class ApiPayload(StrictModel):
+    endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    path: str = Field(
+        min_length=1, max_length=API_PATH_LIMIT, pattern=r"^/[A-Za-z0-9/._~!$&'()*+,;=:@-]*$"
+    )
+    query: dict[str, str] = Field(default_factory=dict, max_length=32)
+
+    @model_validator(mode="after")
+    def _validate_request(self):
+        if (
+            not self.path.startswith("/")
+            or "//" in self.path
+            or any(character in self.path for character in "\\?#\r\n\x00")
+            or any(part in {".", ".."} for part in self.path.split("/"))
+        ):
+            raise ValueError("api_path_invalid")
+        for key, value in self.query.items():
+            if (
+                not 1 <= len(key) <= 128
+                or len(value) > 2048
+                or any(character in key + value for character in "\r\n\x00")
+            ):
+                raise ValueError("api_query_invalid")
+        if len(str(httpx.QueryParams(self.query)).encode("ascii")) > API_QUERY_LIMIT:
+            raise ValueError("api_query_too_large")
+        return self
+
+
+class ApiRunInput(TaskInput):
+    kind: Literal["api_run"]
+    payload: ApiPayload
+    timeout_seconds: float = Field(default=10.0, ge=0.1, le=30.0, allow_inf_nan=False)
+
+
 class SelfImprovementPayload(StrictModel):
     goal: str = Field(min_length=1, max_length=1024)
 
@@ -114,7 +150,7 @@ class DeveloperRunInput(TaskInput):
 
 
 AgentExecutableTask = Annotated[
-    ResearchRunInput | PythonRunInput | DeveloperRunInput,
+    ResearchRunInput | PythonRunInput | ApiRunInput | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -197,6 +233,7 @@ TaskCreate = Annotated[
     | AgentRunInput
     | ResearchRunInput
     | PythonRunInput
+    | ApiRunInput
     | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
@@ -266,6 +303,14 @@ class PythonRunResult(StrictModel):
     stderr: str = Field(max_length=16384)
     exit_code: int
     duration_seconds: float = Field(ge=0, allow_inf_nan=False)
+    completed_at: datetime
+
+
+class ApiRunResult(StrictModel):
+    endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    status_code: int = Field(ge=100, le=599)
+    body: Any
+    response_bytes: int = Field(ge=0, le=262144)
     completed_at: datetime
 
 
@@ -351,6 +396,7 @@ class TaskResponse(StrictModel):
         "agent_run",
         "research_run",
         "python_run",
+        "api_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -364,6 +410,7 @@ class TaskResponse(StrictModel):
         | AgentRunPayload
         | ResearchPayload
         | PythonPayload
+        | ApiPayload
         | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
@@ -386,6 +433,7 @@ class TaskResponse(StrictModel):
     developer_spec: DeveloperRequest | None = None
     research_spec: WorkerSelectionSnapshot | None = None
     python_spec: WorkerSelectionSnapshot | None = None
+    api_spec: ApiExecutionSpec | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None
@@ -412,6 +460,7 @@ class TaskProjection(StrictModel):
         "agent_run",
         "research_run",
         "python_run",
+        "api_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",

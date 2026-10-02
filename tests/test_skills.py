@@ -32,7 +32,7 @@ def skill(
 def validate(registry: SkillRegistry, capabilities: CapabilityRegistry | None = None) -> None:
     registry.validate(
         capabilities or default_capability_registry(),
-        available_task_kinds=("developer_run", "python_run", "research_run"),
+        available_task_kinds=("api_run", "developer_run", "python_run", "research_run"),
         available_tools=(
             "list_workspace_files",
             "read_workspace_file",
@@ -131,6 +131,7 @@ def test_default_registry_validates_current_surfaces_and_agents():
     registry.validate_agents(default_agent_registry().list_agents())
 
     assert [item.skill_id for item in registry.list()] == [
+        "api_read",
         "core_implementation",
         "core_review",
         "evidence_retrieval",
@@ -199,6 +200,7 @@ def test_application_exposes_operator_only_read_only_skill_snapshot(client):
     assert payload["registry_schema"] == "zelo-skill-registry-v1"
     assert payload["registry_version"] == client.app.state.skill_registry.version
     assert [item["skill_id"] for item in payload["skills"]] == [
+        "api_read",
         "core_implementation",
         "core_review",
         "evidence_retrieval",

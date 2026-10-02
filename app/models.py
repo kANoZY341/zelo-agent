@@ -75,6 +75,7 @@ class Task(Base):
     developer_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     research_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     python_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    api_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     promotion_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     merge_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     release_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)

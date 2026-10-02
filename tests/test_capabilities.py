@@ -54,7 +54,7 @@ def evaluator(
 ) -> AgentActivationEvaluator:
     return AgentActivationEvaluator(
         registry,
-        available_task_kinds=("developer_run", "python_run", "research_run"),
+        available_task_kinds=("api_run", "developer_run", "python_run", "research_run"),
         available_tools=(
             "list_workspace_files",
             "read_workspace_file",
@@ -114,6 +114,7 @@ def test_default_registry_extends_research_for_v015_worker_routing():
     registry = default_capability_registry()
 
     assert [item.capability_id for item in registry.list()] == [
+        "api_read",
         "code_change",
         "code_planning",
         "code_review",
@@ -210,6 +211,7 @@ def test_application_exposes_operator_only_capability_snapshot(client):
     assert payload["registry_schema"] == "zelo-capability-registry-v1"
     assert payload["registry_version"] == client.app.state.capability_registry.version
     assert [item["capability_id"] for item in payload["capabilities"]] == [
+        "api_read",
         "code_change",
         "code_planning",
         "code_review",

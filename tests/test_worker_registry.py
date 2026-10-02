@@ -974,3 +974,23 @@ async def _review(repo, request):
         "diff_stat": "",
         "diff": "",
     }
+
+
+def test_public_api_read_authority_is_core_only_network_surface():
+    profile = authority_profile(("public-api-read",))
+    assert profile.name == "public-api-read-no-credentials-v1"
+    assert profile.workspace_read is False
+    assert profile.workspace_write is False
+    assert profile.network is True
+    assert profile.surface == "api"
+
+    policy = realized_authority_policy(profile)
+    assert policy["api_http"]["methods"] == ("GET",)
+    assert policy["api_http"]["credentials"] is False
+    assert policy["api_http"]["follow_redirects"] is False
+    assert policy["codex"]["network_enabled"] is False
+    assert policy["claude_code"]["tools"] == ()
+    assert policy["opencode"]["permissions"] == (
+        {"action": "*", "resource": "*", "effect": "deny"},
+    )
+    assert policy["external_worker_sandbox"]["namespaces"]["network"] is True

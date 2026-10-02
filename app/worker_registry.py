@@ -245,3 +245,19 @@ def descriptor_for_python_worker(
         priority=100,
         max_concurrency=1,
     )
+
+
+def descriptor_for_api_worker(
+    *,
+    implementation: str = "core_api",
+    worker_id: str = "api_core",
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="api",
+        capabilities=("api_read",),
+        authority=("public-api-read",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )

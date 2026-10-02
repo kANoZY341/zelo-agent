@@ -15,6 +15,8 @@ from app.agent_execution_contracts import (
     DelegationExecutionBinding,
 )
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
+from app.api_contracts import ApiExecutionSpec
+from app.api_worker import ApiRuntimeError
 from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
@@ -105,6 +107,7 @@ class Execution:
     developer_request: DeveloperRequest | None = None
     research_selection: WorkerSelectionSnapshot | None = None
     python_selection: WorkerSelectionSnapshot | None = None
+    api_request: ApiExecutionSpec | None = None
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
@@ -596,6 +599,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "developer_spec": task.developer_spec,
         "research_spec": task.research_spec,
         "python_spec": task.python_spec,
+        "api_spec": task.api_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
@@ -631,6 +635,7 @@ class TaskService:
         agent_factory: AgentFactory | None = None,
         research_supervisor: Supervisor[Any] | None = None,
         python_supervisor: Supervisor[Any] | None = None,
+        api_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -643,6 +648,7 @@ class TaskService:
         self.agent_factory = agent_factory
         self.research_supervisor = research_supervisor
         self.python_supervisor = python_supervisor
+        self.api_supervisor = api_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -777,6 +783,8 @@ class TaskService:
             }
         if task.kind == "python_run":
             return {"worker_selection": task.python_spec}
+        if task.kind == "api_run":
+            return task.api_spec
         if task.kind == "developer_run":
             return task.developer_spec
         if task.kind == "promotion_run":
@@ -1564,6 +1572,7 @@ class TaskService:
         agent_execution: AgentExecutionBinding | None = None,
     ) -> tuple[TaskResponse, bool]:
         if agent_execution is not None and request.kind not in {
+            "api_run",
             "developer_run",
             "python_run",
             "research_run",
@@ -1727,6 +1736,37 @@ class TaskService:
                     ),
                 )
 
+            api_request = None
+            if request.kind == "api_run":
+                if self.api_supervisor is None:
+                    raise DomainError("API worker unavailable", 503)
+                role = "api"
+                capabilities = ("api_read",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "api":
+                        raise DomainError("Agent API worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, api_selection = self.api_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    api_request = selected.worker.bind(api_selection, payload["endpoint_id"])
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ApiRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.api_spec = api_request.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(task.api_spec, agent_execution_spec),
+                )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -1840,6 +1880,36 @@ class TaskService:
                     implementation=python_selection.descriptor.implementation,
                     registry_version=python_selection.registry_version,
                     authority_profile=python_selection.authority_profile,
+                )
+
+            if task.kind == "api_run":
+                if api_request is None:
+                    raise DomainError("API routing state unavailable", 503)
+                selection = api_request.worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "api_endpoint_bound",
+                    endpoint_id=api_request.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=api_request.endpoint.registry_version,
+                    api_policy_version=api_request.policy_version,
                 )
 
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
@@ -2574,6 +2644,53 @@ class TaskService:
                     registry_version=selection.registry_version,
                     authority_profile=selection.authority_profile,
                 )
+            if task.kind == "api_run":
+                if self.api_supervisor is None:
+                    raise DomainError("API worker unavailable", 503)
+                role = "api"
+                capabilities = ("api_read",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "api":
+                        raise DomainError("Agent API worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, selection = self.api_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    refreshed_api = selected.worker.bind(selection, task.payload["endpoint_id"])
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ApiRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.api_spec = refreshed_api.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "api_endpoint_bound",
+                    endpoint_id=refreshed_api.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=refreshed_api.endpoint.registry_version,
+                    api_policy_version=refreshed_api.policy_version,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -2827,6 +2944,51 @@ class TaskService:
                     authority_profile=python_selection.authority_profile,
                 )
 
+            api_request = None
+            if task.kind == "api_run":
+                try:
+                    if self.api_supervisor is None or task.api_spec is None:
+                        raise ValueError("api_execution_spec_unavailable")
+                    api_request = ApiExecutionSpec.model_validate(task.api_spec)
+                    selection = api_request.worker_selection
+                    selected = self.api_supervisor.registry.get(selection.descriptor.worker_id)
+                    if (
+                        selected is None
+                        or not self.api_supervisor.matches(selection)
+                        or not selected.worker.matches(api_request)
+                    ):
+                        raise ValueError("api_execution_spec_stale")
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if (
+                            requirement is None
+                            or selection.requested_role != requirement.role
+                            or tuple(selection.requested_capabilities)
+                            != tuple(requirement.capabilities)
+                        ):
+                            raise ValueError("api_worker_requirement_mismatch")
+                except ValueError:
+                    task.error = "api_execution_spec_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=selection.descriptor.worker_id,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "api_endpoint_revalidated",
+                    endpoint_id=api_request.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=api_request.endpoint.registry_version,
+                    api_policy_version=api_request.policy_version,
+                )
+
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -2985,6 +3147,7 @@ class TaskService:
                 developer_request,
                 research_selection,
                 python_selection,
+                api_request,
                 promotion_request,
                 merge_request,
                 release_request,
@@ -3130,6 +3293,21 @@ class TaskService:
                     session,
                     task,
                     "python_completed" if outcome == State.SUCCEEDED else "python_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+            if task.kind == "api_run":
+                details = {"reason": error}
+                if result is not None:
+                    details.update(
+                        endpoint_id=result["endpoint_id"],
+                        status_code=result["status_code"],
+                        response_bytes=result["response_bytes"],
+                    )
+                audit(
+                    session,
+                    task,
+                    "api_completed" if outcome == State.SUCCEEDED else "api_failed",
                     attempt_id=attempt.id,
                     **details,
                 )
@@ -3323,6 +3501,14 @@ class TaskService:
                         session,
                         task,
                         "python_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "api_run":
+                    audit(
+                        session,
+                        task,
+                        "api_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

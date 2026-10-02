@@ -3,7 +3,7 @@
 import asyncio
 import multiprocessing
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from multiprocessing import get_context
 from pathlib import Path
 from uuid import uuid4
@@ -588,7 +588,10 @@ def test_runner_capacity_deferral_clamps_large_backoff_counter(settings, databas
     assert current.attempts[0].outcome == State.INTERRUPTED
 
 
-def test_later_runnable_work_can_overtake_deferred_developer_task(settings, database):
+def test_later_runnable_work_can_overtake_deferred_developer_task(settings, database, monkeypatch):
+    # Exercise eligibility boundaries without depending on host speed or sleep timing.
+    now = utcnow()
+    monkeypatch.setattr("app.tasks.utcnow", lambda: now)
     runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
     service = TaskService(database, settings, developer_runtime=runtime)
     developer = _approved(service, "alpha-one")
@@ -600,7 +603,14 @@ def test_later_runnable_work_can_overtake_deferred_developer_task(settings, data
     claim = service.claim()
     assert claim is not None and claim.task_id == echo.id and claim.kind == "echo"
     service.finish(claim, State.SUCCEEDED, result={"text": "later"})
-    asyncio.run(asyncio.sleep(0.3))
+    # The deferred developer remains ineligible until its exact stored deadline.
+    assert service.claim() is None
+    with database.read() as session:
+        eligible_at = session.get(Task, developer.id).capacity_backoff_until
+    assert eligible_at == now + timedelta(seconds=CAPACITY_BACKOFF_INITIAL_SECONDS)
+    now = eligible_at - timedelta(microseconds=1)
+    assert service.claim() is None
+    now = eligible_at
     next_claim = service.claim()
     assert next_claim is not None and next_claim.task_id == developer.id
 

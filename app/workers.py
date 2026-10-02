@@ -9,6 +9,7 @@ from app.promotion_contracts import MergeRunResult, PromotionRunResult, ReleaseR
 from app.schemas import (
     AgentRunResult,
     AIPromptResult,
+    ApiRunResult,
     ApprovalDemoResult,
     DeveloperRunResult,
     EchoResult,
@@ -29,6 +30,7 @@ RESULT_MODELS = {
     "agent_run": AgentRunResult,
     "research_run": ResearchRunResult,
     "python_run": PythonRunResult,
+    "api_run": ApiRunResult,
     "self_improvement_run": SelfImprovementPreparation,
     "developer_run": DeveloperRunResult,
     "promotion_run": PromotionRunResult,
