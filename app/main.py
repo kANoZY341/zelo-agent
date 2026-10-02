@@ -20,6 +20,8 @@ from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_ag
 from app.agent_instance_api import router as agent_instance_router
 from app.agent_instances import AgentInstanceService
 from app.api import router
+from app.api_contracts import ApiEndpointRegistry
+from app.api_worker import ApiRuntime
 from app.campaign_api import router as campaign_router
 from app.campaign_control import CampaignControlService
 from app.campaign_control_api import router as campaign_control_router
@@ -67,6 +69,7 @@ from app.tools import ToolGateway
 from app.worker_registry import (
     Supervisor,
     WorkerRegistry,
+    descriptor_for_api_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
 )
@@ -115,10 +118,19 @@ def create_app(
                 ((descriptor_for_python_worker(), python_runtime),)
             )
             python_supervisor = Supervisor[PythonRuntime](python_registry)
+            api_endpoint_registry = ApiEndpointRegistry.from_entries(
+                configuration.api_worker_endpoints
+            )
+            api_runtime = ApiRuntime(api_endpoint_registry)
+            api_worker_registry = WorkerRegistry[ApiRuntime](
+                ((descriptor_for_api_worker(), api_runtime),)
+            )
+            api_supervisor = Supervisor[ApiRuntime](api_worker_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(developer_runtime.registry.list())
             capability_registry.validate_workers(research_registry.list())
             capability_registry.validate_workers(python_registry.list())
+            capability_registry.validate_workers(api_worker_registry.list())
             agent_registry = default_agent_registry()
             skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
@@ -140,6 +152,7 @@ def create_app(
                     *developer_runtime.registry.list(),
                     *research_registry.list(),
                     *python_registry.list(),
+                    *api_worker_registry.list(),
                 ),
                 capability_registry=capability_registry,
             ).require()
@@ -195,6 +208,7 @@ def create_app(
                 agent_factory=agent_factory,
                 research_supervisor=research_supervisor,
                 python_supervisor=python_supervisor,
+                api_supervisor=api_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -227,6 +241,7 @@ def create_app(
                 self_improvement_runtime,
                 research_supervisor=research_supervisor,
                 python_supervisor=python_supervisor,
+                api_supervisor=api_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -254,6 +269,10 @@ def create_app(
             application.state.python_runtime = python_runtime
             application.state.python_registry = python_registry
             application.state.python_supervisor = python_supervisor
+            application.state.api_endpoint_registry = api_endpoint_registry
+            application.state.api_runtime = api_runtime
+            application.state.api_worker_registry = api_worker_registry
+            application.state.api_supervisor = api_supervisor
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()

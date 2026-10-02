@@ -174,6 +174,14 @@ def default_skill_registry() -> SkillRegistry:
                 lifecycle="active",
             ),
             SkillSpec(
+                skill_id="api_read",
+                description="Read bounded JSON from trusted configured HTTPS APIs.",
+                required_capabilities=("api_read",),
+                procedures=("api_read",),
+                task_kinds=("api_run",),
+                lifecycle="active",
+            ),
+            SkillSpec(
                 skill_id="python_execution",
                 description="Run bounded Python computations in isolated no-network compute.",
                 required_capabilities=("python_execution",),

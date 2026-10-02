@@ -154,6 +154,14 @@ def default_capability_registry() -> CapabilityRegistry:
                 lifecycle="active",
             ),
             CapabilitySpec(
+                capability_id="api_read",
+                description=(
+                    "Perform bounded GET requests against trusted configured HTTPS endpoints."
+                ),
+                subjects=("agent", "worker"),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
                 capability_id="python_execution",
                 description=(
                     "Execute bounded Python compute inside Zelo's isolated no-network sandbox."

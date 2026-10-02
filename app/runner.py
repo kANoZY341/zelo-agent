@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from app.agent import AgentRuntime, AgentRuntimeError
+from app.api_worker import ApiRuntime, ApiRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import DomainError, State
@@ -41,6 +42,7 @@ class Runner:
         self_improvement_runtime: SelfImprovementRuntime | None = None,
         research_supervisor: Supervisor[ResearchRuntime] | None = None,
         python_supervisor: Supervisor[PythonRuntime] | None = None,
+        api_supervisor: Supervisor[ApiRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -48,6 +50,7 @@ class Runner:
         self.agent_runtime = agent_runtime
         self.research_supervisor = research_supervisor
         self.python_supervisor = python_supervisor
+        self.api_supervisor = api_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -188,6 +191,8 @@ class Runner:
             operation = asyncio.create_task(self._research_worker(execution))
         elif execution.kind == "python_run":
             operation = asyncio.create_task(self._python_worker(execution))
+        elif execution.kind == "api_run":
+            operation = asyncio.create_task(self._api_worker(execution))
         elif execution.kind == "self_improvement_run":
             operation = asyncio.create_task(self._self_improvement_worker(execution))
         elif execution.kind == "developer_run":
@@ -234,6 +239,9 @@ class Runner:
             if execution.kind == "python_run" and result["exit_code"] != 0:
                 outcome = State.FAILED
                 error = "python_exit_nonzero"
+            if execution.kind == "api_run" and not 200 <= result["status_code"] < 300:
+                outcome = State.FAILED
+                error = "api_http_status"
             self.service.finish(
                 execution,
                 outcome,
@@ -274,6 +282,8 @@ class Runner:
         except ResearchRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except PythonRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except ApiRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DomainError as error:
             if execution.kind != "self_improvement_run":
@@ -447,6 +457,31 @@ class Runner:
         return await runtime.run(
             code=execution.payload["code"],
             stdin=execution.payload.get("stdin", ""),
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
+        )
+
+    async def _api_worker(self, execution: Execution) -> dict[str, Any]:
+        if execution.api_request is None:
+            raise ApiRuntimeError("api_execution_spec_unavailable")
+        if self.api_supervisor is None:
+            raise ApiRuntimeError("api_worker_registry_unavailable")
+        selection = execution.api_request.worker_selection
+        selected = self.api_supervisor.registry.get(selection.descriptor.worker_id)
+        if (
+            selected is None
+            or not self.api_supervisor.matches(selection)
+            or not selected.worker.matches(execution.api_request)
+        ):
+            raise ApiRuntimeError("api_execution_spec_stale")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await selected.worker.run(
+            spec=execution.api_request,
+            path=execution.payload["path"],
+            query=execution.payload.get("query", {}),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
         )

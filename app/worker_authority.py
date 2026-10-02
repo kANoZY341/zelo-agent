@@ -4,11 +4,12 @@ import hashlib
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal
 
 from app import developer_sandbox
 from app.developer_process import environment
 
-AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v3"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +21,7 @@ class WorkerAuthorityProfile:
     workspace_write: bool
     network: bool
     workspace_read: bool = True
+    surface: Literal["workspace", "python", "api"] = "workspace"
 
 
 _WORKSPACE_WRITE = WorkerAuthorityProfile(
@@ -42,10 +44,21 @@ _ISOLATED_COMPUTE = WorkerAuthorityProfile(
     workspace_write=False,
     network=False,
     workspace_read=False,
+    surface="python",
+)
+
+_PUBLIC_API_READ = WorkerAuthorityProfile(
+    name="public-api-read-no-credentials-v1",
+    authority=("public-api-read",),
+    workspace_write=False,
+    network=True,
+    workspace_read=False,
+    surface="api",
 )
 
 _PROFILES = {
     _ISOLATED_COMPUTE.authority: _ISOLATED_COMPUTE,
+    _PUBLIC_API_READ.authority: _PUBLIC_API_READ,
     _WORKSPACE_READ.authority: _WORKSPACE_READ,
     _WORKSPACE_WRITE.authority: _WORKSPACE_WRITE,
 }
@@ -103,7 +116,7 @@ def codex_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, obj
     return {
         "default_permissions": "zelo",
         "filesystem": filesystem,
-        "network_enabled": profile.network,
+        "network_enabled": profile.network if profile.surface == "workspace" else False,
         "approval_policy": "never",
         "web_search": "disabled",
         "model_reasoning_summary": "none",
@@ -217,10 +230,9 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
             for resource in OPENCODE_SAFE_BASH_RESOURCES
         )
 
-    policies = [
-        {"action": "provider.use", "resource": "*", "effect": "deny"},
-        {"action": "provider.use", "resource": "ollama", "effect": "allow"},
-    ]
+    policies = [{"action": "provider.use", "resource": "*", "effect": "deny"}]
+    if profile.surface == "workspace":
+        policies.append({"action": "provider.use", "resource": "ollama", "effect": "allow"})
     return {
         "provider": "ollama",
         "transport": "authenticated-local-http",
@@ -232,31 +244,39 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
-    if not profile.workspace_read:
+    if profile.surface == "python":
         return {"python_compute": developer_sandbox.python_compute_sandbox_plan()}
+    if profile.surface == "api":
+        return {}
     return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
 
 def external_worker_sandbox_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
-    if not profile.workspace_read:
+    if profile.surface != "workspace":
         return developer_sandbox.external_worker_sandbox_plan(
             repo_present=False,
             workspace_write=False,
-            service_network=profile.network,
+            service_network=False,
         )
     return developer_sandbox.external_worker_sandbox_plans(profile.workspace_write)
 
 
 def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, object]:
     python_compute = None
-    if not profile.workspace_read:
+    api_http = None
+    if profile.surface == "python":
         from app.python_worker import python_policy_semantics
 
         python_compute = python_policy_semantics()
+    if profile.surface == "api":
+        from app.api_worker import api_policy_semantics
+
+        api_http = api_policy_semantics()
     return {
         "name": profile.name,
         "authority": profile.authority,
         "workspace_read": profile.workspace_read,
+        "surface": profile.surface,
         "codex": codex_permission_semantics(profile),
         "codex_cli_overrides": codex_cli_overrides(profile),
         "claude_code": claude_code_permission_semantics(profile),
@@ -264,6 +284,7 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "sandbox": sandbox_permission_semantics(profile),
         "external_worker_sandbox": external_worker_sandbox_semantics(profile),
         "python_compute": python_compute,
+        "api_http": api_http,
     }
 
 

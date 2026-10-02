@@ -72,38 +72,48 @@ It provides the trusted `research_core` backend, Research AgentSpec v2, capabili
 v2 worker subject, exact persisted selection, claim/Runner revalidation and unchanged
 workspace-read/no-network evidence retrieval.
 
-## Active increment: v0.15 Python Worker
+## Python Worker merged
+
+Python Worker is merged through PR #59 at:
+
+`c8aab211b52cbc576d8457b61d01134fcab645e5`
+
+It provides the trusted `python_core` backend, isolated-compute authority, migration
+`0027_python_worker_selection`, exact persisted selection, claim/Runner
+revalidation, and bounded no-workspace/no-network Python computation.
+
+## Active increment: v0.15 API Worker
 
 The active branch is:
 
-`feat/v0.15-python-worker`
+`feat/v0.15-api-worker`
 
-This fifth v0.15 slice adds bounded isolated Python compute behind the shared
+This sixth v0.15 slice adds bounded read-only HTTPS access behind the shared
 Supervisor. Current implementation includes:
 
-- `python_execution` capability for agent and worker subjects;
-- `python_execution` skill with no new default AgentSpec or department;
-- trusted `python_core` WorkerDescriptor;
-- `isolated-compute-no-network-v1` WorkerAuthority;
-- migration `0027_python_worker_selection`;
-- exact persisted Python `WorkerSelectionSnapshot` and action-hash binding;
-- fresh retry selection and claim/Runner fail-closed revalidation;
-- a fixed Bubblewrap Python sandbox with no Zelo workspace, network or credentials;
-- read-only empty workspace/tmp mounts, no shell binary and no package install surface;
-- memory, CPU, process, open-file, file-size and output limits bound into authority policy.
+- `api_read` capability for agent and worker subjects;
+- `api_read` skill with no new default AgentSpec or department;
+- trusted `api_core` WorkerDescriptor;
+- `public-api-read-no-credentials-v1` WorkerAuthority;
+- immutable operator-configured named HTTPS endpoint registry;
+- migration `0028_api_worker_selection`;
+- exact persisted API execution identity, including endpoint registry, API policy and
+  WorkerSelectionSnapshot;
+- fresh retry binding plus claim/Runner fail-closed revalidation;
+- public-IP-only DNS resolution and connection pinning with trusted TLS/Host identity;
+- GET-only requests, no redirects, proxies, credentials or custom headers;
+- bounded JSON-only responses.
 
-Live sandbox probes and automated tests prove workspace/tmp writes, process creation,
-shell execution and outbound network access are denied while standard-library compute
-remains available.
+## v0.15 API Worker boundaries
 
-## v0.15 Python Worker boundaries
-
-This slice does **not** add workspace access, public web/API access, credentials,
-Shell Worker authority, Browser/Computer control, arbitrary executables, package
-installation or Zelo Core internals to submitted Python code.
+This slice does **not** add arbitrary URL access, credentials, authenticated APIs,
+POST/PUT/PATCH/DELETE, Browser or Computer control, Shell Worker authority, workspace
+access, file downloads, or package installation. Mind does not route `api_run` in
+this slice because configured endpoint names are not yet exposed as a trusted Mind
+surface.
 
 ## v0.15 continuation
 
-After Python Worker passes full verification and merges, introduce the next bounded
+After API Worker passes full verification and merges, introduce the next bounded
 worker surface independently with explicit capability, skill, authority, network,
 filesystem, credential and approval boundaries.
