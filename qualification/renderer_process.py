@@ -302,7 +302,7 @@ class DockerHandle:
         if self._close is not None or self._attempted:
             raise QualificationError("renderer_terminal")
         async with asyncio.timeout_at(deadline):
-            self.contract.verify_bundle(self.bundle)
+            await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
             profile = self._profile()
             verify_image(
                 await self._inspect("image", self.contract.execution.image_identity), self.contract
@@ -310,7 +310,7 @@ class DockerHandle:
             self._attempted = True  # before create: acknowledgement may be lost
             await self._command(*create_arguments(self.contract, self.name, self.identity, profile))
             self._acknowledged = True
-            self.contract.verify_bundle(self.bundle)
+            await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
             self._profile()
             verify_image(
                 await self._inspect("image", self.contract.execution.image_identity), self.contract

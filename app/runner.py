@@ -6,6 +6,7 @@ from typing import Any
 
 from app.agent import AgentRuntime, AgentRuntimeError
 from app.api_worker import ApiRuntime, ApiRuntimeError
+from app.browser_worker import BrowserRuntime, BrowserRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import DomainError, State
@@ -43,6 +44,7 @@ class Runner:
         research_supervisor: Supervisor[ResearchRuntime] | None = None,
         python_supervisor: Supervisor[PythonRuntime] | None = None,
         api_supervisor: Supervisor[ApiRuntime] | None = None,
+        browser_supervisor: Supervisor[BrowserRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -51,6 +53,7 @@ class Runner:
         self.research_supervisor = research_supervisor
         self.python_supervisor = python_supervisor
         self.api_supervisor = api_supervisor
+        self.browser_supervisor = browser_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -132,9 +135,38 @@ class Runner:
                 self.wake.clear()
                 self.service.expire_approvals()
                 while not self.stopping:
-                    execution = self.service.claim()
+                    if self.browser_supervisor is None:
+                        execution = self.service.claim()
+                    else:
+                        # Claim hashes the browser bundle; its DB session stays in
+                        # this thread. Stop waits for the claim before finalizing it.
+                        claim = asyncio.create_task(asyncio.to_thread(self.service.claim))
+                        try:
+                            execution = await asyncio.shield(claim)
+                        except asyncio.CancelledError:
+                            # A thread cannot be cancelled. Account for any claim
+                            # it commits before letting this loop terminate.
+                            execution = await claim
+                            if execution is not None:
+                                self.service.finish(
+                                    execution, State.INTERRUPTED, error="service_shutdown"
+                                )
+                            raise
                     if execution is None:
                         break
+                    if self.stopping:
+                        self.service.finish(execution, State.INTERRUPTED, error="service_shutdown")
+                        break
+                    if (
+                        self.browser_supervisor is not None
+                        and self.service.get(execution.task_id).cancel_requested
+                    ):
+                        # Cancellation may arrive while the threaded claim has
+                        # committed but no operation is registered yet.
+                        self.service.finish(
+                            execution, State.CANCELLED, error="cancelled_by_operator"
+                        )
+                        continue
                     if execution.task_id in self.operations:
                         raise RuntimeError("duplicate_running_task")
                     operation = asyncio.create_task(
@@ -191,6 +223,8 @@ class Runner:
             operation = asyncio.create_task(self._research_worker(execution))
         elif execution.kind == "python_run":
             operation = asyncio.create_task(self._python_worker(execution))
+        elif execution.kind == "browser_run":
+            operation = asyncio.create_task(self._browser_worker(execution))
         elif execution.kind == "api_run":
             operation = asyncio.create_task(self._api_worker(execution))
         elif execution.kind == "self_improvement_run":
@@ -209,7 +243,8 @@ class Runner:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
                 await operation
-                if execution.kind in {"agent_run", "research_run", "python_run", "developer_run"}
+                if execution.kind
+                in {"agent_run", "research_run", "python_run", "developer_run", "browser_run"}
                 else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
@@ -282,6 +317,8 @@ class Runner:
         except ResearchRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except PythonRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except BrowserRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except ApiRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
@@ -484,6 +521,40 @@ class Runner:
             query=execution.payload.get("query", {}),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+        )
+
+    async def _browser_worker(self, execution: Execution) -> dict[str, Any]:
+        deadline = asyncio.get_running_loop().time() + execution.timeout_seconds
+        if execution.browser_request is None:
+            raise BrowserRuntimeError("browser_execution_spec_unavailable")
+        if self.browser_supervisor is None:
+            raise BrowserRuntimeError("browser_worker_registry_unavailable")
+        selection = execution.browser_request.worker_selection
+        selected = self.browser_supervisor.registry.get(selection.descriptor.worker_id)
+        if (
+            selected is None
+            or not self.browser_supervisor.matches(selection)
+            or not selected.worker.request_matches(
+                execution.browser_request, execution.payload, execution.timeout_seconds
+            )
+        ):
+            raise BrowserRuntimeError("browser_execution_spec_stale")
+        try:
+            async with asyncio.timeout_at(deadline):
+                if not await asyncio.to_thread(selected.worker.matches, execution.browser_request):
+                    raise BrowserRuntimeError("browser_execution_spec_stale")
+        except TimeoutError:
+            raise BrowserRuntimeError("browser_timeout") from None
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await selected.worker.run(
+            spec=execution.browser_request,
+            path=execution.payload["path"],
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
+            deadline=deadline,
         )
 
     async def _self_improvement_worker(self, execution: Execution) -> dict[str, Any]:

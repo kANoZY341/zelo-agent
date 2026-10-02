@@ -154,6 +154,12 @@ def default_capability_registry() -> CapabilityRegistry:
                 lifecycle="active",
             ),
             CapabilitySpec(
+                capability_id="browser_document",
+                description=("Render bounded untrusted DOM text from approved document origins."),
+                subjects=("agent", "worker"),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
                 capability_id="api_read",
                 description=(
                     "Perform bounded GET requests against trusted configured HTTPS endpoints."

@@ -1,4 +1,4 @@
-"""One-shot fixture owner; no renderer, container launch or broker integration.
+"""One-shot qualified resource owner; factories own renderer and broker resources.
 
 Factories/handles are trusted and must own every resource they create. A factory
 exception is ambiguous and fences admission. Keep the event loop alive for retained
@@ -45,6 +45,15 @@ class ResourceOwner:
         self._closing = False
         self._lifecycle: asyncio.Task | None = None
         self._work: asyncio.Task | None = None
+
+    @property
+    def cleanup_confirmed(self) -> bool:
+        return self._cleanup_confirmed
+
+    @property
+    def cleanup_required(self) -> bool:
+        """Busy admission owns nothing; an unresolved lifecycle still owns its fence."""
+        return self._lifecycle is not None and not self._cleanup_confirmed
 
     async def run(
         self,

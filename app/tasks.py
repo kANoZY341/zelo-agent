@@ -17,6 +17,8 @@ from app.agent_execution_contracts import (
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.api_contracts import ApiExecutionSpec
 from app.api_worker import ApiRuntimeError
+from app.browser_contracts import BrowserExecutionSpec
+from app.browser_worker import BrowserRuntimeError
 from app.campaigns import append_campaign_event
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
@@ -108,6 +110,7 @@ class Execution:
     research_selection: WorkerSelectionSnapshot | None = None
     python_selection: WorkerSelectionSnapshot | None = None
     api_request: ApiExecutionSpec | None = None
+    browser_request: BrowserExecutionSpec | None = None
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
@@ -600,6 +603,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "research_spec": task.research_spec,
         "python_spec": task.python_spec,
         "api_spec": task.api_spec,
+        "browser_spec": task.browser_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
@@ -636,6 +640,7 @@ class TaskService:
         research_supervisor: Supervisor[Any] | None = None,
         python_supervisor: Supervisor[Any] | None = None,
         api_supervisor: Supervisor[Any] | None = None,
+        browser_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -649,6 +654,7 @@ class TaskService:
         self.research_supervisor = research_supervisor
         self.python_supervisor = python_supervisor
         self.api_supervisor = api_supervisor
+        self.browser_supervisor = browser_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -785,6 +791,9 @@ class TaskService:
             return {"worker_selection": task.python_spec}
         if task.kind == "api_run":
             return task.api_spec
+
+        if task.kind == "browser_run":
+            return task.browser_spec
         if task.kind == "developer_run":
             return task.developer_spec
         if task.kind == "promotion_run":
@@ -1565,6 +1574,27 @@ class TaskService:
             )
             return snapshot(session, task), True
 
+    def _browser_preflight(self, worker_id: str | None = None) -> dict[str, Any]:
+        validations: dict[str, Any] = {}
+        if self.browser_supervisor is None:
+            return validations
+        registry = self.browser_supervisor.registry
+        for descriptor in registry.list():
+            if descriptor.role != "browser" or not descriptor.enabled:
+                continue
+            if worker_id is not None and descriptor.worker_id != worker_id:
+                continue
+            selected = registry.get(descriptor.worker_id)
+            try:
+                validations[descriptor.worker_id] = selected.worker.prepare_validation()
+            except BrowserRuntimeError:
+                validations[descriptor.worker_id] = None
+        return validations
+
+    @staticmethod
+    def _browser_action_identity(task: Task) -> tuple[Any, ...]:
+        return task.id, task.action_version, task.action_hash, task.browser_spec
+
     def submit(
         self,
         request: TaskCreate,
@@ -1573,6 +1603,7 @@ class TaskService:
     ) -> tuple[TaskResponse, bool]:
         if agent_execution is not None and request.kind not in {
             "api_run",
+            "browser_run",
             "developer_run",
             "python_run",
             "research_run",
@@ -1598,6 +1629,7 @@ class TaskService:
             }
         )
 
+        browser_validations = self._browser_preflight() if request.kind == "browser_run" else {}
         with self.database.transaction() as session:
             if key is not None:
                 existing = session.scalar(select(Task).where(Task.idempotency_key == key))
@@ -1767,6 +1799,43 @@ class TaskService:
                     self._agent_execution_selection(task.api_spec, agent_execution_spec),
                 )
 
+            browser_request = None
+            if request.kind == "browser_run":
+                if self.browser_supervisor is None:
+                    raise DomainError("Browser worker unavailable", 503)
+                role = "browser"
+                capabilities = ("browser_document",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "browser":
+                        raise DomainError("Agent Browser worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, browser_selection = self.browser_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    browser_request = selected.worker.bind_validated(
+                        browser_validations.get(browser_selection.descriptor.worker_id),
+                        browser_selection,
+                        payload["endpoint_id"],
+                        payload["path"],
+                        request.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except BrowserRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.browser_spec = browser_request.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(task.browser_spec, agent_execution_spec),
+                )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -1910,6 +1979,36 @@ class TaskService:
                     endpoint_id=api_request.endpoint.endpoint.endpoint_id,
                     endpoint_registry_version=api_request.endpoint.registry_version,
                     api_policy_version=api_request.policy_version,
+                )
+
+            if task.kind == "browser_run":
+                if browser_request is None:
+                    raise DomainError("Browser routing state unavailable", 503)
+                selection = browser_request.worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "browser_endpoint_bound",
+                    endpoint_id=browser_request.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=browser_request.endpoint.registry_version,
+                    browser_policy_version=browser_request.policy_version,
                 )
 
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
@@ -2470,8 +2569,18 @@ class TaskService:
             return snapshot(session, task)
 
     def retry(self, task_id: str) -> TaskResponse:
+        browser_action = None
+        browser_validations = {}
+        with self.database.read() as session:
+            candidate = require_task(session, task_id)
+            if candidate.kind == "browser_run":
+                browser_action = self._browser_action_identity(candidate)
+        if browser_action is not None:
+            browser_validations = self._browser_preflight()
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            if browser_action is not None and browser_action != self._browser_action_identity(task):
+                raise DomainError("Browser task changed during validation", 409)
             agent_execution = None
             if task.agent_execution_spec is not None:
                 try:
@@ -2691,6 +2800,60 @@ class TaskService:
                     endpoint_registry_version=refreshed_api.endpoint.registry_version,
                     api_policy_version=refreshed_api.policy_version,
                 )
+
+            if task.kind == "browser_run":
+                if self.browser_supervisor is None:
+                    raise DomainError("Browser worker unavailable", 503)
+                role = "browser"
+                capabilities = ("browser_document",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "browser":
+                        raise DomainError("Agent Browser worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, selection = self.browser_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    refreshed_browser = selected.worker.bind_validated(
+                        browser_validations.get(selection.descriptor.worker_id),
+                        selection,
+                        task.payload["endpoint_id"],
+                        task.payload["path"],
+                        task.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except BrowserRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.browser_spec = refreshed_browser.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "browser_endpoint_bound",
+                    endpoint_id=refreshed_browser.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=refreshed_browser.endpoint.registry_version,
+                    browser_policy_version=refreshed_browser.policy_version,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -2806,9 +2969,34 @@ class TaskService:
         return None
 
     def claim(self) -> Execution | None:
+        browser_action = None
+        browser_validations = {}
+        if self.browser_supervisor is not None:
+            with self.database.read() as session:
+                candidate = self._claimable_task(session)
+                if candidate is None:
+                    return None
+                if candidate.kind == "browser_run":
+                    browser_action = self._browser_action_identity(candidate)
+                    try:
+                        worker_id = BrowserExecutionSpec.model_validate(
+                            candidate.browser_spec
+                        ).worker_selection.descriptor.worker_id
+                    except ValueError:
+                        worker_id = ""
+            if browser_action is not None:
+                browser_validations = self._browser_preflight(worker_id)
         with self.database.transaction() as session:
             task = self._claimable_task(session)
             if task is None:
+                return None
+            if (
+                task.kind == "browser_run"
+                and self.browser_supervisor is not None
+                and (
+                    browser_action is None or browser_action != self._browser_action_identity(task)
+                )
+            ):
                 return None
 
             agent_execution = None
@@ -2989,6 +3177,56 @@ class TaskService:
                     api_policy_version=api_request.policy_version,
                 )
 
+            browser_request = None
+            if task.kind == "browser_run":
+                try:
+                    if self.browser_supervisor is None or task.browser_spec is None:
+                        raise ValueError("browser_execution_spec_unavailable")
+                    browser_request = BrowserExecutionSpec.model_validate(task.browser_spec)
+                    selection = browser_request.worker_selection
+                    selected = self.browser_supervisor.registry.get(selection.descriptor.worker_id)
+                    if (
+                        selected is None
+                        or not self.browser_supervisor.matches(selection)
+                        or not selected.worker.matches_validated(
+                            browser_validations.get(selection.descriptor.worker_id), browser_request
+                        )
+                        or not selected.worker.request_matches(
+                            browser_request, task.payload, task.timeout_seconds
+                        )
+                    ):
+                        raise ValueError("browser_execution_spec_stale")
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if (
+                            requirement is None
+                            or selection.requested_role != requirement.role
+                            or tuple(selection.requested_capabilities)
+                            != tuple(requirement.capabilities)
+                        ):
+                            raise ValueError("browser_worker_requirement_mismatch")
+                except ValueError:
+                    task.error = "browser_execution_spec_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=selection.descriptor.worker_id,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "browser_endpoint_revalidated",
+                    endpoint_id=browser_request.endpoint.endpoint.endpoint_id,
+                    endpoint_registry_version=browser_request.endpoint.registry_version,
+                    browser_policy_version=browser_request.policy_version,
+                )
+
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -3148,6 +3386,7 @@ class TaskService:
                 research_selection,
                 python_selection,
                 api_request,
+                browser_request,
                 promotion_request,
                 merge_request,
                 release_request,
@@ -3308,6 +3547,22 @@ class TaskService:
                     session,
                     task,
                     "api_completed" if outcome == State.SUCCEEDED else "api_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+
+            if task.kind == "browser_run":
+                details = {"reason": error}
+                if result is not None:
+                    details.update(
+                        endpoint_id=result["endpoint_id"],
+                        nodes=result["nodes"],
+                        truncated=result["truncated"],
+                    )
+                audit(
+                    session,
+                    task,
+                    "browser_completed" if outcome == State.SUCCEEDED else "browser_failed",
                     attempt_id=attempt.id,
                     **details,
                 )
@@ -3509,6 +3764,15 @@ class TaskService:
                         session,
                         task,
                         "api_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+
+                if task.kind == "browser_run":
+                    audit(
+                        session,
+                        task,
+                        "browser_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

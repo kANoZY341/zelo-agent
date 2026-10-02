@@ -261,3 +261,19 @@ def descriptor_for_api_worker(
         priority=100,
         max_concurrency=1,
     )
+
+
+def descriptor_for_browser_worker(
+    *,
+    implementation: str = "core_browser",
+    worker_id: str = "browser_core",
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="browser",
+        capabilities=("browser_document",),
+        authority=("public-document-render",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )

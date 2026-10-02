@@ -326,6 +326,38 @@ the current configuration. No default AgentSpec is added, and Mind routing remai
 disabled until trusted endpoint names can be surfaced safely. See
 [the API Worker design](docs/v0.15-api-worker.md).
 
+## Bounded Browser Worker Core binding (v0.15 development)
+
+Browser Worker is **disabled by default**. Migration `0029_browser_worker_selection`
+adds immutable per-action browser specifications. This development slice does not
+activate production, change the published v0.14.0 release, or unpark UI work.
+
+The trusted `browser_core` worker has only `browser_document` capability and
+`public-document-render` authority. Its separate origin allowlist never inherits
+API endpoints. A trusted operator must first prepare and inspect a reusable image;
+runtime cannot build, pull or accept an image, profile, receipt or factory from a
+request. See [operator setup and limits](docs/v0.15-browser-core-binding.md#implemented-operator-setup).
+
+Once the separate release/host gates and operator configuration are complete,
+the existing authenticated task endpoint accepts this shape:
+
+```json
+{"kind":"browser_run","payload":{"endpoint_id":"docs","path":"/guide"},"timeout_seconds":10}
+```
+
+Only an endpoint ID, strict origin-relative ASCII path and 0.1–30 second timeout
+are browser inputs. Query strings, URLs, credentials, cookies, headers, flags,
+profiles, CDP, evaluation, clicks, screenshots and downloads are rejected.
+Results are bounded **untrusted DOM text**, with `instruction_trust="none"`, source
+origin/path/hash, complete renderer-contract and broker-policy hashes, node count
+and truncation. They make no CSS visibility or complete-page claim.
+
+A fresh qualified renderer uses the one configured persistent private admission
+directory for every task. Worker selection capacity is advisory. Cancellation,
+timeout, retry and restart never clear an uncertain cleanup marker. Successful
+results require confirmed cleanup; a terminal Core task does not prove cleanup.
+No default AgentSpec, department or Mind route is added.
+
 ## Fixed Research specialist
 
 v0.12 added a fixed `research_run` specialist on top of the same Core task

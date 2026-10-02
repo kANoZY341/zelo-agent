@@ -784,9 +784,13 @@ def test_total_protocol_bytes():
         run(protocol(change))
 
 
-def test_no_production_imports_renderer():
-    for path in Path("app").rglob("*.py"):
-        assert "qualification.renderer" not in path.read_text()
+def test_production_renderer_imports_confined_to_narrow_adapter():
+    imported = {
+        path.name
+        for path in Path("app").rglob("*.py")
+        if "qualification.renderer" in path.read_text()
+    }
+    assert imported == {"browser_worker.py", "browser_operator.py"}
 
 
 @pytest.mark.parametrize("wrong", [False, True])

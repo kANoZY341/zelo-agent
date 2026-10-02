@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentSpec
 from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
+from app.browser_contracts import BrowserExecutionSpec
 from app.developer_contracts import (
     DeveloperRequest,
     ReviewerReport,
@@ -128,6 +129,42 @@ class ApiRunInput(TaskInput):
     timeout_seconds: float = Field(default=10.0, ge=0.1, le=30.0, allow_inf_nan=False)
 
 
+class BrowserPayload(StrictModel):
+    endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    path: str = Field(min_length=1, max_length=API_PATH_LIMIT)
+
+    @model_validator(mode="after")
+    def _validate_path(self):
+        ApiPayload(endpoint_id=self.endpoint_id, path=self.path)
+        return self
+
+
+class BrowserRunInput(TaskInput):
+    kind: Literal["browser_run"]
+    payload: BrowserPayload
+    timeout_seconds: float = Field(default=10.0, ge=0.1, le=30, allow_inf_nan=False)
+
+
+class BrowserRunResult(StrictModel):
+    endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    text: str = Field(max_length=65536)
+    truncated: bool
+    nodes: int = Field(ge=0, le=4096)
+    source_origin: str = Field(max_length=512)
+    source_path: str = Field(max_length=2048)
+    source_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    contract_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    broker_policy_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    instruction_trust: Literal["none"] = "none"
+    completed_at: datetime
+
+    @model_validator(mode="after")
+    def _byte_bound(self):
+        if len(self.text.encode("utf-8")) > 65536:
+            raise ValueError("browser_text_limit")
+        return self
+
+
 class SelfImprovementPayload(StrictModel):
     goal: str = Field(min_length=1, max_length=1024)
 
@@ -150,7 +187,7 @@ class DeveloperRunInput(TaskInput):
 
 
 AgentExecutableTask = Annotated[
-    ResearchRunInput | PythonRunInput | ApiRunInput | DeveloperRunInput,
+    ResearchRunInput | PythonRunInput | ApiRunInput | BrowserRunInput | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -234,6 +271,7 @@ TaskCreate = Annotated[
     | ResearchRunInput
     | PythonRunInput
     | ApiRunInput
+    | BrowserRunInput
     | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
@@ -397,6 +435,7 @@ class TaskResponse(StrictModel):
         "research_run",
         "python_run",
         "api_run",
+        "browser_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -411,6 +450,7 @@ class TaskResponse(StrictModel):
         | ResearchPayload
         | PythonPayload
         | ApiPayload
+        | BrowserPayload
         | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
@@ -434,6 +474,7 @@ class TaskResponse(StrictModel):
     research_spec: WorkerSelectionSnapshot | None = None
     python_spec: WorkerSelectionSnapshot | None = None
     api_spec: ApiExecutionSpec | None = None
+    browser_spec: BrowserExecutionSpec | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None
@@ -461,6 +502,7 @@ class TaskProjection(StrictModel):
         "research_run",
         "python_run",
         "api_run",
+        "browser_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",

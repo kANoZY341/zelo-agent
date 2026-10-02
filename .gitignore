@@ -1,5 +1,5 @@
 # Virtual environments and local configuration
-.venv/
+.venv
 venv/
 .env
 .env.*
