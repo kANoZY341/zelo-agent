@@ -743,3 +743,12 @@ actual browser/controller artifact inventories, policy/role identity and verifie
 rescans. These establish change detection, not an execution authority or filesystem
 freeze. Native-browser sandbox compatibility and the integrated runtime remain gates.
 UI #61 stays parked; v0.16/v0.17/v0.18 ordering is unchanged.
+
+## Native browser qualification checkpoint (after PR #64)
+
+Artifact prerequisites merged at `7cdd791`. Native Chromium now runs in the
+controlled no-network resource container under a pinned, explicitly reviewed
+qualification policy; this is not a production worker activation. See
+`docs/v0.15-browser-sandbox-qualification.md`. The next gate is the combined
+broker/renderer/owner lifecycle with verified immutable execution inputs.
+UI PR #61 remains parked; canonical later milestones are unchanged.
