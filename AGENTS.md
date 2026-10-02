@@ -66,11 +66,17 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser runtime qualification from broker prerequisite
-merge `939cbd7`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 Browser artifact verification from resource prerequisite
+merge `2bb48bb`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 Browser runtime qualification
+## Current scope: v0.15 Browser artifact qualification
+
+Resource/admission prerequisites merged as PR #63 at
+`2bb48bb98e99ea02a52002a44b5402c5a9da1ae9`. This slice adds bounded actual
+artifact manifest capture/verification only, not browser execution or activation.
+Read `docs/v0.15-browser-artifact-qualification.md` for scope and remaining gates.
+Keep existing broker/DNS/resource behavior and UI unchanged.
 
 Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are
 Capability Registry #55, Skill Registry #56, Generic Worker Registry #57,
@@ -79,7 +85,7 @@ The API Worker merge baseline is `8d33d563070c58c487dd06e91fd9af617744dab3`.
 
 The active branch is:
 
-`feat/v0.15-browser-runtime-qualification`
+`feat/v0.15-browser-artifact-qualification`
 
 Document broker and owned DNS qualification prerequisites merged as PR #62 at
 `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`. Read

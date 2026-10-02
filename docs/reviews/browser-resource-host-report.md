@@ -31,7 +31,7 @@ All capabilities were dropped. Filesystem was read-only except the private
 
 Image identity was `sha256:3599d25dd5bfeb0f9cb3694ddaf70a8dd0dab681013902c7eaf4544d3de7c3d0`; compiled fixture SHA-256 was
 `670b1d6bdbd27a1fc4dc2f075224fb3a34e699720dd7f36f51940755a01ca639`. Source SHA-256 was `1f0f421ddf0802e02d1b8361035462a0e5a0c3b1dc1ca6f4b415d2ffcb47e855`.
-Detailed local output is in ignored `runtime/browser-runtime-qualification/resources-u5zn8ofh/result.json`. All seven uniquely labelled containers
+Detailed local output is in ignored `runtime/browser-runtime-qualification/resources-u5zn8ofh/result.json`. All six uniquely labelled containers
 and this invocation's labelled scratch image were removed after the probes.
 The first attempted fixture start encountered an unsupported logging combination
 (one retained file with compression); it was cleaned up without running pressure
