@@ -107,8 +107,8 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 native browser sandbox compatibility after artifact
-verification merge `7cdd791`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 bounded renderer/lifecycle integration after native
+sandbox qualification merge `e16d370`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
 ## Browser broker qualification merged
@@ -120,9 +120,9 @@ passed CI #1842 with 1114 passed and 2 skipped, and the two installed-Codex
 probes passed separately on the host. Independent Astra Medium review and
 the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
-## Active increment: v0.15 Browser sandbox qualification
+## Active increment: v0.15 Browser renderer integration
 
-Branch: `feat/v0.15-browser-sandbox-qualification`. The remaining gates are
+Branch: `feat/v0.15-browser-renderer-integration`. The remaining gates are
 aggregate resource control, global admission/ownership, pinned browser/controller
 identity, repeatable renderer linkage and lifecycle/cleanup proof. The plan is
 `docs/v0.15-browser-runtime-qualification.md`. No Browser Worker is active.
@@ -189,3 +189,23 @@ This resolves the observed native compatibility failure for the tested candidate
 not the entire Browser Worker. The combined broker/renderer/owner execution path,
 policy/executable attachment and task lifecycle still require qualification.
 UI remains parked, and production application code is unchanged.
+
+## Native sandbox compatibility prerequisite merged
+
+PR #65 is merged at `e16d370939902d4180237933f5e61d294c651b00`. Exact
+reviewed head `6258b426247f9d6833363c1ec9cf443873bfd4e5` passed full CI
+#1853 (`37059876485`): 1417 passed, 2 skipped, 11 warnings. The 2 skipped
+installed-Codex checks passed in the 119-test supplemental exact-head host run.
+Independent Astra Medium static review found no blocker in qualification scope;
+expanded qualification tests passed 369 and project-context tests passed 3.
+
+The prior `No usable sandbox` failure is resolved for the tested pinned candidate
+without disabling Chromium sandboxing or granting container capabilities. A
+separate bounded anonymous-pipe diagnostic completed a fixed document DOM
+roundtrip with page script execution disabled and all owned resources cleaned.
+This is not production renderer integration or Browser Worker activation.
+
+The next integration work is scoped in `v0.15-browser-renderer-integration.md`.
+Use one trusted admission/ownership lifecycle, immutable approved image/policy,
+fixed bounded protocol commands, broker-only retrieval and cleanup-confirmed
+results. UI remains parked and no later milestone has been reordered.

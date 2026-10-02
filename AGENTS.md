@@ -66,24 +66,28 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 native Browser sandbox compatibility from artifact
-verification merge `7cdd791`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 bounded browser renderer/lifecycle integration from native
+sandbox qualification merge `e16d370`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 native Browser sandbox qualification
+## Current scope: v0.15 bounded browser renderer integration
 
-Artifact integrity prerequisites merged as PR #64 at
-`7cdd791c9ed787a9e928e17fb2ad48eb43bd42f3`. This slice qualifies a narrowly
-pinned container syscall policy and real native-renderer compatibility. It does
-not activate any Browser task, worker, capability or production API.
+Native sandbox prerequisites merged through PR #65 at
+`e16d370939902d4180237933f5e61d294c651b00`; full exact-head CI passed
+1417 tests with 2 host-only skips, and both skipped installed-Codex probes passed
+separately. Core-first work now combines the document broker, anonymous browser
+pipe, verified execution artifacts, resource owner and crash-fenced admission.
 
-Use `docs/v0.15-browser-sandbox-qualification.md`. Preserve default denial,
-no-new-privileges, nonroot execution, cap-drop ALL, no host network/mounts,
-and native Chromium sandboxing. Never use privileged, unconfined, SYS_ADMIN,
-SYS_CHROOT capability additions, or --no-sandbox as a workaround.
+Read `docs/v0.15-browser-renderer-integration.md` before implementation. No
+Browser Worker/task/capability may be activated until combined lifecycle,
+artifact attachment and untrusted-document bounds pass their explicit gates.
+Do not add a raw CDP/evaluation/navigation API. Native sandboxing, no external
+renderer network, private profiles, NNP, cap-drop ALL, cgroups and truthful cleanup
+remain mandatory. Constructor/operator input must not become model/caller authority.
 
-Work in this dedicated integration worktree. The parent owns host fixtures and
-release gates. No modifications to UI, app/, migrations or live configuration.
+Work in this dedicated worktree. The parent owns isolated host probes and release
+gates. Preserve the original UI worktrees and parked PR #61. Use Astra Medium.
+Do not change published version, production databases or global host configuration.
 
 Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are
 Capability Registry #55, Skill Registry #56, Generic Worker Registry #57,
@@ -92,7 +96,7 @@ The API Worker merge baseline is `8d33d563070c58c487dd06e91fd9af617744dab3`.
 
 The active branch is:
 
-`feat/v0.15-browser-sandbox-qualification`
+`feat/v0.15-browser-renderer-integration`
 
 Document broker and owned DNS qualification prerequisites merged as PR #62 at
 `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`. Read
