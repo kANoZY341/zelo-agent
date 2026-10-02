@@ -107,8 +107,8 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser Worker qualification from API Worker merge
-`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 native browser sandbox compatibility after artifact
+verification merge `7cdd791`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
 ## Browser broker qualification merged
@@ -120,9 +120,9 @@ passed CI #1842 with 1114 passed and 2 skipped, and the two installed-Codex
 probes passed separately on the host. Independent Astra Medium review and
 the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
-## Active increment: v0.15 Browser artifact qualification
+## Active increment: v0.15 Browser sandbox qualification
 
-Branch: `feat/v0.15-browser-artifact-qualification`. The remaining gates are
+Branch: `feat/v0.15-browser-sandbox-qualification`. The remaining gates are
 aggregate resource control, global admission/ownership, pinned browser/controller
 identity, repeatable renderer linkage and lifecycle/cleanup proof. The plan is
 `docs/v0.15-browser-runtime-qualification.md`. No Browser Worker is active.
@@ -136,7 +136,7 @@ Qualify browser isolation and controlled egress before implementing the next
 bounded runtime surface. Preserve explicit capability, skill, worker identity,
 filesystem, credential, network and approval boundaries; retain all normal merge gates.
 
-## Browser runtime admission/resource checkpoint (unmerged)
+## Historical browser runtime admission/resource implementation checkpoint
 
 The active runtime-qualification branch implements capacity-one cross-process
 admission, crash fencing, owned cleanup and frozen resource/execution-policy
@@ -168,3 +168,24 @@ A real 339-file prepared candidate bundle (291287637 bytes) was captured/rescann
 the browser binary matched the previously recorded SHA-256. This does not approve
 the bundle's provenance or authorize execution. Native browser/container sandbox
 compatibility remains unresolved; UI remains parked.
+
+## Artifact prerequisite merged; native compatibility checkpoint
+
+PR #64 merged at `7cdd791c9ed787a9e928e17fb2ad48eb43bd42f3`. Exact-head
+CI passed 1300 tests with 2 host-only skips. A fresh real clone passed all
+107 artifact tests plus both installed-Codex probes (109 total). Saved independent
+Astra Medium review reported no blocker within the documented prerequisite scope.
+
+The active native-sandbox qualification now has a pinned Moby profile adapter
+that preserves upstream default denial and appends exactly five x86-64 rules
+for Chromium's nested namespace/empty-root confinement. The isolated diagnostic
+rendered a fixed trusted document with native sandboxing enabled and no added
+container capabilities. Kernel observations: renderer seccomp mode 2/two filters
+versus one container filter, no-new-privileges, zero effective renderer capabilities,
+nested PID namespace; 512 MiB/no-swap, 128 PID and half-core cgroup limits matched.
+All owned diagnostic containers/images were removed. No external page was visited.
+
+This resolves the observed native compatibility failure for the tested candidate,
+not the entire Browser Worker. The combined broker/renderer/owner execution path,
+policy/executable attachment and task lifecycle still require qualification.
+UI remains parked, and production application code is unchanged.
