@@ -111,33 +111,45 @@ The active work is v0.15 Browser Worker qualification from API Worker merge
 `8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Active increment: v0.15 Browser Worker qualification
+## Browser broker qualification merged
 
-The active branch is:
+PR #62 is merged at `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`. It adds
+standalone qualification-only broker/DNS modules; Core startup, runtime workers,
+API Worker, dependencies and UI remain unchanged. Exact reviewed head `c9d387e`
+passed CI #1842 with 1114 passed and 2 skipped, and the two installed-Codex
+probes passed separately on the host. Independent Astra Medium review and
+the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
-`feat/v0.15-browser-worker-qualification`
+## Active increment: v0.15 Browser runtime qualification
 
-The first step is to qualify a browser adapter and its process/network boundary,
-not to grant browser control immediately. The design is recorded in
-`docs/v0.15-browser-worker-qualification.md`, with primary-source references and
-explicit acceptance gates. No Browser Worker, browser installation or new authority
-is implemented or activated by this qualification plan.
+Branch: `feat/v0.15-browser-runtime-qualification`. The remaining gates are
+aggregate resource control, global admission/ownership, pinned browser/controller
+identity, repeatable renderer linkage and lifecycle/cleanup proof. The plan is
+`docs/v0.15-browser-runtime-qualification.md`. No Browser Worker is active.
 
-## Browser fetch and DNS qualification checkpoint
-
-The isolated `qualification/` package now contains a page-evidence broker and
-owned subprocess DNS resolver, with 66 dedicated offline cases. Host verification
-including existing API and project tests passed 169 cases. This package is not
-imported by Core startup and registers no browser task, worker or capability.
-
-Controlled host probes link fixture broker output to an isolated renderer, and
-separately show unmediated host-loopback and host-file access denied. Public TLS
-transport, global broker admission, renderer/resource policy and exact Worker
-identity remain qualification gates. See
-`docs/reviews/browser-broker-qualification-report.md` for limits and evidence.
+UI PR #61 remains parked, draft and unmerged by Ahmad's latest decision.
+Do not return to UI integration or spend this phase redesigning it.
 
 ## v0.15 continuation
 
 Qualify browser isolation and controlled egress before implementing the next
 bounded runtime surface. Preserve explicit capability, skill, worker identity,
 filesystem, credential, network and approval boundaries; retain all normal merge gates.
+
+## Browser runtime admission/resource checkpoint (unmerged)
+
+The active runtime-qualification branch implements capacity-one cross-process
+admission, crash fencing, owned cleanup and frozen resource/execution-policy
+contracts. Optional controlled host probes demonstrated 32 MiB/no-swap memory,
+12 processes, CPU quota/throttling, 8 MiB tmpfs and full owned-container cleanup.
+These are prerequisite checks, not an activated or fully qualified Browser Worker.
+The expanded host-focused suite passed 242 tests. Review/full CI precede merging.
+UI PR #61 remains parked and its branches/data are untouched.
+
+
+Follow-up review fixes: the optional PID-1 fixture watchdog now has an explicit
+signal handler and a passing real self-exit probe; exceptional image/container
+cleanup records unproven outcomes and attempts every owned removal. Final serial
+host gate: **248 passed**, three existing warnings; static gates pass. A native
+Chromium/default-Docker compatibility probe failed closed (`No usable sandbox`),
+so the actual browser runtime remains unqualified and no bypass was enabled.

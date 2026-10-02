@@ -1,0 +1,4 @@
+FROM scratch
+COPY resource-probe /resource-probe
+USER 65534:65534
+ENTRYPOINT ["/resource-probe"]
