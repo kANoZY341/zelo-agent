@@ -2,8 +2,10 @@
 
 import asyncio
 import hashlib
+import os
+import stat
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,13 @@ class BrowserRuntimeError(Exception):
     def __init__(self, code: str) -> None:
         self.code = code
         super().__init__(code)
+
+
+@dataclass(frozen=True)
+class BrowserValidation:
+    runtime: object
+    identity: str
+    receipt_digest: str | None
 
 
 class BrowserRuntime:
@@ -84,6 +93,65 @@ class BrowserRuntime:
             if contract != self.contract or identity != self.receipt_identity:
                 raise ValueError("browser_receipt_changed")
 
+    def _receipt_digest(self) -> str | None:
+        if self.receipt_path is None:
+            return None
+        path = self.receipt_path
+        if not path.is_absolute() or path.resolve() != path:
+            raise ValueError("receipt_path")
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            info = os.fstat(fd)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or info.st_uid != os.geteuid()
+                or info.st_nlink != 1
+                or not 0 < info.st_size <= 2097152
+            ):
+                raise ValueError("receipt_private_file")
+            with os.fdopen(fd, "rb", closefd=False) as source:
+                raw = source.read(2097153)
+            if len(raw) > 2097152:
+                raise ValueError("receipt_limit")
+            return hashlib.sha256(raw).hexdigest()
+        finally:
+            os.close(fd)
+
+    def prepare_validation(self) -> BrowserValidation:
+        """Full file validation before a Core writer transaction, never cached."""
+        try:
+            before = self._receipt_digest()
+            self._validate()
+            if before != self._receipt_digest() or self._closing:
+                raise ValueError("browser_configuration_changed")
+            return BrowserValidation(self, self._identity(), before)
+        except (ValueError, OSError):
+            raise BrowserRuntimeError("browser_execution_spec_invalid") from None
+
+    def bind_validated(
+        self,
+        validation: BrowserValidation | None,
+        worker_selection: WorkerSelectionSnapshot,
+        endpoint_id: str,
+        path: str,
+        timeout_seconds: float,
+    ) -> BrowserExecutionSpec:
+        try:
+            if (
+                validation is None
+                or validation.runtime is not self
+                or validation.identity != self._identity()
+                or validation.receipt_digest != self._receipt_digest()
+                or self._closing
+            ):
+                raise ValueError("browser_validation_stale")
+            private_directory(self.runtime)
+            private_directory(self.admission_directory)
+            return self._bound_spec(worker_selection, endpoint_id, path, timeout_seconds)
+        except (ValueError, OSError):
+            raise BrowserRuntimeError("browser_execution_spec_invalid") from None
+
     def bind(
         self,
         worker_selection: WorkerSelectionSnapshot,
@@ -91,8 +159,18 @@ class BrowserRuntime:
         path: str,
         timeout_seconds: float,
     ) -> BrowserExecutionSpec:
+        return self.bind_validated(
+            self.prepare_validation(), worker_selection, endpoint_id, path, timeout_seconds
+        )
+
+    def _bound_spec(
+        self,
+        worker_selection: WorkerSelectionSnapshot,
+        endpoint_id: str,
+        path: str,
+        timeout_seconds: float,
+    ) -> BrowserExecutionSpec:
         try:
-            self._validate()
             BrowserPayload(endpoint_id=endpoint_id, path=path)
             if self._closing or self.identity != self._identity():
                 raise ValueError("browser_closed")
@@ -110,6 +188,20 @@ class BrowserRuntime:
     def matches(self, spec: BrowserExecutionSpec) -> bool:
         try:
             return spec == self.bind(
+                spec.worker_selection,
+                spec.endpoint.endpoint.endpoint_id,
+                spec.path,
+                spec.timeout_seconds,
+            )
+        except (BrowserRuntimeError, ValueError):
+            return False
+
+    def matches_validated(
+        self, validation: BrowserValidation | None, spec: BrowserExecutionSpec
+    ) -> bool:
+        try:
+            return spec == self.bind_validated(
+                validation,
                 spec.worker_selection,
                 spec.endpoint.endpoint.endpoint_id,
                 spec.path,

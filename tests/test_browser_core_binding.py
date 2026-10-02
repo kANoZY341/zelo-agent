@@ -864,3 +864,122 @@ def test_runner_deadline_bounds_initial_bundle_validation(setup, settings, datab
 
     asyncio.run(exercise())
     assert not worker.made
+
+
+@pytest.mark.parametrize("phase", ["submit", "retry", "claim"])
+def test_full_browser_scan_does_not_hold_database_writer_lock(
+    setup, settings, database, monkeypatch, phase
+):
+    import sqlite3
+    import threading
+
+    from app.policy import State
+
+    worker = runtime(setup)
+    tasks = TaskService(database, settings, browser_supervisor=supervisor(worker))
+    if phase == "submit":
+
+        def action():
+            return tasks.submit(request(), None)
+    else:
+        task, _ = tasks.submit(request(), None)
+        if phase == "retry":
+            execution = tasks.claim()
+            tasks.finish(execution, State.FAILED, error="controlled_failure")
+
+            def action():
+                return tasks.retry(task.id)
+        else:
+            action = tasks.claim
+    started, release = threading.Event(), threading.Event()
+    original = worker._validate
+
+    def held():
+        started.set()
+        assert release.wait(5)
+        return original()
+
+    monkeypatch.setattr(worker, "_validate", held)
+
+    async def exercise():
+        operation = asyncio.create_task(asyncio.to_thread(action))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            connection = sqlite3.connect(database.path, timeout=0.1)
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.rollback()
+            finally:
+                connection.close()
+        finally:
+            release.set()
+            await operation
+
+    asyncio.run(exercise())
+
+
+def test_cancel_during_claim_preflight_denies_dispatch(setup, settings, database, monkeypatch):
+    worker = runtime(setup)
+    tasks = TaskService(database, settings, browser_supervisor=supervisor(worker))
+    task, _ = tasks.submit(request(), None)
+    original = worker.prepare_validation
+
+    def cancel_before_commit():
+        validation = original()
+        tasks.cancel(task.id)
+        return validation
+
+    monkeypatch.setattr(worker, "prepare_validation", cancel_before_commit)
+    assert tasks.claim() is None
+    assert tasks.get(task.id).status == "cancelled"
+    assert not worker.made
+
+
+def test_runtime_replacement_invalidates_preflight_token(setup):
+    first = runtime(setup)
+    second = runtime(setup)
+    validation = first.prepare_validation()
+    bound = spec(second)
+    assert not second.matches_validated(validation, bound)
+
+
+def test_configuration_drift_between_preflight_and_submit_fails_closed(
+    setup, settings, database, monkeypatch
+):
+    from app.policy import DomainError
+
+    worker = runtime(setup)
+    tasks = TaskService(database, settings, browser_supervisor=supervisor(worker))
+    original = worker.prepare_validation
+
+    def drift():
+        validation = original()
+        worker.receipt_identity = "b" * 64
+        return validation
+
+    monkeypatch.setattr(worker, "prepare_validation", drift)
+    with pytest.raises(DomainError, match="browser_execution_spec_invalid"):
+        tasks.submit(request(), None)
+    assert not worker.made
+
+
+def test_retry_rechecks_action_after_preflight(setup, settings, database, monkeypatch):
+    from app.policy import DomainError, State
+
+    worker = runtime(setup)
+    tasks = TaskService(database, settings, browser_supervisor=supervisor(worker))
+    task, _ = tasks.submit(request(), None)
+    tasks.finish(tasks.claim(), State.FAILED, error="controlled_failure")
+    original = worker.prepare_validation
+
+    def other_retry():
+        validation = original()
+        monkeypatch.setattr(worker, "prepare_validation", original)
+        tasks.retry(task.id)
+        return validation
+
+    monkeypatch.setattr(worker, "prepare_validation", other_retry)
+    with pytest.raises(DomainError, match="changed during validation"):
+        tasks.retry(task.id)
+    assert tasks.get(task.id).action_version == 2
+    assert not worker.made

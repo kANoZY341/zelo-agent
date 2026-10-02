@@ -1574,6 +1574,27 @@ class TaskService:
             )
             return snapshot(session, task), True
 
+    def _browser_preflight(self, worker_id: str | None = None) -> dict[str, Any]:
+        validations: dict[str, Any] = {}
+        if self.browser_supervisor is None:
+            return validations
+        registry = self.browser_supervisor.registry
+        for descriptor in registry.list():
+            if descriptor.role != "browser" or not descriptor.enabled:
+                continue
+            if worker_id is not None and descriptor.worker_id != worker_id:
+                continue
+            selected = registry.get(descriptor.worker_id)
+            try:
+                validations[descriptor.worker_id] = selected.worker.prepare_validation()
+            except BrowserRuntimeError:
+                validations[descriptor.worker_id] = None
+        return validations
+
+    @staticmethod
+    def _browser_action_identity(task: Task) -> tuple[Any, ...]:
+        return task.id, task.action_version, task.action_hash, task.browser_spec
+
     def submit(
         self,
         request: TaskCreate,
@@ -1608,6 +1629,7 @@ class TaskService:
             }
         )
 
+        browser_validations = self._browser_preflight() if request.kind == "browser_run" else {}
         with self.database.transaction() as session:
             if key is not None:
                 existing = session.scalar(select(Task).where(Task.idempotency_key == key))
@@ -1794,7 +1816,8 @@ class TaskService:
                         role=role,
                         capabilities=capabilities,
                     )
-                    browser_request = selected.worker.bind(
+                    browser_request = selected.worker.bind_validated(
+                        browser_validations.get(browser_selection.descriptor.worker_id),
                         browser_selection,
                         payload["endpoint_id"],
                         payload["path"],
@@ -2546,8 +2569,18 @@ class TaskService:
             return snapshot(session, task)
 
     def retry(self, task_id: str) -> TaskResponse:
+        browser_action = None
+        browser_validations = {}
+        with self.database.read() as session:
+            candidate = require_task(session, task_id)
+            if candidate.kind == "browser_run":
+                browser_action = self._browser_action_identity(candidate)
+        if browser_action is not None:
+            browser_validations = self._browser_preflight()
         with self.database.transaction() as session:
             task = require_task(session, task_id)
+            if browser_action is not None and browser_action != self._browser_action_identity(task):
+                raise DomainError("Browser task changed during validation", 409)
             agent_execution = None
             if task.agent_execution_spec is not None:
                 try:
@@ -2784,7 +2817,8 @@ class TaskService:
                         role=role,
                         capabilities=capabilities,
                     )
-                    refreshed_browser = selected.worker.bind(
+                    refreshed_browser = selected.worker.bind_validated(
+                        browser_validations.get(selection.descriptor.worker_id),
                         selection,
                         task.payload["endpoint_id"],
                         task.payload["path"],
@@ -2935,9 +2969,34 @@ class TaskService:
         return None
 
     def claim(self) -> Execution | None:
+        browser_action = None
+        browser_validations = {}
+        if self.browser_supervisor is not None:
+            with self.database.read() as session:
+                candidate = self._claimable_task(session)
+                if candidate is None:
+                    return None
+                if candidate.kind == "browser_run":
+                    browser_action = self._browser_action_identity(candidate)
+                    try:
+                        worker_id = BrowserExecutionSpec.model_validate(
+                            candidate.browser_spec
+                        ).worker_selection.descriptor.worker_id
+                    except ValueError:
+                        worker_id = ""
+            if browser_action is not None:
+                browser_validations = self._browser_preflight(worker_id)
         with self.database.transaction() as session:
             task = self._claimable_task(session)
             if task is None:
+                return None
+            if (
+                task.kind == "browser_run"
+                and self.browser_supervisor is not None
+                and (
+                    browser_action is None or browser_action != self._browser_action_identity(task)
+                )
+            ):
                 return None
 
             agent_execution = None
@@ -3129,7 +3188,9 @@ class TaskService:
                     if (
                         selected is None
                         or not self.browser_supervisor.matches(selection)
-                        or not selected.worker.matches(browser_request)
+                        or not selected.worker.matches_validated(
+                            browser_validations.get(selection.descriptor.worker_id), browser_request
+                        )
                         or not selected.worker.request_matches(
                             browser_request, task.payload, task.timeout_seconds
                         )
