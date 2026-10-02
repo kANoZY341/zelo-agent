@@ -120,9 +120,9 @@ passed CI #1842 with 1114 passed and 2 skipped, and the two installed-Codex
 probes passed separately on the host. Independent Astra Medium review and
 the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
-## Active increment: v0.15 Browser runtime qualification
+## Active increment: v0.15 Browser artifact qualification
 
-Branch: `feat/v0.15-browser-runtime-qualification`. The remaining gates are
+Branch: `feat/v0.15-browser-artifact-qualification`. The remaining gates are
 aggregate resource control, global admission/ownership, pinned browser/controller
 identity, repeatable renderer linkage and lifecycle/cleanup proof. The plan is
 `docs/v0.15-browser-runtime-qualification.md`. No Browser Worker is active.
@@ -153,3 +153,18 @@ cleanup records unproven outcomes and attempts every owned removal. Final serial
 host gate: **248 passed**, three existing warnings; static gates pass. A native
 Chromium/default-Docker compatibility probe failed closed (`No usable sandbox`),
 so the actual browser runtime remains unqualified and no bypass was enabled.
+
+## Resource/admission prerequisite merged; artifact qualification active
+
+PR #63 merged at `2bb48bb98e99ea02a52002a44b5402c5a9da1ae9` after exact-head
+CI #1847: 1193 passed, 2 skipped. Both identified installed-Codex probes passed
+separately at the reviewed head. Independent Astra Medium review found no blocker
+in its qualification scope. No Browser runtime was activated.
+
+The active artifact slice adds bounded byte-level inventories and rescans against
+an independently trusted manifest digest. Host validation: 107 new artifact cases
+passed (including actual Unix-socket rejection), 355 tests in the expanded gate.
+A real 339-file prepared candidate bundle (291287637 bytes) was captured/rescanned;
+the browser binary matched the previously recorded SHA-256. This does not approve
+the bundle's provenance or authorize execution. Native browser/container sandbox
+compatibility remains unresolved; UI remains parked.

@@ -734,3 +734,12 @@ Immediately after v0.11 and on the path to v0.12:
   the proof identifies the best fit.
 
 This increment does not replace the v0.12 durable-goals/campaign milestone.
+
+## 2 October 2026 — artifact verification checkpoint
+
+PR #63 merged resource-admission/crash-fencing qualification at `2bb48bb`.
+The next bounded Core-only slice is `feat/v0.15-browser-artifact-qualification`:
+actual browser/controller artifact inventories, policy/role identity and verified
+rescans. These establish change detection, not an execution authority or filesystem
+freeze. Native-browser sandbox compatibility and the integrated runtime remain gates.
+UI #61 stays parked; v0.16/v0.17/v0.18 ordering is unchanged.
