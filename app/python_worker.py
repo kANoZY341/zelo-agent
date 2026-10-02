@@ -28,26 +28,28 @@ class PythonRuntimeError(Exception):
         super().__init__(code)
 
 
-PYTHON_BOOTSTRAP = r"""import io
-import json
-import math
-import resource
-import sys
-payload = json.loads(sys.stdin.read())
-timeout = float(sys.argv[1])
-cpu = max(1, min(61, math.ceil(timeout) + 1))
-resource.setrlimit(resource.RLIMIT_AS, (268435456, 268435456))
-resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
-resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
-resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-source = payload["code"]
-sys.stdin = io.StringIO(payload.get("stdin", ""))
-sys.argv = ["<zelo-python>"]
-namespace = {"__name__": "__main__", "__file__": "<zelo-python>"}
-exec(compile(source, "<zelo-python>", "exec"), namespace, namespace)
-"""
+PYTHON_BOOTSTRAP = (
+    "import io\n"
+    "import json\n"
+    "import math\n"
+    "import resource\n"
+    "import sys\n"
+    "payload = json.loads(sys.stdin.read())\n"
+    "timeout = float(sys.argv[1])\n"
+    f"cpu = max(1, min(61, math.ceil(timeout) + {PYTHON_CPU_MARGIN_SECONDS}))\n"
+    f"resource.setrlimit(resource.RLIMIT_AS, ({PYTHON_MEMORY_LIMIT_BYTES}, "
+    f"{PYTHON_MEMORY_LIMIT_BYTES}))\n"
+    "resource.setrlimit(resource.RLIMIT_CORE, (0, 0))\n"
+    "resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))\n"
+    f"resource.setrlimit(resource.RLIMIT_NOFILE, ({PYTHON_NOFILE_LIMIT}, {PYTHON_NOFILE_LIMIT}))\n"
+    f"resource.setrlimit(resource.RLIMIT_NPROC, ({PYTHON_PROCESS_LIMIT}, {PYTHON_PROCESS_LIMIT}))\n"
+    "resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))\n"
+    'source = payload["code"]\n'
+    'sys.stdin = io.StringIO(payload.get("stdin", ""))\n'
+    'sys.argv = ["<zelo-python>"]\n'
+    'namespace = {"__name__": "__main__", "__file__": "<zelo-python>"}\n'
+    'exec(compile(source, "<zelo-python>", "exec"), namespace, namespace)\n'
+)
 
 
 def python_environment() -> dict[str, str]:
