@@ -24,7 +24,11 @@ from app.models import Task, utcnow
 from app.policy import State
 from app.runner import Runner
 from app.schemas import DeveloperRunInput, EchoInput
-from app.tasks import CAPACITY_BACKOFF_MAX_SECONDS, TaskService
+from app.tasks import (
+    CAPACITY_BACKOFF_INITIAL_SECONDS,
+    CAPACITY_BACKOFF_MAX_SECONDS,
+    TaskService,
+)
 from app.worker_authority import AUTHORITY_POLICY_VERSION
 from tests.developer_helpers import FakeWorker
 
@@ -514,10 +518,13 @@ def test_real_runtime_slot_contention_defers_with_bounded_backoff_and_retries(
             assert current.approvals[0].status == "approved"
             assert len(current.attempts) == 1
             assert current.attempts[0].error == "developer_worker_capacity_exhausted"
-            await asyncio.sleep(0.2)
-            assert len(service.get(task.id).attempts) == 1
-            await asyncio.sleep(0.45)
-            assert len(service.get(task.id).attempts) <= 2
+            deferred = [
+                event
+                for event in service.events(task.id, 100, 0)
+                if event.event == "execution_deferred"
+            ]
+            assert len(deferred) == 1
+            assert deferred[0].details["retry_after_seconds"] == CAPACITY_BACKOFF_INITIAL_SECONDS
 
             lock.close()
             for _ in range(200):
