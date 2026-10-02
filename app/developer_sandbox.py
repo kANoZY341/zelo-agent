@@ -14,6 +14,10 @@ CODEX = "/opt/zelo-codex/codex"
 CODE_MODE_HOST = "/opt/zelo-codex/codex-code-mode-host"
 WORKER_ROOT = "/opt/zelo-worker"
 WORKER_EXECUTABLE = WORKER_ROOT + "/worker"
+PYTHON_EXECUTABLE = "/usr/bin/python3.12"
+PYTHON_STDLIB = "/usr/lib/python3.12"
+PYTHON_ARCH_LIB = "/usr/lib/x86_64-linux-gnu"
+PYTHON_LOADER = "/usr/lib64/ld-linux-x86-64.so.2"
 SYSTEM_READONLY_BINDS = ("/usr", "/bin", "/lib", "/lib64")
 HOST_READONLY_BINDS = ("/etc/ld.so.cache", "/etc/ssl/certs", "/etc/resolv.conf", "/etc/hosts")
 SANDBOX_POLICY_SCHEMA = "zelo-linux-sandbox-v1"
@@ -205,10 +209,15 @@ def _render_switches(plan: dict[str, object]) -> list[str]:
         "pid": "--unshare-pid",
         "ipc": "--unshare-ipc",
         "network": "--unshare-net",
+        "uts": "--unshare-uts",
     }
     for name, flag in namespace_flags.items():
-        if plan["namespaces"][name]:
+        if plan["namespaces"].get(name, False):
             args.append(flag)
+    if plan["namespaces"].get("uts", False):
+        args.extend(("--hostname", str(plan.get("hostname", "zelo-sandbox"))))
+    if plan.get("disable_userns", False):
+        args.append("--disable-userns")
     if plan["lifecycle"]["die_with_parent"]:
         args.append("--die-with-parent")
     return args
@@ -309,6 +318,84 @@ def external_worker_sandbox_plans(workspace_write: bool) -> dict[str, dict[str, 
             service_network=True,
         ),
     }
+
+
+def python_compute_sandbox_plan() -> dict[str, object]:
+    """Minimal no-workspace/no-network filesystem for bounded Python compute."""
+    operations: tuple[dict[str, object], ...] = (
+        {"op": "--tmpfs", "dest": "/"},
+        {"op": "--tmpfs", "dest": "/usr"},
+        {"op": "--dir", "dest": "/usr/bin"},
+        {"op": "--dir", "dest": "/usr/lib"},
+        {"op": "--tmpfs", "dest": "/lib"},
+        {"op": "--tmpfs", "dest": "/lib64"},
+        _bind(PYTHON_EXECUTABLE, PYTHON_EXECUTABLE, mode="--ro-bind"),
+        _bind(PYTHON_STDLIB, PYTHON_STDLIB, mode="--ro-bind"),
+        _bind(PYTHON_ARCH_LIB, PYTHON_ARCH_LIB, mode="--ro-bind"),
+        _bind(PYTHON_ARCH_LIB, "/lib/x86_64-linux-gnu", mode="--ro-bind"),
+        _bind(PYTHON_LOADER, "/lib64/ld-linux-x86-64.so.2", mode="--ro-bind"),
+        {"op": "--proc", "dest": "/proc"},
+        {"op": "--dev", "dest": "/dev"},
+        {"op": "--tmpfs", "dest": REPO},
+        {"op": "--tmpfs", "dest": "/tmp"},
+        {"op": "--remount-ro", "dest": "/proc"},
+        {"op": "--remount-ro", "dest": "/dev"},
+        {"op": "--remount-ro", "dest": "/usr"},
+        {"op": "--remount-ro", "dest": "/lib"},
+        {"op": "--remount-ro", "dest": "/lib64"},
+        {"op": "--remount-ro", "dest": REPO},
+        {"op": "--remount-ro", "dest": "/tmp"},
+        {"op": "--remount-ro", "dest": "/"},
+    )
+    return {
+        "namespaces": {
+            "user": True,
+            "pid": True,
+            "ipc": True,
+            "network": True,
+            "uts": True,
+        },
+        "hostname": "zelo-python",
+        "disable_userns": True,
+        "lifecycle": {"die_with_parent": True},
+        "workspace": {"path": REPO, "present": False, "writable": False},
+        "network": {"enabled": False},
+        "credentials": {"present": False},
+        "python": {
+            "executable": PYTHON_EXECUTABLE,
+            "stdlib": PYTHON_STDLIB,
+            "arch_lib": PYTHON_ARCH_LIB,
+            "isolated": True,
+            "site_import": False,
+        },
+        "operations": operations,
+        "cwd": REPO,
+    }
+
+
+def python_compute_sandbox(command: list[str]) -> list[str]:
+    if not BWRAP.is_file():
+        raise DeveloperError("bubblewrap_unavailable")
+    if not command or command[0] != PYTHON_EXECUTABLE:
+        raise DeveloperError("python_sandbox_command_invalid")
+    for path in (PYTHON_EXECUTABLE, PYTHON_STDLIB, PYTHON_ARCH_LIB, PYTHON_LOADER):
+        if not Path(path).exists():
+            raise DeveloperError("python_runtime_unavailable")
+    plan = python_compute_sandbox_plan()
+    args = _render_switches(plan)
+    for operation in plan["operations"]:
+        args.extend(
+            _render_operation(
+                operation,
+                repo=None,
+                git=None,
+                venv=None,
+                auth=None,
+                codex_fd=None,
+                code_mode_host_fd=None,
+            )
+        )
+    return [*args, "--chdir", str(plan["cwd"]), *command]
 
 
 def trusted_boundary_sandbox_plans() -> dict[str, dict[str, object]]:

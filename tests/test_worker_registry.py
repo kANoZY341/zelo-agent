@@ -17,11 +17,13 @@ from app.worker_authority import (
     authority_policy_fingerprint,
     authority_profile,
     codex_permission_semantics,
+    realized_authority_policy,
 )
 from app.worker_registry import (
     RegisteredWorker,
     Supervisor,
     WorkerRegistry,
+    descriptor_for_python_worker,
     descriptor_for_reviewer,
 )
 
@@ -657,6 +659,47 @@ def test_authority_policy_matches_real_sandbox_semantics(monkeypatch, tmp_path):
     )
     assert str(extra_bind) not in baseline_argv
     assert str(extra_bind) in changed_argv
+    assert authority_policy_fingerprint((profile,)) != baseline
+
+
+def test_isolated_compute_authority_denies_workspace_network_and_credentials():
+    profile = authority_profile(("isolated-compute",))
+    policy = realized_authority_policy(profile)
+
+    assert profile.workspace_read is False
+    assert profile.workspace_write is False
+    assert profile.network is False
+    assert policy["sandbox"]["python_compute"]["workspace"]["present"] is False
+    assert policy["sandbox"]["python_compute"]["network"]["enabled"] is False
+    assert policy["sandbox"]["python_compute"]["credentials"]["present"] is False
+
+
+def test_python_resource_policy_change_invalidates_selection(monkeypatch):
+    registry = WorkerRegistry([(descriptor_for_python_worker(), StubWorker("python"))])
+    supervisor = Supervisor(registry)
+    _, snapshot = supervisor.select(role="python", capabilities=("python_execution",))
+    assert supervisor.matches(snapshot)
+
+    from app import python_worker
+
+    monkeypatch.setattr(
+        python_worker,
+        "PYTHON_MEMORY_LIMIT_BYTES",
+        python_worker.PYTHON_MEMORY_LIMIT_BYTES + 1,
+    )
+    assert not supervisor.matches(snapshot)
+
+
+def test_isolated_compute_authority_fingerprint_binds_python_bootstrap(monkeypatch):
+    from app import python_worker
+
+    profile = authority_profile(("isolated-compute",))
+    baseline = authority_policy_fingerprint((profile,))
+    monkeypatch.setattr(
+        python_worker,
+        "PYTHON_BOOTSTRAP",
+        python_worker.PYTHON_BOOTSTRAP + "\n# changed policy bytes",
+    )
     assert authority_policy_fingerprint((profile,)) != baseline
 
 

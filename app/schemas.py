@@ -81,6 +81,17 @@ class ResearchRunInput(TaskInput):
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
 
 
+class PythonPayload(StrictModel):
+    code: str = Field(min_length=1, max_length=65536)
+    stdin: str = Field(default="", max_length=65536)
+
+
+class PythonRunInput(TaskInput):
+    kind: Literal["python_run"]
+    payload: PythonPayload
+    timeout_seconds: float = Field(default=10.0, ge=0.01, le=60.0, allow_inf_nan=False)
+
+
 class SelfImprovementPayload(StrictModel):
     goal: str = Field(min_length=1, max_length=1024)
 
@@ -103,7 +114,7 @@ class DeveloperRunInput(TaskInput):
 
 
 AgentExecutableTask = Annotated[
-    ResearchRunInput | DeveloperRunInput,
+    ResearchRunInput | PythonRunInput | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -185,6 +196,7 @@ TaskCreate = Annotated[
     | ToolCallInput
     | AgentRunInput
     | ResearchRunInput
+    | PythonRunInput
     | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
@@ -246,6 +258,14 @@ class ResearchRunResult(StrictModel):
     model_steps: int = Field(ge=1)
     tool_calls: int = Field(ge=1)
     usage: list[dict[str, int | None]]
+    completed_at: datetime
+
+
+class PythonRunResult(StrictModel):
+    stdout: str = Field(max_length=65536)
+    stderr: str = Field(max_length=16384)
+    exit_code: int
+    duration_seconds: float = Field(ge=0, allow_inf_nan=False)
     completed_at: datetime
 
 
@@ -330,6 +350,7 @@ class TaskResponse(StrictModel):
         "tool_call",
         "agent_run",
         "research_run",
+        "python_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -342,6 +363,7 @@ class TaskResponse(StrictModel):
         | ToolCallPayload
         | AgentRunPayload
         | ResearchPayload
+        | PythonPayload
         | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
@@ -363,6 +385,7 @@ class TaskResponse(StrictModel):
     config_version: str | None = None
     developer_spec: DeveloperRequest | None = None
     research_spec: WorkerSelectionSnapshot | None = None
+    python_spec: WorkerSelectionSnapshot | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None
@@ -388,6 +411,7 @@ class TaskProjection(StrictModel):
         "tool_call",
         "agent_run",
         "research_run",
+        "python_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",

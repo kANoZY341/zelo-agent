@@ -637,13 +637,14 @@ Current verified baseline as of 2 October 2026:
   `7e0936750967be79ec49ee5858a508935d7ad3e0`;
 - Generic Worker Registry is merged through PR #57 at
   `9d2e897a6c8bebf63fc52dec7b6442c24cc9f8aa`;
-- the active fourth slice is the read-only Research Worker on
-  `feat/v0.15-research-worker`;
-- Research now uses the shared Supervisor with an exact persisted worker
-  selection while retaining the existing workspace-read/no-network runtime and
-  evidence/citation contract;
-- Browser, Computer, Python, API, Shell and Media workers remain separate future
-  slices and receive no authority from this Research Worker work;
+- Research Worker is merged through PR #58 at
+  `c16f21381a2316435091f35faa82b609534cefa3`;
+- the active fifth slice is the isolated Python Worker on
+  `feat/v0.15-python-worker`;
+- Python execution is a bounded worker/task surface with no Zelo workspace,
+  network, credential, shell, package-install or default AgentSpec authority;
+- Browser, Computer, API, Shell and Media workers remain separate future slices
+  and receive no authority from this Python Worker work;
 - Capability/Skill metadata and generic registration never grant execution
   authority by themselves;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only

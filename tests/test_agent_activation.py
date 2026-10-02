@@ -277,7 +277,7 @@ def test_surface_digest_changes_when_runtime_surface_changes():
 def test_default_registry_activation_report_is_deterministic():
     registry = default_agent_registry()
     kwargs = {
-        "available_task_kinds": ("developer_run", "research_run"),
+        "available_task_kinds": ("developer_run", "python_run", "research_run"),
         "available_tools": (
             "list_workspace_files",
             "read_workspace_file",
@@ -286,6 +286,7 @@ def test_default_registry_activation_report_is_deterministic():
         ),
         "worker_descriptors": (
             worker(),
+            worker(role="python", capabilities=("python_execution",)),
             worker(role="research", capabilities=("research",)),
         ),
     }

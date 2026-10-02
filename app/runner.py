@@ -11,6 +11,7 @@ from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
+from app.python_worker import PythonRuntime, PythonRuntimeError
 from app.research import ResearchRuntime, ResearchRuntimeError
 from app.self_improvement import SelfImprovementError
 from app.self_improvement_runtime import (
@@ -39,12 +40,14 @@ class Runner:
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         self_improvement_runtime: SelfImprovementRuntime | None = None,
         research_supervisor: Supervisor[ResearchRuntime] | None = None,
+        python_supervisor: Supervisor[PythonRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
         self.gateway = gateway
         self.agent_runtime = agent_runtime
         self.research_supervisor = research_supervisor
+        self.python_supervisor = python_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -183,6 +186,8 @@ class Runner:
             operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "research_run":
             operation = asyncio.create_task(self._research_worker(execution))
+        elif execution.kind == "python_run":
+            operation = asyncio.create_task(self._python_worker(execution))
         elif execution.kind == "self_improvement_run":
             operation = asyncio.create_task(self._self_improvement_worker(execution))
         elif execution.kind == "developer_run":
@@ -199,7 +204,7 @@ class Runner:
             # AgentRuntime enforces both its configured deadline and the task deadline.
             raw = (
                 await operation
-                if execution.kind in {"agent_run", "research_run", "developer_run"}
+                if execution.kind in {"agent_run", "research_run", "python_run", "developer_run"}
                 else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
@@ -218,18 +223,22 @@ class Runner:
                 )
                 return
 
-            outcome = (
-                State.FAILED
-                if execution.kind == "developer_run" and not result["validation_passed"]
-                else State.SUCCEEDED
-            )
+            outcome = State.SUCCEEDED
+            error = None
+            if execution.kind == "developer_run" and not result["validation_passed"]:
+                outcome = State.FAILED
+                error = result.get("error")
             if execution.kind == "developer_run" and result["cancelled"]:
                 outcome = State.INTERRUPTED if self.stopping else State.CANCELLED
+                error = result.get("error")
+            if execution.kind == "python_run" and result["exit_code"] != 0:
+                outcome = State.FAILED
+                error = "python_exit_nonzero"
             self.service.finish(
                 execution,
                 outcome,
                 result=result,
-                error=result.get("error") if execution.kind == "developer_run" else None,
+                error=error,
             )
             if execution.kind == "ai_prompt":
                 self.service.model_event(
@@ -263,6 +272,8 @@ class Runner:
         except AgentRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except ResearchRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except PythonRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except DomainError as error:
             if execution.kind != "self_improvement_run":
@@ -414,6 +425,28 @@ class Runner:
             query=execution.payload["query"],
             selected_alias=execution.selected_alias or "",
             selected_model=execution.selected_model or "",
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
+        )
+
+    async def _python_worker(self, execution: Execution) -> dict[str, Any]:
+        if execution.python_selection is None:
+            raise PythonRuntimeError("python_worker_selection_unavailable")
+        if self.python_supervisor is None:
+            raise PythonRuntimeError("python_worker_registry_unavailable")
+        selected = self.python_supervisor.registry.get(
+            execution.python_selection.descriptor.worker_id
+        )
+        if selected is None or not self.python_supervisor.matches(execution.python_selection):
+            raise PythonRuntimeError("python_worker_selection_stale")
+        runtime = selected.worker
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await runtime.run(
+            code=execution.payload["code"],
+            stdin=execution.payload.get("stdin", ""),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
         )

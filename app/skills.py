@@ -141,7 +141,7 @@ class SkillRegistry:
 
 
 def default_skill_registry() -> SkillRegistry:
-    """Describe only procedures already used by published v0.14 default agents."""
+    """Describe procedures used by the current trusted default agents."""
 
     shared_tools = ("list_workspace_files", "read_workspace_file", "repo_status")
     return SkillRegistry(
@@ -171,6 +171,14 @@ def default_skill_registry() -> SkillRegistry:
                 procedures=("evidence_retrieval",),
                 task_kinds=("research_run",),
                 tools=shared_tools,
+                lifecycle="active",
+            ),
+            SkillSpec(
+                skill_id="python_execution",
+                description="Run bounded Python computations in isolated no-network compute.",
+                required_capabilities=("python_execution",),
+                procedures=("python_execution",),
+                task_kinds=("python_run",),
                 lifecycle="active",
             ),
         )

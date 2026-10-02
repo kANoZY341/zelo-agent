@@ -154,6 +154,14 @@ def default_capability_registry() -> CapabilityRegistry:
                 lifecycle="active",
             ),
             CapabilitySpec(
+                capability_id="python_execution",
+                description=(
+                    "Execute bounded Python compute inside Zelo's isolated no-network sandbox."
+                ),
+                subjects=("agent", "worker"),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
                 capability_id="research",
                 version=2,
                 description=(
