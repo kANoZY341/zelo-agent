@@ -119,7 +119,7 @@ class CapabilityRegistry:
 
 
 def default_capability_registry() -> CapabilityRegistry:
-    """Describe only capabilities already present in the published v0.14 runtime."""
+    """Describe capabilities already published through the current trusted runtime slices."""
 
     return CapabilityRegistry(
         (
