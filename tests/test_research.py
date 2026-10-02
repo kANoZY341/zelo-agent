@@ -438,6 +438,28 @@ def test_runner_requires_bound_research_worker_selection(settings, database):
         asyncio.run(runner._research_worker(unbound))
 
 
+def test_runner_rejects_stale_research_worker_selection(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None
+    assert execution.research_selection is not None
+
+    runner = Runner(service, research_supervisor=research_supervisor("research_next"))
+
+    with pytest.raises(ResearchRuntimeError, match="research_worker_selection_stale"):
+        asyncio.run(runner._research_worker(execution))
+
+
 def test_research_worker_selection_fails_closed_if_registry_changes(settings, database):
     service = TaskService(
         database,
