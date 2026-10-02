@@ -1,5 +1,19 @@
 # Zelo workspace direction
 
+## Latest priority — Core first; UI parked (2 October 2026)
+
+Ahmad reports that the UI still needs major work and directs Core development to
+continue now, with UI redesign/integration revisited at the end. This supersedes
+the earlier U2-first delivery plan and provisional design acceptance.
+
+Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
+Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
+design worktree. Do not delete UI code, chats, backups or local beta data.
+The active work is v0.15 Browser Worker qualification from API Worker merge
+`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
+acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+
+
 Confirmed by Ahmad on 24 September 2026.
 Implementation choice selected after the live Core proof on 26 September 2026.
 Company hierarchy visualization refined on 1 October 2026.

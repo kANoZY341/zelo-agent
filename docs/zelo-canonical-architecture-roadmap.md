@@ -469,6 +469,14 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+**Latest delivery decision, 2 October 2026:** Core first. The user reports that
+the UI needs major rework and has parked UI implementation until the end of the
+Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
+Resume Browser Worker qualification and the existing Core milestones below.
+The v0.16 channels, v0.17 specialist organizations and v0.18 autonomy order stays
+unchanged; UI redesign and final integration follow the Core-first work.
+
+
 Add controlled:
 
 - Browser Worker;
@@ -641,8 +649,10 @@ Current verified baseline as of 2 October 2026:
   `c16f21381a2316435091f35faa82b609534cefa3`;
 - Python Worker is merged through PR #59 at
   `c8aab211b52cbc576d8457b61d01134fcab645e5`;
-- the active sixth slice is the bounded read-only API Worker on
-  `feat/v0.15-api-worker`;
+- API Worker is merged through PR #60 at
+  `8d33d563070c58c487dd06e91fd9af617744dab3`;
+- the next branch is `feat/v0.15-browser-worker-qualification`, a design and
+  isolation-qualification slice with no Browser runtime activated;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
 - Browser, Computer, Shell and Media workers remain separate future slices and

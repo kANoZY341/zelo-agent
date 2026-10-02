@@ -57,43 +57,48 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
-## Current scope: v0.15 API Worker
+## Latest priority — Core first; UI parked (2 October 2026)
 
-Zelo Core v0.14.0 — Agent Factory is published from
-`3b87bbe4dc9956fbb8b11108faa911c4b23de5c9` with tag `v0.14.0`.
+Ahmad reports that the UI still needs major work and directs Core development to
+continue now, with UI redesign/integration revisited at the end. This supersedes
+the earlier U2-first delivery plan and provisional design acceptance.
 
-Merged v0.15 slices are Capability Registry PR #55, Skill Registry PR #56,
-Generic Worker Registry PR #57, Research Worker PR #58, and Python Worker PR #59.
-Python Worker is merged to main at
-`c8aab211b52cbc576d8457b61d01134fcab645e5`.
+Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
+Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
+design worktree. Do not delete UI code, chats, backups or local beta data.
+The active work is v0.15 Browser Worker qualification from API Worker merge
+`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
+acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+
+## Current scope: v0.15 Browser Worker qualification
+
+Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are
+Capability Registry #55, Skill Registry #56, Generic Worker Registry #57,
+Research Worker #58, Python Worker #59 and API Worker #60.
+The API Worker merge baseline is `8d33d563070c58c487dd06e91fd9af617744dab3`.
 
 The active branch is:
 
-`feat/v0.15-api-worker`
+`feat/v0.15-browser-worker-qualification`
 
-This sixth v0.15 slice adds bounded read-only HTTPS API access behind the shared
-Supervisor without granting arbitrary URL, credential, browser, shell, or workspace
-authority.
+This is a qualification/design slice, not an activated Browser Worker. Read
+`docs/v0.15-browser-worker-qualification.md` before implementation.
 
 Rules for this slice:
 
-- add explicit `api_read` capability and skill without adding a default AgentSpec;
-- register one trusted `api_core` backend with `public-api-read` authority;
-- allow only operator-configured named canonical HTTPS origins;
-- task input may choose only an endpoint ID, relative path, and bounded query values;
-- allow GET only; deny redirects, environment proxies, credentials and custom headers;
-- resolve immediately before execution, require only public IP results, and pin the
-  connection to a validated address while preserving the trusted TLS/Host identity;
-- accept bounded JSON responses only;
-- persist and action-bind endpoint registry, API policy and exact Worker selection;
-- reselect on retry and revalidate at claim time and Runner execution time;
-- keep `api_run` out of Mind routing until trusted endpoint names are surfaced safely;
-- preserve Managing Director -> Zelo CEO -> VP -> Director -> Manager -> Specialist
-  -> Worker -> Tool;
-- require focused tests, full pytest, adversarial review and exact-head GitHub CI.
-
-After this slice, introduce the next v0.15 execution surface separately with its own
-capability, skill, authority, network, filesystem and credential boundaries.
+- evaluate a narrow reusable browser adapter; preserve Core as the authority;
+- qualify browser isolation, controlled egress, deadlines, resources and cleanup;
+- treat page content as untrusted data, never permission to change policy;
+- do not weaken native browser sandboxing or grant unrestricted host networking;
+- do not install into the live Core environment or add system services here;
+- do not activate a worker/task/capability or add a default AgentSpec before qualification;
+- keep browser profiles, credentials and the Zelo workspace out of the renderer;
+- keep API Worker JSON-only and preserve its reviewed network/identity boundaries;
+- use Astra Medium for model-assisted work unless Ahmad changes that preference;
+- preserve the hierarchy and the canonical v0.16/v0.17/v0.18 milestone order;
+- distinguish design requirements from implemented and verified enforcement;
+- require focused tests, full pytest, independent review and exact-head CI before
+  any subsequent runtime slice merges.
 
 ## Workspace decision
 
