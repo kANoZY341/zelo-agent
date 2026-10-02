@@ -752,3 +752,20 @@ qualification policy; this is not a production worker activation. See
 `docs/v0.15-browser-sandbox-qualification.md`. The next gate is the combined
 broker/renderer/owner lifecycle with verified immutable execution inputs.
 UI PR #61 remains parked; canonical later milestones are unchanged.
+
+## Post-native-qualification continuation
+
+PR #65 merged at `e16d370` after exact-head full CI and independent review.
+Continue with the combined bounded renderer/broker/resource-owner lifecycle in
+`docs/v0.15-browser-renderer-integration.md`. All completed qualification work
+remains disconnected from production authority until integration/activation gates
+pass. UI PR #61 stays parked, and v0.16/v0.17/v0.18 ordering is unchanged.
+
+## Bounded renderer integration checkpoint — 3 October 2026
+
+The active qualification branch combines approved document fetching, exact prepared
+image/controller/profile identity, fixed anonymous-pipe rendering and cleanup-gated
+results under one durable admission lease. Ten controlled real host cases passed;
+Core Browser Worker registration/task authority is not yet enabled. Keep the
+qualification proof separate from activation and preserve UI #61 parked. Details:
+`docs/v0.15-browser-renderer-integration.md`.
