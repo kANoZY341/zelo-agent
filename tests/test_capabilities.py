@@ -54,7 +54,7 @@ def evaluator(
 ) -> AgentActivationEvaluator:
     return AgentActivationEvaluator(
         registry,
-        available_task_kinds=("developer_run", "research_run"),
+        available_task_kinds=("developer_run", "python_run", "research_run"),
         available_tools=(
             "list_workspace_files",
             "read_workspace_file",
@@ -118,6 +118,7 @@ def test_default_registry_extends_research_for_v015_worker_routing():
         "code_planning",
         "code_review",
         "evidence_synthesis",
+        "python_execution",
         "research",
         "zelo_core_development",
     ]
@@ -142,7 +143,11 @@ def test_default_agent_activation_binds_capability_registry_version():
     report = evaluator(
         default_agent_registry(),
         capability_registry=capabilities,
-        workers=(worker(), worker("research", role="research")),
+        workers=(
+            worker(),
+            worker("python_execution", role="python"),
+            worker("research", role="research"),
+        ),
     ).require()
 
     assert report.policy_version == "zelo-agent-activation-policy-v2"
@@ -184,7 +189,11 @@ def test_capability_registry_identity_changes_activation_surface():
     changed_specs[0] = changed_specs[0].model_copy(update={"version": 2})
     changed = CapabilityRegistry(changed_specs)
 
-    workers = (worker(), worker("research", role="research"))
+    workers = (
+        worker(),
+        worker("python_execution", role="python"),
+        worker("research", role="research"),
+    )
     first = evaluator(agents, capability_registry=baseline, workers=workers).require()
     second = evaluator(agents, capability_registry=changed, workers=workers).require()
 
@@ -205,6 +214,7 @@ def test_application_exposes_operator_only_capability_snapshot(client):
         "code_planning",
         "code_review",
         "evidence_synthesis",
+        "python_execution",
         "research",
         "zelo_core_development",
     ]

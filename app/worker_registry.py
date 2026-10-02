@@ -229,3 +229,19 @@ def descriptor_for_research_worker(
         priority=100,
         max_concurrency=1,
     )
+
+
+def descriptor_for_python_worker(
+    *,
+    implementation: str = "core_python",
+    worker_id: str = "python_core",
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="python",
+        capabilities=("python_execution",),
+        authority=("isolated-compute",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )

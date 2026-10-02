@@ -50,6 +50,7 @@ from app.promotion_github import GitHubPromotionPublisher
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
+from app.python_worker import PythonRuntime
 from app.research import ResearchRuntime
 from app.runner import Runner
 from app.scheduler import CampaignScheduler
@@ -63,7 +64,12 @@ from app.storage import build_storage
 from app.task_api import router as task_router
 from app.tasks import TaskService
 from app.tools import ToolGateway
-from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
+from app.worker_registry import (
+    Supervisor,
+    WorkerRegistry,
+    descriptor_for_python_worker,
+    descriptor_for_research_worker,
+)
 from app.workers import Worker, execute
 
 
@@ -104,9 +110,15 @@ def create_app(
                 ((descriptor_for_research_worker(), research_runtime),)
             )
             research_supervisor = Supervisor[ResearchRuntime](research_registry)
+            python_runtime = PythonRuntime()
+            python_registry = WorkerRegistry[PythonRuntime](
+                ((descriptor_for_python_worker(), python_runtime),)
+            )
+            python_supervisor = Supervisor[PythonRuntime](python_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(developer_runtime.registry.list())
             capability_registry.validate_workers(research_registry.list())
+            capability_registry.validate_workers(python_registry.list())
             agent_registry = default_agent_registry()
             skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
@@ -127,6 +139,7 @@ def create_app(
                 worker_descriptors=(
                     *developer_runtime.registry.list(),
                     *research_registry.list(),
+                    *python_registry.list(),
                 ),
                 capability_registry=capability_registry,
             ).require()
@@ -181,6 +194,7 @@ def create_app(
                 promotion_release_runtime,
                 agent_factory=agent_factory,
                 research_supervisor=research_supervisor,
+                python_supervisor=python_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -212,6 +226,7 @@ def create_app(
                 promotion_release_runtime,
                 self_improvement_runtime,
                 research_supervisor=research_supervisor,
+                python_supervisor=python_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -236,6 +251,9 @@ def create_app(
             application.state.research_runtime = research_runtime
             application.state.research_registry = research_registry
             application.state.research_supervisor = research_supervisor
+            application.state.python_runtime = python_runtime
+            application.state.python_registry = python_registry
+            application.state.python_supervisor = python_supervisor
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()

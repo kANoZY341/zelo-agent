@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from app import developer_sandbox
 from app.developer_process import environment
 
-AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v2"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +19,7 @@ class WorkerAuthorityProfile:
     authority: tuple[str, ...]
     workspace_write: bool
     network: bool
+    workspace_read: bool = True
 
 
 _WORKSPACE_WRITE = WorkerAuthorityProfile(
@@ -35,7 +36,16 @@ _WORKSPACE_READ = WorkerAuthorityProfile(
     network=False,
 )
 
+_ISOLATED_COMPUTE = WorkerAuthorityProfile(
+    name="isolated-compute-no-network-v1",
+    authority=("isolated-compute",),
+    workspace_write=False,
+    network=False,
+    workspace_read=False,
+)
+
 _PROFILES = {
+    _ISOLATED_COMPUTE.authority: _ISOLATED_COMPUTE,
     _WORKSPACE_READ.authority: _WORKSPACE_READ,
     _WORKSPACE_WRITE.authority: _WORKSPACE_WRITE,
 }
@@ -80,11 +90,14 @@ def _toml_table(values: dict[str, str]) -> str:
 
 
 def codex_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    workspace_access = (
+        "deny" if not profile.workspace_read else ("write" if profile.workspace_write else "read")
+    )
     filesystem = {
         ":minimal": "read",
         "/opt/zelo-codex": "read",
-        developer_sandbox.REPO: "write" if profile.workspace_write else "read",
-        developer_sandbox.REPO + "/.git": "read",
+        developer_sandbox.REPO: workspace_access,
+        developer_sandbox.REPO + "/.git": "read" if profile.workspace_read else "deny",
         developer_sandbox.ENGINE: "deny",
     }
     return {
@@ -132,6 +145,8 @@ def codex_cli_overrides(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
 
 
 def claude_code_tools(profile: WorkerAuthorityProfile) -> tuple[str, ...]:
+    if not profile.workspace_read:
+        return ()
     base = ("Bash", "Glob", "Grep", "Read")
     return (*base, "Edit", "Write") if profile.workspace_write else base
 
@@ -183,21 +198,24 @@ OPENCODE_SAFE_BASH_RESOURCES = (
 
 
 def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
-    permissions = [
-        {"action": "*", "resource": "*", "effect": "deny"},
-        {"action": "read", "resource": "*", "effect": "allow"},
-        {"action": "read", "resource": "*.env", "effect": "deny"},
-        {"action": "read", "resource": "*.env.*", "effect": "deny"},
-        {"action": "read", "resource": "*.env.example", "effect": "allow"},
-        {"action": "glob", "resource": "*", "effect": "allow"},
-        {"action": "grep", "resource": "*", "effect": "allow"},
-    ]
-    if profile.workspace_write:
-        permissions.append({"action": "edit", "resource": "*", "effect": "allow"})
-    permissions.extend(
-        {"action": "bash", "resource": resource, "effect": "allow"}
-        for resource in OPENCODE_SAFE_BASH_RESOURCES
-    )
+    permissions = [{"action": "*", "resource": "*", "effect": "deny"}]
+    if profile.workspace_read:
+        permissions.extend(
+            (
+                {"action": "read", "resource": "*", "effect": "allow"},
+                {"action": "read", "resource": "*.env", "effect": "deny"},
+                {"action": "read", "resource": "*.env.*", "effect": "deny"},
+                {"action": "read", "resource": "*.env.example", "effect": "allow"},
+                {"action": "glob", "resource": "*", "effect": "allow"},
+                {"action": "grep", "resource": "*", "effect": "allow"},
+            )
+        )
+        if profile.workspace_write:
+            permissions.append({"action": "edit", "resource": "*", "effect": "allow"})
+        permissions.extend(
+            {"action": "bash", "resource": resource, "effect": "allow"}
+            for resource in OPENCODE_SAFE_BASH_RESOURCES
+        )
 
     policies = [
         {"action": "provider.use", "resource": "*", "effect": "deny"},
@@ -214,21 +232,38 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    if not profile.workspace_read:
+        return {"python_compute": developer_sandbox.python_compute_sandbox_plan()}
     return developer_sandbox.worker_sandbox_plans(profile.workspace_write)
 
 
+def external_worker_sandbox_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    if not profile.workspace_read:
+        return developer_sandbox.external_worker_sandbox_plan(
+            repo_present=False,
+            workspace_write=False,
+            service_network=profile.network,
+        )
+    return developer_sandbox.external_worker_sandbox_plans(profile.workspace_write)
+
+
 def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    python_compute = None
+    if not profile.workspace_read:
+        from app.python_worker import python_policy_semantics
+
+        python_compute = python_policy_semantics()
     return {
         "name": profile.name,
         "authority": profile.authority,
+        "workspace_read": profile.workspace_read,
         "codex": codex_permission_semantics(profile),
         "codex_cli_overrides": codex_cli_overrides(profile),
         "claude_code": claude_code_permission_semantics(profile),
         "opencode": opencode_permission_semantics(profile),
         "sandbox": sandbox_permission_semantics(profile),
-        "external_worker_sandbox": developer_sandbox.external_worker_sandbox_plans(
-            profile.workspace_write
-        ),
+        "external_worker_sandbox": external_worker_sandbox_semantics(profile),
+        "python_compute": python_compute,
     }
 
 

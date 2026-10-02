@@ -104,6 +104,7 @@ class Execution:
     tool_arguments: dict[str, Any] | None = None
     developer_request: DeveloperRequest | None = None
     research_selection: WorkerSelectionSnapshot | None = None
+    python_selection: WorkerSelectionSnapshot | None = None
     promotion_request: PromotionRequest | None = None
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
@@ -594,6 +595,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "config_version": task.config_version,
         "developer_spec": task.developer_spec,
         "research_spec": task.research_spec,
+        "python_spec": task.python_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
@@ -628,6 +630,7 @@ class TaskService:
         promotion_release_runtime: PromotionReleaseRuntime | None = None,
         agent_factory: AgentFactory | None = None,
         research_supervisor: Supervisor[Any] | None = None,
+        python_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -639,6 +642,7 @@ class TaskService:
         self.promotion_release_runtime = promotion_release_runtime
         self.agent_factory = agent_factory
         self.research_supervisor = research_supervisor
+        self.python_supervisor = python_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -771,6 +775,8 @@ class TaskService:
                 "profile": "general",
                 "worker_selection": task.research_spec,
             }
+        if task.kind == "python_run":
+            return {"worker_selection": task.python_spec}
         if task.kind == "developer_run":
             return task.developer_spec
         if task.kind == "promotion_run":
@@ -1557,7 +1563,11 @@ class TaskService:
         key: str | None,
         agent_execution: AgentExecutionBinding | None = None,
     ) -> tuple[TaskResponse, bool]:
-        if agent_execution is not None and request.kind not in {"developer_run", "research_run"}:
+        if agent_execution is not None and request.kind not in {
+            "developer_run",
+            "python_run",
+            "research_run",
+        }:
             raise DomainError("Agent execution supports only specialist task kinds", 422)
         if request.kind == "promotion_run":
             return self._submit_promotion(request, key)
@@ -1686,6 +1696,37 @@ class TaskService:
                     ),
                 )
 
+            python_selection = None
+            if request.kind == "python_run":
+                if self.python_supervisor is None:
+                    raise DomainError("Python worker unavailable", 503)
+                role = "python"
+                capabilities = ("python_execution",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "python":
+                        raise DomainError("Agent Python worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    _, python_selection = self.python_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                task.python_spec = python_selection.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(
+                        {"worker_selection": task.python_spec},
+                        agent_execution_spec,
+                    ),
+                )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -1778,6 +1819,27 @@ class TaskService:
                     implementation=research_selection.descriptor.implementation,
                     registry_version=research_selection.registry_version,
                     authority_profile=research_selection.authority_profile,
+                )
+
+            if task.kind == "python_run":
+                if python_selection is None:
+                    raise DomainError("Python routing state unavailable", 503)
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=python_selection.requested_role,
+                    capabilities=list(python_selection.requested_capabilities),
+                    routing_policy=python_selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=python_selection.descriptor.worker_id,
+                    implementation=python_selection.descriptor.implementation,
+                    registry_version=python_selection.registry_version,
+                    authority_profile=python_selection.authority_profile,
                 )
 
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
@@ -2476,6 +2538,42 @@ class TaskService:
                     registry_version=selection.registry_version,
                     authority_profile=selection.authority_profile,
                 )
+            if task.kind == "python_run":
+                if self.python_supervisor is None:
+                    raise DomainError("Python worker unavailable", 503)
+                role = "python"
+                capabilities = ("python_execution",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "python":
+                        raise DomainError("Agent Python worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    _, selection = self.python_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                task.python_spec = selection.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -2698,6 +2796,37 @@ class TaskService:
                     authority_profile=research_selection.authority_profile,
                 )
 
+            python_selection = None
+            if task.kind == "python_run":
+                try:
+                    if self.python_supervisor is None or task.python_spec is None:
+                        raise ValueError("python_worker_selection_unavailable")
+                    python_selection = WorkerSelectionSnapshot.model_validate(task.python_spec)
+                    if not self.python_supervisor.matches(python_selection):
+                        raise ValueError("python_worker_selection_stale")
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if (
+                            requirement is None
+                            or python_selection.requested_role != requirement.role
+                            or tuple(python_selection.requested_capabilities)
+                            != tuple(requirement.capabilities)
+                        ):
+                            raise ValueError("python_worker_requirement_mismatch")
+                except ValueError:
+                    task.error = "python_worker_selection_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=python_selection.descriptor.worker_id,
+                    registry_version=python_selection.registry_version,
+                    authority_profile=python_selection.authority_profile,
+                )
+
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -2855,6 +2984,7 @@ class TaskService:
                 task.payload.get("arguments"),
                 developer_request,
                 research_selection,
+                python_selection,
                 promotion_request,
                 merge_request,
                 release_request,

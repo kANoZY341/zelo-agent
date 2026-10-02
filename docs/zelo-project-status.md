@@ -62,50 +62,48 @@ Generic Worker Registry is merged through PR #57 at:
 
 `9d2e897a6c8bebf63fc52dec7b6442c24cc9f8aa`
 
-## Active increment: v0.15 Research Worker
+## Research Worker merged
+
+Research Worker is merged through PR #58 at:
+
+`c16f21381a2316435091f35faa82b609534cefa3`
+
+It provides the trusted `research_core` backend, Research AgentSpec v2, capability
+v2 worker subject, exact persisted selection, claim/Runner revalidation and unchanged
+workspace-read/no-network evidence retrieval.
+
+## Active increment: v0.15 Python Worker
 
 The active branch is:
 
-`feat/v0.15-research-worker`
+`feat/v0.15-python-worker`
 
-This fourth v0.15 slice turns the existing bounded ResearchRuntime into the first
-separately registered non-developer worker behind the shared Supervisor.
+This fifth v0.15 slice adds bounded isolated Python compute behind the shared
+Supervisor. Current implementation includes:
 
-Current implementation includes:
+- `python_execution` capability for agent and worker subjects;
+- `python_execution` skill with no new default AgentSpec or department;
+- trusted `python_core` WorkerDescriptor;
+- `isolated-compute-no-network-v1` WorkerAuthority;
+- migration `0027_python_worker_selection`;
+- exact persisted Python `WorkerSelectionSnapshot` and action-hash binding;
+- fresh retry selection and claim/Runner fail-closed revalidation;
+- a fixed Bubblewrap Python sandbox with no Zelo workspace, network or credentials;
+- read-only empty workspace/tmp mounts, no shell binary and no package install surface;
+- memory, CPU, process, open-file, file-size and output limits bound into authority policy.
 
-- `research` capability v2 for agent and worker subjects;
-- Research AgentSpec v2 with an explicit `research` WorkerRequirement;
-- trusted `research_core` WorkerDescriptor;
-- workspace-read/no-network WorkerAuthority;
-- migration `0026_research_worker_selection`;
-- exact persisted Research `WorkerSelectionSnapshot` on Core tasks;
-- worker identity bound into action hashing and task audit events;
-- fresh Supervisor selection on retry;
-- claim-time registry/requirement revalidation;
-- Runner resolution of the exact selected Research backend;
-- unchanged evidence/citation and read-only retrieval semantics.
+Live sandbox probes and automated tests prove workspace/tmp writes, process creation,
+shell execution and outbound network access are denied while standard-library compute
+remains available.
 
-## v0.15 Research Worker boundaries
+## v0.15 Python Worker boundaries
 
-This slice does **not** add:
-
-- public web browsing or arbitrary network access;
-- Browser, Computer, Python, API, Shell or Media workers;
-- new Research tools or task kinds;
-- write-capable filesystem authority;
-- subprocess or credential authority;
-- dynamic/model-authored workers, capabilities or skills;
-- new approval, scheduler, merge or release authority.
-
-The Research Worker continues to use only `repo_status`,
-`list_workspace_files`, and `read_workspace_file` through ToolPolicy.
+This slice does **not** add workspace access, public web/API access, credentials,
+Shell Worker authority, Browser/Computer control, arbitrary executables, package
+installation or Zelo Core internals to submitted Python code.
 
 ## v0.15 continuation
 
-After this Research Worker slice passes full verification and merges:
-
-1. choose the next bounded worker/tool surface independently;
-2. add only the minimum capability/skill/authority contract required for it;
-3. keep network, filesystem, subprocess and credential permissions explicit;
-4. require focused tests, full pytest, adversarial review and exact-head CI for
-   every slice.
+After Python Worker passes full verification and merges, introduce the next bounded
+worker surface independently with explicit capability, skill, authority, network,
+filesystem, credential and approval boundaries.
