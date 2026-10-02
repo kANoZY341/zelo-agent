@@ -782,3 +782,52 @@ def test_deadline_includes_offloop_validation(setup, monkeypatch):
 
     asyncio.run(exercise())
     assert not worker.made
+
+
+def test_cancellation_after_threaded_claim_commit_prevents_launch(
+    setup, settings, database, monkeypatch
+):
+    import threading
+
+    worker = runtime(setup)
+    selected = supervisor(worker)
+    tasks = TaskService(database, settings, browser_supervisor=selected)
+    task, _ = tasks.submit(request(), None)
+    runner = Runner(tasks, browser_supervisor=selected)
+    committed, release = threading.Event(), threading.Event()
+    original = tasks.claim
+    launches = []
+
+    def held():
+        execution = original()
+        if execution is not None:
+            committed.set()
+            assert release.wait(5)
+        return execution
+
+    async def forbidden(execution):
+        launches.append(execution.task_id)
+        raise AssertionError("cancelled claim was launched")
+
+    monkeypatch.setattr(tasks, "claim", held)
+    monkeypatch.setattr(runner, "_run", forbidden)
+
+    async def exercise():
+        runner.start()
+        try:
+            assert await asyncio.to_thread(committed.wait, 2)
+            assert not runner.operations
+            tasks.cancel(task.id)
+            runner.cancel(task.id)
+        finally:
+            release.set()
+        for _ in range(100):
+            if tasks.get(task.id).status == "cancelled":
+                break
+            await asyncio.sleep(0.01)
+        assert tasks.get(task.id).status == "cancelled"
+        await runner.stop()
+
+    asyncio.run(exercise())
+    assert not launches and not worker.made
+    assert tasks.get(task.id).result is None

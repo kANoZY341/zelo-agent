@@ -157,6 +157,16 @@ class Runner:
                     if self.stopping:
                         self.service.finish(execution, State.INTERRUPTED, error="service_shutdown")
                         break
+                    if (
+                        self.browser_supervisor is not None
+                        and self.service.get(execution.task_id).cancel_requested
+                    ):
+                        # Cancellation may arrive while the threaded claim has
+                        # committed but no operation is registered yet.
+                        self.service.finish(
+                            execution, State.CANCELLED, error="cancelled_by_operator"
+                        )
+                        continue
                     if execution.task_id in self.operations:
                         raise RuntimeError("duplicate_running_task")
                     operation = asyncio.create_task(
