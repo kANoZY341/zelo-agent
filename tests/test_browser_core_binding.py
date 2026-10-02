@@ -1014,3 +1014,45 @@ def test_repeated_late_cleanup_has_bounded_retention_without_runtime_shutdown(se
         await worker.aclose()
 
     asyncio.run(exercise())
+
+
+def test_overlapping_pre_lifecycle_runs_retain_uncertain_cleanup(setup):
+    async def exercise():
+        worker = runtime(setup, clean=False)
+        original = worker.renderer_factory
+        entered = asyncio.Queue()
+        releases = []
+
+        def factory(*args):
+            renderer = original(*args)
+            render = renderer.render
+            release = asyncio.Event()
+            releases.append(release)
+
+            async def held(*args, **kwargs):
+                entered.put_nowait(renderer)
+                await release.wait()
+                return await render(*args, **kwargs)
+
+            renderer.render = held
+            return renderer
+
+        worker.renderer_factory = factory
+        first = asyncio.create_task(run(worker))
+        first_renderer = await asyncio.wait_for(entered.get(), 2)
+        assert first_renderer.owner._lifecycle is None
+        second = asyncio.create_task(run(worker))
+        await asyncio.wait_for(entered.get(), 2)
+        assert first_renderer in worker._owners
+        second.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await second
+        releases[0].set()
+        with pytest.raises(BrowserRuntimeError):
+            await first
+        assert first_renderer in worker._owners
+        with pytest.raises(BrowserRuntimeError, match="browser_cleanup_unproven"):
+            await worker.aclose()
+        assert (setup[2] / "active.marker").read_bytes()
+
+    asyncio.run(exercise())

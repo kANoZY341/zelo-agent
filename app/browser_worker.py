@@ -228,7 +228,7 @@ class BrowserRuntime:
         # Only qualified cleanup state permits dropping a retained owner. This
         # never changes admission files or reconciles an uncertain lifecycle.
         for renderer in tuple(self._owners):
-            if not renderer.owner.cleanup_required:
+            if renderer.owner.cleanup_confirmed:
                 self._owners.discard(renderer)
 
     async def run(
@@ -314,6 +314,8 @@ class BrowserRuntime:
         finally:
             # ResourceOwner retains incomplete lifecycle tasks and the marker. Never
             # reinterpret owner_failed/cleanup_pending as successful cleanup.
+            if renderer is not None and not renderer.owner.cleanup_required:
+                self._owners.discard(renderer)
             self._prune_owners()
 
     async def aclose(self) -> None:
