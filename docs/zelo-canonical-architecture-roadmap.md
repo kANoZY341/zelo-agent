@@ -469,11 +469,12 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (2 October 2026): Browser document broker and owned-DNS
-qualification prerequisites merged through PR #62 at `939cbd7`. Next qualify
-aggregate renderer resources, global admission and immutable execution identity
-according to `docs/v0.15-browser-runtime-qualification.md`, without activating
-Browser Worker prematurely. UI PR #61 remains parked for later rework.
+Core-first checkpoint (3 October 2026): Browser document broker, owned DNS,
+resource admission, artifact/native-sandbox qualification and bounded renderer
+integration are merged through PR #66 at `f728df7`. Next bind the qualified path
+to Core task identity, retry, claim and Runner according to
+`docs/v0.15-browser-core-binding.md`. Browser Worker remains inactive; UI PR #61
+remains parked for later rework.
 
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
@@ -769,3 +770,17 @@ results under one durable admission lease. Ten controlled real host cases passed
 Core Browser Worker registration/task authority is not yet enabled. Keep the
 qualification proof separate from activation and preserve UI #61 parked. Details:
 `docs/v0.15-browser-renderer-integration.md`.
+
+
+## Renderer merged; Core task binding next — 3 October 2026
+
+PR #66 merged at `f728df7` from exact reviewed head `ba188c3`; tree equality was
+confirmed. Exact-head CI passed 1,538 tests with two host-only installed-Codex
+skips, and Astra Medium identified no blocking defect in qualification scope.
+The updated renderer/protocol/harness gate passed 121 cases. Ten controlled real
+browser/container cases passed; browser HTTP/DNS evidence used fixtures.
+
+Continue on `feat/v0.15-browser-core-binding` using the next binding plan. Complete
+operator prerequisites and immutable Core task/worker identity before activation;
+merging qualification code does not activate Browser Worker. Published release
+stays v0.14.0. UI #61 and canonical later milestones remain parked/unchanged.

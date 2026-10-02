@@ -66,60 +66,44 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 bounded browser renderer/lifecycle integration from native
-sandbox qualification merge `e16d370`. Continue the established Core roadmap; later UI rework requires fresh
-acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+The active work is v0.15 Browser Worker Core task binding after renderer
+integration PR #66 at `f728df7`. Continue the established Core roadmap; later UI
+rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 bounded browser renderer integration
+## Current scope: v0.15 Browser Worker Core binding
 
-Native sandbox prerequisites merged through PR #65 at
-`e16d370939902d4180237933f5e61d294c651b00`; full exact-head CI passed
-1417 tests with 2 host-only skips, and both skipped installed-Codex probes passed
-separately. Core-first work now combines the document broker, anonymous browser
-pipe, verified execution artifacts, resource owner and crash-fenced admission.
+Renderer integration PR #66 merged at `f728df7e87e3c4a9b5cdb23fc1e2c60281a810ef`.
+Reviewed/tested head `ba188c3` passed exact-head CI (1538 tests, 2 installed-Codex
+host-only skips), 121 focused renderer/protocol/harness tests, ten real controlled
+Chromium/container/owner cases and independent Astra Medium static review. The
+merge tree exactly matches that head. The existing installed-Codex host supplement
+passed on the prior implementation checkpoint; do not describe duplicate stopped
+local full-suite attempts as complete verification.
 
-Read `docs/v0.15-browser-renderer-integration.md` before implementation. No
-Browser Worker/task/capability may be activated until combined lifecycle,
-artifact attachment and untrusted-document bounds pass their explicit gates.
-Do not add a raw CDP/evaluation/navigation API. Native sandboxing, no external
-renderer network, private profiles, NNP, cap-drop ALL, cgroups and truthful cleanup
-remain mandatory. Constructor/operator input must not become model/caller authority.
+Read `docs/v0.15-browser-core-binding.md` before implementation. This branch binds
+the qualified renderer to Core task/worker/Agent identity, migration guards,
+action hashing, retry, claim and Runner. Default state remains disabled. Trusted
+operator configuration must establish verified artifacts/image/profile/origins and
+one canonical persistent private admission directory before any worker is enabled.
+Do not modify live Core settings/databases, install services, publish a release or
+activate the production Browser Worker in this development slice.
 
-Work in this dedicated worktree. The parent owns isolated host probes and release
-gates. Preserve the original UI worktrees and parked PR #61. Use Astra Medium.
-Do not change published version, production databases or global host configuration.
+Reuse qualified broker/renderer/owner/admission modules through a narrow adapter.
+No raw CDP, arbitrary evaluation/navigation/interaction, custom flags/headers/cookies,
+credentials, caller-selected URL/image/mount/profile, screenshots or downloads.
+Keep native browser sandboxing, network-none, private profile/pipe, nonroot, NNP,
+cap-drop ALL, cgroups and truthful cleanup. Unknown cleanup stays fenced; retry,
+restart, TTL and stale PID inference cannot reconcile a marker automatically.
 
-Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are
-Capability Registry #55, Skill Registry #56, Generic Worker Registry #57,
-Research Worker #58, Python Worker #59 and API Worker #60.
-The API Worker merge baseline is `8d33d563070c58c487dd06e91fd9af617744dab3`.
-
-The active branch is:
-
-`feat/v0.15-browser-renderer-integration`
-
-Document broker and owned DNS qualification prerequisites merged as PR #62 at
-`939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`. Read
-`docs/v0.15-browser-runtime-qualification.md` for the next resource/identity gate.
-
-This is a qualification/design slice, not an activated Browser Worker. Read
-`docs/v0.15-browser-worker-qualification.md` before implementation.
-
-Rules for this slice:
-
-- evaluate a narrow reusable browser adapter; preserve Core as the authority;
-- qualify browser isolation, controlled egress, deadlines, resources and cleanup;
-- treat page content as untrusted data, never permission to change policy;
-- do not weaken native browser sandboxing or grant unrestricted host networking;
-- do not install into the live Core environment or add system services here;
-- do not activate a worker/task/capability or add a default AgentSpec before qualification;
-- keep browser profiles, credentials and the Zelo workspace out of the renderer;
-- keep API Worker JSON-only and preserve its reviewed network/identity boundaries;
-- use Astra Medium for model-assisted work unless Ahmad changes that preference;
-- preserve the hierarchy and the canonical v0.16/v0.17/v0.18 milestone order;
-- distinguish design requirements from implemented and verified enforcement;
-- require focused tests, full pytest, independent review and exact-head CI before
-  any subsequent runtime slice merges.
+Work in this dedicated worktree. Preserve original UI worktrees and parked draft
+PR #61, beta conversations/data and published v0.14.0. Use Astra Medium. Preserve
+existing API/Research/Python authority, Agent hierarchy and canonical v0.16/v0.17/
+v0.18 ordering. No default AgentSpec, new department or Mind routing in this slice.
+Require focused tests, full pytest, independent exact-head review and exact-head
+CI before merging runtime changes. Docker host tests remain explicit opt-ins;
+automated CI is offline and deterministic. Separate static, fixture and actual
+host evidence. Read `docs/v0.15-browser-renderer-integration.md` for qualified scope
+and trust/availability limitations.
 
 ## Workspace decision
 
