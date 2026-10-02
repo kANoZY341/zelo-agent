@@ -101,6 +101,19 @@ def test_python_runtime_has_no_host_workspace_site_packages_or_capabilities():
     assert "site-packages" not in result["stdout"]
 
 
+def test_python_runtime_blocks_nested_user_namespaces():
+    result = run_python(
+        "import ctypes\n"
+        "libc=ctypes.CDLL(None,use_errno=True)\n"
+        "rc=libc.unshare(0x10000000)\n"
+        "print(rc,ctypes.get_errno())"
+    )
+    assert result["exit_code"] == 0
+    rc, error = (int(item) for item in result["stdout"].split())
+    assert rc == -1
+    assert error != 0
+
+
 def test_python_runtime_enforces_memory_limit():
     result = run_python("bytearray(300 * 1024 * 1024)")
     assert result["exit_code"] != 0

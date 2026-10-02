@@ -216,6 +216,8 @@ def _render_switches(plan: dict[str, object]) -> list[str]:
             args.append(flag)
     if plan["namespaces"].get("uts", False):
         args.extend(("--hostname", str(plan.get("hostname", "zelo-sandbox"))))
+    if plan.get("disable_userns", False):
+        args.append("--disable-userns")
     if plan["lifecycle"]["die_with_parent"]:
         args.append("--die-with-parent")
     return args
@@ -354,6 +356,7 @@ def python_compute_sandbox_plan() -> dict[str, object]:
             "uts": True,
         },
         "hostname": "zelo-python",
+        "disable_userns": True,
         "lifecycle": {"die_with_parent": True},
         "workspace": {"path": REPO, "present": False, "writable": False},
         "network": {"enabled": False},
