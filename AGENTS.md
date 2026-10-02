@@ -66,11 +66,11 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser Worker qualification from API Worker merge
-`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 Browser runtime qualification from broker prerequisite
+merge `939cbd7`. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 Browser Worker qualification
+## Current scope: v0.15 Browser runtime qualification
 
 Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are
 Capability Registry #55, Skill Registry #56, Generic Worker Registry #57,
@@ -79,7 +79,11 @@ The API Worker merge baseline is `8d33d563070c58c487dd06e91fd9af617744dab3`.
 
 The active branch is:
 
-`feat/v0.15-browser-worker-qualification`
+`feat/v0.15-browser-runtime-qualification`
+
+Document broker and owned DNS qualification prerequisites merged as PR #62 at
+`939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`. Read
+`docs/v0.15-browser-runtime-qualification.md` for the next resource/identity gate.
 
 This is a qualification/design slice, not an activated Browser Worker. Read
 `docs/v0.15-browser-worker-qualification.md` before implementation.

@@ -469,6 +469,13 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+Core-first checkpoint (2 October 2026): Browser document broker and owned-DNS
+qualification prerequisites merged through PR #62 at `939cbd7`. Next qualify
+aggregate renderer resources, global admission and immutable execution identity
+according to `docs/v0.15-browser-runtime-qualification.md`, without activating
+Browser Worker prematurely. UI PR #61 remains parked for later rework.
+
+
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
 Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
@@ -651,8 +658,10 @@ Current verified baseline as of 2 October 2026:
   `c8aab211b52cbc576d8457b61d01134fcab645e5`;
 - API Worker is merged through PR #60 at
   `8d33d563070c58c487dd06e91fd9af617744dab3`;
-- the next branch is `feat/v0.15-browser-worker-qualification`, a design and
-  isolation-qualification slice with no Browser runtime activated;
+- document broker and owned-DNS qualification prerequisites are merged through
+  PR #62 at `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`;
+- the next branch is `feat/v0.15-browser-runtime-qualification`, covering global
+  admission, resource isolation and execution identity; no Browser runtime is active;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
 - Browser, Computer, Shell and Media workers remain separate future slices and
