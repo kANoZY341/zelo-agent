@@ -101,6 +101,21 @@ def test_python_runtime_has_no_host_workspace_site_packages_or_capabilities():
     assert "site-packages" not in result["stdout"]
 
 
+def test_python_runtime_scrubs_environment_and_host_home():
+    result = run_python(
+        "import os\n"
+        "print(sorted(os.environ))\n"
+        "print(os.path.exists('/home'))\n"
+        "print(os.environ.get('HOME'))"
+    )
+    assert result["exit_code"] == 0
+    assert "ANTHROPIC" not in result["stdout"]
+    assert "OPENAI" not in result["stdout"]
+    assert "GITHUB" not in result["stdout"]
+    assert "False" in result["stdout"]
+    assert "/nonexistent" in result["stdout"]
+
+
 def test_python_runtime_blocks_nested_user_namespaces():
     result = run_python(
         "import ctypes\n"

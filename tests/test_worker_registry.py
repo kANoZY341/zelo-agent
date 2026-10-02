@@ -690,6 +690,19 @@ def test_python_resource_policy_change_invalidates_selection(monkeypatch):
     assert not supervisor.matches(snapshot)
 
 
+def test_isolated_compute_authority_fingerprint_binds_python_bootstrap(monkeypatch):
+    from app import python_worker
+
+    profile = authority_profile(("isolated-compute",))
+    baseline = authority_policy_fingerprint((profile,))
+    monkeypatch.setattr(
+        python_worker,
+        "PYTHON_BOOTSTRAP",
+        python_worker.PYTHON_BOOTSTRAP + "\n# changed policy bytes",
+    )
+    assert authority_policy_fingerprint((profile,)) != baseline
+
+
 def test_authority_policy_is_approval_bound():
     registry = WorkerRegistry([(descriptor("worker"), StubWorker())])
     _, snapshot = Supervisor(registry).select(

@@ -31,7 +31,6 @@ class PythonRuntimeError(Exception):
 PYTHON_BOOTSTRAP = r"""import io
 import json
 import math
-import math
 import resource
 import sys
 payload = json.loads(sys.stdin.read())
