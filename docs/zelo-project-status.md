@@ -123,6 +123,19 @@ not to grant browser control immediately. The design is recorded in
 explicit acceptance gates. No Browser Worker, browser installation or new authority
 is implemented or activated by this qualification plan.
 
+## Browser fetch and DNS qualification checkpoint
+
+The isolated `qualification/` package now contains a page-evidence broker and
+owned subprocess DNS resolver, with 66 dedicated offline cases. Host verification
+including existing API and project tests passed 169 cases. This package is not
+imported by Core startup and registers no browser task, worker or capability.
+
+Controlled host probes link fixture broker output to an isolated renderer, and
+separately show unmediated host-loopback and host-file access denied. Public TLS
+transport, global broker admission, renderer/resource policy and exact Worker
+identity remain qualification gates. See
+`docs/reviews/browser-broker-qualification-report.md` for limits and evidence.
+
 ## v0.15 continuation
 
 Qualify browser isolation and controlled egress before implementing the next
