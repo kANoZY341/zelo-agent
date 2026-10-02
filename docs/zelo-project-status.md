@@ -122,10 +122,12 @@ the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
 ## Active increment: v0.15 Browser renderer integration
 
-Branch: `feat/v0.15-browser-renderer-integration`. The remaining gates are
-aggregate resource control, global admission/ownership, pinned browser/controller
-identity, repeatable renderer linkage and lifecycle/cleanup proof. The plan is
-`docs/v0.15-browser-runtime-qualification.md`. No Browser Worker is active.
+Branch: `feat/v0.15-browser-renderer-integration`. The broker, fixed anonymous-pipe
+renderer and crash-fenced owner are now implemented together in qualification code.
+The opt-in host harness verifies actual prepared image payloads and exercised ten
+real integration/failure/cleanup cases with controlled HTTP fixtures. No Browser
+Worker is active; review/full CI and later Core execution binding remain gates.
+See `docs/v0.15-browser-renderer-integration.md` for exact scope and evidence.
 
 UI PR #61 remains parked, draft and unmerged by Ahmad's latest decision.
 Do not return to UI integration or spend this phase redesigning it.
@@ -209,3 +211,12 @@ The next integration work is scoped in `v0.15-browser-renderer-integration.md`.
 Use one trusted admission/ownership lifecycle, immutable approved image/policy,
 fixed bounded protocol commands, broker-only retrieval and cleanup-confirmed
 results. UI remains parked and no later milestone has been reordered.
+
+## Combined renderer host checkpoint — 3 October 2026
+
+The new focused renderer/host harness/protocol regression tests passed 117 cases.
+Ten real fixed-content broker-to-browser lifecycle cases passed with no external
+network. Artifact bytes were checked inside an exported unstarted image, not only
+before building it. Long DOM previews are reported truncated rather than complete.
+Lost-create acknowledgement, cancellation and resource-flood paths retained owned
+cleanup and admission fencing. Production app and parked UI are unchanged.
