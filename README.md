@@ -312,6 +312,10 @@ is allowed; credentials, custom headers, redirects, proxies and workspace access
 are unavailable. Paths must be ASCII without percent escapes, dot segments or
 repeated slashes. Query values are strings, encoded separately. Both compressed
 and decoded responses are capped at 262144 bytes; invalid or empty JSON fails.
+GET-only does not guarantee that a remote endpoint has no side effects. No host
+credentials are injected; do not put tokens or private data in query strings, which
+are sent to the approved origin and stored as task input.
+
 Non-2xx JSON responses produce failed tasks with `api_http_status` and a bounded
 result. Core validates every DNS answer and pins the connection to a public IP
 while verifying TLS against the configured hostname.
