@@ -82,38 +82,36 @@ It provides the trusted `python_core` backend, isolated-compute authority, migra
 `0027_python_worker_selection`, exact persisted selection, claim/Runner
 revalidation, and bounded no-workspace/no-network Python computation.
 
-## Active increment: v0.15 API Worker
+## API Worker merged
+
+API Worker PR #60 is merged at:
+
+`8d33d563070c58c487dd06e91fd9af617744dab3`
+
+It adds `api_core`, `api_read`, migration `0028_api_worker_selection`, exact
+endpoint/policy/worker identity, claim/Runner revalidation and bounded GET-only
+JSON access to operator-configured HTTPS origins. Mind API routing remains disabled.
+
+Reviewed head `eebdb6d996f84bdb60ccb7cd483da9e29cc653b8` passed independent
+Astra Medium review and exact-head CI `37033261497`: 1048 passed, 2 skipped.
+Both skipped installed-Codex probes passed separately on the host at the same head.
+The expanded host-focused suite passed 216 tests. TLS/HTTP diagnostics and the
+controlled-clock negative controls are recorded in the PR discussion.
+
+## Active increment: v0.15 Browser Worker qualification
 
 The active branch is:
 
-`feat/v0.15-api-worker`
+`feat/v0.15-browser-worker-qualification`
 
-This sixth v0.15 slice adds bounded read-only HTTPS access behind the shared
-Supervisor. Current implementation includes:
-
-- `api_read` capability for agent and worker subjects;
-- `api_read` skill with no new default AgentSpec or department;
-- trusted `api_core` WorkerDescriptor;
-- `public-api-read-no-credentials-v1` WorkerAuthority;
-- immutable operator-configured named HTTPS endpoint registry;
-- migration `0028_api_worker_selection`;
-- exact persisted API execution identity, including endpoint registry, API policy and
-  WorkerSelectionSnapshot;
-- fresh retry binding plus claim/Runner fail-closed revalidation;
-- public-IP-only DNS resolution and connection pinning with trusted TLS/Host identity;
-- GET-only requests, no redirects, proxies, credentials or custom headers;
-- bounded JSON-only responses.
-
-## v0.15 API Worker boundaries
-
-This slice does **not** add arbitrary URL access, credentials, authenticated APIs,
-POST/PUT/PATCH/DELETE, Browser or Computer control, Shell Worker authority, workspace
-access, file downloads, or package installation. Mind does not route `api_run` in
-this slice because configured endpoint names are not yet exposed as a trusted Mind
-surface.
+The first step is to qualify a browser adapter and its process/network boundary,
+not to grant browser control immediately. The design is recorded in
+`docs/v0.15-browser-worker-qualification.md`, with primary-source references and
+explicit acceptance gates. No Browser Worker, browser installation or new authority
+is implemented or activated by this qualification plan.
 
 ## v0.15 continuation
 
-After API Worker passes full verification and merges, introduce the next bounded
-worker surface independently with explicit capability, skill, authority, network,
-filesystem, credential and approval boundaries.
+Qualify browser isolation and controlled egress before implementing the next
+bounded runtime surface. Preserve explicit capability, skill, worker identity,
+filesystem, credential, network and approval boundaries; retain all normal merge gates.

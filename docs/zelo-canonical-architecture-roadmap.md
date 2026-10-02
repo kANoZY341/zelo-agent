@@ -641,8 +641,10 @@ Current verified baseline as of 2 October 2026:
   `c16f21381a2316435091f35faa82b609534cefa3`;
 - Python Worker is merged through PR #59 at
   `c8aab211b52cbc576d8457b61d01134fcab645e5`;
-- the active sixth slice is the bounded read-only API Worker on
-  `feat/v0.15-api-worker`;
+- API Worker is merged through PR #60 at
+  `8d33d563070c58c487dd06e91fd9af617744dab3`;
+- the next branch is `feat/v0.15-browser-worker-qualification`, a design and
+  isolation-qualification slice with no Browser runtime activated;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
 - Browser, Computer, Shell and Media workers remain separate future slices and
