@@ -534,12 +534,17 @@ class Runner:
         if (
             selected is None
             or not self.browser_supervisor.matches(selection)
-            or not await asyncio.to_thread(selected.worker.matches, execution.browser_request)
             or not selected.worker.request_matches(
                 execution.browser_request, execution.payload, execution.timeout_seconds
             )
         ):
             raise BrowserRuntimeError("browser_execution_spec_stale")
+        try:
+            async with asyncio.timeout_at(deadline):
+                if not await asyncio.to_thread(selected.worker.matches, execution.browser_request):
+                    raise BrowserRuntimeError("browser_execution_spec_stale")
+        except TimeoutError:
+            raise BrowserRuntimeError("browser_timeout") from None
 
         def emit(event: str, details: dict[str, Any]) -> None:
             self.service.model_event(execution.task_id, event, execution.attempt_id, **details)

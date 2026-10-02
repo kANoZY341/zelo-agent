@@ -831,3 +831,36 @@ def test_cancellation_after_threaded_claim_commit_prevents_launch(
     asyncio.run(exercise())
     assert not launches and not worker.made
     assert tasks.get(task.id).result is None
+
+
+def test_runner_deadline_bounds_initial_bundle_validation(setup, settings, database, monkeypatch):
+    import threading
+
+    worker = runtime(setup)
+    selected = supervisor(worker)
+    tasks = TaskService(database, settings, browser_supervisor=selected)
+    task, _ = tasks.submit(request(timeout=0.1), None)
+    execution = tasks.claim()
+    runner = Runner(tasks, browser_supervisor=selected)
+    release = threading.Event()
+    original = worker.matches
+
+    def held(specification):
+        assert release.wait(5)
+        return original(specification)
+
+    monkeypatch.setattr(worker, "matches", held)
+
+    async def exercise():
+        try:
+            await asyncio.wait_for(runner._run(execution), 1)
+            result = tasks.get(task.id)
+            assert result.status == "failed" and result.result is None
+            assert "browser_timeout" in result.error
+            assert not worker.made
+        finally:
+            release.set()
+        await worker.aclose()
+
+    asyncio.run(exercise())
+    assert not worker.made
