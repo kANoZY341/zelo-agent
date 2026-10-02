@@ -133,3 +133,59 @@ def test_integration_diagnostic_requires_explicit_container_opt_in(monkeypatch):
     with pytest.raises(SystemExit) as error:
         probe.main()
     assert error.value.code == 2
+
+
+def test_setup_command_captures_both_streams_and_sanitizes_failure():
+    import sys
+
+    from scripts.qualify_browser_renderer import command
+
+    assert (
+        command(
+            [sys.executable, "-I", "-S", "-c", "import sys; print('ok'); sys.stderr.write('note')"]
+        )
+        == "ok\n"
+    )
+    with pytest.raises(RuntimeError, match="^setup_command_failed$"):
+        command(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                "import sys; sys.stderr.write('do-not-echo'); sys.exit(2)",
+            ]
+        )
+
+
+@pytest.mark.parametrize("target", [1, 2])
+def test_setup_command_output_flood_is_bounded_and_reaped(tmp_path, target):
+    import os
+    import sys
+
+    from scripts.qualify_browser_renderer import command
+
+    pidfile = tmp_path / "pid"
+    code = (
+        f"import os;open({str(pidfile)!r},'w').write(str(os.getpid()))\n"
+        f"while True:os.write({target},b'x'*4096)"
+    )
+    with pytest.raises(ValueError, match="setup_command_output_limit"):
+        command([sys.executable, "-I", "-S", "-c", code])
+    pid = int(pidfile.read_text())
+    with pytest.raises(ChildProcessError):
+        os.waitpid(pid, os.WNOHANG)
+
+
+def test_setup_command_timeout_reaps_the_owned_child(tmp_path):
+    import os
+    import sys
+
+    from scripts.qualify_browser_renderer import command
+
+    pidfile = tmp_path / "pid"
+    code = f"import os,time;open({str(pidfile)!r},'w').write(str(os.getpid()));time.sleep(60)"
+    with pytest.raises(TimeoutError, match="setup_command_timeout"):
+        command([sys.executable, "-I", "-S", "-c", code], timeout=0.5)
+    with pytest.raises(ChildProcessError):
+        os.waitpid(int(pidfile.read_text()), os.WNOHANG)

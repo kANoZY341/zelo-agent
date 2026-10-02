@@ -136,7 +136,6 @@ class _Controller:
         self.attachment_session = None
         self.document_frame = None
         self.document_opened = False
-        self.document_opened = False
 
     async def _call(self, method: str, params: dict | None = None, *, page=False) -> dict:
         self.sequence += 1
@@ -196,24 +195,6 @@ class _Controller:
                         continue
                     # The one explicitly requested attachment can emit a browser-level
                     # acknowledgement before its response. Unsolicited targets fail.
-                    if data.get("method") == "Page.documentOpened":
-                        event = data.get("params")
-                        frame = event.get("frame") if type(event) is dict else None
-                        if (
-                            method != "Page.setDocumentContent"
-                            or self.document_opened
-                            or self.events > 32
-                            or data.get("sessionId") != self.session
-                            or self.session is None
-                            or type(frame) is not dict
-                            or frame.get("id") != request["params"]["frameId"]
-                            or frame.get("url") != "about:blank"
-                            or "parentId" in frame
-                            or set(data) - {"method", "params", "sessionId"}
-                        ):
-                            raise QualificationError("forbidden_document_open")
-                        self.document_opened = True
-                        continue
                     if data.get("method") == "Target.attachedToTarget":
                         event = data.get("params", {})
                         if type(event) is not dict:

@@ -25,6 +25,59 @@ MAX_EXPORT_ENTRIES = 8192
 MAX_COMMAND_LOG = 16384
 
 
+def command(args: list[str], timeout: float = 20) -> str:
+    """Bounded trusted operator command; no shell, input, or unbounded capture.
+
+    The fixed local compiler/Docker CLI remain trusted. An isolated process group
+    lets overflow/deadline cleanup cover their helper children without selecting
+    any unrelated process. Stderr is never echoed as an exception payload.
+    """
+    import signal
+
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    assert process.stdout is not None and process.stderr is not None
+    buffers = {"out": bytearray(), "err": bytearray()}
+    limits = {"out": 131072, "err": MAX_COMMAND_LOG}
+    deadline = time.monotonic() + timeout
+    try:
+        with selectors.DefaultSelector() as ready:
+            ready.register(process.stdout, selectors.EVENT_READ, "out")
+            ready.register(process.stderr, selectors.EVENT_READ, "err")
+            while ready.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("setup_command_timeout")
+                for key, _ in ready.select(min(remaining, 1)):
+                    chunk = os.read(key.fd, 4096)
+                    if not chunk:
+                        ready.unregister(key.fileobj)
+                    else:
+                        target = buffers[key.data]
+                        if len(target) + len(chunk) > limits[key.data]:
+                            raise ValueError("setup_command_output_limit")
+                        target.extend(chunk)
+        if process.wait(timeout=max(0.01, deadline - time.monotonic())) != 0:
+            raise RuntimeError("setup_command_failed")
+        return buffers["out"].decode("utf-8")
+    finally:
+        # Until wait()/poll() reaps the leader its PID cannot be reused. Do not
+        # signal a group after a successful wait returned and released that PID.
+        if process.returncode is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait(timeout=5)
+        process.stdout.close()
+        process.stderr.close()
+
+
 def expected_image_files(
     manifest: ArtifactManifest, bootstrap: Path, entrypoint: str = "browser-pipe"
 ) -> dict[str, tuple[int, int, str]]:
@@ -193,8 +246,6 @@ def cleanup_owned_setup(docker: str, run_id: str) -> list[str]:
     """Remove only setup resources labelled by this unpredictable probe run."""
     import re
 
-    from scripts.qualify_browser_resources import command
-
     if re.fullmatch(r"[0-9a-f]{32}", run_id) is None:
         raise ValueError("invalid_setup_owner")
     errors = []
@@ -247,7 +298,6 @@ def prepare_candidate(
     from qualification.artifacts import ArtifactPolicy, capture_manifest, verify_manifest
     from qualification.renderer_contracts import ROLES
     from scripts.qualify_browser_native_sandbox import BROWSER_SHA256
-    from scripts.qualify_browser_resources import command
 
     if re.fullmatch(r"[0-9a-f]{32}", run_id) is None:
         raise ValueError("invalid_setup_owner")
@@ -375,7 +425,6 @@ async def exercise_renderer(image, bundle, manifest, root):
     )
     from qualification.renderer_process import DockerHandle
     from qualification.runtime_contracts import ExecutionPolicy, ResourcePolicy
-    from scripts.qualify_browser_resources import command
 
     registry = ApiEndpointRegistry.from_entries(["fixture=https://example.com"])
     bindings = (registry.bind("fixture"),)

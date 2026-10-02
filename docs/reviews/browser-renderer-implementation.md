@@ -81,7 +81,8 @@ mismatched responses, errors, unknown events and framing/EOF/byte floods. No rea
 creates an unbounded queue. The single requested attachment event is validated
 against its target/page/about:blank/context and matching response session; duplicate
 or unsolicited attachment events fail. The one expected `Page.documentOpened`
-notification is accepted only during the fixed document transfer, for the exact
+notification is accepted during the fixed document transfer or its following
+DOM/frame query, for the exact
 session and about:blank root frame without a parent; duplicates are denied.
 
 A fresh browser context and about:blank page are created. Downloads are denied;
