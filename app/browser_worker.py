@@ -224,6 +224,13 @@ class BrowserRuntime:
         except ValueError:
             return False
 
+    def _prune_owners(self) -> None:
+        # Only qualified cleanup state permits dropping a retained owner. This
+        # never changes admission files or reconciles an uncertain lifecycle.
+        for renderer in tuple(self._owners):
+            if not renderer.owner.cleanup_required:
+                self._owners.discard(renderer)
+
     async def run(
         self,
         *,
@@ -233,6 +240,7 @@ class BrowserRuntime:
         emit: Callable[[str, dict[str, Any]], None],
         deadline: float | None = None,
     ) -> dict[str, Any]:
+        self._prune_owners()
         loop = asyncio.get_running_loop()
         limit = loop.time() + timeout_seconds
         deadline = min(deadline, limit) if deadline is not None else limit
@@ -257,6 +265,7 @@ class BrowserRuntime:
                 )
                 if self._closing:
                     raise BrowserRuntimeError("browser_closed")
+                self._prune_owners()
                 self._owners.add(renderer)
                 emit(
                     "browser_execution_started", {"endpoint_id": spec.endpoint.endpoint.endpoint_id}
@@ -305,8 +314,7 @@ class BrowserRuntime:
         finally:
             # ResourceOwner retains incomplete lifecycle tasks and the marker. Never
             # reinterpret owner_failed/cleanup_pending as successful cleanup.
-            if renderer is not None and not renderer.owner.cleanup_required:
-                self._owners.discard(renderer)
+            self._prune_owners()
 
     async def aclose(self) -> None:
         self._closing = True

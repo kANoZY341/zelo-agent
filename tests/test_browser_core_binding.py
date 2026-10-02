@@ -983,3 +983,34 @@ def test_retry_rechecks_action_after_preflight(setup, settings, database, monkey
         tasks.retry(task.id)
     assert tasks.get(task.id).action_version == 2
     assert not worker.made
+
+
+def test_repeated_late_cleanup_has_bounded_retention_without_runtime_shutdown(setup):
+    async def exercise():
+        gate = (asyncio.Event(), asyncio.Event())
+        cleanup = (asyncio.Event(), asyncio.Event())
+        worker = runtime(setup, gate=gate, cleanup=cleanup)
+        for _ in range(3):
+            gate[0].clear()
+            cleanup[0].clear()
+            cleanup[1].clear()
+            operation = asyncio.create_task(run(worker))
+            await asyncio.wait_for(gate[0].wait(), 2)
+            operation.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+            assert len(worker._owners) == 1
+            with pytest.raises(AdmissionDenied):
+                worker.admission.acquire(worker.contract.digest)
+            cleanup[1].set()
+            owner = worker.made[-1].owner
+            await asyncio.gather(owner._lifecycle, return_exceptions=True)
+            assert owner.cleanup_confirmed
+            assert (setup[2] / "active.marker").read_bytes() == b""
+            assert not worker._closing
+        gate[1].set()
+        await run(worker)
+        assert not worker._owners
+        await worker.aclose()
+
+    asyncio.run(exercise())
