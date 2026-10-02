@@ -99,12 +99,13 @@ class DocumentRenderer:
     ) -> RenderedEvidence:
         payload = ApiPayload(endpoint_id=endpoint_id, path=path, query={})
         self.contract.verify_broker(self.registry, self.bindings, self.policy)
-        self.contract.verify_bundle(self.bundle)
         policy_deadline = (
             asyncio.get_running_loop().time() + self.contract.execution.resources.deadline_seconds
         )
 
         deadline = min(policy_deadline, deadline) if deadline is not None else policy_deadline
+        async with asyncio.timeout_at(deadline):
+            await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
 
         async def factory(lease, policy):
             # No await or external work: ResourceOwner owns this handle before work begins.

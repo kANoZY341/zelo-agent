@@ -76,7 +76,8 @@ class BrowserRuntime:
         private_directory(self.admission_directory)
         if not self.bundle.is_absolute() or self.bundle.resolve() != self.bundle:
             raise ValueError("browser_bundle_not_canonical")
-        self.contract.verify_bundle(self.bundle)
+        if self.receipt_path is None:
+            self.contract.verify_bundle(self.bundle)
         self.contract.verify_broker(self.endpoints, self.bindings, Policy())
         if self.receipt_path is not None:
             contract, identity = load_receipt(self.receipt_path, self.bundle, self.endpoints)
@@ -143,25 +144,31 @@ class BrowserRuntime:
         loop = asyncio.get_running_loop()
         limit = loop.time() + timeout_seconds
         deadline = min(deadline, limit) if deadline is not None else limit
-        if not self.matches(spec) or not self.request_matches(
-            spec, {"endpoint_id": spec.endpoint.endpoint.endpoint_id, "path": path}, timeout_seconds
-        ):
-            raise BrowserRuntimeError("browser_execution_spec_stale")
         renderer = None
         try:
-            renderer = self.renderer_factory(
-                self.admission,
-                self.contract,
-                self.bundle,
-                self.runtime,
-                self.endpoints,
-                self.bindings,
-            )
-            self._owners.add(renderer)
-            emit("browser_execution_started", {"endpoint_id": spec.endpoint.endpoint.endpoint_id})
-            if loop.time() >= deadline:
-                raise TimeoutError
             async with asyncio.timeout_at(deadline):
+                if not await asyncio.to_thread(self.matches, spec) or not self.request_matches(
+                    spec,
+                    {"endpoint_id": spec.endpoint.endpoint.endpoint_id, "path": path},
+                    timeout_seconds,
+                ):
+                    raise BrowserRuntimeError("browser_execution_spec_stale")
+                # Trusted synchronous factories create no external resources.
+                renderer = await asyncio.to_thread(
+                    self.renderer_factory,
+                    self.admission,
+                    self.contract,
+                    self.bundle,
+                    self.runtime,
+                    self.endpoints,
+                    self.bindings,
+                )
+                if self._closing:
+                    raise BrowserRuntimeError("browser_closed")
+                self._owners.add(renderer)
+                emit(
+                    "browser_execution_started", {"endpoint_id": spec.endpoint.endpoint.endpoint_id}
+                )
                 evidence = await renderer.render(
                     spec.endpoint.endpoint.endpoint_id, path, deadline=deadline
                 )

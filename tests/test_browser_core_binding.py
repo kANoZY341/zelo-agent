@@ -654,3 +654,131 @@ def test_application_assembly_uses_only_operator_config(
             assert not (setup[2] / "active.marker").exists()
 
     asyncio.run(exercise())
+
+
+def test_async_browser_scans_leave_event_loop_thread(setup, monkeypatch):
+    import threading
+
+    from qualification.renderer_contracts import RendererContract
+
+    worker = runtime(setup)
+    binding = spec(worker)
+    event_thread = threading.get_ident()
+    original = RendererContract.verify_bundle
+    scans = []
+
+    def verify(contract, bundle):
+        scans.append(threading.get_ident())
+        assert threading.get_ident() != event_thread
+        return original(contract, bundle)
+
+    monkeypatch.setattr(RendererContract, "verify_bundle", verify)
+    result = asyncio.run(run(worker, binding))
+    assert result["instruction_trust"] == "none"
+    assert len(scans) >= 3
+
+
+def test_cancel_during_browser_validation_starts_no_renderer(setup, monkeypatch):
+    import threading
+
+    worker = runtime(setup)
+    binding = spec(worker)
+    started, release = threading.Event(), threading.Event()
+    original = worker.matches
+
+    def held(specification):
+        started.set()
+        assert release.wait(5)
+        return original(specification)
+
+    monkeypatch.setattr(worker, "matches", held)
+
+    async def exercise():
+        operation = asyncio.create_task(run(worker, binding))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            operation.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(operation, 1)
+            assert not worker.made
+        finally:
+            release.set()
+        await worker.aclose()
+
+    asyncio.run(exercise())
+    assert not worker.made
+
+
+@pytest.mark.parametrize("cancel_loop", [False, True])
+def test_runner_stop_during_offloop_claim_finalizes_without_execution(
+    setup, settings, database, monkeypatch, cancel_loop
+):
+    import threading
+
+    worker = runtime(setup)
+    selected = supervisor(worker)
+    tasks = TaskService(database, settings, browser_supervisor=selected)
+    task, _ = tasks.submit(request(), None)
+    runner = Runner(tasks, browser_supervisor=selected)
+    started, release = threading.Event(), threading.Event()
+    original = tasks.claim
+
+    def held():
+        started.set()
+        assert release.wait(5)
+        return original()
+
+    monkeypatch.setattr(tasks, "claim", held)
+
+    async def exercise():
+        runner.start()
+        assert await asyncio.to_thread(started.wait, 2)
+        if cancel_loop:
+            runner.loop_task.cancel()
+            stopping = runner.loop_task
+        else:
+            stopping = asyncio.create_task(runner.stop())
+        try:
+            await asyncio.sleep(0)
+            assert cancel_loop or runner.stopping
+        finally:
+            release.set()
+        if cancel_loop:
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(stopping, 3)
+        else:
+            await asyncio.wait_for(stopping, 3)
+        assert not runner.operations
+
+    asyncio.run(exercise())
+    result = tasks.get(task.id)
+    assert result.status == "interrupted"
+    assert result.result is None
+    assert not worker.made
+
+
+def test_deadline_includes_offloop_validation(setup, monkeypatch):
+    import threading
+
+    worker = runtime(setup)
+    binding = spec(worker, 0.1)
+    release = threading.Event()
+    original = worker.matches
+
+    def held(specification):
+        assert release.wait(5)
+        return original(specification)
+
+    monkeypatch.setattr(worker, "matches", held)
+
+    async def exercise():
+        try:
+            with pytest.raises(BrowserRuntimeError, match="browser_timeout"):
+                await asyncio.wait_for(run(worker, binding), 1)
+            assert not worker.made
+        finally:
+            release.set()
+        await worker.aclose()
+
+    asyncio.run(exercise())
+    assert not worker.made

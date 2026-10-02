@@ -135,8 +135,27 @@ class Runner:
                 self.wake.clear()
                 self.service.expire_approvals()
                 while not self.stopping:
-                    execution = self.service.claim()
+                    if self.browser_supervisor is None:
+                        execution = self.service.claim()
+                    else:
+                        # Claim hashes the browser bundle; its DB session stays in
+                        # this thread. Stop waits for the claim before finalizing it.
+                        claim = asyncio.create_task(asyncio.to_thread(self.service.claim))
+                        try:
+                            execution = await asyncio.shield(claim)
+                        except asyncio.CancelledError:
+                            # A thread cannot be cancelled. Account for any claim
+                            # it commits before letting this loop terminate.
+                            execution = await claim
+                            if execution is not None:
+                                self.service.finish(
+                                    execution, State.INTERRUPTED, error="service_shutdown"
+                                )
+                            raise
                     if execution is None:
+                        break
+                    if self.stopping:
+                        self.service.finish(execution, State.INTERRUPTED, error="service_shutdown")
                         break
                     if execution.task_id in self.operations:
                         raise RuntimeError("duplicate_running_task")
@@ -505,7 +524,7 @@ class Runner:
         if (
             selected is None
             or not self.browser_supervisor.matches(selection)
-            or not selected.worker.matches(execution.browser_request)
+            or not await asyncio.to_thread(selected.worker.matches, execution.browser_request)
             or not selected.worker.request_matches(
                 execution.browser_request, execution.payload, execution.timeout_seconds
             )
