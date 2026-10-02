@@ -31,7 +31,7 @@ All capabilities were dropped. Filesystem was read-only except the private
 
 Image identity was `sha256:3599d25dd5bfeb0f9cb3694ddaf70a8dd0dab681013902c7eaf4544d3de7c3d0`; compiled fixture SHA-256 was
 `670b1d6bdbd27a1fc4dc2f075224fb3a34e699720dd7f36f51940755a01ca639`. Source SHA-256 was `1f0f421ddf0802e02d1b8361035462a0e5a0c3b1dc1ca6f4b415d2ffcb47e855`.
-Detailed local output is in ignored `runtime/browser-runtime-qualification/resources-u5zn8ofh/result.json`. All six uniquely labelled containers
+Detailed local output is in ignored `runtime/browser-runtime-qualification/resources-u5zn8ofh/result.json`. All seven uniquely labelled containers
 and this invocation's labelled scratch image were removed after the probes.
 The first attempted fixture start encountered an unsupported logging combination
 (one retained file with compression); it was cleaned up without running pressure
@@ -55,3 +55,37 @@ checked before testing, not substituted for observed enforcement.
 - https://docs.docker.com/engine/containers/resource_constraints/
 - https://docs.docker.com/engine/containers/run/
 - https://docs.kernel.org/admin-guide/cgroup-v2.html
+
+## Exact follow-up after independent review
+
+The reviewer identified that namespace PID 1 cannot rely on a default-action
+SIGALRM. The fixture now installs an explicit async-signal-safe `_exit(124)`
+handler before arming its 12-second timer. A seventh real `watchdog` case waits
+without an external kill and observed exit 124 under the same cgroup limits.
+All seven cases passed again, with no cleanup errors.
+
+The harness now enters cleanup ownership before building/reading the image ID.
+Cleanup enumerates only this unpredictable run label, verifies each identity,
+attempts remaining removals after a failure, and records unavailable inspection
+as unproven rather than absence. Interrupted/failed daemon operations cannot
+produce successful cleanup claims. Forceful host death or an unavailable daemon
+still requires explicit operator reconciliation; the script makes no hard crash
+guarantee. Four additional offline tests cover these exceptional cleanup cases.
+
+Latest source SHA-256: `d7abc84b9c25ec2cf79a8255bae3fb12a9f796b91d1c6b91d9d787c5f8096441`.
+Latest static fixture SHA-256: `459763cb7aabfb203d9c75aa74fdbcdfe5fb97650f12bfcd353c60a6ad6d9e04`.
+Latest scratch image: `sha256:a8bf30d82146cc99ce91f0e1df0250e8fbad1913c1ebcf913054a4c12a167846` (removed after proof).
+Latest local evidence: `runtime/browser-runtime-qualification/resources-o15t9x41/result.json`.
+The identifiers above supersede the original six-case provenance for this follow-up.
+
+## Native browser compatibility remains a gate
+
+A separate non-production scratch-image probe copied only the already cached
+pinned Chromium headless-shell and its shared libraries. After correcting access
+permissions on the disposable image copy, the nonroot no-network/default-seccomp
+candidate exited 133 with `No usable sandbox`. The cause has not yet been narrowed
+to a specific kernel/runtime restriction. No `--no-sandbox`, privileged mode,
+unconfined seccomp or host-network workaround was used; owned images/containers
+were removed. This is an explicit failed compatibility gate, not browser activation.
+
+Signal reference: https://man7.org/linux/man-pages/man7/pid_namespaces.7.html

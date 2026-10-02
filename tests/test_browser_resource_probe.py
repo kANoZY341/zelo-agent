@@ -100,3 +100,85 @@ def test_replaced_image_and_host_bind_mount_denied():
     data["Mounts"] = [{"Type": "bind", "Source": "/home/user"}]
     with pytest.raises(RuntimeError):
         verify_container(data, IMAGE, RUN_ID)
+
+
+def test_cleanup_can_find_an_owned_image_without_its_id_file(monkeypatch):
+    import json
+
+    from scripts import qualify_browser_resources as probe
+
+    calls = []
+
+    def invoke(args):
+        calls.append(args)
+        if args[1:3] == ["ps", "-a"]:
+            return ""
+        if args[1:3] == ["image", "ls"]:
+            return IMAGE + "\n"
+        if args[1:3] == ["image", "inspect"]:
+            return json.dumps([{"Config": {"Labels": {LABEL: RUN_ID}}}])
+        assert args == ["docker", "image", "rm", IMAGE]
+        return "removed"
+
+    monkeypatch.setattr(probe, "command", invoke)
+    assert probe.cleanup_owned("docker", RUN_ID) == []
+    assert ["docker", "image", "rm", IMAGE] in calls
+
+
+def test_cleanup_records_unavailable_enumeration_instead_of_claiming_absence(monkeypatch):
+    from scripts import qualify_browser_resources as probe
+
+    def unavailable(args):
+        raise RuntimeError("daemon unavailable")
+
+    monkeypatch.setattr(probe, "command", unavailable)
+    errors = probe.cleanup_owned("docker", RUN_ID)
+    assert len(errors) == 2
+    assert all("enumeration unavailable" in error for error in errors)
+
+
+def test_cleanup_continues_after_one_owned_removal_fails(monkeypatch):
+    import json
+
+    from scripts import qualify_browser_resources as probe
+
+    one, two = "c" * 64, "d" * 64
+    calls = []
+
+    def invoke(args):
+        calls.append(args)
+        if args[1:3] == ["ps", "-a"]:
+            return one + "\n" + two + "\n"
+        if args[1:3] == ["image", "ls"]:
+            return IMAGE + "\n"
+        if "inspect" in args:
+            return json.dumps([{"Config": {"Labels": {LABEL: RUN_ID}}}])
+        if args[-1] == one:
+            raise RuntimeError("first cleanup failed")
+        return "removed"
+
+    monkeypatch.setattr(probe, "command", invoke)
+    errors = probe.cleanup_owned("docker", RUN_ID)
+    assert len(errors) == 1 and "cleanup unproven" in errors[0]
+    assert ["docker", "rm", "-f", two] in calls
+    assert ["docker", "image", "rm", IMAGE] in calls
+
+
+def test_cleanup_never_removes_a_mismatched_ownership_label(monkeypatch):
+    import json
+
+    from scripts import qualify_browser_resources as probe
+
+    calls = []
+
+    def invoke(args):
+        calls.append(args)
+        if args[1:3] == ["ps", "-a"]:
+            return "c" * 64
+        if args[1:3] == ["image", "ls"]:
+            return ""
+        return json.dumps([{"Config": {"Labels": {LABEL: "foreign"}}}])
+
+    monkeypatch.setattr(probe, "command", invoke)
+    assert len(probe.cleanup_owned("docker", RUN_ID)) == 1
+    assert not any("rm" in args for args in calls)

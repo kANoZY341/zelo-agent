@@ -44,7 +44,12 @@ static void verify(void) {
     fclose(f); if (q != 25000 || p != 100000) exit(97);
     puts("LIMITS_VERIFIED memory=33554432 swap=0 pids=12 cpu=25000/100000 uid=65534 nnp=1");
 }
+static void watchdog(int signo) { (void)signo; _exit(124); }
 int main(int argc, char **argv) {
+    struct sigaction action = {0};
+    action.sa_handler = watchdog;
+    sigemptyset(&action.sa_mask);
+    if (sigaction(SIGALRM, &action, NULL)) return 87;
     setvbuf(stdout, NULL, _IONBF, 0); alarm(12);
     if (argc != 2) return 89;
     verify();
@@ -78,6 +83,8 @@ int main(int argc, char **argv) {
         volatile unsigned long x=1; double end=wall()+2.0;
         while(wall()<end) for(int i=0;i<10000;i++) x=x*1664525UL+1013904223UL;
         dump("/sys/fs/cgroup/cpu.stat"); puts("CPU_PROBE_COMPLETE");
+    } else if (!strcmp(argv[1], "watchdog")) {
+        puts("WATCHDOG_READY"); for (;;) pause();
     } else if (!strcmp(argv[1], "tmpfs")) {
         int fd=open("/tmp/probe",O_WRONLY|O_CREAT|O_EXCL,0600); if(fd<0) return 15;
         char data[4096]={0}; long written=0; int denied=0;

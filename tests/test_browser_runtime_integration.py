@@ -106,3 +106,30 @@ def test_cancel_retains_slot_until_actual_child_is_reaped(tmp_path: Path, during
             await asyncio.gather(owner.aclose(), return_exceptions=True)
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("operation", ["ftruncate", "fsync"])
+def test_release_failure_propagates_and_preserves_safe_admission(tmp_path, monkeypatch, operation):
+    from qualification import admission as module
+
+    directory = tmp_path / "private"
+    directory.mkdir(mode=0o700)
+    controller = AdmissionController(directory)
+    lease = controller.acquire("a" * 64)
+    before = len(os.listdir("/proc/self/fd"))
+
+    def failed(*args):
+        raise OSError("controlled release failure")
+
+    with monkeypatch.context() as context:
+        context.setattr(module.os, operation, failed)
+        with pytest.raises(OSError):
+            lease.finish(cleanup_confirmed=True)
+    assert len(os.listdir("/proc/self/fd")) == before - 3
+    if operation == "ftruncate":
+        with pytest.raises(AdmissionDenied, match="fenced"):
+            controller.acquire("a" * 64)
+    else:
+        # Cleanup was already explicitly confirmed before marker truncation.
+        # Disk sync failure propagates; it cannot publish successful work.
+        controller.acquire("a" * 64).finish(cleanup_confirmed=True)

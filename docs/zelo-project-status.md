@@ -145,3 +145,11 @@ contracts. Optional controlled host probes demonstrated 32 MiB/no-swap memory,
 These are prerequisite checks, not an activated or fully qualified Browser Worker.
 The expanded host-focused suite passed 242 tests. Review/full CI precede merging.
 UI PR #61 remains parked and its branches/data are untouched.
+
+
+Follow-up review fixes: the optional PID-1 fixture watchdog now has an explicit
+signal handler and a passing real self-exit probe; exceptional image/container
+cleanup records unproven outcomes and attempts every owned removal. Final serial
+host gate: **248 passed**, three existing warnings; static gates pass. A native
+Chromium/default-Docker compatibility probe failed closed (`No usable sandbox`),
+so the actual browser runtime remains unqualified and no bypass was enabled.

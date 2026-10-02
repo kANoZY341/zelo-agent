@@ -73,6 +73,40 @@ def verify_container(data: dict, image: str, run_id: str) -> None:
         raise RuntimeError("container privilege, mount, identity or environment contract mismatch")
 
 
+def cleanup_owned(docker: str, run_id: str) -> list[str]:
+    """Clean only this unpredictable label; inspection failure is NOT absence.
+
+    Enumeration also finds an image whose build completed but identity read failed.
+    All removals are attempted; failures are retained for explicit reconciliation.
+    A killed CLI or unreachable daemon still prevents a cleanup guarantee.
+    """
+    if re.fullmatch(r"[0-9a-f]{32}", run_id) is None:
+        raise ValueError("invalid_ownership_label")
+    errors: list[str] = []
+    for kind in ("container", "image"):
+        listing = [docker, "ps", "-a"] if kind == "container" else [docker, "image", "ls"]
+        listing += ["--no-trunc", "--filter", f"label={LABEL}={run_id}", "--format", "{{.ID}}"]
+        try:
+            identifiers = set(command(listing).splitlines())
+        except Exception as exc:
+            errors.append(f"{kind} enumeration unavailable: {type(exc).__name__}")
+            continue
+        for identifier in sorted(identifiers):
+            try:
+                pattern = r"[0-9a-f]{64}" if kind == "container" else r"sha256:[0-9a-f]{64}"
+                if re.fullmatch(pattern, identifier) is None:
+                    raise ValueError("invalid_owned_identifier")
+                prefix = [docker] if kind == "container" else [docker, "image"]
+                data = json.loads(command([*prefix, "inspect", identifier]))[0]
+                if data.get("Config", {}).get("Labels", {}).get(LABEL) != run_id:
+                    raise ValueError("ownership_label_mismatch")
+                removal = [*prefix, "rm"] + (["-f"] if kind == "container" else [])
+                command([*removal, identifier])
+            except Exception as exc:
+                errors.append(f"{kind} {identifier}: cleanup unproven ({type(exc).__name__})")
+    return errors
+
+
 def run_probe() -> Path:
     docker, gcc = shutil.which("docker"), shutil.which("gcc")
     if not docker or not gcc:
@@ -106,37 +140,37 @@ def run_probe() -> Path:
     )
     binary_digest = hashlib.sha256((build / "resource-probe").read_bytes()).hexdigest()
     image_file = root / "image-id"
-    command(
-        [
-            docker,
-            "build",
-            "--network=none",
-            "--pull=false",
-            "--iidfile",
-            str(image_file),
-            "--label",
-            f"{LABEL}={run_id}",
-            str(build),
-        ],
-        60,
-    )
-    image = image_file.read_text().strip()
-    if not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
-        raise RuntimeError("image not pinned by local content identity")
-    owned: dict[str, str | None] = {}
     evidence = {
         "run_id": run_id,
-        "image_id": image,
         "fixture_sha256": binary_digest,
         "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "worker_qualified": False,
         "external_network": False,
         "cases": [],
+        "status": "incomplete",
     }
+    failure: BaseException | None = None
     try:
-        for mode in ("boundary", "pids", "cpu", "tmpfs", "memory", "cleanup"):
+        command(
+            [
+                docker,
+                "build",
+                "--network=none",
+                "--pull=false",
+                "--iidfile",
+                str(image_file),
+                "--label",
+                f"{LABEL}={run_id}",
+                str(build),
+            ],
+            60,
+        )
+        image = image_file.read_text().strip()
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
+            raise RuntimeError("image not pinned by local content identity")
+        evidence["image_id"] = image
+        for mode in ("boundary", "pids", "cpu", "tmpfs", "memory", "cleanup", "watchdog"):
             name = f"zelo-resource-{run_id}-{mode}"
-            owned[name] = None
             cid = command(
                 [
                     docker,
@@ -171,7 +205,6 @@ def run_probe() -> Path:
             ).strip()
             if not re.fullmatch(r"[0-9a-f]{64}", cid):
                 raise RuntimeError("container id invalid")
-            owned[name] = cid
             data = json.loads(command([docker, "inspect", cid]))[0]
             verify_container(data, image, run_id)
             command([docker, "start", cid])
@@ -191,6 +224,9 @@ def run_probe() -> Path:
             if mode in {"memory", "cleanup"}:
                 if exit_code != 137 or (mode == "memory" and not state["OOMKilled"]):
                     raise RuntimeError("expected controlled cgroup kill was not observed")
+            elif mode == "watchdog":
+                if exit_code != 124 or "WATCHDOG_READY" not in output or state["OOMKilled"]:
+                    raise RuntimeError("PID-1 alarm handler did not terminate the fixture")
             elif exit_code != 0:
                 raise RuntimeError(f"{mode} fixture failed: {exit_code}: {output[-1500:]}")
             if mode == "boundary":
@@ -210,26 +246,26 @@ def run_probe() -> Path:
                 }
             )
             command([docker, "rm", cid])
-            del owned[name]
-        evidence["all_owned_containers_removed"] = True
+        evidence["status"] = "passed"
+    except BaseException as exc:
+        failure = exc
+        evidence["status"] = "failed"
+        evidence["failure"] = f"{type(exc).__name__}: {exc}"
     finally:
-        # Look up only our unpredictable names/IDs and verify label before cleanup.
-        for name, cid in list(owned.items()):
-            try:
-                data = json.loads(command([docker, "inspect", cid or name]))[0]
-            except RuntimeError:
-                continue
-            if data.get("Config", {}).get("Labels", {}).get(LABEL) != run_id:
-                raise RuntimeError(
-                    "refusing to clean a container without this run's ownership label"
-                )
-            command([docker, "rm", "-f", data["Id"]])
-        # This run-specific labelled image was built by us, not an operator image.
-        image_data = json.loads(command([docker, "image", "inspect", image]))[0]
-        if image_data.get("Config", {}).get("Labels", {}).get(LABEL) == run_id:
-            command([docker, "image", "rm", image])
-            evidence["owned_image_removed"] = True
+        errors = cleanup_owned(docker, run_id)
+        evidence["cleanup_errors"] = errors
+        # Failed/interrupted daemon operations may finish late; never certify
+        # all cleanup when the operation itself had an uncertain outcome.
+        confirmed = not errors and failure is None
+        evidence["all_owned_containers_removed"] = confirmed
+        evidence["owned_image_removed"] = confirmed
+        if errors:
+            evidence["status"] = "failed"
         (root / "result.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    if failure is not None:
+        raise failure
+    if errors:
+        raise RuntimeError(f"cleanup unproven; inspect {root / 'result.json'}")
     return root / "result.json"
 
 
