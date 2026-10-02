@@ -135,3 +135,13 @@ Do not return to UI integration or spend this phase redesigning it.
 Qualify browser isolation and controlled egress before implementing the next
 bounded runtime surface. Preserve explicit capability, skill, worker identity,
 filesystem, credential, network and approval boundaries; retain all normal merge gates.
+
+## Browser runtime admission/resource checkpoint (unmerged)
+
+The active runtime-qualification branch implements capacity-one cross-process
+admission, crash fencing, owned cleanup and frozen resource/execution-policy
+contracts. Optional controlled host probes demonstrated 32 MiB/no-swap memory,
+12 processes, CPU quota/throttling, 8 MiB tmpfs and full owned-container cleanup.
+These are prerequisite checks, not an activated or fully qualified Browser Worker.
+The expanded host-focused suite passed 242 tests. Review/full CI precede merging.
+UI PR #61 remains parked and its branches/data are untouched.
