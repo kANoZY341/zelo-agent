@@ -460,6 +460,32 @@ def test_runner_rejects_stale_research_worker_selection(settings, database):
         asyncio.run(runner._research_worker(execution))
 
 
+def test_research_action_hash_binds_worker_selection_snapshot(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database,
+        settings,
+        gateway=research_gateway(settings),
+        research_supervisor=supervisor,
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}),
+        None,
+    )
+
+    with database.transaction() as session:
+        persisted = session.get(Task, created.id)
+        assert persisted is not None
+        tampered = dict(persisted.research_spec)
+        tampered["excluded_worker_ids"] = ["other_worker"]
+        persisted.research_spec = tampered
+
+    assert service.claim() is None
+    cancelled = service.get(created.id)
+    assert cancelled.status == "cancelled"
+    assert cancelled.error == "action_changed"
+
+
 def test_research_worker_selection_fails_closed_if_registry_changes(settings, database):
     service = TaskService(
         database,
