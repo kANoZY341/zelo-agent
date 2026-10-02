@@ -57,6 +57,19 @@
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
 
+## Latest priority — Core first; UI parked (2 October 2026)
+
+Ahmad reports that the UI still needs major work and directs Core development to
+continue now, with UI redesign/integration revisited at the end. This supersedes
+the earlier U2-first delivery plan and provisional design acceptance.
+
+Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
+Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
+design worktree. Do not delete UI code, chats, backups or local beta data.
+The active work is v0.15 Browser Worker qualification from API Worker merge
+`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
+acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+
 ## Current scope: v0.15 Browser Worker qualification
 
 Zelo Core v0.14.0 remains the published release. Merged v0.15 foundations are

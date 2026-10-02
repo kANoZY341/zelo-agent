@@ -469,6 +469,14 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+**Latest delivery decision, 2 October 2026:** Core first. The user reports that
+the UI needs major rework and has parked UI implementation until the end of the
+Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
+Resume Browser Worker qualification and the existing Core milestones below.
+The v0.16 channels, v0.17 specialist organizations and v0.18 autonomy order stays
+unchanged; UI redesign and final integration follow the Core-first work.
+
+
 Add controlled:
 
 - Browser Worker;
