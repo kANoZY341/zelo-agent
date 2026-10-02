@@ -1,0 +1,73 @@
+.live-conversation .live-fallback {
+  color: var(--z2-muted);
+  font-size: 12px;
+}
+.live-conversation .live-status,
+.live-conversation .live-error {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 10px;
+  max-height: 120px;
+  overflow: auto;
+}
+.live-conversation .live-status {
+  color: var(--z2-muted);
+}
+.live-conversation .live-error {
+  color: #f0c7b8;
+}
+.live-conversation .live-error button,
+.live-conversation .live-status button {
+  text-decoration: underline;
+  margin-left: 8px;
+}
+.live-conversation .live-model {
+  color: var(--z2-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.live-conversation .z2-turn-body p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.live-conversation .live-result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 50dvh;
+  overflow: auto;
+  font-size: 13px;
+}
+.live-conversation .live-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  margin: 14px 0;
+  color: var(--z2-muted);
+}
+.live-conversation .live-pagination button {
+  text-decoration: underline;
+}
+.live-conversation .z2-composer-note {
+  flex-wrap: wrap;
+}
+.live-conversation .z2-panel-content > p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .live-conversation .live-fallback {
+    font-size: 10px;
+  }
+  .live-conversation .z2-header nav {
+    gap: 8px;
+  }
+  .live-conversation .z2-composer-note {
+    font-size: 10px;
+  }
+  .live-conversation .z2-compose-wrap {
+    max-height: 65dvh;
+    overflow-y: auto;
+  }
+}

@@ -469,6 +469,13 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+**User-facing delivery checkpoint (accepted 2 October 2026):** import the approved
+conversation redesign and deliver live text/history/task projection as gate U2 in
+`docs/zelo-live-ui-delivery-plan.md`. This can ship before all v0.15 workers; voice
+and Company World follow separately. The source prototype is preserved, while
+integration uses current Core, not the prototype branch's older backend.
+
+
 Add controlled:
 
 - Browser Worker;
@@ -641,8 +648,12 @@ Current verified baseline as of 2 October 2026:
   `c16f21381a2316435091f35faa82b609534cefa3`;
 - Python Worker is merged through PR #59 at
   `c8aab211b52cbc576d8457b61d01134fcab645e5`;
-- the active sixth slice is the bounded read-only API Worker on
-  `feat/v0.15-api-worker`;
+- API Worker is merged through PR #60 at
+  `8d33d563070c58c487dd06e91fd9af617744dab3`;
+- the active user-facing checkpoint is the accepted live conversation UI on
+  `feat/v0.15-live-conversation-ui`, with first use tracked as U2;
+- Browser Worker qualification is preserved independently on
+  `feat/v0.15-browser-worker-qualification`;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
 - Browser, Computer, Shell and Media workers remain separate future slices and

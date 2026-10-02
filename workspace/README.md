@@ -50,3 +50,28 @@ URL with `ZELO_CORE_URL` only when using another local port.
 
 Not in this slice: a second database, task mutation outside Core, visual agent
 world, durable goals/campaigns, memory, voice or external channels.
+
+## Live conversation beta
+
+Open `/talk` for the accepted charcoal/mint conversation UI connected to current
+Core. `/` retains the original Workspace and Control Desk;
+`/design-exploration/conversation` remains a labeled simulation for comparison.
+Only Manrope and Space Grotesk font assets are imported by these routes.
+
+The beta sends real text through the existing server proxies, restores the selected
+Core conversation ID, and pages history and turns in windows of 50. Task details
+show Core status/results; visible pending, running and awaiting-approval tasks
+refresh automatically. Earlier messages and Latest messages navigate bounded turn
+windows. Voice, attachments and approval execution are unavailable in this beta.
+
+An uncertain turn keeps its exact request body and idempotency key in memory.
+Retry original message restores that text; changing the draft cannot reuse the key.
+Resolve an uncertain send before switching threads. Reloading during an uncertain
+send loses this in-memory retry identity: inspect Core history before sending again.
+Local storage holds only the active ID, never chat history or credentials.
+
+Core's create-conversation endpoint does not support idempotency. The UI serializes
+creation and never automatically retries an uncertain create. Check history and
+reopen the created conversation, or explicitly start a new chat. Full create
+idempotency requires a separately authorized Core contract change. Aborting or
+leaving the UI does not cancel Core work. No new configuration is required.

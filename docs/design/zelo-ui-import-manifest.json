@@ -1,0 +1,43 @@
+{
+  "source_branch": "feat/zelo-definitive-ui-prototype",
+  "source_base": "00039a4a0ec513bc0d394809bc9e994d61854e8f",
+  "target_base": "8d33d563070c58c487dd06e91fd9af617744dab3",
+  "accepted": "2026-10-02 conversation redesign with angular Z mark; user authorized import and integration",
+  "records": [
+    {
+      "path": "workspace/components/design-exploration/conversation/ConversationPreview.tsx",
+      "bytes": 26400,
+      "source_sha256": "1201b45030c073581c5b373aeae9ce1b05142e5b84c84249369534e93ebc28ee",
+      "integrated_reference_sha256": "c53f9143c91e8d4751998e14404d1bede2cd1f1c6af23ec50c99aa294dd71858"
+    },
+    {
+      "path": "workspace/components/design-exploration/conversation/conversation.css",
+      "bytes": 19502,
+      "source_sha256": "edd09866154b3c82ac0e333d54b709aa3f987539d1112849c7f9fe3cf8a380c3",
+      "integrated_reference_sha256": "edd09866154b3c82ac0e333d54b709aa3f987539d1112849c7f9fe3cf8a380c3"
+    },
+    {
+      "path": "workspace/app/design-exploration/conversation/page.tsx",
+      "bytes": 659,
+      "source_sha256": "c7c3e7da8aee91e7f1d586872dc6639f62e450c4d052750e7e5e7733d7da8489",
+      "integrated_reference_sha256": "043018453cc7d5fa6b8da3f9c87473026a45654dfab58f3c18bd79d392fc2d7c"
+    },
+    {
+      "path": "docs/design/zelo-conversation-redesign.md",
+      "bytes": 4873,
+      "source_sha256": "da0413dcbfc2330c9da4a202088fd48c8ccb2c32fa82bb85a6d9e83e90fcbc6c",
+      "integrated_reference_sha256": "da0413dcbfc2330c9da4a202088fd48c8ccb2c32fa82bb85a6d9e83e90fcbc6c"
+    },
+    {
+      "path": "workspace/components/design-exploration/shared.tsx",
+      "source_sha256": "e4c43bdc7c613f09f9f1e1efc9b9eb30e2cfcbcc103703e40e4592929fd738a8",
+      "import": "Glyph export only; historical fixture components excluded",
+      "integrated_reference_sha256": "c56a19fed718050a4cb33a7e1d4a84e469b205e24e09fd726c9e0dfa93984370"
+    }
+  ],
+  "integration_adaptations": [
+    "CSS and font imports moved to route entry points; accepted CSS preserved byte-for-byte",
+    "Only Glyph imported from historical shared design helpers",
+    "LiveConversation uses same angular Z path and stylesheet; all simulated actions remain on labeled design route only"
+  ]
+}
