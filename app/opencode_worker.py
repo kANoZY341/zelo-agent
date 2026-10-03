@@ -22,7 +22,13 @@ from app.developer_contracts import (
     WorkerIdentity,
     WorkerResult,
 )
-from app.developer_process import DeveloperError, environment, run_process, stop_process
+from app.developer_process import (
+    DeveloperError,
+    environment,
+    run_process,
+    spawn_owned_process,
+    stop_process,
+)
 from app.developer_sandbox import REPO, WORKER_EXECUTABLE, external_worker_sandbox
 from app.worker_authority import (
     WorkerAuthorityProfile,
@@ -435,7 +441,7 @@ class OpenCodeWorker:
         binary = self.artifact()
         password = secrets.token_urlsafe(32)
         try:
-            process = await asyncio.create_subprocess_exec(
+            process = await spawn_owned_process(
                 *self.server_argv(repo, profile),
                 cwd=repo,
                 env=self._server_environment(profile, password),

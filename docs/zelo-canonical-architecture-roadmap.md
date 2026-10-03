@@ -469,13 +469,13 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Browser Core task binding PR #67 is
-merged at `bc8404e`, through exact reviewed/tested head `0486e15`. Full CI passed
-1,617 tests with two separately passed installed-Codex skips. Next qualify the
-default operator/DNS/TLS/public-document path according to
-`docs/v0.15-browser-operator-qualification.md`. Browser Worker remains inactive;
-UI PR #61 stays parked for later rework.
-
+Core-first checkpoint (3 October 2026): Browser operator qualification PR #68
+merged at `025d019`, matching reviewed/tested head `c10725f`. Full CI passed 1,647
+tests with two separately passed installed-Codex checks; 146 focused tests, eight
+controlled lifecycle cases and two real DNS/TLS/document tasks passed. Next is
+the isolated Shell boundary proof described in
+`docs/v0.15-shell-boundary-qualification.md`; no Shell Worker is registered.
+Browser Worker remains disabled; UI PR #61 stays parked for later rework.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -661,12 +661,14 @@ Current verified baseline as of 2 October 2026:
   `8d33d563070c58c487dd06e91fd9af617744dab3`;
 - document broker and owned-DNS qualification prerequisites are merged through
   PR #62 at `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`;
-- the next branch is `feat/v0.15-browser-runtime-qualification`, covering global
-  admission, resource isolation and execution identity; no Browser runtime is active;
+- Browser Core binding is merged through PR #67 at `bc8404e`; operator/default
+  DNS/TLS qualification is merged through PR #68 at `025d019`, still disabled;
+- the next branch is `feat/v0.15-shell-boundary-qualification`, native isolated
+  compute proof only, before a separate Shell Worker binding;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
-- Browser, Computer, Shell and Media workers remain separate future slices and
-  receive no authority from this API Worker work;
+- Computer, Shell and Media workers and selected external adapters remain
+  separate unimplemented slices; Browser receives no authority from API work;
 - Capability/Skill metadata and generic registration never grant execution
   authority by themselves;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only

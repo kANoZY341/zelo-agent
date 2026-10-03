@@ -66,47 +66,55 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser operator qualification after Core task
-binding PR #67 at `bc8404e`. Continue the established Core roadmap; later UI
+The active work is v0.15 Shell boundary qualification after Browser operator
+qualification PR #68 at `025d019`. Continue the established Core roadmap; later UI
 rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 Browser operator qualification
+## Current scope: v0.15 Shell boundary qualification
 
-Core binding PR #67 merged at `bc8404e3257573701683448255311d79f3d27cdf`.
-Its tree equals reviewed/tested head `0486e15153adaf5983d5341a69cdbf01390ec93e`:
-exact-commit CI passed 1,617 tests with two installed-Codex skips; both passed in
-an exact-commit standalone clone. Core/capability tests passed 90 cases; all eight
-real controlled Core/Chromium/container cases passed with fixture HTTP/DNS and
-no setup cleanup errors. Astra Medium full static review plus exact-commit
-follow-ups found no remaining blocking defect within combined static scope.
-See `docs/reviews/browser-core-binding-final-gates.md`.
+Browser operator qualification PR #68 merged at `025d01971ab7cca92c0e9e8226fdd65128736cac`
+from exact reviewed/tested head `c10725f48d31a84d8e3b7bb0d29bc9139b328827`.
+Full CI passed 1,647 tests with two installed-Codex checks passed separately.
+Focused tests passed 146 cases. Two real public-document tasks/readmission and
+post-run image inspection passed with normal and deliberately invalid ambient
+Docker/ZELO settings. Eight controlled fixture DNS/HTTP lifecycle cases passed.
+Independent Astra Medium full static review plus exact-head follow-up found no
+remaining blockers within combined scope. Merged and tested Git trees match.
+See `docs/reviews/browser-operator-final-gates.md`.
 
-Read `docs/v0.15-browser-operator-qualification.md` before implementation. Qualify
-actual DNS/TLS/document fetch through the default adapter in an isolated temporary
-Core instance, with one fixed public documentation origin/path and explicit host
-opt-in. Reuse the qualified preparation command, receipt loader, task service,
-Runner, renderer and admission boundary. Separate real public-network evidence
-from the preceding fixture HTTP/DNS proof. Offline CI must not contact websites
-or run Docker; test the opt-in guard and deterministic harness behavior instead.
+Read `docs/v0.15-shell-boundary-qualification.md` before implementation. This
+slice is a native isolation proof only; no Shell Worker registration, Core task,
+API schema, authority profile or Agent/Mind route. Reuse mature installed Dash,
+Bubblewrap and prlimit behind fixed Zelo-owned policy. Verify actual effective
+non-root identity/limits, no host files/credentials/network, read-only guest,
+zero process creation, bounded output, deadline/cancellation and cleanup. Only
+harmless fixed host scripts with explicit opt-in; no fork bomb or generic host
+shell fallback. Root/unavailable prerequisites fail closed. Offline CI never
+launches these optional native probes. Preserve source/license/provenance limits.
+
+Work in this dedicated worktree, use Astra Medium, and require focused tests,
+actual host proof, independent exact-commit review and exact-commit full CI before
+merging proof/runtime changes. Do not widen Browser/Python authority or reuse
+Browser-specific contract fields as a misleading Shell identity. Qualify any
+broader process/filesystem surface separately before Core binding.
+
+
+The independent Shell review also found a preexisting PID-reuse defect in shared
+native process cleanup. Fix the reused Core process helper and its OpenCode server
+caller within this branch: keep the exact child identity reserved until owned group
+termination is confirmed, refuse released/lost identities, and cover real lifecycle
+and offline reuse cases. This necessary helper correction adds no task, approval,
+worker authority, service or default activation. Broaden review/tests to affected
+Python/Developer/OpenCode paths. Keep Shell restriction probes truthful: require
+specific denial evidence, a successful permitted pipeline and byte-free file
+creation, not arbitrary nonzero exits.
 
 Production Browser Worker remains disabled. Do not modify live settings/databases,
-install services, expose network listeners, publish a release, add a default
-Browser Agent or Mind route, or merge parked UI PR #61. Keep v0.14.0, user chats,
-UI worktrees and the canonical Agent hierarchy/milestone ordering intact.
-
-Preserve narrow endpoint/path/timeout task inputs, exact identity and versioned
-retry/claim/Runner checks, native sandbox, no-network Chromium, nonroot/NNP,
-cap-drop ALL, cgroups and cleanup-gated results. No CDP/evaluation/navigation/
-interaction, custom flags/headers/cookies/credentials, screenshots or downloads.
-No privileged/no-sandbox fallback. Unknown cleanup stays fenced; no TTL, stale-PID
-inference, automatic marker reconciliation or unrelated resource deletion.
-
-Work in this dedicated worktree and use Astra Medium. Require focused tests,
-controlled host proof, independent exact-commit review and exact-commit full CI
-before merging runtime/harness changes. Clearly distinguish static, fixture and
-actual host/public-network evidence. Operator receipts are structural configuration,
-not signatures or independent image provenance. Source artifacts, same-UID
-operators, filesystem ancestors and Docker remain trusted.
+install services, expose listeners, publish a release or merge parked UI PR #61.
+Keep v0.14.0, user chats, UI worktrees and hierarchy/milestone ordering intact.
+Unknown cleanup stays fenced; no TTL, stale-PID inference, automatic marker
+reconciliation or unrelated resource deletion. v0.16 channels -> v0.17 specialist
+organizations -> v0.18 learning/healing/autonomy remains the roadmap order.
 
 ## Workspace decision
 
