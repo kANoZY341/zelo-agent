@@ -1,0 +1,75 @@
+{
+  "bytes": 1456,
+  "layout": {
+    "dynamic_tags": [
+      [
+        1,
+        1
+      ],
+      [
+        14,
+        11
+      ],
+      [
+        5,
+        4194536
+      ],
+      [
+        10,
+        57
+      ],
+      [
+        6,
+        4194600
+      ],
+      [
+        11,
+        24
+      ],
+      [
+        1879048176,
+        4194720
+      ],
+      [
+        1879048188,
+        4194736
+      ],
+      [
+        1879048189,
+        3
+      ],
+      [
+        1879048190,
+        4194840
+      ],
+      [
+        1879048191,
+        1
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "section_table": 880,
+    "sections": {
+      ".dynamic": 568,
+      ".dynstr": 232,
+      ".dynsym": 296,
+      ".gnu.version": 416,
+      ".gnu.version_d": 432,
+      ".gnu.version_r": 536,
+      ".interp": 760,
+      ".shstrtab": 788
+    },
+    "strings": {
+      "FIXTURE_1.0": 22,
+      "FIXTURE_2.0": 34,
+      "GLIBC_2.34": 46,
+      "fixture.so": 11,
+      "libc.so.6": 1
+    }
+  },
+  "schema": "zelo-media-elf-version-fixture-v1",
+  "sha256": "f96dfe4c8c0ba5920c55e0e65aa762e409f6c0a23082468034dbab0ad8d0be17"
+}

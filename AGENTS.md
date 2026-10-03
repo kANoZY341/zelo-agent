@@ -72,14 +72,16 @@ The active work is v0.15 Media GNU version graph design after isolated loader
 metadata PR #80 at `f6a8a584`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media GNU version graph design
+## Current scope: v0.15 Media GNU version graph implementation
 
 PR80 merged f6a8a584 with matching reviewed tree,2,928CI passes and37 actual isolated
 cases/seveninputs. Read docs/reviews/media-elf-metadata-final-gates.md. Allfour loader
 qualification attempts remain retained and exhausted: no fifth attempt, cap increase,
 marker clearing or deletion. No platform/ABI/decoder/Core authority was granted.
 
-Next is the design candidate docs/v0.15-media-elf-version-metadata.md: bounded GNU
+Astra Medium cleared Revision2 at11540a2 for offline implementation only; see
+ docs/reviews/media-elf-version-design-r2-review.md. Current design
+ docs/v0.15-media-elf-version-metadata.md: bounded GNU
 version definitions/requirements/index frequencies only. Symbol bodies and symbol
 provider/ABI semantics remain excluded. Complete AstraMedium design review and
 resolve its findings before implementation; then exact source/launcher review before
