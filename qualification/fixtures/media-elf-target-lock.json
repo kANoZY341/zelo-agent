@@ -1,0 +1,72 @@
+{
+  "schema": "zelo-media-fixed-elf-data-inputs-v1",
+  "files": [
+    {
+      "source": "/usr/bin/readelf",
+      "resolved_source": "/usr/bin/x86_64-linux-gnu-readelf",
+      "available": true,
+      "bytes": 789280,
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0",
+      "mode": 493,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/bin/python3.12",
+      "resolved_source": "/usr/bin/python3.12",
+      "available": true,
+      "bytes": 8020928,
+      "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+      "mode": 493,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so",
+      "resolved_source": "/usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so",
+      "available": true,
+      "bytes": 137968,
+      "sha256": "aad3e24f186e6c0a1c7efa8f16004f951f527db86f6451d30118657384a456c1",
+      "mode": 420,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libseccomp.so.2",
+      "resolved_source": "/usr/lib/x86_64-linux-gnu/libseccomp.so.2.5.5",
+      "available": true,
+      "bytes": 125360,
+      "sha256": "b4d9140a7797ccf3ac14f5d9d579b64f157111662940cb8330c632b11a8cea8e",
+      "mode": 420,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libffi.so.8",
+      "resolved_source": "/usr/lib/x86_64-linux-gnu/libffi.so.8.1.4",
+      "available": true,
+      "bytes": 47672,
+      "sha256": "00f593fe192f2851b8ce23b25cec2488d769beb5a8f63e8c9e563071e1075153",
+      "mode": 420,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "resolved_source": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "available": true,
+      "bytes": 2129424,
+      "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+      "mode": 493,
+      "elf64_little_endian_x86_64_header": true
+    },
+    {
+      "source": "/usr/lib64/ld-linux-x86-64.so.2",
+      "resolved_source": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "available": true,
+      "bytes": 236616,
+      "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+      "mode": 493,
+      "elf64_little_endian_x86_64_header": true
+    }
+  ],
+  "aggregate_bytes": 11487248,
+  "distribution_origin": "operator-installed-host-baseline-not-independently-authenticated",
+  "platform_complete": false,
+  "runtime_authority": false
+}

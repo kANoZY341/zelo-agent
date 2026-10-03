@@ -1,0 +1,77 @@
+{
+  "sha256": "3e8d3c2efcfc2037f460288107e722d6c49688871a51717082ff4fb84a925c73",
+  "bytes": 1328,
+  "layout": {
+    "sections": {
+      ".dynstr": 232,
+      ".dynsym": 296,
+      ".gnu.version": 368,
+      ".gnu.version_r": 376,
+      ".gnu.version_d": 408,
+      ".dynamic": 440,
+      ".interp": 632,
+      ".shstrtab": 660
+    },
+    "section_table": 752,
+    "dynamic_tags": [
+      [
+        1,
+        1
+      ],
+      [
+        14,
+        11
+      ],
+      [
+        5,
+        4194536
+      ],
+      [
+        10,
+        64
+      ],
+      [
+        6,
+        4194600
+      ],
+      [
+        11,
+        24
+      ],
+      [
+        1879048176,
+        4194672
+      ],
+      [
+        1879048190,
+        4194680
+      ],
+      [
+        1879048191,
+        1
+      ],
+      [
+        1879048188,
+        4194712
+      ],
+      [
+        1879048189,
+        1
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "strings": {
+      "libc.so.6": 1,
+      "fixture.so": 11,
+      "getpid": 22,
+      "fixture_api": 29,
+      "GLIBC_2.34": 41,
+      "FIXTURE_1.0": 52
+    }
+  },
+  "inert_test_data": true,
+  "target_executed": false
+}
