@@ -65,7 +65,8 @@ The development requirements add pytest and Ruff.
 
 ## Structure and scope
 
-- `app/main.py`: application factory and ASGI entry point.
+- `app/application.py`: reusable explicitly configured application factory/lifespan.
+- `app/main.py`: normal environment-backed ASGI entry point.
 - `app/api.py`: typed HTTP responses and routes.
 - `app/config.py`: environment-backed settings.
 - `tests/`: automated endpoint and configuration tests.
@@ -996,3 +997,16 @@ hashes are not independent provenance, and host/operator/process visibility/even
 loop assumptions remain. See `docs/v0.15-shell-operator-qualification.md`.
 This qualifies the diagnostic command; production Shell/Browser flags, the
 published release and parked UI remain unchanged.
+
+## Media PNG contract qualification
+
+The v0.15 Media prerequisite in `qualification/media_contracts.py` defines a
+bounded RGB/RGBA8 static PNG envelope, immutable thumbnail request and candidate
+evidence. It checks framing/CRC/dimensions and exact request/source/policy binding
+without decompressing image data. Candidate bytes remain untrusted; they do not
+prove valid pixels, a correct transformation, provenance or native cleanup.
+
+This is a qualification-only module, without a Media task/runtime/route or new
+dependency. A future isolated Pillow adapter needs separate pinned bundle, decoder,
+resource and cleanup qualification. See
+`docs/v0.15-media-png-contract-qualification.md`.

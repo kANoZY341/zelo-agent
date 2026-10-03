@@ -469,15 +469,14 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): qualified Shell Core binding PR #71
-merged at `fd686a9`, matching reviewed/tested head `484257b`. Full CI passed
-1,792 tests; both installed-Codex supplements passed separately. 255 regressions,
-nine normal/ambient Core/native cases, seventeen owned Shell cases and eight
-Browser lifecycle cases passed. Exact full/followup Astra Medium review found no
-remaining blockers. Continue with `docs/v0.15-shell-operator-qualification.md`,
-qualifying complete application/ASGI/Runner assembly in private diagnostic state.
-Default Shell and Browser remain disabled, no default Agent/Mind route or broader
-process/filesystem authority is implied, and UI #61 stays parked.
+Core-first checkpoint (3 October 2026): Shell operator/application PR #72 merged
+at `159caee`, matching reviewed/tested head `1d9fd54`. Full CI passed 1,817 tests;
+four supplements, normal/invalid-ambient six-case native application proofs and
+exact Astra Medium full review passed. Both model counters were zero; Runner,
+runtime and DB ownership cleanup was confirmed. See the final receipt. Continue
+with `docs/v0.15-media-png-contract-qualification.md`, a separate immutable bounded
+PNG/request/candidate contract prerequisite without decoding or runtime activation.
+Default Shell/Browser remain disabled, UI #61 parked and published v0.14.0 unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -666,11 +665,12 @@ Current verified baseline as of 2 October 2026:
 - Browser Core binding is merged through PR #67 at `bc8404e`; operator/default
   DNS/TLS qualification is merged through PR #68 at `025d019`, still disabled;
 - Shell boundary/owner proofs PR #69/#70 and Core binding #71 are merged at
-  `a33dc9c`/`befaefa`/`fd686a9`; next is full operator/application qualification,
+  `a33dc9c`/`befaefa`/`fd686a9`; operator/application #72 merged at `159caee`,
   still default disabled and without default Agent/Mind routes;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
-- Computer/Media workers and selected external adapters remain separate
+- Media PNG contract qualification is next, without decoder/runtime activation;
+  Computer/Media native workers and selected external adapters remain separate
   unimplemented slices; broader Shell process/filesystem authority is not granted;
   Browser receives no authority from API work;
 - Capability/Skill metadata and generic registration never grant execution
@@ -826,3 +826,11 @@ authenticated ASGI routes, background Runner and shutdown using unmodified defau
 native factories and private init-only diagnostic state. No live enablement,
 default Agent/Mind route, public listener, model request or broader host surface.
 The published release, parked UI and canonical later milestone order stay unchanged.
+
+### Qualified Shell operator/application checkpoint — 3 October 2026
+
+PR #72 merged at `159caee5c5fba2bbc25c3b3f75b5365eebef1fed`, with tested/merged
+tree equality and all gates recorded in `reviews/shell-operator-final-gates.md`.
+Continue on `feat/v0.15-media-png-contract`: fixed qualification-only PNG envelope,
+immutable request binding and candidate evidence; no decoding, installation, Core
+route or native acceptance. Follow `v0.15-media-png-contract-qualification.md`.
