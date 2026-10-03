@@ -231,10 +231,12 @@ def test_native_failure_report_is_private_bounded_and_does_not_echo_error(tmp_pa
     assert not report["core_worker_activated"] and not report["external_network_used"]
 
 
-def test_qualification_module_is_not_imported_by_core():
-    assert not any(
-        "qualification.shell_compute" in path.read_text() for path in Path("app").rglob("*.py")
-    )
+def test_core_import_confined_to_qualified_shell_adapter():
+    assert {
+        path.name
+        for path in Path("app").rglob("*.py")
+        if "qualification.shell_compute" in path.read_text()
+    } == {"shell_worker.py"}
 
 
 def test_pins_close_previous_artifacts_when_later_identity_is_rejected(monkeypatch):

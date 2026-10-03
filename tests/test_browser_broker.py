@@ -301,8 +301,8 @@ def test_policy_and_no_runtime_integration():
             Policy(**kwargs)
     root = Path(__file__).resolve().parents[1]
     for file in (root / "app").rglob("*.py"):
-        if file.name in {"browser_worker.py", "browser_operator.py"}:
-            continue  # Core binding owns the sole production adapter/configuration path.
+        if file.name in {"browser_worker.py", "browser_operator.py", "shell_worker.py"}:
+            continue  # Qualified Core adapters own the production execution/configuration paths.
         assert "from qualification" not in file.read_text()
         assert "import qualification" not in file.read_text()
     for file in (root / "qualification").glob("*.py"):

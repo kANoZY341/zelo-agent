@@ -122,6 +122,7 @@ def test_default_registry_extends_research_for_v015_worker_routing():
         "evidence_synthesis",
         "python_execution",
         "research",
+        "shell_execution",
         "zelo_core_development",
     ]
     assert registry.get("code_review").subjects == ("agent", "worker")
@@ -222,6 +223,7 @@ def test_application_exposes_operator_only_capability_snapshot(client):
         "evidence_synthesis",
         "python_execution",
         "research",
+        "shell_execution",
         "zelo_core_development",
     ]
 

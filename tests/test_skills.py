@@ -32,7 +32,13 @@ def skill(
 def validate(registry: SkillRegistry, capabilities: CapabilityRegistry | None = None) -> None:
     registry.validate(
         capabilities or default_capability_registry(),
-        available_task_kinds=("api_run", "developer_run", "python_run", "research_run"),
+        available_task_kinds=(
+            "api_run",
+            "developer_run",
+            "python_run",
+            "research_run",
+            "shell_run",
+        ),
         available_tools=(
             "list_workspace_files",
             "read_workspace_file",
@@ -136,6 +142,7 @@ def test_default_registry_validates_current_surfaces_and_agents():
         "core_review",
         "evidence_retrieval",
         "python_execution",
+        "shell_execution",
     ]
 
 
@@ -205,6 +212,7 @@ def test_application_exposes_operator_only_read_only_skill_snapshot(client):
         "core_review",
         "evidence_retrieval",
         "python_execution",
+        "shell_execution",
     ]
 
     rejected = client.get(
