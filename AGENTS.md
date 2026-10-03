@@ -66,48 +66,44 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Shell boundary qualification after Browser operator
-qualification PR #68 at `025d019`. Continue the established Core roadmap; later UI
+The active work is v0.15 Shell identity/admission/owner qualification after
+Shell boundary PR #69 at `a33dc9c`. Continue the established Core roadmap; later UI
 rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 Shell boundary qualification
+## Current scope: v0.15 Shell identity/admission/owner qualification
 
-Browser operator qualification PR #68 merged at `025d01971ab7cca92c0e9e8226fdd65128736cac`
-from exact reviewed/tested head `c10725f48d31a84d8e3b7bb0d29bc9139b328827`.
-Full CI passed 1,647 tests with two installed-Codex checks passed separately.
-Focused tests passed 146 cases. Two real public-document tasks/readmission and
-post-run image inspection passed with normal and deliberately invalid ambient
-Docker/ZELO settings. Eight controlled fixture DNS/HTTP lifecycle cases passed.
-Independent Astra Medium full static review plus exact-head follow-up found no
-remaining blockers within combined scope. Merged and tested Git trees match.
-See `docs/reviews/browser-operator-final-gates.md`.
+Shell boundary PR #69 merged at `a33dc9cdf43662ce9c158ad4cba0b51bdb97735d`
+from reviewed/tested head `32f843a3adef9f6b89d0b05aab6bf7f1ecb50dbc`.
+Full CI passed 1,686 tests with two installed-Codex checks passed separately;
+132 affected focused cases passed. Normal and invalid ambient native proofs each
+passed fourteen cases and reaped fourteen launchers. Negative controls detected
+incidental restriction failures and missing effective process limits before fork.
+Independent Astra Medium full review and correction follow-ups found no remaining
+blockers in combined scope. Merged/tested Git trees match. See
+`docs/reviews/shell-boundary-final-gates.md`.
 
-Read `docs/v0.15-shell-boundary-qualification.md` before implementation. This
-slice is a native isolation proof only; no Shell Worker registration, Core task,
-API schema, authority profile or Agent/Mind route. Reuse mature installed Dash,
-Bubblewrap and prlimit behind fixed Zelo-owned policy. Verify actual effective
-non-root identity/limits, no host files/credentials/network, read-only guest,
-zero process creation, bounded output, deadline/cancellation and cleanup. Only
-harmless fixed host scripts with explicit opt-in; no fork bomb or generic host
-shell fallback. Root/unavailable prerequisites fail closed. Offline CI never
-launches these optional native probes. Preserve source/license/provenance limits.
+Read `docs/v0.15-shell-owner-qualification.md` before implementation. Qualify a
+separate immutable Shell identity and durable capacity-one admission/one-shot
+resource owner. Reuse existing admission and policy-neutral lifecycle mechanics;
+retain strict Browser policy validation and do not reuse Browser contract fields
+as Shell identity. Bind execution to the exact frozen identity. Admission precedes
+verification/pins/spawn and uses one trusted private persistent directory.
 
-Work in this dedicated worktree, use Astra Medium, and require focused tests,
-actual host proof, independent exact-commit review and exact-commit full CI before
-merging proof/runtime changes. Do not widen Browser/Python authority or reuse
-Browser-specific contract fields as a misleading Shell identity. Qualify any
-broader process/filesystem surface separately before Core binding.
+Add explicit per-execution native ownership/cleanup observation before spawn;
+creation-pending is not no-resource proof. Require child/group termination/reap,
+pipe/task closure and sealed-pin closure before successful publication/release.
+Keep cancellation/cleanup tasks retained through grace expiry; uncertain cleanup
+or owner death leaves a durable fence. No error-string/global-registry inference,
+TTL, stale-PID recovery, automatic marker clearing or unrelated resource deletion.
+Cover shared Python/Developer/OpenCode and Browser owner compatibility if reused
+helpers change. Only harmless fixed opt-in native scripts; no fork bombs, broader
+process budget, host fallback, system installs, services or user data.
 
-
-The independent Shell review also found a preexisting PID-reuse defect in shared
-native process cleanup. Fix the reused Core process helper and its OpenCode server
-caller within this branch: keep the exact child identity reserved until owned group
-termination is confirmed, refuse released/lost identities, and cover real lifecycle
-and offline reuse cases. This necessary helper correction adds no task, approval,
-worker authority, service or default activation. Broaden review/tests to affected
-Python/Developer/OpenCode paths. Keep Shell restriction probes truthful: require
-specific denial evidence, a successful permitted pipeline and byte-free file
-creation, not arbitrary nonzero exits.
+This is qualification only: no Shell task/schema/API/registry/capability/authority,
+Agent/Mind route, configuration activation or Core startup import of qualification.
+Work in this dedicated worktree using Astra Medium. Require focused tests, actual
+host proof, independent exact-head review and exact-head full CI before merging
+runtime changes. Preserve source/provenance/license and host-trust limits.
 
 Production Browser Worker remains disabled. Do not modify live settings/databases,
 install services, expose listeners, publish a release or merge parked UI PR #61.
