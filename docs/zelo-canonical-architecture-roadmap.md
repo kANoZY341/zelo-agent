@@ -469,14 +469,14 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Shell operator/application PR #72 merged
-at `159caee`, matching reviewed/tested head `1d9fd54`. Full CI passed 1,817 tests;
-four supplements, normal/invalid-ambient six-case native application proofs and
-exact Astra Medium full review passed. Both model counters were zero; Runner,
-runtime and DB ownership cleanup was confirmed. See the final receipt. Continue
-with `docs/v0.15-media-png-contract-qualification.md`, a separate immutable bounded
-PNG/request/candidate contract prerequisite without decoding or runtime activation.
-Default Shell/Browser remain disabled, UI #61 parked and published v0.14.0 unchanged.
+Core-first checkpoint (3 October 2026): Media PNG contract PR #73 merged at
+`aed13e6`, matching reviewed/tested head `043aa2a`. Full CI passed 2,053 tests;
+513 focused/Browser checks, four supplements, two negative controls and independent
+Astra Medium review passed. This qualification contract does not decode pixels or
+grant Media runtime/cleanup/provenance acceptance. Continue with
+`docs/v0.15-media-wheel-artifact-qualification.md`: inspect one independently pinned
+candidate wheel without importing/installing/extracting or activating Core.
+Default Shell/Browser remain disabled, UI #61 parked and v0.14.0 unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -669,7 +669,8 @@ Current verified baseline as of 2 October 2026:
   still default disabled and without default Agent/Mind routes;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
-- Media PNG contract qualification is next, without decoder/runtime activation;
+- Media PNG contract #73 is merged at `aed13e6`; pinned wheel inventory is next,
+  without decoder/runtime activation;
   Computer/Media native workers and selected external adapters remain separate
   unimplemented slices; broader Shell process/filesystem authority is not granted;
   Browser receives no authority from API work;
@@ -834,3 +835,11 @@ tree equality and all gates recorded in `reviews/shell-operator-final-gates.md`.
 Continue on `feat/v0.15-media-png-contract`: fixed qualification-only PNG envelope,
 immutable request binding and candidate evidence; no decoding, installation, Core
 route or native acceptance. Follow `v0.15-media-png-contract-qualification.md`.
+
+### Media PNG contract checkpoint — 3 October 2026
+
+PR #73 merged at `aed13e6410db099fa0ad6772feb1b37c1f70baff` with all gates and
+tree equality; see `reviews/media-png-contract-final-gates.md`. Continue on
+`feat/v0.15-media-wheel-artifact-qualification`, following its bounded artifact
+plan. Native Media attachment/decoder/resources/ownership and Core binding remain
+separate gates; no installation or runtime activation is implied.

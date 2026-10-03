@@ -68,50 +68,49 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media PNG contract qualification after Shell operator
-PR #72 at `159caee`. Continue the established Core roadmap; UI rework requires fresh
-acceptance. Do not polish, deploy or acceptance-test UI in this phase.
+The active work is v0.15 Media Pillow wheel artifact qualification after Media
+contract PR #73 at `aed13e6`. Continue Core; UI rework requires fresh acceptance.
+Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media PNG contract qualification
+## Current scope: v0.15 Media Pillow wheel artifact qualification
 
-Shell operator/application PR #72 merged at `159caee5c5fba2bbc25c3b3f75b5365eebef1fed`
-from reviewed/tested head `1d9fd54fc37cb977ec58f04f7c295f1bfc307835`; trees match.
-Full CI passed 1,817 tests. 163 focused and 302 other assembly compatibility checks,
-four standalone supplements, six real normal/invalid-ambient cases each and two
-negative controls passed. Exact Astra Medium full review found no blockers. Both
-model counters stayed zero; Runner/runtime/DB shutdown ownership was confirmed.
-See `docs/reviews/shell-operator-final-gates.md`.
+Media PNG contract PR #73 merged at `aed13e6410db099fa0ad6772feb1b37c1f70baff`
+from reviewed/tested head `043aa2a8078fb365a5182e9fa7daad4c7717ea94`; trees match.
+Full exact-head PR CI passed 2,053 tests. 513 focused/Browser compatibility checks,
+four standalone supplements and two negative controls passed. Astra Medium design
+and exact full review found no remaining blockers. See the final receipt.
 
-Read `docs/v0.15-media-png-contract-qualification.md` before implementation.
-Implement only qualification-specific immutable bounded PNG envelopes, thumbnail
-requests and explicitly untrusted candidate outputs, plus offline fixtures/tests
-and documentation. No decoder execution, package installation, process/runtime/
-owner factories, admission state, registry/capability/task/Agent/Mind route, live
-settings, database, service or release change in this slice. No caller host paths,
-URLs, arbitrary filters, code, metadata, plugins or executable/env/runtime overrides.
+Read `docs/v0.15-media-wheel-artifact-qualification.md` before implementation.
+Implement only a closed immutable-bytes-to-candidate-inventory validator for the
+independently observed Pillow 12.3.0 CPython 3.12 Linux x86_64 wheel, plus offline
+fixtures/tests and credential-free documentation. One exact pinned public release
+download into a new private ignored runtime diagnostic file is in scope for actual
+artifact inspection. Hash/size-check before standard-library ZIP parsing. No package
+import/install/extraction, decoder/native/resource/owner execution, new runtime
+factory/registry/capability/task/Core/Agent/Mind route or live settings/database change.
 
-Inspect only bounded PNG framing: signature, exact IHDR/IDAT/IEND ordering/count,
-CRC, lengths, positive dimensions, RGB/RGBA8 noninterlaced subset and exact framing
-end. Never decompress or assert valid pixels. Reject unknown/ancillary/animation/
-palette chunks and trailing data. Strict bytes only; reject mutable/coercible types.
-Bind source bytes and exact box to a versioned canonical request/policy digest.
-Candidate-specific types must derive hashes/dimensions from exact retained bytes,
-compare declared hashes to the validated request, retain instruction trust none and
-exclude runtime-success, cleanup/provenance or transformation-correctness claims.
+Inspect the exact pinned archive shape without importing before enumerating closed
+required members, metadata/tag/license fields. Strict bytes, closed upstream hash,
+bounded entries/depth/paths/modes/compression and running actual bytes/CRC/EOF checks;
+reject traversal/duplicates/collisions/symlink/special/unsupported entries. Bound
+metadata/RECORD, verify canonical complete file hashes/sizes/self-row and preserve
+all notice inventory. Reuse standard-library ZIP and ArtifactFile value semantics,
+without changing the Browser scanner or building an install/plugin framework.
 
-Reuse evaluation favors a future isolated Pillow PNG adapter; reviewed upstream
-MIT-CMU license and security/API documentation are linked in the plan. It is not
-installed or approved. Exact pinned/native bundle provenance, license notices,
-decoder success, transformation correctness, resource enforcement, one absolute
-deadline, durable admission and owned cleanup need separate native qualification.
-Preserve existing Browser script-disabled contract and Shell identity/owner gates.
+Return scanner-derived frozen nested tuples and versioned policy-bound candidate
+digest/trust none. File presence and hash/RECORD/page publisher claims are not ABI,
+codec, source safety, complete license audit or cryptographic attestation verification.
+No package import or runtime acceptance follows inspection. Pinned native bundle/
+attestation, decoder/transform correctness, resources, one absolute deadline,
+durable admission and confirmed cleanup remain separate later gates. Preserve
+qualified Browser/Shell contracts and authority/ownership behavior.
 
-Use the dedicated worktree and Astra Medium. Require guarded offline regressions,
-independent exact-head static review, full CI and installed-Codex supplements before
-merge. No system installs, sudo, services, public listeners, model requests, user
-data or unrelated deletion. Production Browser/Shell stay disabled, published
-v0.14.0 and draft UI #61 unchanged. Computer and external adapters remain separate;
-v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
+Use the dedicated worktree and Astra Medium. Require adversarial offline tests,
+actual fixed candidate inspection, independent exact-head static review, full CI and
+installed-Codex supplements before merge. No system/global/shared-venv installs,
+sudo, services, listeners, model requests, user data or unrelated deletion.
+Production flags stay disabled; v0.14.0/UI #61 preserved. Computer/external adapters
+remain separate; v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
 
 ## Workspace decision
 
