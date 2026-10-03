@@ -352,5 +352,7 @@ def inspect_elf_metadata(raw: bytes) -> bytes:
         return _inspect(
             raw, elf, lambda structure, offset: struct_parse(structure, stream, stream_pos=offset)
         )
+    except ElfMetadataError:
+        raise  # Preserve only our fixed refusal codes, never parser exception text.
     except (ELFError, ConstructError, ValueError, KeyError, TypeError, EOFError, OverflowError):
         raise ElfMetadataError("media_elf_metadata_refused") from None

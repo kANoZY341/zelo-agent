@@ -18,8 +18,8 @@ SOURCE_PINS = (
     ),
     (
         "qualification/media_elf_metadata.py",
-        13527,
-        "f7d1e24f842b0e95321a8c39ed5e5a5d49d35ac24c36537b601aa1f1a4ae4de0",
+        13641,
+        "1e82c789830f5c56fe9402c30cf111a967fab1d8082030a1db970da8545a7085",
     ),
 )
 CASES = (
@@ -194,7 +194,9 @@ def audit(event,args):
 sys.addaudithook(audit)
 try:
     output=m.inspect_elf_metadata(raw)
-except m.ElfMetadataError:
+except m.ElfMetadataError as error:
+    if case=='input':
+        sys.stderr.write(str(error)+'\n')
     print(json.dumps({'status':'metadata_refused'}))
     raise SystemExit(0 if case=='malformed' else 29)
 if case=='malformed':

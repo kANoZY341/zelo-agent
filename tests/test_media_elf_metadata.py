@@ -331,3 +331,45 @@ def test_host_refused_before_optional_import_or_manifest(monkeypatch):
     monkeypatch.setattr(m, "capture_manifest", lambda *args: pytest.fail("host reached tools"))
     with pytest.raises(m.ElfMetadataError, match="guest_required"):
         m.inspect_elf_metadata(bytes(64))
+
+
+@pytest.mark.parametrize("owned", [True, False])
+def test_only_owned_fixed_refusal_survives_parser_wrapper(monkeypatch, owned):
+    # Entire optional import closure is fake; no pyelftools code is imported/executed.
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    monkeypatch.setattr(
+        m,
+        "sys",
+        SimpleNamespace(
+            flags=SimpleNamespace(isolated=True, no_site=True),
+            dont_write_bytecode=True,
+            path=m.GUEST_PATHS,
+        ),
+    )
+    monkeypatch.setattr(
+        m, "capture_manifest", lambda *args: SimpleNamespace(digest=m.TOOL_MANIFEST_DIGEST)
+    )
+    failure = (
+        m.ElfMetadataError("media_elf_string_work")
+        if owned
+        else ValueError("PRIVATE_PARSER_DETAIL")
+    )
+
+    def fake_elf(*args, **kwargs):
+        raise failure
+
+    exports = {
+        "elftools.common.exceptions": {"ELFError": type("FakeELFError", (Exception,), {})},
+        "elftools.common.utils": {"struct_parse": lambda *args, **kwargs: None},
+        "elftools.construct": {"ConstructError": type("FakeConstructError", (Exception,), {})},
+        "elftools.elf.elffile": {"ELFFile": fake_elf},
+    }
+    for name, values in exports.items():
+        module = ModuleType(name)
+        module.__dict__.update(values)
+        monkeypatch.setitem(sys.modules, name, module)
+    with pytest.raises(m.ElfMetadataError) as result:
+        m.inspect_elf_metadata(bytes(64))
+    assert str(result.value) == ("media_elf_string_work" if owned else "media_elf_metadata_refused")
