@@ -287,3 +287,12 @@ def test_verifier_preserves_fixed_categories(code):
 
     with pytest.raises(m.PublisherError, match=code):
         m._verify(RAW, refused)
+
+
+def test_cancel_readiness_mount_is_fixed_and_absent_from_positive():
+    positive = q._argv(41, 42, "positive", Path("/host/public-sentinel"))
+    assert "--bind-fd" not in positive
+    cancel = q._argv(41, 42, "cancel", Path("/host/public-sentinel"), 43)
+    index = cancel.index("--bind-fd")
+    assert cancel[index + 1 : index + 3] == ["43", "/opt/zelo-publisher-ready"]
+    assert index < cancel.index("--remount-ro")

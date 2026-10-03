@@ -51,7 +51,7 @@ def confinement_policy() -> dict:
             m.ROOT_FILE,
         ),
         "capabilities": "all-dropped",
-        "cancel_readiness_channel": "one-byte-anonymous-pipe-only-in-cancel-control",
+        "cancel_readiness_channel": "one-byte-private-fifo-only-in-cancel-control",
         "guest_bootstrap_sha256": hashlib.sha256(GUEST_BOOTSTRAP.encode()).hexdigest(),
         "interpreter_flags": ("-I", "-S", "-B"),
         "environment": {
@@ -321,11 +321,15 @@ async def _own_operation(operation: asyncio.Task, *, cancel_wait=None):
 
 async def _native(tool_fd, root_fd, case, sentinel, raw, deadline):
     observation = NativeExecutionObservation()
-    ready_fds = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC) if case == "cancel" else ()
+    ready_fds = ()
+    if case == "cancel":
+        ready_path = sentinel.parent / "cancel-ready.fifo"
+        os.mkfifo(ready_path, mode=0o600)
+        ready_fds = (os.open(ready_path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC),)
     try:
         operation = asyncio.create_task(
             run_process(
-                _argv(tool_fd, root_fd, case, sentinel, ready_fds[1] if ready_fds else -1),
+                _argv(tool_fd, root_fd, case, sentinel, ready_fds[0] if ready_fds else -1),
                 cwd=ROOT,
                 timeout=max(0.001, deadline - time.monotonic()),
                 deadline=deadline,
@@ -333,7 +337,7 @@ async def _native(tool_fd, root_fd, case, sentinel, raw, deadline):
                 stderr_limit=16384,
                 stdin=raw,
                 env=confinement_policy()["environment"],
-                pass_fds=(tool_fd, root_fd, *ready_fds[1:]),
+                pass_fds=(tool_fd, root_fd, *ready_fds),
                 observation=observation,
             )
         )
@@ -342,12 +346,8 @@ async def _native(tool_fd, root_fd, case, sentinel, raw, deadline):
             cancel_wait=(lambda: _ready(ready_fds[0], deadline)) if ready_fds else None,
         )
     finally:
-        try:
-            if ready_fds:
-                os.close(ready_fds[0])
-        finally:
-            if ready_fds:
-                os.close(ready_fds[1])
+        if ready_fds:
+            os.close(ready_fds[0])
     if not observation.cleanup_confirmed:
         raise QualificationRefused("media_publisher_cleanup_unknown")
     return result, error, observation
