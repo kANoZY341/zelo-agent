@@ -358,6 +358,11 @@ timeout, retry and restart never clear an uncertain cleanup marker. Successful
 results require confirmed cleanup; a terminal Core task does not prove cleanup.
 No default AgentSpec, department or Mind route is added.
 
+The separate [opt-in operator qualification](docs/v0.15-browser-operator-qualification.md#implemented-host-command)
+runs two real DNS/TLS document tasks in a private diagnostic Core instance and
+reinspects the image after cleanup. It never enables the production worker and
+is excluded from offline CI.
+
 ## Fixed Research specialist
 
 v0.12 added a fixed `research_run` specialist on top of the same Core task
