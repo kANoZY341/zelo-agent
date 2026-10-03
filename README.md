@@ -1018,3 +1018,13 @@ importing, installing or extracting package code. Declared ZIP permissions are
 metadata and grant no filesystem authority. A candidate inventory is not native
 codec, attestation, license-audit or runtime acceptance; see
 `docs/v0.15-media-wheel-artifact-qualification.md`.
+
+`qualification/media_preparation.py` is a separate operator-only diagnostic copy
+gate. Strict pinned bytes are inspected before writes to a new private attempt under
+this worktree's ignored runtime directory. Every member is streamed and rechecked;
+permissions are normalized and a complete independent scanner comparison precedes
+a frozen receipt. It imports or executes no package code and creates no Core route.
+Four attempts are retained at most; partial failures return no receipt. Read-only
+files remain owner-mutable and publisher attribution remains unverified. The combined
+preparation gate, immutable native image and runtime qualification are still pending.
+See `docs/v0.15-media-file-preparation.md` for filesystem assumptions and bounds.
