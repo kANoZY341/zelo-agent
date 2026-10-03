@@ -968,3 +968,31 @@ The proof creates private diagnostic SQLite/admission state under ignored
 persistence, success, deadlines, output, cancellation, readmission and lost cleanup
 acknowledgement. It leaves the latter diagnostic fence intact. It does not enable
 live Core, contact a model or use external network.
+
+
+## Shell full application operator qualification
+
+After the qualified Core binding gates, an operator may exercise the full default
+application/lifespan, authenticated ASGI routes and background Runner in isolated
+diagnostic state:
+
+```bash
+.venv/bin/python -m scripts.qualify_shell_operator --allow-native-shell-probes
+```
+
+This command accepts no arbitrary script, input file, environment, runtime or
+policy override. It uses fixed harmless built-in compute, init-only settings,
+private database/admission/workspace paths and in-process HTTP without a listener.
+Actual acceptance uses default qualified runtime/owner/native factories. It checks
+disabled assembly, enabled refusal of an unknown fence, auth/payload rejection,
+persisted exact specification/action identity, complete task/attempt/policy audit,
+bounded untrusted evidence, single-attempt idempotency, readmission and shutdown.
+A rejecting counted provider requires zero model requests. Assertion-enabled
+Python is required; optimized mode is refused before proof entry.
+
+Private bounded evidence is saved under ignored `runtime/shell-operator-qualification`.
+The deliberately fenced diagnostic directory remains intact. Installed source
+hashes are not independent provenance, and host/operator/process visibility/event
+loop assumptions remain. See `docs/v0.15-shell-operator-qualification.md`.
+This qualifies the diagnostic command; production Shell/Browser flags, the
+published release and parked UI remain unchanged.

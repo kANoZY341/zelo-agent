@@ -469,14 +469,15 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Shell identity/admission/owner PR #70
-merged at `befaefa`, matching reviewed/tested head `132b445`. Full CI passed
-1,729 tests, both installed-Codex supplements passed separately, 218 focused
-cases and owned/direct Shell plus eight Browser native lifecycle cases passed.
-Next is `docs/v0.15-shell-core-binding.md`: exact persisted worker/spec identity,
-Core submission/retry/claim/Runner validation, default disabled and no Agent/Mind
-route or broader process/filesystem authority. Browser remains disabled; UI #61
-stays parked for later rework.
+Core-first checkpoint (3 October 2026): qualified Shell Core binding PR #71
+merged at `fd686a9`, matching reviewed/tested head `484257b`. Full CI passed
+1,792 tests; both installed-Codex supplements passed separately. 255 regressions,
+nine normal/ambient Core/native cases, seventeen owned Shell cases and eight
+Browser lifecycle cases passed. Exact full/followup Astra Medium review found no
+remaining blockers. Continue with `docs/v0.15-shell-operator-qualification.md`,
+qualifying complete application/ASGI/Runner assembly in private diagnostic state.
+Default Shell and Browser remain disabled, no default Agent/Mind route or broader
+process/filesystem authority is implied, and UI #61 stays parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -664,13 +665,14 @@ Current verified baseline as of 2 October 2026:
   PR #62 at `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`;
 - Browser Core binding is merged through PR #67 at `bc8404e`; operator/default
   DNS/TLS qualification is merged through PR #68 at `025d019`, still disabled;
-- Shell boundary/owner proofs PR #69/#70 are merged at `a33dc9c`/`befaefa`;
-  next is `feat/v0.15-shell-core-binding`, exact Core binding of the qualified
-  built-in compute lane, default disabled and without Agent/Mind routes;
+- Shell boundary/owner proofs PR #69/#70 and Core binding #71 are merged at
+  `a33dc9c`/`befaefa`/`fd686a9`; next is full operator/application qualification,
+  still default disabled and without default Agent/Mind routes;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
-- Computer, Shell and Media workers and selected external adapters remain
-  separate unimplemented slices; Browser receives no authority from API work;
+- Computer/Media workers and selected external adapters remain separate
+  unimplemented slices; broader Shell process/filesystem authority is not granted;
+  Browser receives no authority from API work;
 - Capability/Skill metadata and generic registration never grant execution
   authority by themselves;
 - parked experiment `feat/v1.0-agent-factory` remains reference material only
@@ -810,3 +812,17 @@ Continue on `feat/v0.15-browser-operator-qualification`. Qualify actual default
 DNS/TLS/public-document fetch and isolated operator assembly before production
 acceptance. No Browser Agent/Mind route or production enablement is implied.
 Published release remains v0.14.0; UI #61 and later milestone order are unchanged.
+
+
+## Qualified Shell Core binding merged — 3 October 2026
+
+PR #71 merged at `fd686a9` with matching tested head `484257b`, exact full CI
+(1,792 passed, two supplemented skips), independent Astra Medium full/followup
+review and real native/compatibility gates. See
+`docs/reviews/shell-core-binding-final-gates.md`.
+
+Continue on `feat/v0.15-shell-operator-qualification`: prove actual application,
+authenticated ASGI routes, background Runner and shutdown using unmodified default
+native factories and private init-only diagnostic state. No live enablement,
+default Agent/Mind route, public listener, model request or broader host surface.
+The published release, parked UI and canonical later milestone order stay unchanged.
