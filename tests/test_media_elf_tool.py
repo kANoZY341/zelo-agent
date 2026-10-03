@@ -12,6 +12,8 @@ import pytest
 
 from qualification import media_elf_tool as m
 
+REAL_READ_PIN = m._read_pin
+
 
 @pytest.fixture
 def source_candidate(monkeypatch):
@@ -176,7 +178,7 @@ def test_unsafe_roots_and_attempts_refused(copy_files, tmp_path, kind):
         m._prepare(copy_files, base)
 
 
-def test_partial_write_loop_and_retained_failure(copy_files, tmp_path, monkeypatch):
+def test_partial_write_failure_retained_and_descriptors_closed(copy_files, tmp_path, monkeypatch):
     real_write = m._write_all
     observed = []
 
@@ -314,6 +316,8 @@ def audit(event, args):
         raise RuntimeError('execution forbidden')
 sys.addaudithook(audit)
 from qualification import media_elf_tool as m
+
+REAL_READ_PIN = m._read_pin
 try:
     m.prepare_elf_tool(b'bad')
 except m.ElfToolError:
@@ -331,3 +335,75 @@ print('stdlib_source_import_only')
     )
     assert result.returncode == 0, result.stderr.decode()
     assert result.stdout == b"stdlib_source_import_only\n"
+
+
+@pytest.mark.parametrize("kind", ["corrupt", "missing", "oversize"])
+def test_bad_lock_refused_before_json_or_zip(source_candidate, tmp_path, monkeypatch, kind):
+    raw, _ = source_candidate
+    monkeypatch.setattr(m, "ROOT", tmp_path)
+    monkeypatch.setattr(m, "_read_pin", REAL_READ_PIN)
+    fixture = tmp_path / "qualification/fixtures/media-elf-tool-lock.json"
+    fixture.parent.mkdir(parents=True)
+    if kind != "missing":
+        fixture.write_bytes(b"corrupt" if kind == "corrupt" else b"x" * 16385)
+    with monkeypatch.context() as isolated:
+        isolated.setattr(
+            m.json, "loads", lambda *args: pytest.fail("JSON before lock authentication")
+        )
+        isolated.setattr(
+            m.zipfile, "ZipFile", lambda *args: pytest.fail("ZIP before lock authentication")
+        )
+        with pytest.raises((m.ElfToolError, OSError)):
+            m._source_files(raw)
+
+
+@pytest.mark.parametrize("index", [0, 1])
+@pytest.mark.parametrize("kind", ["corrupt", "missing", "oversize"])
+def test_each_notice_authenticated_before_disk_copy(
+    source_candidate, tmp_path, monkeypatch, index, kind
+):
+    raw, lock = source_candidate
+    monkeypatch.setattr(m, "ROOT", tmp_path)
+    monkeypatch.setattr(m, "_read_pin", REAL_READ_PIN)
+    lock["notices"] = [
+        {
+            "path": "qualification/vendor/pyelftools/" + name,
+            "sha256": hashlib.sha256(b"notice").hexdigest(),
+        }
+        for name in ("LICENSE", "Construct-LICENSE")
+    ]
+    for current, notice in enumerate(lock["notices"]):
+        path = tmp_path / notice["path"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if current == index and kind == "missing":
+            continue
+        path.write_bytes(
+            (b"corrupt" if kind == "corrupt" else b"x" * 65537) if current == index else b"notice"
+        )
+    lock_raw = json.dumps(lock).encode()
+    fixture = tmp_path / "qualification/fixtures/media-elf-tool-lock.json"
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes(lock_raw)
+    monkeypatch.setattr(m, "LOCK_SHA256", hashlib.sha256(lock_raw).hexdigest())
+    monkeypatch.setattr(
+        m, "_prepare", lambda *args: pytest.fail("disk copy before notice authentication")
+    )
+    with pytest.raises(m.ElfToolError):
+        m.prepare_elf_tool(raw)
+    assert not (tmp_path / "runtime").exists()
+
+
+def test_repeated_short_writes_complete_exact_copy(copy_files, tmp_path, monkeypatch):
+    real_write = os.write
+    calls = []
+
+    def short_write(fd, data):
+        calls.append(len(data))
+        return real_write(fd, data[:1])
+
+    monkeypatch.setattr(os, "write", short_write)
+    base = tmp_path / "private"
+    receipt = m._prepare(copy_files, base)
+    assert receipt.manifest == m._expected(copy_files)
+    assert len(calls) == sum(len(data) for _, data, _ in copy_files)
+    assert any(size > 1 for size in calls)
