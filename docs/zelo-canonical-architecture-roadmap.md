@@ -469,14 +469,14 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Shell boundary qualification PR #69
-merged at `a33dc9c`, matching reviewed/tested head `32f843a`. Full CI passed
-1,686 tests with two separately passed installed-Codex checks; 132 affected
-focused tests and fourteen native cases under normal/invalid ambient settings
-passed. Shared native child identity cleanup was corrected. Next is distinct
-Shell identity and durable admission/ownership qualification in
-`docs/v0.15-shell-owner-qualification.md`, before separate Core binding.
-No Shell Worker is registered. Browser remains disabled; UI #61 stays parked.
+Core-first checkpoint (3 October 2026): Shell identity/admission/owner PR #70
+merged at `befaefa`, matching reviewed/tested head `132b445`. Full CI passed
+1,729 tests, both installed-Codex supplements passed separately, 218 focused
+cases and owned/direct Shell plus eight Browser native lifecycle cases passed.
+Next is `docs/v0.15-shell-core-binding.md`: exact persisted worker/spec identity,
+Core submission/retry/claim/Runner validation, default disabled and no Agent/Mind
+route or broader process/filesystem authority. Browser remains disabled; UI #61
+stays parked for later rework.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -664,9 +664,9 @@ Current verified baseline as of 2 October 2026:
   PR #62 at `939cbd7dc49f7e5e74a7659d13a0c2e92b7f5aef`;
 - Browser Core binding is merged through PR #67 at `bc8404e`; operator/default
   DNS/TLS qualification is merged through PR #68 at `025d019`, still disabled;
-- Shell boundary proof PR #69 is merged at `a33dc9c`; the next branch is
-  `feat/v0.15-shell-owner-qualification`, distinct identity and durable ownership
-  qualification only, before a separate Shell Worker binding;
+- Shell boundary/owner proofs PR #69/#70 are merged at `a33dc9c`/`befaefa`;
+  next is `feat/v0.15-shell-core-binding`, exact Core binding of the qualified
+  built-in compute lane, default disabled and without Agent/Mind routes;
 - API execution is GET-only against operator-configured named HTTPS origins with
   public-IP pinning, no redirects, credentials, custom headers or arbitrary URLs;
 - Computer, Shell and Media workers and selected external adapters remain
