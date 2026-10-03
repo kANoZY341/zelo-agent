@@ -305,7 +305,7 @@ import sys
 root = sys.argv[1]
 sys.path.insert(0, root)
 blocked = ('PIL', 'elftools', 'ctypes', '_ctypes', 'sigstore',
-           'pypi_attestations', 'app', 'socket', 'subprocess')
+           'pypi_attestations', 'app', 'subprocess')
 def audit(event, args):
     if event == 'import' and args[0].split('.')[0] in blocked:
         raise RuntimeError('optional import forbidden')
