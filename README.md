@@ -1010,3 +1010,11 @@ This is a qualification-only module, without a Media task/runtime/route or new
 dependency. A future isolated Pillow adapter needs separate pinned bundle, decoder,
 resource and cleanup qualification. See
 `docs/v0.15-media-png-contract-qualification.md`.
+
+The separate `qualification/media_wheel.py` gate inventories one pinned Pillow
+12.3.0 Linux/CPython 3.12 release as bounded bytes. Its closed SHA is checked before
+ZIP parsing, then file/CRC/metadata/RECORD and notice inventory are checked without
+importing, installing or extracting package code. Declared ZIP permissions are
+metadata and grant no filesystem authority. A candidate inventory is not native
+codec, attestation, license-audit or runtime acceptance; see
+`docs/v0.15-media-wheel-artifact-qualification.md`.
