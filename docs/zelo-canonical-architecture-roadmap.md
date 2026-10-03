@@ -904,3 +904,13 @@ no parser execution or platform authority. See [final gates](reviews/media-elf-t
 Continue [isolated ELF dependency metadata](v0.15-media-elf-dependency-metadata.md)
 with source/launcher review before optional guestcode; original resource/filter/ABI
 and decoder gates remain open. Core first; UI remains parked.
+
+
+### Media isolated loader metadata checkpoint — 4 October 2026 Dubai
+
+PR80 merged f6a8a584 with2,928CI passes and37 isolated cases/seven pinned inputs.
+Exact reviewed tree verified; all four bounded attempts retained, final cleanup and
+admission release confirmed. See [final gates](reviews/media-elf-metadata-final-gates.md).
+Continue [GNU version graph design](v0.15-media-elf-version-metadata.md), with design
+and source reviews before new parser execution. Symbols/ABI/platform/resource/filter/
+decoder/Core authority remain open. Core first; UI61 stays parked as draft.

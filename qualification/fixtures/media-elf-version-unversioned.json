@@ -1,0 +1,52 @@
+{
+  "bytes": 984,
+  "layout": {
+    "dynamic_tags": [
+      [
+        1,
+        1
+      ],
+      [
+        14,
+        11
+      ],
+      [
+        5,
+        4194536
+      ],
+      [
+        10,
+        57
+      ],
+      [
+        6,
+        4194600
+      ],
+      [
+        11,
+        24
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "section_table": 600,
+    "sections": {
+      ".dynamic": 416,
+      ".dynstr": 232,
+      ".dynsym": 296,
+      ".interp": 528,
+      ".shstrtab": 556
+    },
+    "strings": {
+      "FIXTURE_1.0": 22,
+      "FIXTURE_2.0": 34,
+      "GLIBC_2.34": 46,
+      "fixture.so": 11,
+      "libc.so.6": 1
+    }
+  },
+  "schema": "zelo-media-elf-version-fixture-v1",
+  "sha256": "c0237b900cec0fa9b7181f8978d019a42b773150cddbf879d6bf6274b3bf1137"
+}
