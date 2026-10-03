@@ -15,7 +15,10 @@ import selectors
 import subprocess
 import tarfile
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from qualification.artifacts import ArtifactManifest
 
@@ -25,7 +28,35 @@ MAX_EXPORT_ENTRIES = 8192
 MAX_COMMAND_LOG = 16384
 
 
+@contextmanager
+def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str]]]:
+    """No inherited credentials, config, contexts, daemon selectors or loader hooks.
+
+    Setup and runtime always address the same trusted local Docker socket. Each
+    Docker CLI receives a fresh private empty configuration directory for its
+    entire lifetime; no operator HOME or Docker configuration is consulted.
+    """
+    environment = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LANG": "C.UTF-8"}
+    if not args or args[0] != "/usr/bin/docker":
+        yield args, environment
+        return
+    if any(
+        arg.startswith(("--host", "--context", "--config", "-H")) or arg == "-c" for arg in args[1:]
+    ):
+        raise ValueError("setup_daemon_override_forbidden")
+    base = Path(__file__).resolve().parents[1] / "runtime"
+    base.mkdir(mode=0o700, exist_ok=True)
+    with TemporaryDirectory(prefix="operator-docker-config-", dir=base) as directory:
+        environment["DOCKER_CONFIG"] = directory
+        yield [args[0], "--host=unix:///var/run/docker.sock", *args[1:]], environment
+
+
 def command(args: list[str], timeout: float = 20) -> str:
+    with operator_process(args) as (argv, environment):
+        return _command(argv, timeout, environment)
+
+
+def _command(args: list[str], timeout: float, environment: dict[str, str]) -> str:
     """Bounded trusted operator command; no shell, input, or unbounded capture.
 
     The fixed local compiler/Docker CLI remain trusted. An isolated process group
@@ -40,6 +71,7 @@ def command(args: list[str], timeout: float = 20) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
+        env=environment,
     )
     assert process.stdout is not None and process.stderr is not None
     buffers = {"out": bytearray(), "err": bytearray()}
@@ -201,12 +233,20 @@ def export_bounded(docker: str, container: str, destination: Path) -> None:
 
     if re.fullmatch(r"[0-9a-f]{64}", container) is None:
         raise ValueError("invalid_container_identity")
+    if docker != "/usr/bin/docker":
+        raise ValueError("setup_docker_executable_invalid")
+    with operator_process([docker, "export", container]) as (argv, environment):
+        _export_bounded(argv, destination, environment)
+
+
+def _export_bounded(argv: list[str], destination: Path, environment: dict[str, str]) -> None:
     process = subprocess.Popen(
-        [docker, "export", container],
+        argv,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         start_new_session=True,
+        env=environment,
     )
     assert process.stdout is not None and process.stderr is not None
     deadline = time.monotonic() + 60

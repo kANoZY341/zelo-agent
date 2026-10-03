@@ -189,3 +189,82 @@ def test_setup_command_timeout_reaps_the_owned_child(tmp_path):
         command([sys.executable, "-I", "-S", "-c", code], timeout=0.5)
     with pytest.raises(ChildProcessError):
         os.waitpid(int(pidfile.read_text()), os.WNOHANG)
+
+
+def test_operator_docker_process_ignores_live_daemon_and_credentials(monkeypatch):
+    import stat
+    from pathlib import Path
+
+    from scripts.qualify_browser_renderer import operator_process
+
+    for name in (
+        "DOCKER_HOST",
+        "DOCKER_CONTEXT",
+        "DOCKER_CONFIG",
+        "HOME",
+        "LD_PRELOAD",
+        "ZELO_OPERATOR_TOKEN",
+    ):
+        monkeypatch.setenv(name, "live-sentinel")
+    with operator_process(["/usr/bin/docker", "image", "inspect", "sha256:" + "a" * 64]) as (
+        args,
+        env,
+    ):
+        assert args[:2] == ["/usr/bin/docker", "--host=unix:///var/run/docker.sock"]
+        assert "live-sentinel" not in env.values()
+        assert "DOCKER_HOST" not in env and "DOCKER_CONTEXT" not in env and "LD_PRELOAD" not in env
+        directory = Path(env["DOCKER_CONFIG"])
+        assert directory.exists() and list(directory.iterdir()) == []
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+    assert not directory.exists()
+
+
+@pytest.mark.parametrize(
+    "override",
+    ["--host=tcp://elsewhere:2375", "--context=live", "--config=/live", "-Htcp://elsewhere:2375"],
+)
+def test_operator_docker_rejects_daemon_overrides(override):
+    from scripts.qualify_browser_renderer import operator_process
+
+    with pytest.raises(ValueError, match="setup_daemon_override_forbidden"):
+        with operator_process(["/usr/bin/docker", override, "ps"]):
+            pytest.fail("daemon override accepted")
+
+
+def test_operator_non_docker_command_has_no_inherited_secrets(monkeypatch):
+    import sys
+
+    from scripts.qualify_browser_renderer import command
+
+    monkeypatch.setenv("ZELO_OPERATOR_TOKEN", "live-sentinel")
+    monkeypatch.setenv("LD_PRELOAD", "/nonexistent/sentinel")
+    result = command(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-c",
+            "import os;assert 'ZELO_OPERATOR_TOKEN' not in os.environ;"
+            "assert 'LD_PRELOAD' not in os.environ;print(os.environ['HOME'])",
+        ]
+    )
+    assert result == "/nonexistent\n"
+
+
+def test_export_uses_the_same_private_local_docker_process(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from scripts import qualify_browser_renderer as harness
+
+    calls = []
+
+    def export(argv, destination, environment):
+        assert Path(environment["DOCKER_CONFIG"]).exists()
+        calls.append((argv, destination, environment.copy()))
+
+    monkeypatch.setattr(harness, "_export_bounded", export)
+    harness.export_bounded("/usr/bin/docker", "a" * 64, tmp_path / "export.tar")
+    argv, destination, environment = calls[0]
+    assert argv == ["/usr/bin/docker", "--host=unix:///var/run/docker.sock", "export", "a" * 64]
+    assert destination == tmp_path / "export.tar"
+    assert not Path(environment["DOCKER_CONFIG"]).exists()
