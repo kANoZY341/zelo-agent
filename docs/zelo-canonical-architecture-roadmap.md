@@ -859,3 +859,15 @@ tested tree and all gates; see `reviews/media-file-preparation-final-gates.md`.
 Continue `feat/v0.15-media-publisher-qualification` using its phased, private,
 mature-tool pinned-root attribution plan. Prepared files remain mutable and
 attribution-unverified; no native execution or Core activation is implied.
+
+
+### Media publisher attribution checkpoint — 3 October 2026
+
+Publisher PR#76 merged at c83af6c with exact matching reviewed/tested tree,2,475 CI
+passes/two supplemented skips,658 focused cases,23 actual offline cases,four
+standalone supplements and two intended mutation failures. Conditional historical
+attribution under the fixed production root is qualified; current TUF freshness,
+mutable prepared-tree attribution and native Media execution remain separate.
+Continue qualification-only immutable per-file image sealing and trusted guest-copy
+proof, without Pillow imports/decoder/Core binding. See
+[image qualification scope](v0.15-media-image-qualification.md).

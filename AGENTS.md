@@ -68,40 +68,43 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media publisher attribution qualification after private
-file preparation PR #75 at `5f6c678`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media immutable file-image qualification after publisher
+attribution PR #76 at `c83af6c`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media publisher attribution qualification
+## Current scope: v0.15 Media immutable file-image qualification
 
-PR #75 merged with matching tested/reviewed tree, exact full CI 2,261 passed, two
-supplemented skips and all gates in its receipt. Read
-`docs/v0.15-media-publisher-qualification.md` before work. Astra Medium design
-review recommends mature public PEP740 conversion/Sigstore verification under an
-explicit hash-locked operator-trusted production root snapshot, offline and confined.
-This is conditional historical attribution, not current TUF/trust freshness.
+PR #76 merged with matching reviewed/tested tree, full CI2,475 passed/two
+supplemented skips and all gates in docs/reviews/media-publisher-final-gates.md.
+Read docs/v0.15-media-image-qualification.md before work. Astra Medium design
+review recommends per-file sealed Linux memfds directly from the closed immutable
+wheel bytes, then a separate fixed guest-copy proof; no package-code execution.
 
-Phase one: bounded fixed provenance/tool-wheel metadata/acquisition and mature
-binary-only dependency resolution in new private write-confined diagnostics. Freeze
-all hashes, notices, hooks/path shape, root member and provenance cardinalities before
-implementation acceptance. No new tool import/install until that inspection closes
-the complete lock. Then record exact constants, implement/review a narrow optional
-operator verifier/launcher and qualify actual crypto/confinement/failure cases.
-All tools/dependencies/install/temp/cache/outputs remain private under this dedicated
-repository. Never alter shared/system venv or caches. No arbitrary caller roots/pins,
-unsigned publisher-derived policy, signing/OAuth, credentials or source-build hooks.
+Implement qualification/media_image.py with a strictbytes-only public managed
+factory; inspect before allocation. Reuse mature wheel inventory, normalized full
+manifest and bounded ZIP streams plus Linux sealing primitives. Do not broaden
+production pin_artifact/sandbox/process helpers or use mutable prepared files.
+Separate stable identity, live one-shot owner and post-cleanup proof receipts.
+Hold image descriptors through every consumer's owned-process settlement; reject
+reuse/concurrent consumption, unknowncleanup, source/content/mode/seal mismatch and
+close failures. No direct public successful construction or public FD export.
 
-No Pillow import/install/execution, Media image/decoder/runtime/task/registry/
-capability/Core/Agent/Mind route or live state change. Existing copy receipt remains
-attribution-unverified; new conditional attribution evidence stays separate, and
-combined current tree evidence requires a fresh unchanged scanner comparison.
-No current root freshness, source/build/ABI/codec/license/runtime assurance follows.
+Use a distinct read-only Python namespace derived from the existing profile,
+explicit file modes/directories and --file transfers from verified/rewound memfds.
+Trusted scanner bootstrap only; keep package image off sys.path. Close fixed
+resource/descriptor/accounting policy and review before actual guest-copy proof.
+Adversarial fixtures, actual closed-wheel seal/transfer/mutation/ownership controls,
+Astra Medium exact full source/evidence review, fullCI and supplements precede merge.
 
-Use the dedicated worktree and Astra Medium, adversarial offline fixtures, actual
-closed-wheel crypto/confinement proof, exact full static review/CI and standalone
-supplements before merge. No sudo, services/listeners, model requests, user data or
-unrelated deletion. Production flags stay disabled; v0.14.0/UI #61 preserved.
-Computer/external adapters and v0.16 -> v0.17 -> v0.18 remain separate/ordered.
+No Pillow install/import/native-library load/decoder execution, dependency/venv
+installation, Media runtime/task/route/registry/capability/Core/Agent/Mind binding,
+model request, signing/OAuth, live environment/data/config/service/listener change.
+Image identity does not inherit publisher attribution, mutable preparation status
+or execution authority. Current prepared-tree attribution remains separate and
+requires a fresh unchanged scanner comparison. Production flags remain disabled;
+v0.14.0/UI#61 are preserved. Use only the dedicated worktree and retain bounded
+private diagnostic evidence, without user-data or unrelated deletion. Computer/
+external adapters and v0.16 -> v0.17 -> v0.18 remain separate/ordered.
 
 ## Workspace decision
 

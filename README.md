@@ -1039,3 +1039,13 @@ network namespace/interface/route evidence and holds descriptors until cancellat
 cleanup settles. No Pillow code or Media runtime/Core route is activated. Tool setup,
 resource limits and pending acceptance gates are documented in
 [Media publisher qualification](docs/v0.15-media-publisher-qualification.md).
+
+
+Publisher qualification #76 passed its exact full CI and23 actual offline cases;
+see the [final gates](docs/reviews/media-publisher-final-gates.md). The next optional
+`qualification/media_image.py` prerequisite seals the closed wheel's complete
+normalized file image directly from inspected bytes. Its managed owner separates
+stable identity from live descriptor ownership, refuses concurrent consumption,
+and retains descriptors on uncertain cleanup. The fixed scanner-copy launcher
+imports no copied package code and adds no Core route or dependency. Native copy
+acceptance remains pending; see [image scope](docs/v0.15-media-image-qualification.md).
