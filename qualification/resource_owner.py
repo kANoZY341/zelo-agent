@@ -12,7 +12,7 @@ from typing import Protocol, TypeVar
 
 from qualification.admission import AdmissionController, Lease
 from qualification.dns import QualificationError, _consume_exception, settle
-from qualification.runtime_contracts import ExecutionPolicy
+from qualification.runtime_contracts import ExecutionPolicy, validate_digest
 
 
 class ResourceHandle(Protocol):
@@ -25,12 +25,22 @@ T = TypeVar("T")
 _RETAINED: set[asyncio.Task] = set()
 
 
-class ResourceOwner:
+class LeaseResourceOwner:
     def __init__(
-        self, admission: AdmissionController, policy: ExecutionPolicy, *, cleanup_grace: float = 1.0
+        self,
+        admission: AdmissionController,
+        policy_digest: str,
+        deadline_seconds: float,
+        *,
+        cleanup_grace: float = 1.0,
     ) -> None:
-        if type(policy) is not ExecutionPolicy:
-            raise ValueError("invalid_policy")
+        validate_digest(policy_digest)
+        if (
+            type(deadline_seconds) not in (int, float)
+            or not math.isfinite(deadline_seconds)
+            or not 0 < deadline_seconds <= 30
+        ):
+            raise ValueError("invalid_deadline")
         if (
             type(cleanup_grace) not in (int, float)
             or not 0 < cleanup_grace <= 1
@@ -38,13 +48,21 @@ class ResourceOwner:
         ):
             raise ValueError("invalid_cleanup_grace")
         self._admission = admission
-        self._policy = policy
+        self._digest = policy_digest
+        self._seconds = float(deadline_seconds)
+        self._deadline: float | None = None
         self._grace = cleanup_grace
         self._cleanup_confirmed = False
         self._used = False
         self._closing = False
         self._lifecycle: asyncio.Task | None = None
         self._work: asyncio.Task | None = None
+
+    @property
+    def deadline(self) -> float:
+        if self._deadline is None:
+            raise QualificationError("owner_not_started")
+        return self._deadline
 
     @property
     def cleanup_confirmed(self) -> bool:
@@ -57,18 +75,19 @@ class ResourceOwner:
 
     async def run(
         self,
-        factory: Callable[[Lease, ExecutionPolicy], Awaitable[ResourceHandle]],
+        factory: Callable[[Lease], Awaitable[ResourceHandle]],
         work: Callable[[ResourceHandle], Awaitable[T]],
     ) -> T:
         if self._used or self._closing:
             raise QualificationError("owner_terminal")
         self._used = True
-        lease = self._admission.acquire(self._policy.digest)
+        self._deadline = asyncio.get_running_loop().time() + self._seconds
+        lease = self._admission.acquire(self._digest)
 
         async def lifecycle() -> T:
             confirmed = False
             try:
-                handle = await factory(lease, self._policy)
+                handle = await factory(lease)
                 try:
                     if self._closing:
                         raise asyncio.CancelledError
@@ -87,7 +106,7 @@ class ResourceOwner:
         self._lifecycle.add_done_callback(_RETAINED.discard)
         self._lifecycle.add_done_callback(_consume_exception)
         try:
-            async with asyncio.timeout(self._policy.resources.deadline_seconds):
+            async with asyncio.timeout_at(self._deadline):
                 result = await asyncio.shield(self._lifecycle)
             if self._closing or asyncio.current_task().cancelling():
                 raise asyncio.CancelledError
@@ -113,3 +132,24 @@ class ResourceOwner:
                 raise QualificationError("cleanup_unproven")
             if not task.cancelled() and task.exception() is not None:
                 raise QualificationError("owner_failed") from task.exception()
+
+
+class ResourceOwner(LeaseResourceOwner):
+    """Browser wrapper preserves strict execution-policy validation and API."""
+
+    def __init__(
+        self, admission: AdmissionController, policy: ExecutionPolicy, *, cleanup_grace: float = 1.0
+    ) -> None:
+        if type(policy) is not ExecutionPolicy:
+            raise ValueError("invalid_policy")
+        self._policy = policy
+        super().__init__(
+            admission, policy.digest, policy.resources.deadline_seconds, cleanup_grace=cleanup_grace
+        )
+
+    async def run(
+        self,
+        factory: Callable[[Lease, ExecutionPolicy], Awaitable[ResourceHandle]],
+        work: Callable[[ResourceHandle], Awaitable[T]],
+    ) -> T:
+        return await super().run(lambda lease: factory(lease, self._policy), work)

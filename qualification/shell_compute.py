@@ -6,14 +6,21 @@ No workspace, network, credentials, writes, new process or policy fallback.
 
 import asyncio
 import hashlib
+import json
 import math
 import os
 import stat
 from contextlib import ExitStack, contextmanager
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from app.developer_artifacts import pin_artifact
-from app.developer_process import DeveloperError, ProcessResult, run_process
+from app.developer_artifacts import ArtifactCleanupObservation, pin_artifact
+from app.developer_process import (
+    DeveloperError,
+    NativeExecutionObservation,
+    ProcessResult,
+    run_process,
+)
 
 # Observed installed artifact bytes on the qualification host; not provenance.
 SOURCES = (
@@ -52,11 +59,39 @@ MAX_SECONDS = 2.0
 ENVIRONMENT = {"PATH": "/usr/bin", "HOME": "/nonexistent", "LANG": "C", "LC_ALL": "C"}
 
 
-def verify_file(path: Path, digest: str, *, owner: int = 0) -> None:
+class ShellProbeResources:
+    """Trusted per-execution source/pin/native ownership, never task input."""
+
+    def __init__(self) -> None:
+        self.native = NativeExecutionObservation()
+        self._verification_pending = 0
+        self._pins_settled = True
+        self._terminal = False
+
+    @property
+    def cleanup_confirmed(self) -> bool:
+        return (
+            self._terminal
+            and self._verification_pending == 0
+            and self._pins_settled
+            and (not self.native.creation_started or self.native.cleanup_confirmed)
+        )
+
+
+def verify_file(
+    path: Path,
+    digest: str,
+    *,
+    owner: int = 0,
+    resources: ShellProbeResources | None = None,
+) -> None:
     if not path.is_absolute() or path.resolve() != path:
         raise DeveloperError("shell_source_invalid")
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    if resources is not None:
+        resources._verification_pending += 1
+    fd = None
     try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         before = os.fstat(fd)
         if (
             not stat.S_ISREG(before.st_mode)
@@ -92,104 +127,173 @@ def verify_file(path: Path, digest: str, *, owner: int = 0) -> None:
         ):
             raise DeveloperError("shell_source_changed")
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
+        if resources is not None:
+            resources._verification_pending -= 1
 
 
-def verify_sources() -> None:
-    for source, digest, _ in SOURCES:
-        verify_file(Path(source), digest)
+def verify_sources(identity: "ShellIdentity", resources: ShellProbeResources | None = None) -> None:
+    for source, digest, _ in identity.sources:
+        verify_file(Path(source), digest, resources=resources)
+
+
+@dataclass(frozen=True)
+class ShellIdentity:
+    """Closed immutable native proof identity; not provenance or Core authority."""
+
+    uid: int
+    gid: int
+    sources: tuple[tuple[str, str, str | None], ...] = field(default=SOURCES, init=False)
+    environment: tuple[tuple[str, str], ...] = field(default=tuple(ENVIRONMENT.items()), init=False)
+    input_bytes: int = field(default=INPUT_BYTES, init=False)
+    output_bytes: int = field(default=OUTPUT_BYTES, init=False)
+    error_bytes: int = field(default=ERROR_BYTES, init=False)
+    memory_bytes: int = field(default=MEMORY_BYTES, init=False)
+    max_seconds: float = field(default=MAX_SECONDS, init=False)
+    cpu_seconds: int = field(default=2, init=False)
+    open_files: int = field(default=32, init=False)
+    processes: int = field(default=0, init=False)
+    core_bytes: int = field(default=0, init=False)
+    file_bytes: int = field(default=0, init=False)
+    artifact_handling: str = field(default="verified-sealed-memfd-and-guest-data-0500", init=False)
+    schema: str = field(default="zelo-shell-owner-qualification-v1", init=False)
+    argv: tuple[str, ...] = field(init=False)
+
+    def __post_init__(self) -> None:
+        if type(self.uid) is not int or not 1 <= self.uid <= 4294967294:
+            raise DeveloperError("shell_nonroot_required")
+        if type(self.gid) is not int or not 0 <= self.gid <= 4294967294:
+            raise DeveloperError("shell_identity_invalid")
+        uid, gid = self.uid, self.gid
+        argv = [
+            "/usr/bin/bwrap",
+            "--unshare-user",
+            "--unshare-pid",
+            "--unshare-net",
+            "--unshare-ipc",
+            "--unshare-uts",
+            "--unshare-cgroup",
+            "--disable-userns",
+            "--die-with-parent",
+            "--new-session",
+            "--cap-drop",
+            "ALL",
+            "--uid",
+            str(uid),
+            "--gid",
+            str(gid),
+            "--clearenv",
+            "--hostname",
+            "zelo-shell-proof",
+            "--tmpfs",
+            "/",
+            "--dir",
+            "/usr",
+            "--dir",
+            "/usr/bin",
+            "--dir",
+            "/lib",
+            "--dir",
+            "/lib/x86_64-linux-gnu",
+            "--dir",
+            "/lib64",
+        ]
+        for source, _, destination in self.sources:
+            if destination is not None:
+                argv.extend(("--ro-bind", source, destination))
+        argv.extend(("--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp"))
+        for directory in ("/proc", "/dev", "/tmp", "/"):
+            argv.extend(("--remount-ro", directory))
+        for name, value in self.environment:
+            argv.extend(("--setenv", name, value))
+        argv.extend(
+            (
+                "--chdir",
+                "/tmp",
+                "--",
+                "/usr/bin/prlimit",
+                f"--as={self.memory_bytes}:{self.memory_bytes}",
+                "--cpu=2:2",
+                "--core=0:0",
+                "--fsize=0:0",
+                "--nofile=32:32",
+                "--nproc=0:0",
+                "--",
+                "/usr/bin/dash",
+                "-s",
+            )
+        )
+        object.__setattr__(self, "argv", tuple(argv))
+
+    @classmethod
+    def current(cls) -> "ShellIdentity":
+        return cls(os.geteuid(), os.getegid())
+
+    def verify_current(self) -> None:
+        if type(self) is not ShellIdentity or self != ShellIdentity(self.uid, self.gid):
+            raise DeveloperError("shell_identity_invalid")
+        if (os.geteuid(), os.getegid()) != (self.uid, self.gid):
+            raise DeveloperError("shell_identity_operator_changed")
+
+    @property
+    def digest(self) -> str:
+        self.verify_current()
+        return hashlib.sha256(
+            json.dumps(
+                asdict(self), sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode()
+        ).hexdigest()
 
 
 def arguments() -> list[str]:
-    uid, gid = os.geteuid(), os.getegid()
-    if uid == 0:
-        raise DeveloperError("shell_nonroot_required")
-    argv = [
-        "/usr/bin/bwrap",
-        "--unshare-user",
-        "--unshare-pid",
-        "--unshare-net",
-        "--unshare-ipc",
-        "--unshare-uts",
-        "--unshare-cgroup",
-        "--disable-userns",
-        "--die-with-parent",
-        "--new-session",
-        "--cap-drop",
-        "ALL",
-        "--uid",
-        str(uid),
-        "--gid",
-        str(gid),
-        "--clearenv",
-        "--hostname",
-        "zelo-shell-proof",
-        "--tmpfs",
-        "/",
-        "--dir",
-        "/usr",
-        "--dir",
-        "/usr/bin",
-        "--dir",
-        "/lib",
-        "--dir",
-        "/lib/x86_64-linux-gnu",
-        "--dir",
-        "/lib64",
-    ]
-    for source, _, destination in SOURCES:
-        if destination is not None:
-            argv.extend(("--ro-bind", source, destination))
-    argv.extend(("--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp"))
-    for directory in ("/proc", "/dev", "/tmp", "/"):
-        argv.extend(("--remount-ro", directory))
-    for name, value in ENVIRONMENT.items():
-        argv.extend(("--setenv", name, value))
-    argv.extend(
-        (
-            "--chdir",
-            "/tmp",
-            "--",
-            "/usr/bin/prlimit",
-            f"--as={MEMORY_BYTES}:{MEMORY_BYTES}",
-            "--cpu=2:2",
-            "--core=0:0",
-            "--fsize=0:0",
-            "--nofile=32:32",
-            "--nproc=0:0",
-            "--",
-            "/usr/bin/dash",
-            "-s",
-        )
-    )
-    return argv
+    return list(ShellIdentity.current().argv)
 
 
 @contextmanager
-def _pin_sources():
-    with ExitStack() as stack:
+def _pin_sources(
+    identity: ShellIdentity | None = None, resources: ShellProbeResources | None = None
+):
+    identity = ShellIdentity.current() if identity is None else identity
+    if resources is not None:
+        resources._pins_settled = False
+    stack = ExitStack()
+    settlements = []
+    try:
         artifacts = []
-        for source, digest, _ in SOURCES:
+        for source, digest, _ in identity.sources:
+            settlement = ArtifactCleanupObservation()
+            settlements.append(settlement)
             artifact = stack.enter_context(
                 pin_artifact(
                     Path(source),
                     approved_path=source,
                     approved_digest=digest,
                     name="zelo-shell-qualified-artifact",
+                    cleanup_observation=settlement,
                 )
             )
             artifact.verify()
             artifacts.append(artifact)
         yield artifacts
+    finally:
+        stack.close()
+        if not all(settlement.cleanup_confirmed for settlement in settlements):
+            raise DeveloperError("shell_pin_cleanup_unproven")
+        if resources is not None:
+            resources._pins_settled = True
 
 
-def _pinned_arguments(artifacts) -> list[str]:
-    if len(artifacts) != len(SOURCES):
+def _pinned_arguments(artifacts, identity: ShellIdentity | None = None) -> list[str]:
+    identity = ShellIdentity.current() if identity is None else identity
+    identity.verify_current()
+    if len(artifacts) != len(identity.sources):
         raise DeveloperError("shell_source_invalid")
-    argv = arguments()
+    argv = list(identity.argv)
     argv[0] = f"/proc/self/fd/{artifacts[0].fd}"
     pinned = {
-        source: artifact.fd for (source, _, _), artifact in zip(SOURCES, artifacts, strict=True)
+        source: artifact.fd
+        for (source, _, _), artifact in zip(identity.sources, artifacts, strict=True)
     }
     result = []
     index = 0
@@ -205,38 +309,67 @@ def _pinned_arguments(artifacts) -> list[str]:
     return result
 
 
-async def run_probe(script: str, *, timeout: float = MAX_SECONDS) -> ProcessResult:
-    if (
-        not isinstance(script, str)
-        or not script
-        or "\0" in script
-        or len(script.encode("utf-8")) > INPUT_BYTES
-        or type(timeout) not in (int, float)
-        or not math.isfinite(timeout)
-        or not 0 < timeout <= MAX_SECONDS
-    ):
-        raise DeveloperError("shell_probe_input_invalid")
-    arguments()  # Fail closed on root before any source resource is opened.
-    deadline = asyncio.get_running_loop().time() + timeout
+async def run_probe(
+    script: str,
+    *,
+    timeout: float = MAX_SECONDS,
+    identity: ShellIdentity | None = None,
+    observation: NativeExecutionObservation | None = None,
+    deadline: float | None = None,
+    resources: ShellProbeResources | None = None,
+) -> ProcessResult:
+    if resources is not None:
+        if (
+            type(resources) is not ShellProbeResources
+            or observation is not None
+            or resources._terminal
+        ):
+            raise DeveloperError("shell_resources_invalid")
+        observation = resources.native
     try:
+        identity = ShellIdentity.current() if identity is None else identity
+        identity.verify_current()
+        if (
+            not isinstance(script, str)
+            or not script
+            or "\0" in script
+            or len(script.encode("utf-8")) > identity.input_bytes
+            or type(timeout) not in (int, float)
+            or not math.isfinite(timeout)
+            or not 0 < timeout <= identity.max_seconds
+        ):
+            raise DeveloperError("shell_probe_input_invalid")
+        now = asyncio.get_running_loop().time()
+        if deadline is not None and (
+            type(deadline) not in (int, float) or not math.isfinite(deadline)
+        ):
+            raise DeveloperError("shell_probe_input_invalid")
+        deadline = min(now + timeout, deadline) if deadline is not None else now + timeout
+        if deadline <= now:
+            raise DeveloperError("process_timeout")
         async with asyncio.timeout_at(deadline):
-            # Qualification setup is synchronous and owns every pinned FD before
-            # yielding. The absolute deadline budget still covers this local work;
-            # no guest starts if source verification consumes that budget.
-            verify_sources()
-            with _pin_sources() as artifacts:
+            verify_sources(identity, **({"resources": resources} if resources is not None else {}))
+            with _pin_sources(
+                identity, **({"resources": resources} if resources is not None else {})
+            ) as artifacts:
+                identity.verify_current()
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     raise DeveloperError("process_timeout")
                 return await run_process(
-                    _pinned_arguments(artifacts),
+                    _pinned_arguments(artifacts, identity),
                     cwd=Path("/"),
                     timeout=remaining,
-                    stdout_limit=OUTPUT_BYTES,
-                    stderr_limit=ERROR_BYTES,
+                    deadline=deadline,
+                    stdout_limit=identity.output_bytes,
+                    stderr_limit=identity.error_bytes,
                     stdin=script.encode("utf-8"),
-                    env=dict(ENVIRONMENT),
+                    env=dict(identity.environment),
                     pass_fds=tuple(artifact.fd for artifact in artifacts),
+                    **({"observation": observation} if observation is not None else {}),
                 )
     except TimeoutError:
         raise DeveloperError("process_timeout") from None
+    finally:
+        if resources is not None:
+            resources._terminal = True

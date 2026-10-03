@@ -917,3 +917,16 @@ v0.9 adds `0009_worker_concurrency`. It replaces the original global
 single-running-attempt index with a per-task running-attempt invariant and
 database triggers that permit concurrent developer attempts while keeping
 non-developer execution exclusive.
+
+
+Shell identity/admission qualification is also optional and remains unregistered:
+
+```bash
+.venv/bin/python -m scripts.qualify_shell_owner --allow-native-shell-probes
+```
+
+It runs fixed harmless boundary and ownership cases with one durable admission
+lease. Results require explicit child, pipe/task and sealed-pin cleanup; uncertain
+cleanup or owner death preserves a restart fence. It adds no Shell task, Agent
+route or production activation. See
+[Shell owner qualification](docs/v0.15-shell-owner-qualification.md).

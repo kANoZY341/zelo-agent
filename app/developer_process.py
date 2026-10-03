@@ -2,6 +2,7 @@
 
 import asyncio
 import errno
+import math
 import os
 import signal
 import subprocess
@@ -61,6 +62,55 @@ async def uncancellable(task: asyncio.Task):
     return result, cancelled
 
 
+class NativeExecutionObservation:
+    """Trusted per-call cleanup evidence; pending creation never means no resources.
+
+    Caller owns this object before startup. It is not a task payload or global
+    registry snapshot. A record is one-shot and only the native helper mutates it.
+    """
+
+    def __init__(self) -> None:
+        self._claimed = False
+        self._creation_terminal = False
+        self._spawn_pending = False
+        self._process: OwnedProcess | None = None
+        self._support_fd: int | None = None
+        self._io_settled = False
+
+    @property
+    def cleanup_confirmed(self) -> bool:
+        if (
+            not self._creation_terminal
+            or not self._io_settled
+            or self._spawn_pending
+            or self._support_fd is not None
+        ):
+            return False
+        process = self._process
+        return process is None or (
+            process.reaped
+            and process._pidfd is None
+            and all(
+                pipe is None or pipe.closed
+                for pipe in (process._child.stdin, process._child.stdout, process._child.stderr)
+            )
+        )
+
+    @property
+    def creation_started(self) -> bool:
+        return self._claimed
+
+    def _claim(self) -> None:
+        if self._claimed:
+            raise DeveloperError("process_observation_reused")
+        self._claimed = True
+
+    def _no_child(self) -> None:
+        self._spawn_pending = False
+        self._creation_terminal = True
+        self._io_settled = True
+
+
 _RETAINED_IDENTITIES: set["OwnedProcess"] = set()
 
 
@@ -86,11 +136,20 @@ class OwnedProcess:
     code may poll/wait/reap the private Popen before this owner's final reap.
     """
 
-    def __init__(self, argv: tuple[str, ...], kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        argv: tuple[str, ...],
+        kwargs: dict[str, Any],
+        *,
+        observation: NativeExecutionObservation | None = None,
+        deadline: float | None = None,
+    ) -> None:
         if not hasattr(os, "P_PIDFD") or not hasattr(os, "pidfd_open"):
             raise DeveloperError("process_identity_unavailable")
         try:
             support = os.pidfd_open(os.getpid())
+            if observation is not None:
+                observation._support_fd = support
             try:
                 try:
                     os.waitid(os.P_PIDFD, support, os.WEXITED | os.WNOWAIT | os.WNOHANG)
@@ -99,6 +158,8 @@ class OwnedProcess:
                         raise
             finally:
                 os.close(support)
+                if observation is not None:
+                    observation._support_fd = None
         except OSError:
             raise DeveloperError("process_identity_unavailable") from None
         if kwargs.get("start_new_session") is not True:
@@ -114,7 +175,24 @@ class OwnedProcess:
         self._stop_task = None
         self._pidfd = None
         self._acquisition_cleanup = False
-        self._child = subprocess.Popen(argv, **kwargs)
+        if deadline is not None and time.monotonic() >= deadline:
+            raise DeveloperError("process_timeout")
+        if observation is not None:
+            observation._spawn_pending = True
+        try:
+            self._child = subprocess.Popen(argv, **kwargs)
+        except (OSError, ValueError, TypeError):
+            # Normal validation/exec failure paths own their failed construction.
+            if observation is not None:
+                observation._no_child()
+            raise
+        except BaseException:
+            # Interruption/unknown constructor failure is not no-child evidence.
+            # Keep creation pending and fence; never infer a released numeric PID.
+            raise
+        if observation is not None:
+            observation._process = self
+            observation._spawn_pending = False
         self.pid = self._child.pid
         _RETAINED_IDENTITIES.add(self)
 
@@ -184,6 +262,17 @@ class OwnedProcess:
             if pipe is not None and pipe not in self._attached_pipes:
                 pipe.close()
 
+    async def close_and_confirm_pipes(self) -> None:
+        self.close_pipes()
+        deadline = time.monotonic() + 0.25
+        while any(
+            pipe is not None and not pipe.closed
+            for pipe in (self._child.stdin, self._child.stdout, self._child.stderr)
+        ):
+            if time.monotonic() >= deadline:
+                raise DeveloperError("process_pipe_close_failed")
+            await asyncio.sleep(0)
+
     def reap(self) -> None:
         self.observe()
         if self._code is None:
@@ -196,18 +285,60 @@ class OwnedProcess:
         _RETAINED_IDENTITIES.discard(self)
 
 
-async def spawn_owned_process(*argv: str, **kwargs: Any) -> OwnedProcess:
-    process = OwnedProcess(argv, kwargs)
+async def spawn_owned_process(
+    *argv: str,
+    observation: NativeExecutionObservation | None = None,
+    deadline: float | None = None,
+    **kwargs: Any,
+) -> OwnedProcess:
+    if observation is not None:
+        if type(observation) is not NativeExecutionObservation:
+            raise DeveloperError("process_observation_invalid")
+        observation._claim()
+    process = None
     try:
+        if deadline is not None and (
+            type(deadline) not in (int, float) or not math.isfinite(deadline)
+        ):
+            raise DeveloperError("process_deadline_invalid")
+        options = {}
+        if observation is not None:
+            options["observation"] = observation
+        if deadline is not None:
+            options["deadline"] = deadline
+        process = OwnedProcess(argv, kwargs, **options)
         try:
-            # No await/watcher has occurred since this direct child's creation.
             process._pidfd = os.pidfd_open(process.pid)
         except OSError:
             process._acquisition_cleanup = True
             raise DeveloperError("process_identity_unavailable") from None
-        await process.connect()
+        async with asyncio.timeout_at(deadline):
+            await process.connect()
+        if deadline is not None and time.monotonic() >= deadline:
+            raise DeveloperError("process_timeout")
+        if observation is not None:
+            observation._creation_terminal = True
     except BaseException:
-        await stop_process(process)
+        # A constructor failure after creating a child is still reachable through
+        # its per-execution record; never infer this from an exception string.
+        owned = (
+            process
+            if process is not None
+            else (observation._process if observation is not None else None)
+        )
+        if owned is not None:
+
+            async def cleanup_and_acknowledge() -> None:
+                await stop_process(owned)
+                if observation is not None:
+                    observation._creation_terminal = True
+                    observation._io_settled = True  # No caller I/O tasks were created.
+
+            _, cancelled = await uncancellable(asyncio.create_task(cleanup_and_acknowledge()))
+            if cancelled:
+                raise asyncio.CancelledError from None
+        elif observation is not None and not observation._spawn_pending:
+            observation._no_child()
         raise
     return process
 
@@ -236,7 +367,7 @@ async def stop_process(process: OwnedProcess) -> None:
                 await asyncio.sleep(0.01)
             confirmed = True
         finally:
-            process.close_pipes()
+            await process.close_and_confirm_pipes()
             # Unknown cleanup retains ownership; never release/reuse its PGID.
             if confirmed:
                 process.reap()
@@ -249,15 +380,22 @@ async def stop_process(process: OwnedProcess) -> None:
 
 
 def _group_alive(group: int) -> bool:
-    for entry in Path("/proc").iterdir():
-        if not entry.name.isdecimal():
-            continue
-        try:
-            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-            if int(fields[2]) == group and fields[0] != "Z":
-                return True
-        except (OSError, ValueError, IndexError):
-            continue
+    # Complete relevant /proc visibility is a trusted host prerequisite. A
+    # vanished entry is harmless; unreadable/malformed observations are unknown.
+    try:
+        for entry in Path("/proc").iterdir():
+            if not entry.name.isdecimal():
+                continue
+            try:
+                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+                if int(fields[2]) == group and fields[0] != "Z":
+                    return True
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            except (OSError, ValueError, IndexError):
+                raise DeveloperError("process_group_observation_failed") from None
+    except OSError:
+        raise DeveloperError("process_group_observation_failed") from None
     return False
 
 
@@ -273,8 +411,13 @@ async def run_process(
     line_limit: int | None = None,
     event_limit: int | None = None,
     pass_fds: tuple[int, ...] = (),
+    observation: NativeExecutionObservation | None = None,
+    deadline: float | None = None,
 ) -> ProcessResult:
     started = time.monotonic()
+    if deadline is not None and (type(deadline) not in (int, float) or not math.isfinite(deadline)):
+        raise DeveloperError("process_deadline_invalid")
+    deadline = min(started + timeout, deadline) if deadline is not None else started + timeout
     try:
         process = await spawn_owned_process(
             *argv,
@@ -286,9 +429,13 @@ async def run_process(
             start_new_session=True,
             pass_fds=pass_fds,
             limit=8192,
+            deadline=deadline,
+            **({"observation": observation} if observation is not None else {}),
         )
     except OSError:
         raise DeveloperError("executable_unavailable") from None
+    except TimeoutError:
+        raise DeveloperError("process_timeout") from None
 
     async def read(stream, limit: int, jsonl: bool = False) -> bytes:
         result = bytearray()
@@ -326,7 +473,7 @@ async def run_process(
         asyncio.create_task(write()),
     ]
     try:
-        async with asyncio.timeout(timeout):
+        async with asyncio.timeout_at(deadline):
             stdout, stderr, _ = await asyncio.gather(*readers)
             code = await process.wait()
         return ProcessResult(code, stdout, stderr, time.monotonic() - started)
@@ -335,21 +482,34 @@ async def run_process(
     finally:
 
         async def cleanup() -> None:
-            await stop_process(process)
-            for reader in readers:
-                reader.cancel()
-            await asyncio.gather(*readers, return_exceptions=True)
+            stop_error = None
+            try:
+                await stop_process(process)
+            except BaseException as error:
+                stop_error = error
+            finally:
+                # Child uncertainty never short-circuits independent I/O cleanup.
+                for reader in readers:
+                    reader.cancel()
+                await asyncio.gather(*readers, return_exceptions=True)
 
             async def discard(stream) -> None:
                 while await stream.read(4096):
                     pass
 
-            # Overflow stops a reader before EOF. Drain the killed process's pipes
-            # without retaining bytes so transports close before the loop exits.
+            drain_error = None
             try:
                 async with asyncio.timeout(2):
                     await asyncio.gather(discard(process.stdout), discard(process.stderr))
-            except TimeoutError:
+            except (TimeoutError, OSError, RuntimeError) as error:
+                drain_error = error
+            if observation is not None:
+                observation._io_settled = drain_error is None and all(
+                    reader.done() for reader in readers
+                )
+            if stop_error is not None:
+                raise stop_error
+            if drain_error is not None:
                 raise DeveloperError("process_pipe_close_failed") from None
 
         _, cancelled = await uncancellable(asyncio.create_task(cleanup()))

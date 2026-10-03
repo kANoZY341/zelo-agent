@@ -68,7 +68,7 @@ def check_status(text: str) -> None:
         raise RuntimeError("shell_guest_network_mismatch")
 
 
-async def exercise(root: Path, report: dict) -> None:
+async def exercise(root: Path, report: dict, *, probe=None) -> None:
     children = []
     spawned = asyncio.Event()
     original = developer_process.spawn_owned_process
@@ -82,7 +82,7 @@ async def exercise(root: Path, report: dict) -> None:
 
     try:
         with patch("app.developer_process.spawn_owned_process", observed_spawn):
-            await _exercise(root, report, spawned, children)
+            await _exercise(root, report, spawned, children, probe=probe)
     finally:
         report["native_launchers"] = len(children)
         report["native_launchers_reaped"] = bool(children) and all(
@@ -92,22 +92,25 @@ async def exercise(root: Path, report: dict) -> None:
             raise RuntimeError("shell_cleanup_unproven")
 
 
-async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: list) -> None:
+async def _exercise(
+    root: Path, report: dict, spawned: asyncio.Event, children: list, *, probe=None
+) -> None:
+    probe = run_probe if probe is None else probe
     cases = report["cases"]
 
     async def success(name, script, expected):
-        result = await run_probe(script)
+        result = await probe(script)
         if result.exit_code != 0 or result.stdout != expected or result.stderr:
             raise RuntimeError("shell_probe_expectation_failed")
         cases.append({"case": name, "passed": True})
 
     async def rejected(name, script, denial):
-        result = await run_probe(script)
+        result = await probe(script)
         if result.exit_code == 0 or denial not in result.stderr:
             raise RuntimeError("shell_probe_restriction_failed")
         cases.append({"case": name, "passed": True, "exit_code": result.exit_code})
 
-    result = await run_probe(STATUS)
+    result = await probe(STATUS)
     if result.exit_code or result.stderr:
         raise RuntimeError("shell_guest_status_failed")
     status = result.stdout.decode("ascii")
@@ -140,7 +143,7 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
         b"Operation not permitted",
     )
     await rejected("host_shell_unavailable", "exec /bin/sh -c 'printf ESCAPED'\n", b"not found")
-    result = await run_probe("exec /usr/bin/dash -c " + shlex.quote(STATUS) + "\n")
+    result = await probe("exec /usr/bin/dash -c " + shlex.quote(STATUS) + "\n")
     if result.exit_code or result.stderr:
         raise RuntimeError("shell_exec_state_failed")
     check_status(result.stdout.decode("ascii"))
@@ -162,7 +165,7 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
     ):
         previous = len(children)
         try:
-            await run_probe(script, timeout=timeout)
+            await probe(script, timeout=timeout)
         except DeveloperError as error:
             if str(error) != code:
                 raise
@@ -172,7 +175,7 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
             raise RuntimeError("shell_failure_before_native_spawn_or_reap")
         cases.append({"case": name, "passed": True, "error_code": code})
     spawned.clear()
-    operation = asyncio.create_task(run_probe("while :; do :; done\n"))
+    operation = asyncio.create_task(probe("while :; do :; done\n"))
     try:
         await asyncio.wait_for(spawned.wait(), 1)
         operation.cancel()
