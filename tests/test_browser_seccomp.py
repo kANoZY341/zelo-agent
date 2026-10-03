@@ -261,6 +261,15 @@ def test_production_imports_confined_to_browser_binding():
             continue  # Qualified runtime/config adapter; no general worker authority.
         tree = ast.parse(source.read_text())
         for node in ast.walk(tree):
+            if source.name == "shell_worker.py" and isinstance(node, ast.ImportFrom):
+                if (node.module or "").startswith("qualification"):
+                    assert node.module in {
+                        "qualification.admission",
+                        "qualification.dns",
+                        "qualification.shell_compute",
+                        "qualification.shell_owner",
+                    }
+                    continue
             if isinstance(node, ast.Import):
                 assert all(not alias.name.startswith("qualification") for alias in node.names)
             elif isinstance(node, ast.ImportFrom):

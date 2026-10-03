@@ -21,6 +21,7 @@ from app.self_improvement_runtime import (
     SelfImprovementRuntime,
     developer_instruction,
 )
+from app.shell_worker import ShellRuntime, ShellRuntimeError
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.worker_registry import Supervisor
@@ -45,6 +46,7 @@ class Runner:
         python_supervisor: Supervisor[PythonRuntime] | None = None,
         api_supervisor: Supervisor[ApiRuntime] | None = None,
         browser_supervisor: Supervisor[BrowserRuntime] | None = None,
+        shell_supervisor: Supervisor[ShellRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -54,6 +56,7 @@ class Runner:
         self.python_supervisor = python_supervisor
         self.api_supervisor = api_supervisor
         self.browser_supervisor = browser_supervisor
+        self.shell_supervisor = shell_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -135,7 +138,7 @@ class Runner:
                 self.wake.clear()
                 self.service.expire_approvals()
                 while not self.stopping:
-                    if self.browser_supervisor is None:
+                    if self.browser_supervisor is None and self.shell_supervisor is None:
                         execution = self.service.claim()
                     else:
                         # Claim hashes the browser bundle; its DB session stays in
@@ -158,9 +161,8 @@ class Runner:
                         self.service.finish(execution, State.INTERRUPTED, error="service_shutdown")
                         break
                     if (
-                        self.browser_supervisor is not None
-                        and self.service.get(execution.task_id).cancel_requested
-                    ):
+                        self.browser_supervisor is not None or self.shell_supervisor is not None
+                    ) and self.service.get(execution.task_id).cancel_requested:
                         # Cancellation may arrive while the threaded claim has
                         # committed but no operation is registered yet.
                         self.service.finish(
@@ -223,6 +225,8 @@ class Runner:
             operation = asyncio.create_task(self._research_worker(execution))
         elif execution.kind == "python_run":
             operation = asyncio.create_task(self._python_worker(execution))
+        elif execution.kind == "shell_run":
+            operation = asyncio.create_task(self._shell_worker(execution))
         elif execution.kind == "browser_run":
             operation = asyncio.create_task(self._browser_worker(execution))
         elif execution.kind == "api_run":
@@ -244,7 +248,14 @@ class Runner:
             raw = (
                 await operation
                 if execution.kind
-                in {"agent_run", "research_run", "python_run", "developer_run", "browser_run"}
+                in {
+                    "agent_run",
+                    "research_run",
+                    "python_run",
+                    "developer_run",
+                    "browser_run",
+                    "shell_run",
+                }
                 else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
             )
             result = (
@@ -274,6 +285,9 @@ class Runner:
             if execution.kind == "python_run" and result["exit_code"] != 0:
                 outcome = State.FAILED
                 error = "python_exit_nonzero"
+            if execution.kind == "shell_run" and result["exit_code"] != 0:
+                outcome = State.FAILED
+                error = "shell_exit_nonzero"
             if execution.kind == "api_run" and not 200 <= result["status_code"] < 300:
                 outcome = State.FAILED
                 error = "api_http_status"
@@ -317,6 +331,8 @@ class Runner:
         except ResearchRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except PythonRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except ShellRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except BrowserRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
@@ -552,6 +568,34 @@ class Runner:
         return await selected.worker.run(
             spec=execution.browser_request,
             path=execution.payload["path"],
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
+            deadline=deadline,
+        )
+
+    async def _shell_worker(self, execution: Execution) -> dict[str, Any]:
+        deadline = asyncio.get_running_loop().time() + execution.timeout_seconds
+        if execution.shell_request is None:
+            raise ShellRuntimeError("shell_execution_spec_unavailable")
+        if self.shell_supervisor is None:
+            raise ShellRuntimeError("shell_worker_registry_unavailable")
+        selection = execution.shell_request.worker_selection
+        selected = self.shell_supervisor.registry.get(selection.descriptor.worker_id)
+        if (
+            selected is None
+            or not self.shell_supervisor.matches(selection)
+            or not selected.worker.request_matches(
+                execution.shell_request, execution.payload, execution.timeout_seconds
+            )
+        ):
+            raise ShellRuntimeError("shell_execution_spec_stale")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
+
+        return await selected.worker.run(
+            spec=execution.shell_request,
+            script=execution.payload["script"],
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
             deadline=deadline,

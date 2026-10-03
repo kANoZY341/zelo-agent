@@ -12,7 +12,7 @@ AGENT_SPEC_SCHEMA = "zelo-agent-spec-v1"
 DEPARTMENT_SPEC_SCHEMA = "zelo-department-spec-v1"
 AGENT_REGISTRY_SCHEMA = "zelo-agent-registry-v1"
 BUILTIN_AGENT_TASK_KINDS = frozenset(
-    {"browser_run", "api_run", "developer_run", "python_run", "research_run"}
+    {"browser_run", "api_run", "developer_run", "python_run", "research_run", "shell_run"}
 )
 
 Identifier = Annotated[

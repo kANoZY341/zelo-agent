@@ -61,6 +61,7 @@ from app.scheduler_api import router as scheduler_router
 from app.self_improvement import RepositoryInspector
 from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
+from app.shell_worker import ShellRuntime, configured_shell_runtime
 from app.skill_api import router as skill_router
 from app.skills import default_skill_registry
 from app.storage import build_storage
@@ -74,6 +75,7 @@ from app.worker_registry import (
     descriptor_for_browser_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
+    descriptor_for_shell_worker,
 )
 from app.workers import Worker, execute
 
@@ -95,6 +97,7 @@ def create_app(
         configure_logging()
         database = build_storage(configuration)
         browser_runtime = None
+        shell_runtime = None
         runner = None
         scheduler = None
         try:
@@ -136,6 +139,12 @@ def create_app(
             browser_supervisor = Supervisor[BrowserRuntime](browser_worker_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(browser_worker_registry.list())
+            shell_runtime = configured_shell_runtime(configuration)
+            shell_worker_registry = WorkerRegistry[ShellRuntime](
+                ((descriptor_for_shell_worker(), shell_runtime),) if shell_runtime else ()
+            )
+            shell_supervisor = Supervisor[ShellRuntime](shell_worker_registry)
+            capability_registry.validate_workers(shell_worker_registry.list())
             capability_registry.validate_workers(developer_runtime.registry.list())
             capability_registry.validate_workers(research_registry.list())
             capability_registry.validate_workers(python_registry.list())
@@ -163,6 +172,7 @@ def create_app(
                     *python_registry.list(),
                     *api_worker_registry.list(),
                     *browser_worker_registry.list(),
+                    *shell_worker_registry.list(),
                 ),
                 capability_registry=capability_registry,
             ).require()
@@ -220,6 +230,7 @@ def create_app(
                 python_supervisor=python_supervisor,
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
+                shell_supervisor=shell_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -254,6 +265,7 @@ def create_app(
                 python_supervisor=python_supervisor,
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
+                shell_supervisor=shell_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -288,6 +300,9 @@ def create_app(
             application.state.browser_runtime = browser_runtime
             application.state.browser_supervisor = browser_supervisor
             application.state.browser_worker_registry = browser_worker_registry
+            application.state.shell_runtime = shell_runtime
+            application.state.shell_supervisor = shell_supervisor
+            application.state.shell_worker_registry = shell_worker_registry
             application.state.tool_gateway = tool_gateway
             application.state.runner = runner
             runner.start()
@@ -304,7 +319,11 @@ def create_app(
                     if browser_runtime:
                         await browser_runtime.aclose()
                 finally:
-                    database.close()
+                    try:
+                        if shell_runtime:
+                            await shell_runtime.aclose()
+                    finally:
+                        database.close()
 
     application = FastAPI(title=configuration.app_name, version=__version__, lifespan=lifespan)
     application.state.settings = configuration

@@ -59,11 +59,12 @@ def test_report_is_private_bounded_and_does_not_include_exception_details(tmp_pa
     assert "sensitive" not in path.read_text()
 
 
-def test_core_assembly_does_not_import_or_register_shell_qualification():
+def test_core_assembly_uses_adapter_without_direct_probe_or_owner_import():
     root = Path(__file__).resolve().parents[1]
     for relative in ("app/main.py", "app/api.py", "app/config.py"):
         text = (root / relative).read_text()
-        assert "qualification.shell_owner" not in text and "shell_run" not in text
+        assert "qualification.shell_owner" not in text
+        assert "scripts.qualify_shell" not in text
 
 
 @pytest.mark.parametrize("changed", ["start_ticks", "parent"])

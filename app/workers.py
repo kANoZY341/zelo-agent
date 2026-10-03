@@ -16,6 +16,7 @@ from app.schemas import (
     EchoResult,
     PythonRunResult,
     ResearchRunResult,
+    ShellRunResult,
     TextPayload,
     TextStatsResult,
 )
@@ -31,6 +32,7 @@ RESULT_MODELS = {
     "agent_run": AgentRunResult,
     "research_run": ResearchRunResult,
     "python_run": PythonRunResult,
+    "shell_run": ShellRunResult,
     "api_run": ApiRunResult,
     "browser_run": BrowserRunResult,
     "self_improvement_run": SelfImprovementPreparation,
