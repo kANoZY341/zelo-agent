@@ -4,6 +4,7 @@ import asyncio
 import copy
 import dataclasses
 import json
+import os
 import resource
 from pathlib import Path
 
@@ -256,5 +257,54 @@ def test_repeated_cancel_control_waits_for_operation_cleanup(monkeypatch):
         release.set()
         assert await control == (None, "operator_repeated_cancelled")
         assert operation.done() and cleaned.is_set()
+
+    asyncio.run(scenario())
+
+
+def test_launcher_external_repeated_cancel_keeps_image_until_native_settles(monkeypatch, tmp_path):
+    async def scenario():
+        entered = asyncio.Event()
+        cleaning = asyncio.Event()
+        release = asyncio.Event()
+
+        class Observation:
+            cleanup_confirmed = False
+
+        observation = Observation()
+        monkeypatch.setattr(q, "NativeExecutionObservation", lambda: observation)
+
+        async def native(*args, **kwargs):
+            handles = kwargs["pass_fds"]
+            entered.set()
+            try:
+                await asyncio.Event().wait()  # Pending native creation/work.
+            finally:
+
+                async def cleanup():
+                    cleaning.set()
+                    await release.wait()
+                    assert all(os.fstat(fd) for fd in handles)
+                    observation.cleanup_confirmed = True
+
+                await q.shared.uncancellable(asyncio.create_task(cleanup()))
+
+        monkeypatch.setattr(q, "run_process", native)
+        data = make()
+        with m._seal_image(data, inspect(data)) as image:
+            operation = asyncio.create_task(
+                q._native(image, "copy", tmp_path, "fixture", q.time.monotonic() + 2)
+            )
+            await entered.wait()
+            operation.cancel()
+            await cleaning.wait()
+            operation.cancel()
+            await asyncio.sleep(0)
+            assert not operation.done() and image.state == "consuming"
+            assert all(os.fstat(fd) for _, fd, _ in image._files)
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+            assert image.state == "ready" and observation.cleanup_confirmed
+        assert image.cleanup_confirmed
 
     asyncio.run(scenario())
