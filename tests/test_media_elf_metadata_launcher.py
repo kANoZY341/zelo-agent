@@ -306,3 +306,99 @@ def test_unlisted_malformed_case_refused():
     raw, layout = make()
     with pytest.raises(q.QualificationRefused, match="malformed_case"):
         q._malformed(raw, layout, "unlisted")
+
+
+@pytest.mark.parametrize("stage", ["directory", "receipt", "initial-manifest", "final-manifest"])
+def test_helper_internal_close_failures_fence_whole_job(tmp_path, monkeypatch, stage):
+    # Full launcher control flow with inert fake workers; no optional parser/native run.
+    original_root = q.ROOT
+    root = tmp_path / "root"
+    (root / "runtime").mkdir(parents=True, mode=0o700)
+    for name, _, _ in SOURCE_PINS:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((original_root / name).read_bytes())
+    for name in ("media-elf-loader-positive.bin", "media-elf-loader-positive.json"):
+        path = root / "qualification/fixtures" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((original_root / "qualification/fixtures" / name).read_bytes())
+    tool = root / "runtime/media-elf-tool-preparation/fake/payload"
+    tool.mkdir(parents=True, mode=0o500)
+    info = tool.stat()
+    receipt = {
+        "receipt": {"relative_payload": "fake/payload", "root_identity": [info.st_dev, info.st_ino]}
+    }
+    target_path = q.Path("/usr/bin/env").resolve(strict=True)
+    target = {
+        "source": str(target_path),
+        "resolved_source": str(target_path),
+        "mode": target_path.stat().st_mode & 0o777,
+        "bytes": 1,
+        "sha256": hashlib.sha256(b"x").hexdigest(),
+    }
+    lock = {"files": [target] * 7, "aggregate_bytes": 7}
+    (root / "qualification/fixtures/media-elf-target-lock.json").write_bytes(b"fake lock")
+    monkeypatch.setattr(q, "ROOT", root)
+    monkeypatch.setattr(q.shared, "_private_path", lambda path, **kwargs: path)
+    real_read_fd = q._read_fd
+
+    def read_fd(fd, bound, digest=None, size=None):
+        if digest == q.TARGET_LOCK_SHA:
+            return json.dumps(lock).encode()
+        if bound == q.m.INPUT_BYTES:
+            return b"x"
+        return real_read_fd(fd, bound, digest, size)
+
+    monkeypatch.setattr(q, "_read_fd", read_fd)
+    states = []
+    original_state = q._State
+
+    def new_state():
+        state = original_state()
+        states.append(state)
+        return state
+
+    monkeypatch.setattr(q, "_State", new_state)
+    monkeypatch.setattr(q.shared, "_read", lambda *args: json.dumps(receipt).encode())
+    scans = []
+
+    def manifest(*args):
+        scans.append(args)
+        if stage == "initial-manifest" or (stage == "final-manifest" and len(scans) == 2):
+            raise ValueError("artifact_unavailable")  # Shared scanner hides close OSError.
+        return SimpleNamespace(digest=q.m.TOOL_MANIFEST_DIGEST)
+
+    monkeypatch.setattr(q.m, "capture_manifest", manifest)
+
+    def close_failure(*args):
+        raise OSError("helper internal close uncertain")
+
+    if stage == "receipt":
+        monkeypatch.setattr(q.shared, "_read", close_failure)
+    if stage == "directory":
+        monkeypatch.setattr(q, "_proof_directory", close_failure)
+
+    async def inert_native(state, *args):
+        state.observations.append(SimpleNamespace(cleanup_confirmed=True))
+        return {"passed": True}
+
+    monkeypatch.setattr(q, "_native", inert_native)
+    with pytest.raises((OSError, ValueError)):
+        asyncio.run(q._qualify())
+    state = states[0]
+    assert state.close_ok is False and state.fds == [] and state.processes_settled
+    admission = root / "runtime/media-elf-metadata-admission"
+    assert (admission / "active.marker").read_bytes()
+    with pytest.raises(AdmissionDenied, match="fenced"):
+        AdmissionController(admission).acquire("2" * 64)
+    if stage == "final-manifest":
+        assert len(state.observations) == 37 and len(scans) == 2
+    assert not list((root / "runtime").glob("media-elf-metadata-proofs/*/cases.json"))
+
+
+def test_directory_entry_bound_precedes_creation(tmp_path):
+    store = q._Store(tmp_path, q._State())
+    store.entries = 96
+    with pytest.raises(q.QualificationRefused, match="retained_entries"):
+        store.directory("bad-tool")
+    assert not (tmp_path / "bad-tool").exists()

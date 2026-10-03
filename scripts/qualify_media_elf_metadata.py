@@ -178,6 +178,16 @@ def _release(state, lease):
     return cleanup_confirmed
 
 
+def _helper(state, operation, *args, **kwargs):
+    # Shared helpers can hide descriptor close errors inside generic refusals.
+    # Conservatively fence every helper failure; never infer/retry an internal FD.
+    try:
+        return operation(*args, **kwargs)
+    except BaseException:
+        state.close_ok = False
+        raise
+
+
 class _Store:
     def __init__(self, path, state):
         self.path = path
@@ -200,6 +210,12 @@ class _Store:
         except BaseException:
             self.state.close_ok = False  # Conservative: failure may include unknown close.
             raise
+
+    def directory(self, name):
+        if self.entries >= 96:
+            raise QualificationRefused("media_elf_retained_entries")
+        self.entries += 1
+        (self.path / name).mkdir(mode=0o700)
 
     def json(self, name, value):
         raw = (json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n").encode()
@@ -560,19 +576,25 @@ async def _qualify():
     complete = False
     result = None
     try:
-        store = _Store(_proof_directory(ROOT / "runtime/media-elf-metadata-proofs"), state)
+        store = _Store(
+            _helper(state, _proof_directory, ROOT / "runtime/media-elf-metadata-proofs"), state
+        )
         store.save("host-only-sentinel", b"fixed-private-metadata-sentinel")
         store.save("bad-source.py", b"raise RuntimeError('UNVERIFIED_INITIALIZER_EXECUTED')\n")
         bad_source_fd = _open(state, store.path / "bad-source.py")
         bad_tool_path = store.path / "bad-tool"
-        bad_tool_path.mkdir(mode=0o700)
+        store.directory("bad-tool")
         store.save("bad-tool/inventory-anchor", b"# invalid tool tree\n")
         (bad_tool_path / "inventory-anchor").chmod(0o500)
         bad_tool_path.chmod(0o500)
         bad_tool_fd = _open(state, bad_tool_path, directory=True)
         tool_receipt = json.loads(
-            shared._read(
-                ROOT / "runtime/media-elf-tool-real-source-copy.json", 65536, TOOL_RECEIPT_SHA
+            _helper(
+                state,
+                shared._read,
+                ROOT / "runtime/media-elf-tool-real-source-copy.json",
+                65536,
+                TOOL_RECEIPT_SHA,
             )
         )
         tool_path = (
@@ -589,7 +611,7 @@ async def _qualify():
         ):
             raise QualificationRefused("media_elf_tool_identity")
         if (
-            m.capture_manifest(tool_path, m.TOOL_ROLES, m.TOOL_POLICY).digest
+            _helper(state, m.capture_manifest, tool_path, m.TOOL_ROLES, m.TOOL_POLICY).digest
             != m.TOOL_MANIFEST_DIGEST
         ):
             raise QualificationRefused("media_elf_tool_pin")
@@ -681,7 +703,7 @@ async def _qualify():
         for (_name, size, sha), fd in zip(SOURCE_PINS, source_fds, strict=True):
             _read_fd(fd, 32768, sha, size)
         if (
-            m.capture_manifest(tool_path, m.TOOL_ROLES, m.TOOL_POLICY).digest
+            _helper(state, m.capture_manifest, tool_path, m.TOOL_ROLES, m.TOOL_POLICY).digest
             != m.TOOL_MANIFEST_DIGEST
         ):
             raise QualificationRefused("media_elf_tool_drift")
