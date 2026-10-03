@@ -544,3 +544,72 @@ print('GUARDED_PREPARATION_PASSED')
     )
     assert result.returncode == 0, result.stderr.decode()
     assert result.stdout == b"GUARDED_PREPARATION_PASSED\n"
+
+
+@pytest.mark.parametrize("target", ["payload", "attempt", "base"])
+def test_final_owned_directory_close_failure_refuses_receipt(
+    candidate, tmp_path, monkeypatch, target
+):
+    base = tmp_path / "private"
+    original_open, original_close = os.open, os.close
+    targeted = None
+    triggered = False
+    live = set()
+    original_dup = os.dup
+
+    def opened(path, *args, **kwargs):
+        nonlocal targeted
+        fd = original_open(path, *args, **kwargs)
+        live.add(fd)
+        matches = (
+            (target == "payload" and path == "payload")
+            or (target == "attempt" and isinstance(path, str) and path.startswith("attempt-"))
+            or (target == "base" and path == base)
+        )
+        if matches and targeted is None:
+            targeted = fd
+        return fd
+
+    def duplicated(*args):
+        fd = original_dup(*args)
+        live.add(fd)
+        return fd
+
+    def closed(fd):
+        nonlocal triggered
+        original_close(fd)
+        live.discard(fd)
+        if fd == targeted and not triggered:
+            triggered = True
+            raise OSError("fixture_final_owned_close_failure")
+
+    monkeypatch.setattr(m.os, "open", opened)
+    monkeypatch.setattr(m.os, "dup", duplicated)
+    monkeypatch.setattr(m.os, "close", closed)
+    with pytest.raises(wheel.MediaArtifactError, match="failed"):
+        prepare(candidate, base)
+    assert triggered and not live
+
+
+def test_four_partial_failures_are_retained_and_storage_bounded(candidate, tmp_path, monkeypatch):
+    base = tmp_path / "private"
+    original = os.write
+    writes = 0
+
+    def partially_written(fd, block):
+        nonlocal writes
+        writes += 1
+        original(fd, block[:7])
+        raise OSError("fixture_partial_write_failure")
+
+    monkeypatch.setattr(m.os, "write", partially_written)
+    for _ in range(4):
+        with pytest.raises(wheel.MediaArtifactError, match="failed"):
+            prepare(candidate, base)
+    before = sorted(base.iterdir())
+    retained = [path for path in base.rglob("*") if path.is_file()]
+    assert len(before) == len(retained) == writes == 4
+    assert sum(path.stat().st_size for path in retained) == 28
+    with pytest.raises(wheel.MediaArtifactError, match="failed"):
+        prepare(candidate, base)
+    assert sorted(base.iterdir()) == before and writes == 4
