@@ -113,21 +113,25 @@ class OwnedProcess:
         self.reaped = False
         self._stop_task = None
         self._pidfd = None
+        self._acquisition_cleanup = False
         self._child = subprocess.Popen(argv, **kwargs)
         self.pid = self._child.pid
         _RETAINED_IDENTITIES.add(self)
-        try:
-            # This child has not been registered with any reaping watcher.
-            self._pidfd = os.pidfd_open(self.pid)
-        except OSError:
-            self.close_pipes()
-            raise DeveloperError("process_identity_unavailable") from None
 
     def observe(self) -> int | None:
-        if self.reaped or self._pidfd is None:
+        if self.reaped:
+            raise DeveloperError("process_identity_unowned")
+        if self._pidfd is not None:
+            kind, identity = os.P_PIDFD, self._pidfd
+        elif self._acquisition_cleanup:
+            # Construction owns this direct child before any await or watcher.
+            # Emergency cleanup only: P_PID WNOWAIT verifies it is still our
+            # waitable child, reserving its PID before every group signal.
+            kind, identity = os.P_PID, self.pid
+        else:
             raise DeveloperError("process_identity_unowned")
         try:
-            status = os.waitid(os.P_PIDFD, self._pidfd, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+            status = os.waitid(kind, identity, os.WEXITED | os.WNOWAIT | os.WNOHANG)
         except ChildProcessError:
             raise DeveloperError("process_identity_lost") from None
         if status is not None:
@@ -186,14 +190,21 @@ class OwnedProcess:
             raise DeveloperError("process_reap_failed")
         self._child.wait(timeout=0)
         self.reaped = True
-        os.close(self._pidfd)
-        self._pidfd = None
+        if self._pidfd is not None:
+            os.close(self._pidfd)
+            self._pidfd = None
         _RETAINED_IDENTITIES.discard(self)
 
 
 async def spawn_owned_process(*argv: str, **kwargs: Any) -> OwnedProcess:
     process = OwnedProcess(argv, kwargs)
     try:
+        try:
+            # No await/watcher has occurred since this direct child's creation.
+            process._pidfd = os.pidfd_open(process.pid)
+        except OSError:
+            process._acquisition_cleanup = True
+            raise DeveloperError("process_identity_unavailable") from None
         await process.connect()
     except BaseException:
         await stop_process(process)

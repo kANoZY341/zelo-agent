@@ -217,3 +217,60 @@ def test_unavailable_pidfd_prerequisite_never_spawns_a_child(monkeypatch):
 
     asyncio.run(exercise())
     assert processes._RETAINED_IDENTITIES == before
+
+
+def test_post_spawn_pidfd_failure_terminates_and_reaps_owned_child(monkeypatch):
+    original_pidfd = os.pidfd_open
+    original_construct = processes.OwnedProcess.__init__
+    owned = []
+    calls = []
+
+    def construct(process, argv, kwargs):
+        original_construct(process, argv, kwargs)
+        owned.append(process)
+
+    def acquire(pid):
+        calls.append(pid)
+        if pid == os.getpid():
+            return original_pidfd(pid)
+        raise OSError(24, "fixture descriptor exhaustion")
+
+    monkeypatch.setattr(processes.OwnedProcess, "__init__", construct)
+    monkeypatch.setattr(processes.os, "pidfd_open", acquire)
+    before = set(processes._RETAINED_IDENTITIES)
+
+    async def exercise():
+        with pytest.raises(processes.DeveloperError, match="process_identity_unavailable"):
+            await processes.spawn_owned_process(
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                "import time;time.sleep(30)",
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={},
+                start_new_session=True,
+            )
+        assert len(owned) == 1 and calls == [os.getpid(), owned[0].pid]
+        assert owned[0].reaped and owned[0]._child.returncode is not None
+        assert processes._RETAINED_IDENTITIES == before
+        assert all(pipe.closed for pipe in (owned[0]._child.stdout, owned[0]._child.stderr))
+
+    asyncio.run(exercise())
+
+
+def test_acquisition_cleanup_refuses_child_reaped_elsewhere(monkeypatch):
+    process = fake_owned()
+    process._pidfd = None
+    process._acquisition_cleanup = True
+
+    def lost(kind, identity, flags):
+        assert kind == os.P_PID and identity == process.pid and flags & os.WNOWAIT
+        raise ChildProcessError()
+
+    monkeypatch.setattr(processes.os, "waitid", lost)
+    monkeypatch.setattr(processes.os, "killpg", lambda *a: pytest.fail("lost child signalled"))
+    with pytest.raises(processes.DeveloperError, match="process_identity_lost"):
+        process.signal_group(signal.SIGKILL)
