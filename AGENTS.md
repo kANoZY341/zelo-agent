@@ -68,56 +68,50 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 qualified Shell operator/full application proof after Core
-binding PR #71 at `fd686a9`. Continue the established Core roadmap; later UI
-rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+The active work is v0.15 Media PNG contract qualification after Shell operator
+PR #72 at `159caee`. Continue the established Core roadmap; UI rework requires fresh
+acceptance. Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 qualified Shell operator/application proof
+## Current scope: v0.15 Media PNG contract qualification
 
-Core binding PR #71 merged at `fd686a9044ddee01e1221d35117e72220c9af0ec`
-from reviewed/tested head `484257bc40abd2c62b8372d892b3d7dfc1a7908f`.
-Full CI passed 1,792 tests with two separately passed installed-Codex supplements.
-255 focused regressions, four standalone supplemental/clean-source checks, nine
-real Core/native cases under both normal and invalid ambient settings, seventeen
-owned Shell cases and eight Browser lifecycle cases passed. Two negative controls
-caught discarded script/validation identity. Astra Medium full review and exact-head
-followup found no remaining blockers; merged/tested trees match. See
-`docs/reviews/shell-core-binding-final-gates.md`.
+Shell operator/application PR #72 merged at `159caee5c5fba2bbc25c3b3f75b5365eebef1fed`
+from reviewed/tested head `1d9fd54fc37cb977ec58f04f7c295f1bfc307835`; trees match.
+Full CI passed 1,817 tests. 163 focused and 302 other assembly compatibility checks,
+four standalone supplements, six real normal/invalid-ambient cases each and two
+negative controls passed. Exact Astra Medium full review found no blockers. Both
+model counters stayed zero; Runner/runtime/DB shutdown ownership was confirmed.
+See `docs/reviews/shell-operator-final-gates.md`.
 
-Read `docs/v0.15-shell-operator-qualification.md` before implementation. Qualify
-unmodified create_app/lifespan, authenticated in-process ASGI routes, background
-Runner, persisted selection/spec/action/audit/evidence, readmission and application
-shutdown in a private diagnostic instance. Use init-only Settings, a fixed diagnostic
-token, private SQLite/admission/workspace, scheduler disabled and a rejecting counted
-provider that verifies zero model requests. No listener or external network.
+Read `docs/v0.15-media-png-contract-qualification.md` before implementation.
+Implement only qualification-specific immutable bounded PNG envelopes, thumbnail
+requests and explicitly untrusted candidate outputs, plus offline fixtures/tests
+and documentation. No decoder execution, package installation, process/runtime/
+owner factories, admission state, registry/capability/task/Agent/Mind route, live
+settings, database, service or release change in this slice. No caller host paths,
+URLs, arbitrary filters, code, metadata, plugins or executable/env/runtime overrides.
 
-Real acceptance must use default qualified runtime/owner/native factories and
-approved fixed sources/policy; no fake runtime standing in for native execution.
-Prove disabled assembly and explicit enabled prerequisite/fence refusal without
-resetting markers. Execute only fixed harmless scripts from the proof, not caller
-script/path/runtime overrides. Preserve any deliberate private diagnostic fence.
-No installed source mutation, arbitrary host process/filesystem surface, default
-AgentSpec/Mind route, production acceptance, live settings/database change or release.
+Inspect only bounded PNG framing: signature, exact IHDR/IDAT/IEND ordering/count,
+CRC, lengths, positive dimensions, RGB/RGBA8 noninterlaced subset and exact framing
+end. Never decompress or assert valid pixels. Reject unknown/ancillary/animation/
+palette chunks and trailing data. Strict bytes only; reject mutable/coercible types.
+Bind source bytes and exact box to a versioned canonical request/policy digest.
+Candidate-specific types must derive hashes/dimensions from exact retained bytes,
+compare declared hashes to the validated request, retain instruction trust none and
+exclude runtime-success, cleanup/provenance or transformation-correctness claims.
 
-Retain qualified identity, script/spec/action hashes, one absolute deadline, no
-workspace/writes/network/credentials/forks, bounded untrusted output and explicit
-source/native/pin/durable cleanup. Unknown ownership remains retained/fenced; no
-TTL, PID-age/error inference or reconciliation. Preserve approvals, scheduler,
-budgets, audit, Agent WorkerRequirements and migrations. Do not change backend
-semantics merely to make the proof pass; scope any discovered runtime fix explicitly.
-The ambient CLI exposed app.main importing ordinary default Settings before
-diagnostic isolation. Move the unchanged reusable factory to app/application.py;
-retain app.main as the same normal ASGI entry and re-export create_app. Review/test
-this extraction explicitly, preserving all lifecycle/runtime semantics.
+Reuse evaluation favors a future isolated Pillow PNG adapter; reviewed upstream
+MIT-CMU license and security/API documentation are linked in the plan. It is not
+installed or approved. Exact pinned/native bundle provenance, license notices,
+decoder success, transformation correctness, resource enforcement, one absolute
+deadline, durable admission and owned cleanup need separate native qualification.
+Preserve existing Browser script-disabled contract and Shell identity/owner gates.
 
-Use this dedicated worktree and Astra Medium. Require offline focused tests,
-normal/invalid-ambient actual application/native proofs, independent exact-head
-static review, exact-head full CI and installed-Codex non-model supplements before
-merge. Keep host/kernel/process visibility/operator/provenance assumptions explicit.
-No system installs, sudo, services, public listeners, model requests, user data or
-unrelated resource deletion. Production Browser and Shell remain disabled, v0.14.0
-and parked UI #61 remain unchanged. Computer/Media and external adapter slices stay
-separate; v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
+Use the dedicated worktree and Astra Medium. Require guarded offline regressions,
+independent exact-head static review, full CI and installed-Codex supplements before
+merge. No system installs, sudo, services, public listeners, model requests, user
+data or unrelated deletion. Production Browser/Shell stay disabled, published
+v0.14.0 and draft UI #61 unchanged. Computer and external adapters remain separate;
+v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
 
 ## Workspace decision
 
