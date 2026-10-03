@@ -1028,3 +1028,14 @@ Four attempts are retained at most; partial failures return no receipt. Read-onl
 files remain owner-mutable and publisher attribution remains unverified. The combined
 preparation gate, immutable native image and runtime qualification are still pending.
 See `docs/v0.15-media-file-preparation.md` for filesystem assumptions and bounds.
+
+
+The optional `scripts/qualify_media_publisher.py` operator proof uses separately
+hash-locked private verifier tools and a fixed production root snapshot. It verifies
+one exact wheel subject and four fixed signer claims offline; this is historical
+attribution under that root, without current TUF freshness. Negative controls require
+a successful unchanged baseline and specific refusal categories. The launcher checks
+network namespace/interface/route evidence and holds descriptors until cancellation
+cleanup settles. No Pillow code or Media runtime/Core route is activated. Tool setup,
+resource limits and pending acceptance gates are documented in
+[Media publisher qualification](docs/v0.15-media-publisher-qualification.md).
