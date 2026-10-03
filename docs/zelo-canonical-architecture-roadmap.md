@@ -883,3 +883,14 @@ qualification, not decoder behavior, publisher inheritance or Core authority.
 See [final gates](reviews/media-image-final-gates.md). Continue with a pure fixed
 Media syscall candidate and concrete installer/resource prerequisites; original
 RLIMIT/cgroup/seccomp gates remain ahead of decoder execution. UI remains parked.
+
+
+### Media pure syscall candidate checkpoint — 3 October 2026
+
+PR #78 merged at `0d3ecec5` with matching reviewed/tested tree, 2,751 CI passes,
+155 new policy tests and all standalone/fault supplements. Both PR #77 and #78
+post-merge CI are successful. The immutable 40-call artifact grants no enforcement,
+native ABI, decoder or runtime authority. See [final gates](reviews/media-syscall-final-gates.md).
+Continue with [platform metadata prerequisites](v0.15-media-platform-metadata.md)
+before an exact inert platform lock/materializer; original resource/filter gates
+remain before decoder qualification. Core first; UI stays parked.
