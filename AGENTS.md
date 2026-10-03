@@ -68,50 +68,40 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media isolated ELF dependency metadata after inert tool
-source PR #79 at `a8157ec3`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media GNU version graph design after isolated loader
+metadata PR #80 at `f6a8a584`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media isolated ELF dependency metadata
+## Current scope: v0.15 Media GNU version graph design
 
-PR79 merged ata8157ec3 with matching reviewed/tested tree,2,800CI passes,49newtests,
-55file inert toolcopy and all standalone/fault gates. Read docs/reviews/media-elf-tool-
-final-gates.md and docs/v0.15-media-elf-dependency-metadata.md. No parser has imported.
-Implement fixed qualification-only ELF64x64 loader-topology metadata for seven pinned
-host files, using reviewed pyelftools fixed-record decoders and no general resolver.
-Before source: freeze supported tag/structure rules, source/bootstrap authentication,
-compatible inherited hardlimits, count/storage/string budgets and admission release
-limitations. First scope records header/program/section/dependency metadata; symbol/
-version contents and ABI interpretation stay unqualified, explicitly recorded as such.
-No high-level hash/DWARF/section/dynamic/versions APIs or target execution discovery.
+PR80 merged f6a8a584 with matching reviewed tree,2,928CI passes and37 actual isolated
+cases/seveninputs. Read docs/reviews/media-elf-metadata-final-gates.md. Allfour loader
+qualification attempts remain retained and exhausted: no fifth attempt, cap increase,
+marker clearing or deletion. No platform/ABI/decoder/Core authority was granted.
 
-Source/tests/launcher may be written and offline fake-record fixtures run now. Before
-ANY optional parser import/execution (even fixtures), full AstraMedium static source/
-launcher review must clear its fixedcode/authentication/isolation/limits/ownership and
-closed case plan. Execute only fixed operator qualifier in the qualified namespace;
-no host/sharedvenv installation/import. Source initializers/dependencies and tooltree
-must authenticate before optional import; exclude bytecode/alternate import candidates.
-Target input buffers are data only; trusted host baseline runtime may overlap inspected
-platform paths. No claim of zero native baseline execution or exact minimal platform.
+Next is the design candidate docs/v0.15-media-elf-version-metadata.md: bounded GNU
+version definitions/requirements/index frequencies only. Symbol bodies and symbol
+provider/ABI semantics remain excluded. Complete AstraMedium design review and
+resolve its findings before implementation; then exact source/launcher review before
+ANY new optional parser/guest execution. A distinct new policy/proof directory requires
+review as new work, never as a bypass of the old exhausted qualification. Keep the
+same persistent capacity-one admission and existing owned-process/admission helpers.
 
-Reuse existing OwnedProcess/NativeExecutionObservation/_own_operation and admission
-helpers unchanged. Register observations before pendingcreation; retain repeatedcancel
-settlement. Unknown owned cleanup/non-admissionFD closure leaves durablemarker; release
-errors may follow marker truncation, so refuse receipt without universal fence claim.
-Limits/attempt/retained storage/source manifests/string work/output and trusted host
-buffers must be numeric/countable; no automatic retry/delete/recovery or broad prune.
-After exact source/launcher review, fixedguestfixtures+isolation/resource/cancel/cleanup
-controls precede seveninput metadata acceptance. Full final source/evidence review,
-focused/matching-head fullCI and standalone/fault supplements precede normalmerge.
+Source authentication includes every initializer/dependency before imports, exactpins,
+no bytecode/alternate module paths. Numeric work/storage/buffer/resource limits,
+observation-before-creation, pendingcreation/repeatedcancel settlement, conservative
+helper-failure fencing and pendingproof-before-release/finalreceipt-after-release stay
+mandatory. Late Lease.finish errors may already truncate marker; refuse receipt
+without a universal fence claim. No automatic retry/recovery/deletion.
 
-Platform provenance/notices/complete dependency/dlopen/symbolABI lock, actual inert
-platform materialization/context/build/daemonsettlement and resource/filter stages
+Full source/evidence review, focused/matching-head fullCI and standalone/causal-fault
+supplements precede normal merge. Platform provenance/notices/complete dependency/
+dlopen/symbolABI lock, materialization/build/daemonsettlement/resources/filter stages
 remain separate. Original PNG RLIMIT/cgroup/seccomp gates stay BEFORE decoder.
-No Pillow installation/import/decoder, ctypes/libseccomp/filter, Docker build/create,
-cgroup/host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind
-binding, model request, signing/OAuth, live env/data/config/service/listener. Flags
-stay disabled, v0.14.0/UI61 preserved. Dedicated worktree only; retain bounded private
-attempts; delete no unrelated/user data. v16->v17->v18 remain ordered and separate.
+No Pillow/decoder, ctypes/libseccomp/filter, Docker build/create, cgroup/host/daemon
+changes, runtime/task/route/registry/capability/Core/Agent/Mind binding, model request,
+signing/OAuth, live env/data/config/service/listener. Flags disabled,v0.14.0/UI61
+preserved. Dedicated worktree only; no unrelated/userdata deletion. v16->v17->v18.
 
 ## Workspace decision
 
