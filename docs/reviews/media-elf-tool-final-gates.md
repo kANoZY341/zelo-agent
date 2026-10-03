@@ -7,7 +7,7 @@ PR: https://github.com/kANoZY341/zelo-agent/pull/79
 - Merge:a8157ec35fcf5dc7641e73c1a69932ef3037439c; exact tree verified.
 - Matching-head PR CI37151461750:success,2,800 passed,two supplemented skips,
   11 existing warnings,728.97seconds. Historical superseded runs are separate.
-- Post-merge CI pending; record separately when observed.
+- Post-merge CI37152424521:success observed separately; PR CI above is the matching-head gate.
 
 All59 fixed pyelftools0.33 wheel members are authenticated; only52 library sources
 enter the import subtree. The differing unused CLI and dist-info are excluded.
