@@ -82,8 +82,8 @@ Review a mature pinned ELF metadata tool before collecting ELF dependency metada
 GNU readelf needs its own native tool closure; compare a pure-Python pyelftools
 candidate by static provenance/license/source inspection first. No homemade ELF
 parser, general dependency resolver, ldd, target loader or execution discovery.
-Bounded official public metadata/wheel retrieval and inert ZIP/source inspection are
-allowed; do not install/import/run the optional parser before fixed launcher/source
+Bounded official public metadata/wheel retrieval, inert ZIP/source inspection and
+fixed qualification-only tool-source preparation implementation/offline fixtures are allowed; do not install/import/run the optional parser before fixed launcher/source
 review and isolation/resource/ownership gates. Do not modify shared dependencies.
 Preserve required licenses/notices, exact source hashes and explicit provenance limits.
 

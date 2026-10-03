@@ -1,0 +1,325 @@
+{
+  "schema": "zelo-media-pyelftools-source-lock-v1",
+  "name": "pyelftools",
+  "version": "0.33",
+  "wheel_filename": "pyelftools-0.33-py3-none-any.whl",
+  "wheel_sha256": "f215ad5f47d3f1373a21496a6c9e0707c622840d0622f23ff7ce08678b020036",
+  "wheel_bytes": 201178,
+  "expanded_bytes": 771663,
+  "source_commit": "52ce435186022bd6b32012a998931fe86c985ec8",
+  "files": [
+    {
+      "path": "elftools/__init__.py",
+      "bytes": 267,
+      "sha256": "d8a071e9e68576ceab6ed200c5f4718119f7d61ee0fae337a867b095f1d5c5d9"
+    },
+    {
+      "path": "elftools/common/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "elftools/common/construct_utils.py",
+      "bytes": 5070,
+      "sha256": "9529375fbb5a6662a482e8ff4b6c1eca486e9011624a3008a55af76b0c581eb6"
+    },
+    {
+      "path": "elftools/common/exceptions.py",
+      "bytes": 512,
+      "sha256": "ce89c2d8b856b6615f5dce6f5b6b6eeba9be278eaac34d1f2f854b23bb25abe1"
+    },
+    {
+      "path": "elftools/common/utils.py",
+      "bytes": 4660,
+      "sha256": "3858dfe8156798e35f9502f4031acc2d76dce95dacf78f040719cc0e3934756f"
+    },
+    {
+      "path": "elftools/construct/__init__.py",
+      "bytes": 5031,
+      "sha256": "15104eb011a640e4268a9b9221d07201a0360ff0b1c8b49e252ef41fdfbb35de"
+    },
+    {
+      "path": "elftools/construct/adapters.py",
+      "bytes": 19495,
+      "sha256": "5745745b25eb849174ee5c3179b9867b03e0471633e9eac8276aa439fe4c8841"
+    },
+    {
+      "path": "elftools/construct/core.py",
+      "bytes": 49248,
+      "sha256": "86c7c9ef0303beb7bfe7b310c52e44697cc31b6cec7435eb33168216b70a965f"
+    },
+    {
+      "path": "elftools/construct/debug.py",
+      "bytes": 4304,
+      "sha256": "491486779e464e0f4a59cfd429d8e93c577a0f0d9b969847e69400a3c86acb1c"
+    },
+    {
+      "path": "elftools/construct/lib/__init__.py",
+      "bytes": 264,
+      "sha256": "322a9b5b2cbe036a5ccf8e939dcbc3734203073db70fc4f2cb00f0f98ba107cf"
+    },
+    {
+      "path": "elftools/construct/lib/binary.py",
+      "bytes": 2780,
+      "sha256": "f18e4161a11bc95732bd01c577cbe98373081afd5b4112b02fec51a0e1df2e11"
+    },
+    {
+      "path": "elftools/construct/lib/bitstream.py",
+      "bytes": 2641,
+      "sha256": "ee8081769bed1d00a086399c8749a847c1a48b8d08637506bf7d1229b6e1808a"
+    },
+    {
+      "path": "elftools/construct/lib/container.py",
+      "bytes": 5363,
+      "sha256": "0385a420febf5bac714153ceaadd192ff9d09862bc7e17c203bf759aa18b2bb4"
+    },
+    {
+      "path": "elftools/construct/lib/hex.py",
+      "bytes": 1368,
+      "sha256": "55f82dc36f273347c08e9e469fd497368241453b7a63e69e167ad6b316e5e2c7"
+    },
+    {
+      "path": "elftools/construct/macros.py",
+      "bytes": 24996,
+      "sha256": "0244e84cf4f598ac8da7c3d8f1f09b06112a508e71fb8d381b377f1c0472a4e3"
+    },
+    {
+      "path": "elftools/dwarf/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "elftools/dwarf/abbrevtable.py",
+      "bytes": 3036,
+      "sha256": "cbe4a69fb4ced4ae87eb4694818ccf6c49302b8158bb8bb08b6e3864cee7aad4"
+    },
+    {
+      "path": "elftools/dwarf/aranges.py",
+      "bytes": 5559,
+      "sha256": "bbfa73cd13e89665b2b808c0c3b6dfc98978316e0f39a9b392768505f6263d36"
+    },
+    {
+      "path": "elftools/dwarf/callframe.py",
+      "bytes": 32237,
+      "sha256": "e5aae743714801ee80d5dc4b71c43007a8cb1638ed3cd0bf825dde2b298e70b0"
+    },
+    {
+      "path": "elftools/dwarf/compileunit.py",
+      "bytes": 11322,
+      "sha256": "bfff5b0da5a081390b0d0505f18d19ef5c70287b7ebd2fa094671a7139dfdef5"
+    },
+    {
+      "path": "elftools/dwarf/constants.py",
+      "bytes": 6576,
+      "sha256": "1b9b0e320c5cb7aa3a0117564431a73ce964d79a3a44ff0b74af7218e96f3f32"
+    },
+    {
+      "path": "elftools/dwarf/datatype_cpp.py",
+      "bytes": 9497,
+      "sha256": "d70081e2ee33a2cb7036dec99fa6fb9a2cf310c8d6b273994c2634d0ff254c10"
+    },
+    {
+      "path": "elftools/dwarf/descriptions.py",
+      "bytes": 28705,
+      "sha256": "735bc09c8ffec232df46a6c067947a0ec34667377d1fe13f37711e8d3f7befbd"
+    },
+    {
+      "path": "elftools/dwarf/die.py",
+      "bytes": 16485,
+      "sha256": "fe9f146dc9236a17b05376afbd1e4df901ad7735454cd699c8ce91277d3c0b8e"
+    },
+    {
+      "path": "elftools/dwarf/dwarf_expr.py",
+      "bytes": 11698,
+      "sha256": "0c217469f041aa7deb729b2d343323f05ad5b43e2a81b50fa980e61479f4f97b"
+    },
+    {
+      "path": "elftools/dwarf/dwarf_util.py",
+      "bytes": 3494,
+      "sha256": "4f0af20941ed2da56666b3c9fb42600d956c3b147017d1a57b2a3fe95e5ec8b0"
+    },
+    {
+      "path": "elftools/dwarf/dwarfinfo.py",
+      "bytes": 32693,
+      "sha256": "d8b16c376f3a3ccf2a41f86105df70e50368d03f973801e684185d315f357207"
+    },
+    {
+      "path": "elftools/dwarf/enums.py",
+      "bytes": 22908,
+      "sha256": "1e236370193e698513fafe29cd44afde8f9fc6b64d6dc6d5249bc6abdc8e6bf3"
+    },
+    {
+      "path": "elftools/dwarf/lineprogram.py",
+      "bytes": 12528,
+      "sha256": "3e85191a28d2d61539f52569c314101a29a9cbaac7837760ae2bb42e7b72e0f8"
+    },
+    {
+      "path": "elftools/dwarf/locationlists.py",
+      "bytes": 21017,
+      "sha256": "9a9ea693f0a84f446e503e64b367702afd1ce81a80940710064b7f7d8fa33267"
+    },
+    {
+      "path": "elftools/dwarf/namelut.py",
+      "bytes": 7419,
+      "sha256": "cdb08d65cef4384f04f60d071b27bcdd5a76d7630e60579d85d59766171e6586"
+    },
+    {
+      "path": "elftools/dwarf/ranges.py",
+      "bytes": 10778,
+      "sha256": "44cf61af9ffa970646732cc17a1a806eb44a43176a9ca2ae9049e266031d5b65"
+    },
+    {
+      "path": "elftools/dwarf/structs.py",
+      "bytes": 27067,
+      "sha256": "6469b6d08f3a2628756ce7966c43fb13cdae74be2e034adc5daa5e9e5091515f"
+    },
+    {
+      "path": "elftools/dwarf/typeunit.py",
+      "bytes": 10776,
+      "sha256": "4b133343d9af443bb42302363ea32f0b6c576a93a3c1c28915ff9a47c26214a8"
+    },
+    {
+      "path": "elftools/ehabi/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "elftools/ehabi/constants.py",
+      "bytes": 32,
+      "sha256": "a386df95ebe53338db1cdfe498a06acf8e976007b5fab5c4eed2b8904932caa8"
+    },
+    {
+      "path": "elftools/ehabi/decoder.py",
+      "bytes": 12287,
+      "sha256": "ab3bd609bd96582b44e507da614881b477491d3be235cd7d154516697e7c77f4"
+    },
+    {
+      "path": "elftools/ehabi/ehabiinfo.py",
+      "bytes": 8859,
+      "sha256": "15a37115fb720208ae0daccd3d32447f0abb553a9ce9b3e6dab47c3f92e2747f"
+    },
+    {
+      "path": "elftools/ehabi/structs.py",
+      "bytes": 1417,
+      "sha256": "cf381dc793d59cea78844f424b7a31dbf04513d9d7d318a962f6d25ef60f3e90"
+    },
+    {
+      "path": "elftools/elf/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "elftools/elf/constants.py",
+      "bytes": 4888,
+      "sha256": "3a4a262a24a9ed7f796f80b6ddb54c31eba93e78293cb490b577dc8dcbca86b8"
+    },
+    {
+      "path": "elftools/elf/descriptions.py",
+      "bytes": 33425,
+      "sha256": "4f3e4e597828c1cdbfbb64e6230ba19c52ed32c978e7153f9ddb4edb7ff0c8cc"
+    },
+    {
+      "path": "elftools/elf/dynamic.py",
+      "bytes": 15775,
+      "sha256": "a31f7bd38236df432068feb81356e7245228491111b7e76d501fb5e107eda7ed"
+    },
+    {
+      "path": "elftools/elf/elffile.py",
+      "bytes": 44966,
+      "sha256": "2615f5052b79d8f5065f5739920b5f29aafd4831e4915a8983030ebe1cc978cf"
+    },
+    {
+      "path": "elftools/elf/enums.py",
+      "bytes": 50544,
+      "sha256": "4d975df4e75de4433cc673dfc7524a9a302792b1d2ec087a649dd24f120dad88"
+    },
+    {
+      "path": "elftools/elf/gnuversions.py",
+      "bytes": 9362,
+      "sha256": "0e553e59718df3d74d028aff795d9b44562dc648abfc787d75c27f0486cf8272"
+    },
+    {
+      "path": "elftools/elf/hash.py",
+      "bytes": 9078,
+      "sha256": "b8b10cd2c96814febc54bb122ccea5aef3ecf4270954ad661364a9368f2306d5"
+    },
+    {
+      "path": "elftools/elf/notes.py",
+      "bytes": 3483,
+      "sha256": "4c3f1bc337e3a808ae118cbebc92844dc1a1af74934659dfa14dd892376ce64a"
+    },
+    {
+      "path": "elftools/elf/relocation.py",
+      "bytes": 24376,
+      "sha256": "d9b4a0e47e5297bae9214f6ac40b9e2d779738777c8fe0cd1b31656cc605ed48"
+    },
+    {
+      "path": "elftools/elf/sections.py",
+      "bytes": 22016,
+      "sha256": "c90ce9f31e37cb714343256534e25603d2eefb732c0b41f1671ae7027abe4b36"
+    },
+    {
+      "path": "elftools/elf/segments.py",
+      "bytes": 5536,
+      "sha256": "8b808b2cee7976775e5ed8788970c2733f5dec859e2c0ef58aadcddcb2eef95a"
+    },
+    {
+      "path": "elftools/elf/structs.py",
+      "bytes": 25390,
+      "sha256": "114b209e3b7cdd471ca2875d554781cf4a174acf93c080d38da52c24fb2332be"
+    },
+    {
+      "path": "elftools/py.typed",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "pyelftools-0.33.data/scripts/readelf.py",
+      "bytes": 92867,
+      "sha256": "7a6d9d6719afe951db1e94a45a2fccfecf3a95300162055e098f03a6bb37862c"
+    },
+    {
+      "path": "pyelftools-0.33.dist-info/METADATA",
+      "bytes": 1003,
+      "sha256": "dbbb739509c795b8b7e700057880a88365218bb1c7216b198a22c97c8aedce62"
+    },
+    {
+      "path": "pyelftools-0.33.dist-info/RECORD",
+      "bytes": 4931,
+      "sha256": "77d46c3b3f539ad27f30116d3a9b9bb50cfcfd4507018dddbb0e3f0a73c556da"
+    },
+    {
+      "path": "pyelftools-0.33.dist-info/WHEEL",
+      "bytes": 91,
+      "sha256": "69e6228a0d35958183cc1812f07c565ce837b95eb51bd8a33acba9fa4f68d6c9"
+    },
+    {
+      "path": "pyelftools-0.33.dist-info/licenses/LICENSE",
+      "bytes": 1534,
+      "sha256": "ae18bf4cb82f92af7547259177bc28bc48e4fc732518bcedfe690226288d3445"
+    },
+    {
+      "path": "pyelftools-0.33.dist-info/top_level.txt",
+      "bytes": 9,
+      "sha256": "227018f51ead87440f7375e64a937cbc56986d74d02acb562326fb1d23101f91"
+    }
+  ],
+  "excluded_import_tree_members": [
+    "pyelftools-0.33.data/scripts/readelf.py"
+  ],
+  "library_source_count": 52,
+  "notices": [
+    {
+      "path": "qualification/vendor/pyelftools/LICENSE",
+      "sha256": "ae18bf4cb82f92af7547259177bc28bc48e4fc732518bcedfe690226288d3445"
+    },
+    {
+      "path": "qualification/vendor/pyelftools/Construct-LICENSE",
+      "sha256": "f8d0c347a0dcc6ebe1671640dfae8d2411b6ded892e06a6764f8208b218b2af4"
+    }
+  ],
+  "independent_release_signature_verified": false,
+  "optional_tool_executed": false,
+  "platform_complete": false,
+  "runtime_authority": false
+}
