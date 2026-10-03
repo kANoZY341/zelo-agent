@@ -4,6 +4,7 @@
 import argparse
 import asyncio
 import base64
+import errno
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ from app.developer_process import (  # noqa: E402
     DeveloperError,
     NativeExecutionObservation,
     run_process,
+    uncancellable,
 )
 from app.developer_sandbox import python_compute_sandbox, python_compute_sandbox_plan  # noqa: E402
 from qualification import media_publisher as m  # noqa: E402
@@ -49,6 +51,7 @@ def confinement_policy() -> dict:
             m.ROOT_FILE,
         ),
         "capabilities": "all-dropped",
+        "cancel_readiness_channel": "one-byte-anonymous-pipe-only-in-cancel-control",
         "guest_bootstrap_sha256": hashlib.sha256(GUEST_BOOTSTRAP.encode()).hexdigest(),
         "interpreter_flags": ("-I", "-S", "-B"),
         "environment": {
@@ -210,11 +213,24 @@ def _mutate(raw: bytes, case: str) -> bytes:
     return json.dumps(value, separators=(",", ":"), allow_nan=False).encode()
 
 
-def _argv(tool_fd: int, root_fd: int, case: str, sentinel: Path) -> list[str]:
-    command = ["/usr/bin/python3.12", "-I", "-S", "-B", "-c", GUEST_BOOTSTRAP, case, str(sentinel)]
+def _argv(tool_fd: int, root_fd: int, case: str, sentinel: Path, ready_fd: int = -1) -> list[str]:
+    command = [
+        "/usr/bin/python3.12",
+        "-I",
+        "-S",
+        "-B",
+        "-c",
+        GUEST_BOOTSTRAP,
+        case,
+        str(sentinel),
+        os.readlink("/proc/self/ns/net"),
+        str(ready_fd),
+    ]
     argv = python_compute_sandbox(command)
     index = argv.index("--remount-ro")
+    ready_mount = ["--bind-fd", str(ready_fd), "/opt/zelo-publisher-ready"] if ready_fd >= 0 else []
     argv[index:index] = [
+        *ready_mount,
         "--cap-drop",
         "ALL",
         "--dir",
@@ -250,6 +266,123 @@ def _accepted(value: dict, raw: bytes) -> bool:
     return value["attribution"] == expected and value["digest"] == _digest(expected)
 
 
+async def _ready(fd: int, deadline: float) -> None:
+    loop = asyncio.get_running_loop()
+    ready = loop.create_future()
+
+    def readable():
+        if ready.done():
+            return
+        try:
+            data = os.read(fd, 1)
+            if data != b"R":
+                raise QualificationRefused("media_publisher_guest_readiness")
+        except Exception as error:
+            ready.set_exception(error)
+        else:
+            ready.set_result(None)
+
+    loop.add_reader(fd, readable)
+    try:
+        await asyncio.wait_for(ready, max(0.001, deadline - time.monotonic()))
+    finally:
+        loop.remove_reader(fd)
+
+
+async def _own_operation(operation: asyncio.Task, *, cancel_wait=None):
+    try:
+        if cancel_wait is not None:
+            await cancel_wait()
+            operation.cancel()
+        try:
+            return await operation, None
+        except asyncio.CancelledError:
+            if cancel_wait is None or asyncio.current_task().cancelling():
+                raise
+            return None, "operator_cancelled"
+        except DeveloperError as error:
+            return None, str(error)
+    finally:
+        if not operation.done():
+            operation.cancel()
+
+        async def settle():
+            try:
+                await operation
+            except asyncio.CancelledError:
+                pass
+            except DeveloperError:
+                pass
+
+        _, cancelled = await uncancellable(asyncio.create_task(settle()))
+        if cancelled:
+            raise asyncio.CancelledError
+
+
+async def _native(tool_fd, root_fd, case, sentinel, raw, deadline):
+    observation = NativeExecutionObservation()
+    ready_fds = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC) if case == "cancel" else ()
+    try:
+        operation = asyncio.create_task(
+            run_process(
+                _argv(tool_fd, root_fd, case, sentinel, ready_fds[1] if ready_fds else -1),
+                cwd=ROOT,
+                timeout=max(0.001, deadline - time.monotonic()),
+                deadline=deadline,
+                stdout_limit=65536,
+                stderr_limit=16384,
+                stdin=raw,
+                env=confinement_policy()["environment"],
+                pass_fds=(tool_fd, root_fd, *ready_fds[1:]),
+                observation=observation,
+            )
+        )
+        result, error = await _own_operation(
+            operation,
+            cancel_wait=(lambda: _ready(ready_fds[0], deadline)) if ready_fds else None,
+        )
+    finally:
+        try:
+            if ready_fds:
+                os.close(ready_fds[0])
+        finally:
+            if ready_fds:
+                os.close(ready_fds[1])
+    if not observation.cleanup_confirmed:
+        raise QualificationRefused("media_publisher_cleanup_unknown")
+    return result, error, observation
+
+
+def _negative_accepted(case: str, value) -> bool:
+    expected = (
+        "media_publisher_root"
+        if case == "wrong_root"
+        else "media_publisher_count"
+        if case == "extra_attestation"
+        else "media_publisher_crypto_refused"
+    )
+    return value == {"status": "refused", "code": expected}
+
+
+def _network_accepted(value, host_namespace: str) -> bool:
+    return (
+        type(value) is dict
+        and set(value)
+        == {"status", "probe", "enforced", "namespace", "interfaces", "route_rows", "connect_errno"}
+        and value["status"] == "bounded_probe"
+        and value["probe"] == "network"
+        and value["enforced"] is True
+        and type(value["namespace"]) is str
+        and value["namespace"].startswith("net:[")
+        and value["namespace"] != host_namespace
+        and value["interfaces"] == ["lo"]
+        and type(value["route_rows"]) is int
+        and value["route_rows"] == 0
+        and type(value["connect_errno"]) is int
+        and value["connect_errno"] == errno.ENETUNREACH
+    )
+
+
 async def qualify(acquisition: Path, case: str) -> Path:
     if case not in GUEST_CASES:
         raise QualificationRefused("media_publisher_case")
@@ -263,9 +396,8 @@ async def qualify(acquisition: Path, case: str) -> Path:
     source = _private_path(acquisition / "tool-venv/lib/python3.12/site-packages", directory=True)
     root_path = acquisition / "sigstore-production-root-snapshot.json"
     root_bytes = _read(root_path, m.ROOT_BYTES, m.ROOT_SHA256)
-    raw = _mutate(
-        _read(acquisition / "pillow-provenance-unverified.json", m.PROVENANCE_BYTES), case
-    )
+    original_raw = _read(acquisition / "pillow-provenance-unverified.json", m.PROVENANCE_BYTES)
+    raw = _mutate(original_raw, case)
     manifest = await asyncio.to_thread(capture_manifest, source, m.TOOL_ROLES, m.TOOL_SCAN_POLICY)
     if manifest.digest != m.TOOL_MANIFEST_DIGEST or time.monotonic() >= deadline:
         raise QualificationRefused("media_publisher_tool_binding")
@@ -277,51 +409,50 @@ async def qualify(acquisition: Path, case: str) -> Path:
     sentinel = proof / "host-only-sentinel"
     _save(sentinel, b"public-confinement-sentinel")
     _save(proof / "input-provenance.json", raw)
-    if case == "wrong_root":
-        bad = bytearray(root_bytes)
-        bad[-1] ^= 1
-        root_path = proof / "wrong-root.json"
-        _save(root_path, bytes(bad))
+    baseline = None
     tool_fd = os.open(
         source, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
     )
     try:
         root_fd = os.open(root_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         try:
-            observation = NativeExecutionObservation()
-            native_error = None
-            result = None
-            operation = asyncio.create_task(
-                run_process(
-                    _argv(tool_fd, root_fd, case, sentinel),
-                    cwd=ROOT,
-                    timeout=max(0.001, deadline - time.monotonic()),
-                    deadline=deadline,
-                    stdout_limit=65536,
-                    stderr_limit=16384,
-                    stdin=raw,
-                    env=confinement_policy()["environment"],
-                    pass_fds=(tool_fd, root_fd),
-                    observation=observation,
+            if case != "positive":
+                baseline_result, baseline_error, _ = await _native(
+                    tool_fd, root_fd, "positive", sentinel, original_raw, deadline
                 )
-            )
-            if case == "cancel":
-                await asyncio.sleep(0.1)
-                operation.cancel()
-            try:
-                result = await operation
-            except asyncio.CancelledError:
-                if case != "cancel":
-                    raise
-                native_error = "operator_cancelled"
-            except DeveloperError as error:
-                native_error = str(error)
+                if (
+                    baseline_result is None
+                    or baseline_error is not None
+                    or baseline_result.exit_code != 0
+                ):
+                    raise QualificationRefused("media_publisher_baseline")
+                baseline = m._json(baseline_result.stdout, 65536)
+                if not _accepted(baseline, original_raw):
+                    raise QualificationRefused("media_publisher_baseline")
+                _save(proof / "baseline-stdout.log", baseline_result.stdout)
+                _save(proof / "baseline-stderr.log", baseline_result.stderr)
+            if case == "wrong_root":
+                bad = bytearray(root_bytes)
+                bad[-1] ^= 1
+                bad_path = proof / "wrong-root.json"
+                _save(bad_path, bytes(bad))
+                bad_fd = os.open(
+                    bad_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+                )
+                try:
+                    result, native_error, observation = await _native(
+                        tool_fd, bad_fd, case, sentinel, raw, deadline
+                    )
+                finally:
+                    os.close(bad_fd)
+            else:
+                result, native_error, observation = await _native(
+                    tool_fd, root_fd, case, sentinel, raw, deadline
+                )
         finally:
             os.close(root_fd)
     finally:
         os.close(tool_fd)
-    if not observation.cleanup_confirmed:
-        raise QualificationRefused("media_publisher_cleanup_unknown")
     after = await asyncio.to_thread(capture_manifest, source, m.TOOL_ROLES, m.TOOL_SCAN_POLICY)
     if after != manifest:
         raise QualificationRefused("media_publisher_tool_changed")
@@ -341,24 +472,25 @@ async def qualify(acquisition: Path, case: str) -> Path:
             or (case == "output" and native_error == "process_output_limit")
             or (case == "cpu" and result is not None and result.exit_code in (-9, 137))
         )
-    elif case in ("network", "write", "host_file", "imports", "memory"):
+    elif case == "network":
+        passed = (
+            result is not None
+            and result.exit_code == 0
+            and _network_accepted(value, os.readlink("/proc/self/ns/net"))
+        )
+    elif case in ("write", "host_file", "imports", "memory"):
         passed = (
             result is not None
             and result.exit_code == 0
             and value == {"status": "bounded_probe", "probe": case, "enforced": True}
         )
     else:
-        passed = (
-            result is not None
-            and result.exit_code == 10
-            and type(value) is dict
-            and set(value) == {"status", "code"}
-            and value["status"] == "refused"
-            and value["code"] in {"media_publisher_crypto_refused", "media_publisher_count"}
-        )
+        passed = result is not None and result.exit_code == 10 and _negative_accepted(case, value)
     evidence = {
         "schema": "zelo-media-publisher-operator-proof-v1",
         "case": case,
+        "baseline": baseline,
+        "baseline_input_sha256": hashlib.sha256(original_raw).hexdigest(),
         "passed": bool(passed),
         "input_sha256": hashlib.sha256(raw).hexdigest(),
         "tool_manifest_digest": manifest.digest,

@@ -1,7 +1,9 @@
 """Pure operator launcher checks; no optional verifier execution or native claims."""
 
+import asyncio
 import base64
 import dataclasses
+import errno
 import json
 import os
 from pathlib import Path
@@ -142,3 +144,146 @@ def test_invalid_proof_entries_refused(tmp_path, kind):
         path.mkdir(mode=0o755 if kind == "mode" else 0o700)
     with pytest.raises(q.QualificationRefused, match="entry"):
         q._proof_capacity(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "signature",
+        "certificate",
+        "wrong_issuer",
+        "wrong_repository",
+        "wrong_commit",
+        "wrong_workflow",
+    ],
+)
+@pytest.mark.parametrize(
+    "code",
+    [
+        "media_publisher_verifier_setup_refused",
+        "media_publisher_guest_required",
+        "media_publisher_tool_manifest",
+        "media_publisher_root",
+        "media_publisher_count",
+    ],
+)
+def test_infrastructure_failures_never_pass_crypto_controls(case, code):
+    assert not q._negative_accepted(case, {"status": "refused", "code": code})
+    assert q._negative_accepted(
+        case, {"status": "refused", "code": "media_publisher_crypto_refused"}
+    )
+
+
+def test_root_and_cardinality_controls_require_the_specific_gate():
+    assert q._negative_accepted("wrong_root", {"status": "refused", "code": "media_publisher_root"})
+    assert q._negative_accepted(
+        "extra_attestation", {"status": "refused", "code": "media_publisher_count"}
+    )
+    for case in ("wrong_root", "extra_attestation"):
+        assert not q._negative_accepted(
+            case, {"status": "refused", "code": "media_publisher_crypto_refused"}
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"namespace": "net:[10]"},
+        {"interfaces": ["lo", "eth0"]},
+        {"route_rows": 1},
+        {"connect_errno": errno.ECONNREFUSED},
+        {"connect_errno": None},
+        {"enforced": False},
+        {"extra": True},
+    ],
+)
+def test_network_rejection_needs_namespace_interface_and_route_evidence(change):
+    value = {
+        "status": "bounded_probe",
+        "probe": "network",
+        "enforced": True,
+        "namespace": "net:[11]",
+        "interfaces": ["lo"],
+        "route_rows": 0,
+        "connect_errno": errno.ENETUNREACH,
+    }
+    assert q._network_accepted(value, "net:[10]")
+    assert not q._network_accepted(value | change, "net:[10]")
+    assert not q._network_accepted(
+        {"status": "bounded_probe", "probe": "network", "enforced": True}, "net:[10]"
+    )
+
+
+def test_external_and_repeated_cancellation_settles_operation_before_return():
+    async def scenario():
+        started = asyncio.Event()
+        waiting = asyncio.Event()
+        cleaning = asyncio.Event()
+        release = asyncio.Event()
+        finished = asyncio.Event()
+
+        async def child():
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cleaning.set()
+                await release.wait()
+                finished.set()
+
+        async def pre_cancel_wait():
+            waiting.set()
+            await asyncio.Event().wait()
+
+        operation = asyncio.create_task(child())
+        owner = asyncio.create_task(q._own_operation(operation, cancel_wait=pre_cancel_wait))
+        await started.wait()
+        await waiting.wait()
+        owner.cancel()
+        await cleaning.wait()
+        owner.cancel()
+        await asyncio.sleep(0)
+        assert not owner.done() and not finished.is_set()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await owner
+        assert operation.done() and finished.is_set()
+
+    asyncio.run(scenario())
+
+
+def test_control_cancellation_requires_ready_signal_then_settles():
+    async def scenario():
+        started = asyncio.Event()
+        readiness = asyncio.Event()
+        cleaned = asyncio.Event()
+
+        async def child():
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cleaned.set()
+
+        operation = asyncio.create_task(child())
+        owner = asyncio.create_task(q._own_operation(operation, cancel_wait=readiness.wait))
+        await started.wait()
+        await asyncio.sleep(0)
+        assert not operation.done()
+        readiness.set()
+        assert await owner == (None, "operator_cancelled")
+        assert operation.done() and cleaned.is_set()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["media_publisher_root", "media_publisher_crypto_refused", "media_publisher_tool_manifest"],
+)
+def test_verifier_preserves_fixed_categories(code):
+    def refused(*args):
+        raise m.PublisherError(code)
+
+    with pytest.raises(m.PublisherError, match=code):
+        m._verify(RAW, refused)

@@ -354,14 +354,14 @@ def test_crypto_error_is_sanitized_and_no_statement_acceptance(monkeypatch):
     def refused(*args):
         raise RuntimeError("untrusted diagnostic content")
 
-    with pytest.raises(m.PublisherError, match="crypto_refused") as error:
+    with pytest.raises(m.PublisherError, match="verifier_setup_refused") as error:
         m._verify(RAW, refused)
     assert "untrusted" not in str(error.value)
 
 
 def test_ordinary_host_refused_before_any_optional_import_or_scan(monkeypatch):
     monkeypatch.setattr(m, "capture_manifest", lambda *a: pytest.fail("host scanner reached"))
-    with pytest.raises(m.PublisherError, match="crypto_refused"):
+    with pytest.raises(m.PublisherError, match="guest_required"):
         m.verify_pillow_publisher(RAW)
 
 

@@ -48,7 +48,10 @@ if case == 'cpu':
     while True:
         pass
 if case == 'cancel':
+    import os
     import time
+    with open('/opt/zelo-publisher-ready', 'wb', buffering=0) as ready:
+        ready.write(b'R')
     time.sleep(300)
 if case == 'output':
     sys.stdout.write('x' * 65537)
@@ -57,16 +60,31 @@ if case == 'output':
 if case in ('network', 'write', 'host_file', 'imports', 'memory'):
     enforced = False
     if case == 'network':
+        import errno
+        import os
         import socket
+        namespace = os.readlink('/proc/self/ns/net')
+        interfaces = [name for _, name in socket.if_nameindex()]
+        with open('/proc/net/route', 'rb') as routes:
+            route_data = routes.read(4097)
+        route_rows = len(route_data.splitlines()) - 1
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connect_errno = None
         try:
             connection.settimeout(2)
             try:
                 connection.connect(('203.0.113.1', 443))
-            except OSError:
-                enforced = True
+            except OSError as error:
+                connect_errno = error.errno
         finally:
             connection.close()
+        enforced = (namespace != sys.argv[3] and interfaces == ['lo']
+                    and len(route_data) <= 4096 and route_rows == 0
+                    and connect_errno == errno.ENETUNREACH)
+        print(json.dumps({'status': 'bounded_probe', 'probe': case, 'enforced': enforced,
+                          'namespace': namespace, 'interfaces': interfaces,
+                          'route_rows': route_rows, 'connect_errno': connect_errno}))
+        raise SystemExit(0 if enforced else 20)
     elif case == 'write':
         results = []
         for path in ('/tmp/publisher-probe', '/workspace/publisher-probe',

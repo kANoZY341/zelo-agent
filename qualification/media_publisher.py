@@ -309,6 +309,7 @@ def _mature_verify(attestation: dict, *, _case: str = "positive") -> tuple[str, 
         raise PublisherError("media_publisher_tool_manifest")
     # Optional packages are imported only after actual tool-source binding in guest.
     from pypi_attestations import Attestation
+    from sigstore.errors import VerificationError
     from sigstore.models import TrustedRoot
     from sigstore.verify import Verifier, policy
 
@@ -342,7 +343,11 @@ def _mature_verify(attestation: dict, *, _case: str = "positive") -> tuple[str, 
                 policy.OIDCBuildConfigURI(workflow),
             ]
         )
-        result = verifier.verify_dsse(Attestation.model_validate(attestation).to_bundle(), identity)
+        bundle = Attestation.model_validate(attestation).to_bundle()
+        try:
+            result = verifier.verify_dsse(bundle, identity)
+        except VerificationError:
+            raise PublisherError("media_publisher_crypto_refused") from None
         after = os.fstat(fd)
         if (
             before.st_dev,
@@ -361,8 +366,10 @@ def _verify(raw: bytes, mature) -> PublisherAttribution:
     attestation, original_statement = _envelope(raw)
     try:
         kind, verified = mature(attestation)
+    except PublisherError:
+        raise
     except Exception:
-        raise PublisherError("media_publisher_crypto_refused") from None
+        raise PublisherError("media_publisher_verifier_setup_refused") from None
     if (
         type(kind) is not str
         or kind != DSSE_TYPE
