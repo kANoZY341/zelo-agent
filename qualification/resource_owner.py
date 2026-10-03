@@ -33,8 +33,14 @@ class LeaseResourceOwner:
         deadline_seconds: float,
         *,
         cleanup_grace: float = 1.0,
+        absolute_deadline: float | None = None,
     ) -> None:
         validate_digest(policy_digest)
+        if absolute_deadline is not None and (
+            type(absolute_deadline) not in (int, float) or not math.isfinite(absolute_deadline)
+        ):
+            raise ValueError("invalid_deadline")
+        self._absolute_deadline = absolute_deadline
         if (
             type(deadline_seconds) not in (int, float)
             or not math.isfinite(deadline_seconds)
@@ -82,6 +88,8 @@ class LeaseResourceOwner:
             raise QualificationError("owner_terminal")
         self._used = True
         self._deadline = asyncio.get_running_loop().time() + self._seconds
+        if self._absolute_deadline is not None:
+            self._deadline = min(self._deadline, self._absolute_deadline)
         lease = self._admission.acquire(self._digest)
 
         async def lifecycle() -> T:

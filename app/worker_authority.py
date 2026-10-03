@@ -9,7 +9,7 @@ from typing import Literal
 from app import developer_sandbox
 from app.developer_process import environment
 
-AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v4"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v5"
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,7 +21,7 @@ class WorkerAuthorityProfile:
     workspace_write: bool
     network: bool
     workspace_read: bool = True
-    surface: Literal["workspace", "python", "api", "browser"] = "workspace"
+    surface: Literal["workspace", "python", "api", "browser", "shell"] = "workspace"
 
 
 _WORKSPACE_WRITE = WorkerAuthorityProfile(
@@ -65,7 +65,17 @@ _PUBLIC_DOCUMENT_RENDER = WorkerAuthorityProfile(
     surface="browser",
 )
 
+_ISOLATED_SHELL = WorkerAuthorityProfile(
+    name="isolated-shell-compute-no-network-v1",
+    authority=("isolated-shell-compute",),
+    workspace_write=False,
+    network=False,
+    workspace_read=False,
+    surface="shell",
+)
+
 _PROFILES = {
+    _ISOLATED_SHELL.authority: _ISOLATED_SHELL,
     _PUBLIC_DOCUMENT_RENDER.authority: _PUBLIC_DOCUMENT_RENDER,
     _ISOLATED_COMPUTE.authority: _ISOLATED_COMPUTE,
     _PUBLIC_API_READ.authority: _PUBLIC_API_READ,
@@ -254,6 +264,10 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    if profile.surface == "shell":
+        from app.shell_worker import shell_policy_semantics
+
+        return {"shell_compute": shell_policy_semantics()}
     if profile.surface == "python":
         return {"python_compute": developer_sandbox.python_compute_sandbox_plan()}
     if profile.surface == "api":
@@ -274,6 +288,11 @@ def external_worker_sandbox_semantics(profile: WorkerAuthorityProfile) -> dict[s
 def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, object]:
     python_compute = None
     api_http = None
+    shell_compute = None
+    if profile.surface == "shell":
+        from app.shell_worker import shell_policy_semantics
+
+        shell_compute = shell_policy_semantics()
     if profile.surface == "python":
         from app.python_worker import python_policy_semantics
 
@@ -295,6 +314,7 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "external_worker_sandbox": external_worker_sandbox_semantics(profile),
         "python_compute": python_compute,
         "api_http": api_http,
+        "shell_compute": shell_compute,
     }
 
 

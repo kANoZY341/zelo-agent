@@ -182,6 +182,14 @@ def default_skill_registry() -> SkillRegistry:
                 lifecycle="active",
             ),
             SkillSpec(
+                skill_id="shell_execution",
+                description="Run bounded built-in Shell text compute in a closed no-network guest.",
+                required_capabilities=("shell_execution",),
+                procedures=("shell_execution",),
+                task_kinds=("shell_run",),
+                lifecycle="active",
+            ),
+            SkillSpec(
                 skill_id="python_execution",
                 description="Run bounded Python computations in isolated no-network compute.",
                 required_capabilities=("python_execution",),

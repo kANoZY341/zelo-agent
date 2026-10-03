@@ -18,6 +18,7 @@ from app.developer_contracts import (
 )
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
+from app.shell_contracts import ShellExecutionSpec
 
 
 class StrictModel(BaseModel):
@@ -93,6 +94,38 @@ class PythonRunInput(TaskInput):
     kind: Literal["python_run"]
     payload: PythonPayload
     timeout_seconds: float = Field(default=10.0, ge=0.01, le=60.0, allow_inf_nan=False)
+
+
+class ShellPayload(StrictModel):
+    script: str = Field(min_length=1, max_length=65536, strict=True)
+
+    @model_validator(mode="after")
+    def _script_bound(self):
+        if "\0" in self.script or len(self.script.encode("utf-8")) > 65536:
+            raise ValueError("shell_script_invalid")
+        return self
+
+
+class ShellRunInput(TaskInput):
+    kind: Literal["shell_run"]
+    payload: ShellPayload
+    timeout_seconds: float = Field(default=2.0, ge=0.01, le=2, strict=True, allow_inf_nan=False)
+
+
+class ShellRunResult(StrictModel):
+    stdout: str = Field(max_length=65536, strict=True)
+    stderr: str = Field(max_length=16384, strict=True)
+    exit_code: int = Field(strict=True)
+    duration_seconds: float = Field(ge=0, strict=True, allow_inf_nan=False)
+    policy_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    instruction_trust: Literal["none"] = "none"
+    completed_at: datetime
+
+    @model_validator(mode="after")
+    def _text_byte_bounds(self):
+        if len(self.stdout.encode()) > 65536 or len(self.stderr.encode()) > 16384:
+            raise ValueError("shell_output_limit")
+        return self
 
 
 class ApiPayload(StrictModel):
@@ -187,7 +220,12 @@ class DeveloperRunInput(TaskInput):
 
 
 AgentExecutableTask = Annotated[
-    ResearchRunInput | PythonRunInput | ApiRunInput | BrowserRunInput | DeveloperRunInput,
+    ResearchRunInput
+    | PythonRunInput
+    | ShellRunInput
+    | ApiRunInput
+    | BrowserRunInput
+    | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
 
@@ -270,6 +308,7 @@ TaskCreate = Annotated[
     | AgentRunInput
     | ResearchRunInput
     | PythonRunInput
+    | ShellRunInput
     | ApiRunInput
     | BrowserRunInput
     | SelfImprovementRunInput
@@ -434,6 +473,7 @@ class TaskResponse(StrictModel):
         "agent_run",
         "research_run",
         "python_run",
+        "shell_run",
         "api_run",
         "browser_run",
         "self_improvement_run",
@@ -449,6 +489,7 @@ class TaskResponse(StrictModel):
         | AgentRunPayload
         | ResearchPayload
         | PythonPayload
+        | ShellPayload
         | ApiPayload
         | BrowserPayload
         | SelfImprovementPayload
@@ -475,6 +516,7 @@ class TaskResponse(StrictModel):
     python_spec: WorkerSelectionSnapshot | None = None
     api_spec: ApiExecutionSpec | None = None
     browser_spec: BrowserExecutionSpec | None = None
+    shell_spec: ShellExecutionSpec | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
     release_spec: ReleaseRequest | None = None
@@ -501,6 +543,7 @@ class TaskProjection(StrictModel):
         "agent_run",
         "research_run",
         "python_run",
+        "shell_run",
         "api_run",
         "browser_run",
         "self_improvement_run",

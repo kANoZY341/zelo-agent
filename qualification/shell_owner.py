@@ -47,6 +47,7 @@ class ShellOwner(LeaseResourceOwner):
         *,
         timeout: float = 2.0,
         cleanup_grace: float = 1.0,
+        deadline: float | None = None,
     ) -> None:
         if type(identity) is not ShellIdentity:
             raise DeveloperError("shell_identity_invalid")
@@ -65,6 +66,7 @@ class ShellOwner(LeaseResourceOwner):
             identity.digest,
             timeout,
             cleanup_grace=cleanup_grace,
+            absolute_deadline=deadline,
         )
 
     async def run_probe(self, script: str) -> ProcessResult:

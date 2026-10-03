@@ -72,6 +72,8 @@ from app.self_improvement_runtime import (
     developer_instruction,
     developer_review_instruction,
 )
+from app.shell_contracts import ShellExecutionSpec
+from app.shell_worker import ShellRuntimeError
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
@@ -115,6 +117,7 @@ class Execution:
     merge_request: MergeRequest | None = None
     release_request: ReleaseRequest | None = None
     agent_execution: AgentExecutionBinding | None = None
+    shell_request: ShellExecutionSpec | None = None
 
 
 def audit(
@@ -604,6 +607,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "python_spec": task.python_spec,
         "api_spec": task.api_spec,
         "browser_spec": task.browser_spec,
+        "shell_spec": task.shell_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
         "release_spec": task.release_spec,
@@ -641,6 +645,7 @@ class TaskService:
         python_supervisor: Supervisor[Any] | None = None,
         api_supervisor: Supervisor[Any] | None = None,
         browser_supervisor: Supervisor[Any] | None = None,
+        shell_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -655,6 +660,7 @@ class TaskService:
         self.python_supervisor = python_supervisor
         self.api_supervisor = api_supervisor
         self.browser_supervisor = browser_supervisor
+        self.shell_supervisor = shell_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -794,6 +800,8 @@ class TaskService:
 
         if task.kind == "browser_run":
             return task.browser_spec
+        if task.kind == "shell_run":
+            return task.shell_spec
         if task.kind == "developer_run":
             return task.developer_spec
         if task.kind == "promotion_run":
@@ -1595,6 +1603,27 @@ class TaskService:
     def _browser_action_identity(task: Task) -> tuple[Any, ...]:
         return task.id, task.action_version, task.action_hash, task.browser_spec
 
+    def _shell_preflight(self, worker_id: str | None = None) -> dict[str, Any]:
+        validations: dict[str, Any] = {}
+        if self.shell_supervisor is None:
+            return validations
+        registry = self.shell_supervisor.registry
+        for descriptor in registry.list():
+            if descriptor.role != "shell" or not descriptor.enabled:
+                continue
+            if worker_id is not None and descriptor.worker_id != worker_id:
+                continue
+            selected = registry.get(descriptor.worker_id)
+            try:
+                validations[descriptor.worker_id] = selected.worker.prepare_validation()
+            except ShellRuntimeError as error:
+                validations[descriptor.worker_id] = error
+        return validations
+
+    @staticmethod
+    def _shell_action_identity(task: Task) -> tuple[Any, ...]:
+        return task.id, task.action_version, task.action_hash, task.shell_spec
+
     def submit(
         self,
         request: TaskCreate,
@@ -1604,6 +1633,7 @@ class TaskService:
         if agent_execution is not None and request.kind not in {
             "api_run",
             "browser_run",
+            "shell_run",
             "developer_run",
             "python_run",
             "research_run",
@@ -1630,6 +1660,7 @@ class TaskService:
         )
 
         browser_validations = self._browser_preflight() if request.kind == "browser_run" else {}
+        shell_validations = self._shell_preflight() if request.kind == "shell_run" else {}
         with self.database.transaction() as session:
             if key is not None:
                 existing = session.scalar(select(Task).where(Task.idempotency_key == key))
@@ -1836,6 +1867,45 @@ class TaskService:
                     self._agent_execution_selection(task.browser_spec, agent_execution_spec),
                 )
 
+            shell_request = None
+            if request.kind == "shell_run":
+                if self.shell_supervisor is None:
+                    raise DomainError("Shell worker unavailable", 503)
+                role = "shell"
+                capabilities = ("shell_execution",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "shell":
+                        raise DomainError("Agent Shell worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, shell_selection = self.shell_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    validation = shell_validations.get(shell_selection.descriptor.worker_id)
+                    if isinstance(validation, ShellRuntimeError):
+                        raise validation
+                    shell_request = selected.worker.bind_validated(
+                        validation,
+                        shell_selection,
+                        payload["script"],
+                        request.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ShellRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.shell_spec = shell_request.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(task.shell_spec, agent_execution_spec),
+                )
+
             if request.kind == "tool_call":
                 if self.tool_gateway is None:
                     raise DomainError("Tool gateway unavailable", 503)
@@ -2009,6 +2079,35 @@ class TaskService:
                     endpoint_id=browser_request.endpoint.endpoint.endpoint_id,
                     endpoint_registry_version=browser_request.endpoint.registry_version,
                     browser_policy_version=browser_request.policy_version,
+                )
+
+            if task.kind == "shell_run":
+                if shell_request is None:
+                    raise DomainError("Shell routing state unavailable", 503)
+                selection = shell_request.worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "shell_policy_bound",
+                    operator_identity=shell_request.operator_identity,
+                    shell_policy_version=shell_request.policy_version,
                 )
 
             if task.kind in {"ai_prompt", "agent_run", "research_run", "self_improvement_run"}:
@@ -2571,16 +2670,24 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         browser_action = None
         browser_validations = {}
+        shell_action = None
+        shell_validations = {}
         with self.database.read() as session:
             candidate = require_task(session, task_id)
             if candidate.kind == "browser_run":
                 browser_action = self._browser_action_identity(candidate)
+            if candidate.kind == "shell_run":
+                shell_action = self._shell_action_identity(candidate)
         if browser_action is not None:
             browser_validations = self._browser_preflight()
+        if shell_action is not None:
+            shell_validations = self._shell_preflight()
         with self.database.transaction() as session:
             task = require_task(session, task_id)
             if browser_action is not None and browser_action != self._browser_action_identity(task):
                 raise DomainError("Browser task changed during validation", 409)
+            if shell_action is not None and shell_action != self._shell_action_identity(task):
+                raise DomainError("Shell task changed during validation", 409)
             agent_execution = None
             if task.agent_execution_spec is not None:
                 try:
@@ -2854,6 +2961,60 @@ class TaskService:
                     endpoint_registry_version=refreshed_browser.endpoint.registry_version,
                     browser_policy_version=refreshed_browser.policy_version,
                 )
+            if task.kind == "shell_run":
+                if self.shell_supervisor is None:
+                    raise DomainError("Shell worker unavailable", 503)
+                role = "shell"
+                capabilities = ("shell_execution",)
+                if agent_execution is not None:
+                    requirement = agent_execution.spec.worker_requirement
+                    if requirement is None or requirement.role != "shell":
+                        raise DomainError("Agent Shell worker requirement is invalid", 409)
+                    role = requirement.role
+                    capabilities = tuple(requirement.capabilities)
+                try:
+                    selected, selection = self.shell_supervisor.select(
+                        role=role,
+                        capabilities=capabilities,
+                    )
+                    validation = shell_validations.get(selection.descriptor.worker_id)
+                    if isinstance(validation, ShellRuntimeError):
+                        raise validation
+                    refreshed_shell = selected.worker.bind_validated(
+                        validation,
+                        selection,
+                        task.payload["script"],
+                        task.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ShellRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.shell_spec = refreshed_shell.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "shell_policy_bound",
+                    operator_identity=refreshed_shell.operator_identity,
+                    shell_policy_version=refreshed_shell.policy_version,
+                )
             task.action_hash = action_hash(
                 task.kind,
                 task.payload,
@@ -2986,6 +3147,31 @@ class TaskService:
                         worker_id = ""
             if browser_action is not None:
                 browser_validations = self._browser_preflight(worker_id)
+        shell_action = None
+        shell_validations = {}
+        if self.shell_supervisor is not None:
+            with self.database.read() as session:
+                candidate = self._claimable_task(session)
+                if candidate is None:
+                    return None
+                if candidate.kind == "shell_run":
+                    shell_action = self._shell_action_identity(candidate)
+                    try:
+                        worker_id = ShellExecutionSpec.model_validate(
+                            candidate.shell_spec
+                        ).worker_selection.descriptor.worker_id
+                    except ValueError:
+                        worker_id = ""
+            if shell_action is not None:
+                shell_validations = self._shell_preflight(worker_id)
+                validation = shell_validations.get(worker_id)
+                if isinstance(validation, ShellRuntimeError) and validation.code in {
+                    "shell_admission_denied",
+                    "shell_cleanup_unproven",
+                }:
+                    # A competing metadata lease or uncertain resource fence
+                    # defers this queued action; neither invalidates its identity.
+                    return None
         with self.database.transaction() as session:
             task = self._claimable_task(session)
             if task is None:
@@ -2996,6 +3182,13 @@ class TaskService:
                 and (
                     browser_action is None or browser_action != self._browser_action_identity(task)
                 )
+            ):
+                return None
+
+            if (
+                task.kind == "shell_run"
+                and self.shell_supervisor is not None
+                and (shell_action is None or shell_action != self._shell_action_identity(task))
             ):
                 return None
 
@@ -3227,6 +3420,56 @@ class TaskService:
                     browser_policy_version=browser_request.policy_version,
                 )
 
+            shell_request = None
+            if task.kind == "shell_run":
+                try:
+                    if self.shell_supervisor is None or task.shell_spec is None:
+                        raise ValueError("shell_execution_spec_unavailable")
+                    shell_request = ShellExecutionSpec.model_validate(task.shell_spec)
+                    selection = shell_request.worker_selection
+                    validation = shell_validations.get(selection.descriptor.worker_id)
+                    if isinstance(validation, ShellRuntimeError):
+                        raise ValueError("shell_execution_spec_invalid")
+                    selected = self.shell_supervisor.registry.get(selection.descriptor.worker_id)
+                    if (
+                        selected is None
+                        or not self.shell_supervisor.matches(selection)
+                        or not selected.worker.matches_validated(validation, shell_request)
+                        or not selected.worker.request_matches(
+                            shell_request, task.payload, task.timeout_seconds
+                        )
+                    ):
+                        raise ValueError("shell_execution_spec_stale")
+                    if agent_execution is not None:
+                        requirement = agent_execution.spec.worker_requirement
+                        if (
+                            requirement is None
+                            or selection.requested_role != requirement.role
+                            or tuple(selection.requested_capabilities)
+                            != tuple(requirement.capabilities)
+                        ):
+                            raise ValueError("shell_worker_requirement_mismatch")
+                except ValueError:
+                    task.error = "shell_execution_spec_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=selection.descriptor.worker_id,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "shell_policy_revalidated",
+                    operator_identity=shell_request.operator_identity,
+                    shell_policy_version=shell_request.policy_version,
+                )
+
             if task.kind == "tool_call":
                 if self.tool_gateway is None:
                     task.error = "tool_gateway_unavailable"
@@ -3391,6 +3634,7 @@ class TaskService:
                 merge_request,
                 release_request,
                 agent_execution,
+                shell_request=shell_request,
             )
 
     def finish(
@@ -3563,6 +3807,22 @@ class TaskService:
                     session,
                     task,
                     "browser_completed" if outcome == State.SUCCEEDED else "browser_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+            if task.kind == "shell_run":
+                details = {"reason": error, "instruction_trust": "none"}
+                if result is not None:
+                    details.update(
+                        exit_code=result["exit_code"],
+                        stdout_bytes=len(result["stdout"].encode()),
+                        stderr_bytes=len(result["stderr"].encode()),
+                        shell_policy_version=result["policy_version"],
+                    )
+                audit(
+                    session,
+                    task,
+                    "shell_completed" if outcome == State.SUCCEEDED else "shell_failed",
                     attempt_id=attempt.id,
                     **details,
                 )
@@ -3773,6 +4033,14 @@ class TaskService:
                         session,
                         task,
                         "browser_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "shell_run":
+                    audit(
+                        session,
+                        task,
+                        "shell_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

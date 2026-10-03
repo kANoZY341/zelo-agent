@@ -277,3 +277,17 @@ def descriptor_for_browser_worker(
         priority=100,
         max_concurrency=1,
     )
+
+
+def descriptor_for_shell_worker(
+    *, implementation: str = "core_shell", worker_id: str = "shell_core"
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="shell",
+        capabilities=("shell_execution",),
+        authority=("isolated-shell-compute",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     scheduler_control_headroom_seconds: int = Field(default=30, ge=1, le=300)
     scheduler_max_active_per_campaign: int = Field(default=32, ge=1, le=1000)
     ollama_url: str = "http://127.0.0.1:11434"
+    shell_worker_enabled: bool = False
+    shell_worker_admission: Path | None = None
     browser_worker_enabled: bool = False
     browser_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
     browser_worker_receipt: Path | None = None

@@ -930,3 +930,41 @@ lease. Results require explicit child, pipe/task and sealed-pin cleanup; uncerta
 cleanup or owner death preserves a restart fence. It adds no Shell task, Agent
 route or production activation. See
 [Shell owner qualification](docs/v0.15-shell-owner-qualification.md).
+
+## Qualified Shell Core binding (v0.15 development)
+
+Shell compute is disabled by default. Migration `0030_shell_worker_selection`
+adds `shell_run` and immutable, action-bound execution identity. There is no default
+Shell agent or Mind route. Explicit enablement requires `ZELO_SHELL_WORKER_ENABLED`
+and `ZELO_SHELL_WORKER_ADMISSION`, an existing canonical private 0700 directory
+owned by the same nonroot operator. Never choose this directory per request or
+reset an unknown admission marker. The operator, host kernel/filesystem and
+approved fixed source artifacts remain trusted prerequisites; content hashes
+alone do not establish provenance. See `docs/v0.15-shell-core-binding.md`.
+
+Payload is bounded UTF-8 script text only, with a deadline from 0.01 to 2 seconds:
+
+```json
+{"kind":"shell_run","payload":{"script":"n=6; printf '%s' \"$((n * 7))\"\n"},"timeout_seconds":2}
+```
+
+The lane executes only qualified sealed Dash/prlimit/Bubblewrap with the fixed
+nonroot, no-workspace/no-write/no-network/no-credentials/no-fork policy. It offers
+no executable, arguments, environment, paths, mounts or stdin-data overrides.
+Submission/retry bind worker selection, script digest, policy and runtime identity;
+claim and Runner revalidate them. Output is bounded untrusted text and grants no
+authority. Successful publication and readmission require explicit native/resource
+cleanup; uncertain settlement remains retained and fenced. Production settings
+and the published release are unchanged.
+
+An operator may run isolated, fixed harmless native Core fixtures explicitly:
+
+```bash
+.venv/bin/python -m scripts.qualify_shell_core_binding --allow-native-shell-probes
+```
+
+The proof creates private diagnostic SQLite/admission state under ignored
+`runtime/shell-core-binding`, uses init-only settings, and exercises Core task
+persistence, success, deadlines, output, cancellation, readmission and lost cleanup
+acknowledgement. It leaves the latter diagnostic fence intact. It does not enable
+live Core, contact a model or use external network.
