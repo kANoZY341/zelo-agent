@@ -843,3 +843,11 @@ tree equality; see `reviews/media-png-contract-final-gates.md`. Continue on
 `feat/v0.15-media-wheel-artifact-qualification`, following its bounded artifact
 plan. Native Media attachment/decoder/resources/ownership and Core binding remain
 separate gates; no installation or runtime activation is implied.
+
+### Media wheel inventory checkpoint — 3 October 2026
+
+PR #74 merged at `b17775aea037ced13baf29b5a5b15b3fc2f2113a` with all exact gates
+and tree equality; see `reviews/media-wheel-artifact-final-gates.md`. Continue on
+`feat/v0.15-media-file-preparation` following its closed operator-only normalized
+copy plan. Publisher verification remains a separate prerequisite for combined
+preparation; native execution and Core binding remain later gates.

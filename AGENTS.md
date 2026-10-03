@@ -68,49 +68,31 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media Pillow wheel artifact qualification after Media
-contract PR #73 at `aed13e6`. Continue Core; UI rework requires fresh acceptance.
+The active work is v0.15 Media private normalized file preparation after wheel
+inventory PR #74 at `b17775a`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media Pillow wheel artifact qualification
+## Current scope: v0.15 Media private normalized file preparation
 
-Media PNG contract PR #73 merged at `aed13e6410db099fa0ad6772feb1b37c1f70baff`
-from reviewed/tested head `043aa2a8078fb365a5182e9fa7daad4c7717ea94`; trees match.
-Full exact-head PR CI passed 2,053 tests. 513 focused/Browser compatibility checks,
-four standalone supplements and two negative controls passed. Astra Medium design
-and exact full review found no remaining blockers. See the final receipt.
+Wheel inventory PR #74 merged with matching tested/reviewed tree and exact full CI
+2,189 passed, two supplemented skips. See its final gate receipt. Read
+`docs/v0.15-media-file-preparation.md` before implementation; its closed operator-only
+copy scope and failure protocol incorporate Astra Medium design review.
 
-Read `docs/v0.15-media-wheel-artifact-qualification.md` before implementation.
-Implement only a closed immutable-bytes-to-candidate-inventory validator for the
-independently observed Pillow 12.3.0 CPython 3.12 Linux x86_64 wheel, plus offline
-fixtures/tests and credential-free documentation. One exact pinned public release
-download into a new private ignored runtime diagnostic file is in scope for actual
-artifact inspection. Hash/size-check before standard-library ZIP parsing. No package
-import/install/extraction, decoder/native/resource/owner execution, new runtime
-factory/registry/capability/task/Core/Agent/Mind route or live settings/database change.
+Implement only strict pinned wheel bytes to a new private normalized diagnostic
+payload, scanner comparison and authority-free receipt, plus adversarial offline
+fixtures and actual fixed-wheel copy proof. Reuse the unchanged Browser scanner
+and closed wheel inspector. No caller host path, overwrite, package import/install/
+execution, native image, decoder, factory/registry/capability/task/Core/Agent/Mind
+route or live state change. Do not install a publisher verifier in this slice.
+Publisher attribution stays unverified; combined preparation remains incomplete.
 
-Inspect the exact pinned archive shape without importing before enumerating closed
-required members, metadata/tag/license fields. Strict bytes, closed upstream hash,
-bounded entries/depth/paths/modes/compression and running actual bytes/CRC/EOF checks;
-reject traversal/duplicates/collisions/symlink/special/unsupported entries. Bound
-metadata/RECORD, verify canonical complete file hashes/sizes/self-row and preserve
-all notice inventory. Reuse standard-library ZIP and ArtifactFile value semantics,
-without changing the Browser scanner or building an install/plugin framework.
-
-Return scanner-derived frozen nested tuples and versioned policy-bound candidate
-digest/trust none. File presence and hash/RECORD/page publisher claims are not ABI,
-codec, source safety, complete license audit or cryptographic attestation verification.
-No package import or runtime acceptance follows inspection. Pinned native bundle/
-attestation, decoder/transform correctness, resources, one absolute deadline,
-durable admission and confirmed cleanup remain separate later gates. Preserve
-qualified Browser/Shell contracts and authority/ownership behavior.
-
-Use the dedicated worktree and Astra Medium. Require adversarial offline tests,
-actual fixed candidate inspection, independent exact-head static review, full CI and
-installed-Codex supplements before merge. No system/global/shared-venv installs,
-sudo, services, listeners, model requests, user data or unrelated deletion.
-Production flags stay disabled; v0.14.0/UI #61 preserved. Computer/external adapters
-remain separate; v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
+Use the dedicated worktree and Astra Medium. Require exact full static review,
+full CI, standalone supplements and actual clean-head diagnostic proof before merge.
+No system/global/shared-venv installs, sudo, services/listeners, model requests,
+user data or unrelated deletion. Production flags remain disabled; published
+v0.14.0 and parked UI #61 preserved. Computer/external adapters remain separate;
+v0.16 channels -> v0.17 organizations -> v0.18 autonomy retains its order.
 
 ## Workspace decision
 
