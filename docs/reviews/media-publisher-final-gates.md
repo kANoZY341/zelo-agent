@@ -65,3 +65,7 @@ ancestors. That run is recorded as a diagnostic, not substituted for normal CI.
 Bounded raw evidence is retained under this dedicated worktree's ignored runtime:
 media-publisher-final-gates.json, final-review.md/log, final-ci.log, final-standalone.log,
 final-supplements.json, native-matrix-final.json/log and23 referenced proof directories.
+
+
+Post-merge main CI37141058387 passed for c83af6c3b688ce2bee79a094abd9f206b5a9861a;
+its source tree matches the reviewed/tested PR tree exactly.
