@@ -12,9 +12,9 @@ from pathlib import Path
 
 import httpx
 
+from app.application import create_app
 from app.config import ROOT, Settings
 from app.database import Database
-from app.main import create_app
 from app.models import Task
 from app.policy import action_hash
 from app.schemas import ShellRunResult, TaskResponse
@@ -151,6 +151,50 @@ def validate_audit(events, task):
         or bound[0]["details"]["operator_identity"] != task.shell_spec.operator_identity
     ):
         raise RuntimeError("operator_audit_identity_mismatch")
+    selection = task.shell_spec.worker_selection
+    expected = {
+        "supervisor_routing_requested": {
+            "role": selection.requested_role,
+            "capabilities": list(selection.requested_capabilities),
+            "routing_policy": selection.routing_policy,
+        },
+        "supervisor_worker_selected": {
+            "worker_id": selection.descriptor.worker_id,
+            "implementation": selection.descriptor.implementation,
+            "registry_version": selection.registry_version,
+            "authority_profile": selection.authority_profile,
+        },
+        "supervisor_worker_revalidated": {
+            "worker_id": selection.descriptor.worker_id,
+            "registry_version": selection.registry_version,
+            "authority_profile": selection.authority_profile,
+        },
+        "shell_policy_bound": {
+            "operator_identity": task.shell_spec.operator_identity,
+            "shell_policy_version": task.shell_spec.policy_version,
+        },
+        "shell_policy_revalidated": {
+            "operator_identity": task.shell_spec.operator_identity,
+            "shell_policy_version": task.shell_spec.policy_version,
+        },
+        "shell_execution_started": {"policy_version": task.shell_spec.policy_version},
+        "shell_execution_completed": {"exit_code": task.result["exit_code"]},
+        "attempt_created": {"number": task.attempts[0].number},
+    }
+    execution = {
+        "attempt_created",
+        "execution_started",
+        "shell_execution_started",
+        "shell_execution_completed",
+        "execution_completed",
+        "shell_completed",
+    }
+    for event in events:
+        if event["event"] in execution and event["attempt_id"] != task.attempts[0].id:
+            raise RuntimeError("operator_audit_attempt_mismatch")
+        for key, value in expected.get(event["event"], {}).items():
+            if event["details"].get(key) != value:
+                raise RuntimeError("operator_audit_selection_mismatch")
     return sorted(required)
 
 
@@ -287,6 +331,15 @@ async def exercise(root, report):
     finally:
         if runtime is not None:
             assert runtime._closing and not runtime._pending()
+            assert application.state.runner.loop_task is not None
+            assert application.state.runner.loop_task.done()
+            assert not application.state.runner.operations
+            reopened = Database(enabled.database_path)
+            try:
+                reopened.acquire_runner()
+                report["database_ownership_released"] = True
+            finally:
+                reopened.close()
             assert admission_clear(runtime.admission_directory)
             report["runtime_cleanup_confirmed"] = True
         report["model_generate_calls"] = provider.generate_calls

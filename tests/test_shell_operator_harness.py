@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.main import create_app
+from app.application import create_app
 from qualification.shell_compute import ShellIdentity
 from scripts import qualify_shell_operator as proof
 from tests.developer_helpers import FakeWorker
@@ -186,6 +186,12 @@ def test_audit_requires_complete_binding_and_terminal_events(missing):
         "audit_attempt",
         "audit_policy",
         "duplicate",
+        "routing",
+        "selected_worker",
+        "revalidated_worker",
+        "revalidated_policy",
+        "revalidated_operator",
+        "execution_attempt",
     ],
 )
 def test_evidence_and_audit_mutation_rejected(runtime_path, monkeypatch, mutation):
@@ -247,9 +253,82 @@ def test_evidence_and_audit_mutation_rejected(runtime_path, monkeypatch, mutatio
             terminal["details"]["shell_policy_version"] = "0" * 64
         elif mutation == "duplicate":
             events.append(deepcopy(terminal))
+        elif mutation in {
+            "routing",
+            "selected_worker",
+            "revalidated_worker",
+            "revalidated_policy",
+            "revalidated_operator",
+            "execution_attempt",
+        }:
+            name, field, value = {
+                "routing": ("supervisor_routing_requested", "role", "python"),
+                "selected_worker": ("supervisor_worker_selected", "worker_id", "other"),
+                "revalidated_worker": (
+                    "supervisor_worker_revalidated",
+                    "registry_version",
+                    "0" * 64,
+                ),
+                "revalidated_policy": (
+                    "shell_policy_revalidated",
+                    "shell_policy_version",
+                    "0" * 64,
+                ),
+                "revalidated_operator": ("shell_policy_revalidated", "operator_identity", "0" * 64),
+                "execution_attempt": ("shell_execution_started", "attempt_id", "other"),
+            }[mutation]
+            event = next(item for item in events if item["event"] == name)
+            if field == "attempt_id":
+                event[field] = value
+            else:
+                event["details"][field] = value
         return original_audit(events, task)
 
     monkeypatch.setattr(proof, "validate_task", validate_task)
     monkeypatch.setattr(proof, "validate_audit", validate_audit)
     with pytest.raises(RuntimeError, match="operator_(evidence|audit)_"):
         asyncio.run(proof.exercise(runtime_path, {"cases": []}))
+
+
+def test_fresh_factory_and_cli_import_never_read_ambient_settings():
+    code = """from app.config import Settings
+
+def forbidden(*args, **kwargs):
+    raise RuntimeError('ambient_settings_source_accessed')
+
+Settings.settings_customise_sources = classmethod(forbidden)
+from app.application import create_app
+from scripts.qualify_shell_operator import QualificationSettings
+assert callable(create_app)
+print('PURE_FACTORY_IMPORTED')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        timeout=10,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "ZELO_SHELL_WORKER_ENABLED": "invalid",
+            "ZELO_BROWSER_WORKER_ENABLED": "invalid",
+            "ZELO_RUNTIME_DIR": "/hostile",
+        },
+    )
+    assert result.returncode == 0 and b"PURE_FACTORY_IMPORTED" in result.stdout
+    assert b"ambient_settings_source_accessed" not in result.stderr
+
+
+def test_fresh_invalid_ambient_cli_reaches_opt_in_guard():
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.qualify_shell_operator"],
+        capture_output=True,
+        timeout=10,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "ZELO_SHELL_WORKER_ENABLED": "invalid",
+            "ZELO_BROWSER_WORKER_ENABLED": "invalid",
+            "ZELO_RUNTIME_DIR": "/hostile",
+            "ZELO_SCHEDULER_ENABLED": "invalid",
+        },
+    )
+    assert result.returncode == 2 and b"explicit --allow-native-shell-probes" in result.stderr
+    assert b"ValidationError" not in result.stderr and b"EVIDENCE=" not in result.stdout

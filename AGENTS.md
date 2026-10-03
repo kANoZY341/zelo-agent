@@ -31,8 +31,10 @@
 ## Implementation and verification
 
 - Write maintainable, typed Python with small functions and clear boundaries.
-- Keep application assembly in `app/main.py`, HTTP routes in `app/api.py`, and
-  environment-backed settings in `app/config.py`.
+- Keep reusable application assembly in `app/application.py`, the normal ASGI
+  entry point in `app/main.py`, HTTP routes in `app/api.py`, and environment-backed
+  settings in `app/config.py`. Explicitly configured factory imports must not
+  instantiate default Settings or parse live environment/.env.
 - Keep runtime dependencies minimal and separate test dependencies.
 - Add automated tests for important behavior and regressions. Run relevant tests
   after changes; verify service changes locally and stop temporary servers.
@@ -103,6 +105,10 @@ source/native/pin/durable cleanup. Unknown ownership remains retained/fenced; no
 TTL, PID-age/error inference or reconciliation. Preserve approvals, scheduler,
 budgets, audit, Agent WorkerRequirements and migrations. Do not change backend
 semantics merely to make the proof pass; scope any discovered runtime fix explicitly.
+The ambient CLI exposed app.main importing ordinary default Settings before
+diagnostic isolation. Move the unchanged reusable factory to app/application.py;
+retain app.main as the same normal ASGI entry and re-export create_app. Review/test
+this extraction explicitly, preserving all lifecycle/runtime semantics.
 
 Use this dedicated worktree and Astra Medium. Require offline focused tests,
 normal/invalid-ambient actual application/native proofs, independent exact-head
