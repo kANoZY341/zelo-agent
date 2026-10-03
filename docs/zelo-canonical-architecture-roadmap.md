@@ -851,3 +851,11 @@ and tree equality; see `reviews/media-wheel-artifact-final-gates.md`. Continue o
 `feat/v0.15-media-file-preparation` following its closed operator-only normalized
 copy plan. Publisher verification remains a separate prerequisite for combined
 preparation; native execution and Core binding remain later gates.
+
+### Media private file preparation checkpoint — 3 October 2026
+
+PR #75 merged at `5f6c678856901638f407cc15883d094aa40b2585` with matching reviewed/
+tested tree and all gates; see `reviews/media-file-preparation-final-gates.md`.
+Continue `feat/v0.15-media-publisher-qualification` using its phased, private,
+mature-tool pinned-root attribution plan. Prepared files remain mutable and
+attribution-unverified; no native execution or Core activation is implied.

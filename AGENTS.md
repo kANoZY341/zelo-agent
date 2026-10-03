@@ -68,31 +68,40 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media private normalized file preparation after wheel
-inventory PR #74 at `b17775a`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media publisher attribution qualification after private
+file preparation PR #75 at `5f6c678`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media private normalized file preparation
+## Current scope: v0.15 Media publisher attribution qualification
 
-Wheel inventory PR #74 merged with matching tested/reviewed tree and exact full CI
-2,189 passed, two supplemented skips. See its final gate receipt. Read
-`docs/v0.15-media-file-preparation.md` before implementation; its closed operator-only
-copy scope and failure protocol incorporate Astra Medium design review.
+PR #75 merged with matching tested/reviewed tree, exact full CI 2,261 passed, two
+supplemented skips and all gates in its receipt. Read
+`docs/v0.15-media-publisher-qualification.md` before work. Astra Medium design
+review recommends mature public PEP740 conversion/Sigstore verification under an
+explicit hash-locked operator-trusted production root snapshot, offline and confined.
+This is conditional historical attribution, not current TUF/trust freshness.
 
-Implement only strict pinned wheel bytes to a new private normalized diagnostic
-payload, scanner comparison and authority-free receipt, plus adversarial offline
-fixtures and actual fixed-wheel copy proof. Reuse the unchanged Browser scanner
-and closed wheel inspector. No caller host path, overwrite, package import/install/
-execution, native image, decoder, factory/registry/capability/task/Core/Agent/Mind
-route or live state change. Do not install a publisher verifier in this slice.
-Publisher attribution stays unverified; combined preparation remains incomplete.
+Phase one: bounded fixed provenance/tool-wheel metadata/acquisition and mature
+binary-only dependency resolution in new private write-confined diagnostics. Freeze
+all hashes, notices, hooks/path shape, root member and provenance cardinalities before
+implementation acceptance. No new tool import/install until that inspection closes
+the complete lock. Then record exact constants, implement/review a narrow optional
+operator verifier/launcher and qualify actual crypto/confinement/failure cases.
+All tools/dependencies/install/temp/cache/outputs remain private under this dedicated
+repository. Never alter shared/system venv or caches. No arbitrary caller roots/pins,
+unsigned publisher-derived policy, signing/OAuth, credentials or source-build hooks.
 
-Use the dedicated worktree and Astra Medium. Require exact full static review,
-full CI, standalone supplements and actual clean-head diagnostic proof before merge.
-No system/global/shared-venv installs, sudo, services/listeners, model requests,
-user data or unrelated deletion. Production flags remain disabled; published
-v0.14.0 and parked UI #61 preserved. Computer/external adapters remain separate;
-v0.16 channels -> v0.17 organizations -> v0.18 autonomy retains its order.
+No Pillow import/install/execution, Media image/decoder/runtime/task/registry/
+capability/Core/Agent/Mind route or live state change. Existing copy receipt remains
+attribution-unverified; new conditional attribution evidence stays separate, and
+combined current tree evidence requires a fresh unchanged scanner comparison.
+No current root freshness, source/build/ABI/codec/license/runtime assurance follows.
+
+Use the dedicated worktree and Astra Medium, adversarial offline fixtures, actual
+closed-wheel crypto/confinement proof, exact full static review/CI and standalone
+supplements before merge. No sudo, services/listeners, model requests, user data or
+unrelated deletion. Production flags stay disabled; v0.14.0/UI #61 preserved.
+Computer/external adapters and v0.16 -> v0.17 -> v0.18 remain separate/ordered.
 
 ## Workspace decision
 
