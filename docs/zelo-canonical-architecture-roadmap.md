@@ -469,12 +469,12 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Browser document broker, owned DNS,
-resource admission, artifact/native-sandbox qualification and bounded renderer
-integration are merged through PR #66 at `f728df7`. Next bind the qualified path
-to Core task identity, retry, claim and Runner according to
-`docs/v0.15-browser-core-binding.md`. Browser Worker remains inactive; UI PR #61
-remains parked for later rework.
+Core-first checkpoint (3 October 2026): Browser Core task binding PR #67 is
+merged at `bc8404e`, through exact reviewed/tested head `0486e15`. Full CI passed
+1,617 tests with two separately passed installed-Codex skips. Next qualify the
+default operator/DNS/TLS/public-document path according to
+`docs/v0.15-browser-operator-qualification.md`. Browser Worker remains inactive;
+UI PR #61 stays parked for later rework.
 
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
@@ -784,3 +784,25 @@ Continue on `feat/v0.15-browser-core-binding` using the next binding plan. Compl
 operator prerequisites and immutable Core task/worker identity before activation;
 merging qualification code does not activate Browser Worker. Published release
 stays v0.14.0. UI #61 and canonical later milestones remain parked/unchanged.
+
+
+## Browser Core binding merged — 3 October 2026
+
+PR #67 merged at `bc8404e3257573701683448255311d79f3d27cdf`; its tree equals
+reviewed/tested `0486e15153adaf5983d5341a69cdbf01390ec93e`. Exact-commit full CI
+passed 1,617 tests with two installed-Codex skips; both passed separately. The
+90-case Core/capability gate and eight controlled real Core-to-Chromium cases
+passed. HTTP/DNS were fixtures. Independent Astra Medium combined full static
+review and exact-commit follow-ups found no remaining blocker in their scope.
+
+Browser jobs now bind immutable Core task/worker/operator/renderer authority,
+retry/claim/Runner validation, bounded untrusted results and cleanup fencing.
+File scans run off the event loop and before SQLite writer transactions;
+commit checks retain action/configuration/cancellation/Agent authority. Deadlines
+include initial Runner validation; pending claims and late/overlapping cleanup
+are accounted for. See `docs/reviews/browser-core-binding-final-gates.md`.
+
+Continue on `feat/v0.15-browser-operator-qualification`. Qualify actual default
+DNS/TLS/public-document fetch and isolated operator assembly before production
+acceptance. No Browser Agent/Mind route or production enablement is implied.
+Published release remains v0.14.0; UI #61 and later milestone order are unchanged.

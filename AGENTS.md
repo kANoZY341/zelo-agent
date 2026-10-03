@@ -66,44 +66,47 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser Worker Core task binding after renderer
-integration PR #66 at `f728df7`. Continue the established Core roadmap; later UI
+The active work is v0.15 Browser operator qualification after Core task
+binding PR #67 at `bc8404e`. Continue the established Core roadmap; later UI
 rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 Browser Worker Core binding
+## Current scope: v0.15 Browser operator qualification
 
-Renderer integration PR #66 merged at `f728df7e87e3c4a9b5cdb23fc1e2c60281a810ef`.
-Reviewed/tested head `ba188c3` passed exact-head CI (1538 tests, 2 installed-Codex
-host-only skips), 121 focused renderer/protocol/harness tests, ten real controlled
-Chromium/container/owner cases and independent Astra Medium static review. The
-merge tree exactly matches that head. The existing installed-Codex host supplement
-passed on the prior implementation checkpoint; do not describe duplicate stopped
-local full-suite attempts as complete verification.
+Core binding PR #67 merged at `bc8404e3257573701683448255311d79f3d27cdf`.
+Its tree equals reviewed/tested head `0486e15153adaf5983d5341a69cdbf01390ec93e`:
+exact-commit CI passed 1,617 tests with two installed-Codex skips; both passed in
+an exact-commit standalone clone. Core/capability tests passed 90 cases; all eight
+real controlled Core/Chromium/container cases passed with fixture HTTP/DNS and
+no setup cleanup errors. Astra Medium full static review plus exact-commit
+follow-ups found no remaining blocking defect within combined static scope.
+See `docs/reviews/browser-core-binding-final-gates.md`.
 
-Read `docs/v0.15-browser-core-binding.md` before implementation. This branch binds
-the qualified renderer to Core task/worker/Agent identity, migration guards,
-action hashing, retry, claim and Runner. Default state remains disabled. Trusted
-operator configuration must establish verified artifacts/image/profile/origins and
-one canonical persistent private admission directory before any worker is enabled.
-Do not modify live Core settings/databases, install services, publish a release or
-activate the production Browser Worker in this development slice.
+Read `docs/v0.15-browser-operator-qualification.md` before implementation. Qualify
+actual DNS/TLS/document fetch through the default adapter in an isolated temporary
+Core instance, with one fixed public documentation origin/path and explicit host
+opt-in. Reuse the qualified preparation command, receipt loader, task service,
+Runner, renderer and admission boundary. Separate real public-network evidence
+from the preceding fixture HTTP/DNS proof. Offline CI must not contact websites
+or run Docker; test the opt-in guard and deterministic harness behavior instead.
 
-Reuse qualified broker/renderer/owner/admission modules through a narrow adapter.
-No raw CDP, arbitrary evaluation/navigation/interaction, custom flags/headers/cookies,
-credentials, caller-selected URL/image/mount/profile, screenshots or downloads.
-Keep native browser sandboxing, network-none, private profile/pipe, nonroot, NNP,
-cap-drop ALL, cgroups and truthful cleanup. Unknown cleanup stays fenced; retry,
-restart, TTL and stale PID inference cannot reconcile a marker automatically.
+Production Browser Worker remains disabled. Do not modify live settings/databases,
+install services, expose network listeners, publish a release, add a default
+Browser Agent or Mind route, or merge parked UI PR #61. Keep v0.14.0, user chats,
+UI worktrees and the canonical Agent hierarchy/milestone ordering intact.
 
-Work in this dedicated worktree. Preserve original UI worktrees and parked draft
-PR #61, beta conversations/data and published v0.14.0. Use Astra Medium. Preserve
-existing API/Research/Python authority, Agent hierarchy and canonical v0.16/v0.17/
-v0.18 ordering. No default AgentSpec, new department or Mind routing in this slice.
-Require focused tests, full pytest, independent exact-head review and exact-head
-CI before merging runtime changes. Docker host tests remain explicit opt-ins;
-automated CI is offline and deterministic. Separate static, fixture and actual
-host evidence. Read `docs/v0.15-browser-renderer-integration.md` for qualified scope
-and trust/availability limitations.
+Preserve narrow endpoint/path/timeout task inputs, exact identity and versioned
+retry/claim/Runner checks, native sandbox, no-network Chromium, nonroot/NNP,
+cap-drop ALL, cgroups and cleanup-gated results. No CDP/evaluation/navigation/
+interaction, custom flags/headers/cookies/credentials, screenshots or downloads.
+No privileged/no-sandbox fallback. Unknown cleanup stays fenced; no TTL, stale-PID
+inference, automatic marker reconciliation or unrelated resource deletion.
+
+Work in this dedicated worktree and use Astra Medium. Require focused tests,
+controlled host proof, independent exact-commit review and exact-commit full CI
+before merging runtime/harness changes. Clearly distinguish static, fixture and
+actual host/public-network evidence. Operator receipts are structural configuration,
+not signatures or independent image provenance. Source artifacts, same-UID
+operators, filesystem ancestors and Docker remain trusted.
 
 ## Workspace decision
 
