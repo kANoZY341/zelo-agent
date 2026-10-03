@@ -266,7 +266,16 @@ def _inspect(raw: bytes, elf, decode) -> bytes:
     for index in range(table["sh_size"] // 16):
         item = record("Elf_Dyn", table["sh_offset"] + index * 16, 16)
         tag, value = item["d_tag"], _integer(item["d_val"])
-        _refuse(tag in DYNAMIC_TAGS, "dynamic_tag")
+        if tag not in DYNAMIC_TAGS:
+            # Bounded pinned-enum label/integer diagnostic; never accept this tag.
+            label = (
+                tag
+                if type(tag) is str and re.fullmatch(r"DT_[A-Z0-9_]{1,64}", tag)
+                else str(tag)
+                if type(tag) is int and -(2**63) <= tag < 2**63
+                else "unrecognized"
+            )
+            raise ElfMetadataError("media_elf_dynamic_tag:" + label)
         if terminated:
             _refuse(tag == "DT_NULL" and value == 0, "dynamic_padding")
             continue

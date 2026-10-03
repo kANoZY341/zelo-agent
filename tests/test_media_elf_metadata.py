@@ -373,3 +373,19 @@ def test_only_owned_fixed_refusal_survives_parser_wrapper(monkeypatch, owned):
     with pytest.raises(m.ElfMetadataError) as result:
         m.inspect_elf_metadata(bytes(64))
     assert str(result.value) == ("media_elf_string_work" if owned else "media_elf_metadata_refused")
+
+
+@pytest.mark.parametrize(
+    "tag,label",
+    [
+        ("DT_TLSDESC_PLT", "DT_TLSDESC_PLT"),
+        (123456, "123456"),
+        ("DT_" + "X" * 65, "unrecognized"),
+        ("DT_BAD\nINJECTION", "unrecognized"),
+    ],
+)
+def test_unsupported_tag_diagnostic_is_bounded_and_never_accepted(candidate, tag, label):
+    candidate[3][("Elf_Dyn", 500)]["d_tag"] = tag
+    with pytest.raises(m.ElfMetadataError) as error:
+        inspect(candidate)
+    assert str(error.value) == "media_elf_dynamic_tag:" + label
