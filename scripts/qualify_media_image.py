@@ -71,6 +71,7 @@ def confinement_policy() -> dict:
         "package_path_on_sys_path": False,
         "flags": ("-I", "-S", "-B"),
         "environment": shared.confinement_policy()["environment"],
+        "guest_added_environment": {"PWD": "/workspace"},
         "setup_inherited_limits": {
             "fds": 256,
             "cpu_seconds": 30,

@@ -130,7 +130,8 @@ elif case != 'copy':
 after = capture_manifest(root, ROLES, SCAN_POLICY)
 imports_absent = not any(name == 'PIL' or name.startswith('PIL.') for name in sys.modules)
 environment_closed = dict(os.environ) == {'PATH': '/usr/bin', 'LANG': 'C.UTF-8',
-                                          'LC_ALL': 'C.UTF-8', 'TMPDIR': '/tmp'}
+                                          'LC_ALL': 'C.UTF-8', 'TMPDIR': '/tmp',
+                                          'PWD': '/workspace'}
 print(json.dumps({'status': 'image_scanned', 'case': case,
                   'manifest': dataclasses.asdict(before), 'digest': before.digest,
                   'after_manifest': dataclasses.asdict(after), 'after_digest': after.digest,

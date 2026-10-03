@@ -170,6 +170,7 @@ def test_fixed_profile_and_no_limits_changed_by_import():
     assert policy["package_import_or_execution"] is False
     assert policy["aggregate_host_tmpfs_memory_enforced"] is False
     assert set(policy["environment"]) == {"PATH", "LANG", "LC_ALL", "TMPDIR"}
+    assert policy["guest_added_environment"] == {"PWD": "/workspace"}
     policy["environment"].clear()
     assert q.confinement_policy()["environment"]
     assert resource.getrlimit(resource.RLIMIT_NOFILE) == limit
