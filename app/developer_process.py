@@ -327,10 +327,16 @@ async def spawn_owned_process(
             else (observation._process if observation is not None else None)
         )
         if owned is not None:
-            await stop_process(owned)
-            if observation is not None:
-                observation._creation_terminal = True
-                observation._io_settled = True  # No caller I/O tasks were created.
+
+            async def cleanup_and_acknowledge() -> None:
+                await stop_process(owned)
+                if observation is not None:
+                    observation._creation_terminal = True
+                    observation._io_settled = True  # No caller I/O tasks were created.
+
+            _, cancelled = await uncancellable(asyncio.create_task(cleanup_and_acknowledge()))
+            if cancelled:
+                raise asyncio.CancelledError from None
         elif observation is not None and not observation._spawn_pending:
             observation._no_child()
         raise

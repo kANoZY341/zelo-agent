@@ -9,7 +9,7 @@ import signal
 import stat
 import sys
 import tempfile
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -79,26 +79,65 @@ async def fixture_parent(root: Path) -> None:
         await owner.aclose()
 
 
-def descendants(parent: int) -> dict[int, tuple[int, str]]:
+@dataclass(frozen=True)
+class ProcessIdentity:
+    parent: int
+    group: int
+    session: int
+    start_ticks: int
+    name: str
+
+
+def process_identity(pid: int) -> ProcessIdentity:
+    text = Path(f"/proc/{pid}/stat").read_text()
+    if int(text.split(" ", 1)[0]) != pid:
+        raise RuntimeError("shell_fixture_process_identity_invalid")
+    fields = text.rsplit(")", 1)[1].split()
+    return ProcessIdentity(
+        int(fields[1]),
+        int(fields[2]),
+        int(fields[3]),
+        int(fields[19]),
+        text.split("(", 1)[1].rsplit(")", 1)[0],
+    )
+
+
+def descendants(parent: int) -> dict[int, ProcessIdentity]:
     entries = {}
     for path in Path("/proc").iterdir():
         if not path.name.isdecimal():
             continue
         try:
-            text = (path / "stat").read_text()
-            fields = text.rsplit(")", 1)[1].split()
-            entries[int(path.name)] = (int(fields[1]), text.split("(", 1)[1].rsplit(")", 1)[0])
+            entries[int(path.name)] = process_identity(int(path.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
     owned = {}
     pending = {parent}
     while pending:
-        next_level = {pid for pid, (ppid, _) in entries.items() if ppid in pending}
+        next_level = {pid for pid, identity in entries.items() if identity.parent in pending}
         if len(owned) + len(next_level) > 32:
             raise RuntimeError("shell_fixture_tree_limit")
         owned.update({pid: entries[pid] for pid in next_level})
         pending = next_level
     return owned
+
+
+def bind_descendant_pidfd(pid: int, expected: ProcessIdentity) -> int:
+    if process_identity(pid) != expected:
+        raise RuntimeError("shell_fixture_ancestry_changed")
+    descriptor = os.pidfd_open(pid)
+    try:
+        if process_identity(pid) != expected or select.select([descriptor], [], [], 0)[0]:
+            raise RuntimeError("shell_fixture_ancestry_changed")
+        # Kernel fdinfo binds this descriptor to the still-live sampled task.
+        lines = Path(f"/proc/self/fdinfo/{descriptor}").read_text().splitlines()
+        identities = [int(line.split(":", 1)[1]) for line in lines if line.startswith("Pid:")]
+        if identities != [pid]:
+            raise RuntimeError("shell_fixture_pidfd_identity_changed")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
 
 
 async def crash_fence(root: Path, identity: ShellIdentity) -> dict:
@@ -153,17 +192,14 @@ async def crash_fence(root: Path, identity: ShellIdentity) -> dict:
         async with asyncio.timeout(1):
             while True:
                 tree = descendants(parent.pid)
-                if launcher in tree and any(name == "dash" for _, name in tree.values()):
+                if launcher in tree and any(value.name == "dash" for value in tree.values()):
                     break
                 await asyncio.sleep(0.005)
         # Bind every currently running fixed fixture descendant before killing
         # only its directly owned parent. Never signal numeric descendant PIDs.
-        for pid in tree:
-            descriptor = os.pidfd_open(pid)
-            descriptors.append(descriptor)
-            if select.select([descriptor], [], [], 0)[0]:
-                raise RuntimeError("shell_fixture_child_already_exited")
-        if launcher not in descendants(parent.pid):
+        for pid, sampled in tree.items():
+            descriptors.append(bind_descendant_pidfd(pid, sampled))
+        if descendants(parent.pid) != tree:
             raise RuntimeError("shell_fixture_ancestry_changed")
         parent.signal_group(signal.SIGKILL)
         await stop_process(parent)

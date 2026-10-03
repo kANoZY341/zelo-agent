@@ -298,14 +298,18 @@ def test_partial_pin_creation_closes_entered_resources(tmp_path, monkeypatch):
 
     @contextmanager
     def pin(*args, **kwargs):
+        settlement = kwargs["cleanup_observation"]
+        settlement._claim()
         nonlocal count
         count += 1
         if count == 2:
+            settlement._confirmed = settlement._terminal = True
             raise OSError("fixture second pin fails")
         try:
             yield SimpleNamespace(fd=100, verify=lambda: None)
         finally:
             events.append("first_pin_closed")
+            settlement._confirmed = settlement._terminal = True
 
     monkeypatch.setattr(shell_compute, "pin_artifact", pin)
     with pytest.raises(OSError):
@@ -330,3 +334,28 @@ def test_absolute_deadline_expired_before_sources_never_launches(monkeypatch):
         assert resources.cleanup_confirmed
 
     asyncio.run(exercise())
+
+
+def test_pin_close_observation_uncertainty_cannot_settle_shell_resources(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    resources = shell_compute.ShellProbeResources()
+    closed = []
+
+    @contextmanager
+    def pin(path, *, cleanup_observation, **kwargs):
+        cleanup_observation._claim()
+        try:
+            yield SimpleNamespace(fd=100, verify=lambda: None)
+        finally:
+            closed.append(path)
+            cleanup_observation._terminal = True
+            cleanup_observation._confirmed = False
+
+    monkeypatch.setattr(shell_compute, "pin_artifact", pin)
+    with pytest.raises(DeveloperError, match="shell_pin_cleanup_unproven"):
+        with shell_compute._pin_sources(identity(), resources):
+            pass
+    resources._terminal = True
+    assert len(closed) == 6 and not resources.cleanup_confirmed

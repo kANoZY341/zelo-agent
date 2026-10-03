@@ -64,3 +64,32 @@ def test_core_assembly_does_not_import_or_register_shell_qualification():
     for relative in ("app/main.py", "app/api.py", "app/config.py"):
         text = (root / relative).read_text()
         assert "qualification.shell_owner" not in text and "shell_run" not in text
+
+
+@pytest.mark.parametrize("changed", ["start_ticks", "parent"])
+def test_descendant_identity_revalidated_after_pidfd_acquisition(monkeypatch, changed):
+    from dataclasses import replace
+
+    expected = proof.ProcessIdentity(100, 200, 200, 1234, "dash")
+    later = replace(expected, **{changed: getattr(expected, changed) + 1})
+    samples = iter([expected, later])
+    closed = []
+    monkeypatch.setattr(proof, "process_identity", lambda pid: next(samples))
+    monkeypatch.setattr(proof.os, "pidfd_open", lambda pid: 321)
+    monkeypatch.setattr(proof.os, "close", lambda fd: closed.append(fd))
+    with pytest.raises(RuntimeError, match="shell_fixture_ancestry_changed"):
+        proof.bind_descendant_pidfd(456, expected)
+    assert closed == [321]
+
+
+def test_kernel_pidfd_identity_mismatch_is_not_exit_evidence(monkeypatch):
+    expected = proof.ProcessIdentity(100, 200, 200, 1234, "dash")
+    closed = []
+    monkeypatch.setattr(proof, "process_identity", lambda pid: expected)
+    monkeypatch.setattr(proof.os, "pidfd_open", lambda pid: 321)
+    monkeypatch.setattr(proof.os, "close", lambda fd: closed.append(fd))
+    monkeypatch.setattr(proof.select, "select", lambda *a: ([], [], []))
+    monkeypatch.setattr(Path, "read_text", lambda *a, **kw: "Pid:\t457\n")
+    with pytest.raises(RuntimeError, match="shell_fixture_pidfd_identity_changed"):
+        proof.bind_descendant_pidfd(456, expected)
+    assert closed == [321]

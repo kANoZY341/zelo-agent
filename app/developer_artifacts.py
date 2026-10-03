@@ -15,6 +15,24 @@ SEALS = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_S
 MAX_BINARY_BYTES = 512 * 1024 * 1024
 
 
+class ArtifactCleanupObservation:
+    """Trusted one-shot settlement evidence; default callers retain their API."""
+
+    def __init__(self) -> None:
+        self._claimed = False
+        self._terminal = False
+        self._confirmed = False
+
+    @property
+    def cleanup_confirmed(self) -> bool:
+        return self._terminal and self._confirmed
+
+    def _claim(self) -> None:
+        if self._claimed:
+            raise DeveloperError("artifact_observation_reused")
+        self._claimed = True
+
+
 @dataclass(frozen=True)
 class PinnedExecutable:
     source: Path
@@ -34,12 +52,17 @@ def pin_artifact(
     approved_path: str | None = None,
     approved_digest: str | None = None,
     name: str,
+    cleanup_observation: ArtifactCleanupObservation | None = None,
 ):
     """Never execute the source. Runtime requires a match before yielding any bytes.
 
     Submission has no existing approval: trusted ownership plus a sealed/digested
     snapshot establishes the proposed identity. Runtime supplies that identity.
     """
+    if cleanup_observation is not None:
+        if type(cleanup_observation) is not ArtifactCleanupObservation:
+            raise DeveloperError("artifact_observation_invalid")
+        cleanup_observation._claim()
     source_fd = artifact_fd = None
     try:
         try:
@@ -91,12 +114,16 @@ def pin_artifact(
             raise DeveloperError("codex_executable_unavailable") from None
         yield artifact
     finally:
+        confirmed = True
         for descriptor in (source_fd, artifact_fd):
             if descriptor is not None:
                 try:
                     os.close(descriptor)
                 except OSError:
-                    pass
+                    confirmed = False
+        if cleanup_observation is not None:
+            cleanup_observation._confirmed = confirmed
+            cleanup_observation._terminal = True
 
 
 @contextmanager

@@ -260,3 +260,51 @@ def test_unknown_constructor_interruption_never_claims_no_child(monkeypatch):
         assert not record.cleanup_confirmed
 
     asyncio.run(exercise())
+
+
+def test_second_cancel_during_startup_cleanup_preserves_ack(monkeypatch):
+    record = processes.NativeExecutionObservation()
+    original_stop = processes.stop_process
+
+    async def exercise():
+        connecting, cleaning, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+        async def connect(process):
+            connecting.set()
+            await asyncio.Event().wait()
+
+        async def held_stop(process):
+            cleaning.set()
+            await release.wait()
+            await original_stop(process)
+
+        monkeypatch.setattr(processes.OwnedProcess, "connect", connect)
+        monkeypatch.setattr(processes, "stop_process", held_stop)
+        operation = asyncio.create_task(
+            processes.run_process(
+                [sys.executable, "-I", "-S", "-c", "import time;time.sleep(30)"],
+                cwd=Path("/"),
+                timeout=2,
+                env={},
+                observation=record,
+            )
+        )
+        try:
+            await asyncio.wait_for(connecting.wait(), 1)
+            operation.cancel()
+            await asyncio.wait_for(cleaning.wait(), 1)
+            assert not record.cleanup_confirmed and not record._process.reaped
+            operation.cancel()  # Arrives while cleanup is actually suspended.
+            await asyncio.sleep(0)
+            assert not record.cleanup_confirmed
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+            assert record.cleanup_confirmed and record._process.reaped
+        finally:
+            release.set()
+            if not operation.done():
+                operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+
+    asyncio.run(exercise())

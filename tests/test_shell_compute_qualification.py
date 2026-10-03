@@ -241,16 +241,19 @@ def test_pins_close_previous_artifacts_when_later_identity_is_rejected(monkeypat
     events = []
 
     @contextmanager
-    def pin(path, *, approved_path, approved_digest, name):
+    def pin(path, *, approved_path, approved_digest, name, cleanup_observation):
+        cleanup_observation._claim()
         index = next(i for i, source in enumerate(boundary.SOURCES) if source[0] == str(path))
         assert approved_path == str(path) and approved_digest == boundary.SOURCES[index][1]
         if index == 2:
+            cleanup_observation._confirmed = cleanup_observation._terminal = True
             raise DeveloperError("worker_configuration_changed")
         events.append(("open", index))
         try:
             yield SimpleNamespace(fd=index + 100, verify=lambda: events.append(("verify", index)))
         finally:
             events.append(("close", index))
+            cleanup_observation._confirmed = cleanup_observation._terminal = True
 
     monkeypatch.setattr(boundary, "pin_artifact", pin)
     with pytest.raises(DeveloperError, match="worker_configuration_changed"):

@@ -14,7 +14,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from app.developer_artifacts import pin_artifact
+from app.developer_artifacts import ArtifactCleanupObservation, pin_artifact
 from app.developer_process import (
     DeveloperError,
     NativeExecutionObservation,
@@ -258,15 +258,19 @@ def _pin_sources(
     if resources is not None:
         resources._pins_settled = False
     stack = ExitStack()
+    settlements = []
     try:
         artifacts = []
         for source, digest, _ in identity.sources:
+            settlement = ArtifactCleanupObservation()
+            settlements.append(settlement)
             artifact = stack.enter_context(
                 pin_artifact(
                     Path(source),
                     approved_path=source,
                     approved_digest=digest,
                     name="zelo-shell-qualified-artifact",
+                    cleanup_observation=settlement,
                 )
             )
             artifact.verify()
@@ -274,6 +278,8 @@ def _pin_sources(
         yield artifacts
     finally:
         stack.close()
+        if not all(settlement.cleanup_confirmed for settlement in settlements):
+            raise DeveloperError("shell_pin_cleanup_unproven")
         if resources is not None:
             resources._pins_settled = True
 
