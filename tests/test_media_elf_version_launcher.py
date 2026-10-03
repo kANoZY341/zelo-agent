@@ -47,12 +47,12 @@ def test_exact_inert_fixture_and_target_lock_pins():
     assert len(raw) == 1456 and hashlib.sha256(raw).hexdigest() == q.FIXTURE_SHA
     assert raw == (q.ROOT / "qualification/fixtures/media-elf-version-positive.bin").read_bytes()
     assert layout["section_table"] + 9 * 64 == len(raw)
-    lock_raw = (q.ROOT / "qualification/fixtures/media-elf-target-lock.json").read_bytes()
+    lock_raw = (q.ROOT / "qualification/fixtures/media-platform-elf-target-lock.json").read_bytes()
     assert hashlib.sha256(lock_raw).hexdigest() == q.TARGET_LOCK_SHA
     lock = json.loads(lock_raw)
     assert (
-        len(lock["files"]) == 7
-        and sum(x["bytes"] for x in lock["files"]) == lock["aggregate_bytes"] == 11487248
+        len(lock["files"]) == 12
+        and sum(x["bytes"] for x in lock["files"]) == lock["aggregate_bytes"] == 12807872
     )
     assert not lock["platform_complete"] and not lock["runtime_authority"]
 
@@ -79,7 +79,7 @@ def test_fixed_profile_and_compatible_hard_limits(monkeypatch):
         (5, (0, 0)),
     ]
     profile = q.policy()
-    assert profile["processes"] == len(q.MATRIX) + 1 + len(q.MALFORMED) + 7 == 39
+    assert profile["processes"] == len(q.MATRIX) + 1 + len(q.MALFORMED) + 12 == 44
     assert (
         profile["whole_seconds"]
         == profile["setup_seconds"] + profile["matrix_seconds"] + profile["metadata_seconds"]
@@ -340,8 +340,8 @@ def test_helper_internal_close_failures_fence_whole_job(tmp_path, monkeypatch, s
         "bytes": 1,
         "sha256": hashlib.sha256(b"x").hexdigest(),
     }
-    lock = {"files": [target] * 7, "aggregate_bytes": 7}
-    (root / "qualification/fixtures/media-elf-target-lock.json").write_bytes(b"fake lock")
+    lock = {"files": [target] * 12, "aggregate_bytes": 12}
+    (root / "qualification/fixtures/media-platform-elf-target-lock.json").write_bytes(b"fake lock")
     monkeypatch.setattr(q, "ROOT", root)
     monkeypatch.setattr(q.shared, "_private_path", lambda path, **kwargs: path)
     real_read_fd = q._read_fd
@@ -396,7 +396,7 @@ def test_helper_internal_close_failures_fence_whole_job(tmp_path, monkeypatch, s
     with pytest.raises(AdmissionDenied, match="fenced"):
         AdmissionController(admission).acquire("2" * 64)
     if stage == "final-manifest":
-        assert len(state.observations) == 39 and len(scans) == 2
+        assert len(state.observations) == 44 and len(scans) == 2
     assert not list((root / "runtime").glob("media-elf-version-proofs/*/cases.json"))
 
 
@@ -518,3 +518,107 @@ def test_each_native_mutation_exact_field_and_fake_record_causal_oracle(
         records[kind, begin + record_offset][key] = value
     with pytest.raises(q.version.ElfMetadataError, match="^media_elf_version_" + family + "$"):
         inspect(candidate)
+
+
+def test_platform_lock_preserves_prior_rows_and_exact_five_new_inputs():
+    old_raw = (q.ROOT / "qualification/fixtures/media-elf-target-lock.json").read_bytes()
+    old = json.loads(old_raw)
+    new_raw = (q.ROOT / "qualification/fixtures/media-platform-elf-target-lock.json").read_bytes()
+    new = json.loads(new_raw)
+    assert len(new_raw) == 4363 and hashlib.sha256(new_raw).hexdigest() == q.TARGET_LOCK_SHA
+    assert new["files"][:7] == old["files"]
+    assert new["previous_seven_input_lock_sha256"] == hashlib.sha256(old_raw).hexdigest()
+    expected = [
+        (
+            "/usr/lib/x86_64-linux-gnu/libm.so.6",
+            952616,
+            "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+        ),
+        (
+            "/usr/lib/x86_64-linux-gnu/libz.so.1",
+            113000,
+            "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+        ),
+        (
+            "/usr/lib/x86_64-linux-gnu/libexpat.so.1",
+            186624,
+            "286682ecbc5e59a638963b1a4e6351e65eb32fcf4bdcb9cb7569b6a61fe06a8d",
+        ),
+        (
+            "/usr/lib/python3.12/lib-dynload/resource.cpython-312-x86_64-linux-gnu.so",
+            19432,
+            "c8cc35580b497bf128cf8bb0e25efc36573a4f21a1c6877a91737fcd52e24907",
+        ),
+        (
+            "/usr/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so",
+            48952,
+            "ca8e35c58f7bc8e27258c4af43651c941413bc6318903621253485b0395758a3",
+        ),
+    ]
+    assert [(r["source"], r["bytes"], r["sha256"]) for r in new["files"][7:]] == expected
+    assert all(r["mode"] == 0o644 and r["available"] is True for r in new["files"][7:])
+    assert new["files"][8]["resolved_source"] == "/usr/lib/x86_64-linux-gnu/libz.so.1.3"
+    assert new["files"][9]["resolved_source"] == "/usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1"
+    assert len({r["source"] for r in new["files"]}) == 12
+    assert sum(r["bytes"] for r in new["files"][7:]) == 1320624
+    assert sum(r["bytes"] for r in new["files"]) == new["aggregate_bytes"] == 12807872
+    assert max(r["bytes"] for r in new["files"]) <= q.policy()["input_bytes"]
+    assert new["aggregate_bytes"] < q.policy()["input_aggregate_bytes"]
+    assert new["qualification_scope"] == "existing-version-graph-four-attempt-scope"
+    assert new["platform_complete"] is False and new["runtime_authority"] is False
+
+
+def test_extended_case_inventory_fits_existing_caps():
+    profile = q.policy()
+    cases = len(q.MATRIX) + 1 + len(q.MALFORMED) + 12
+    assert cases == profile["processes"] == 44
+    entries = 2 * cases + 1 + 3 + 1 + 2
+    regular = cases * (profile["stdout_bytes"] + profile["stderr_bytes"]) + 2097152 + 3 * 128
+    assert entries == 95 < profile["retained_entries_per_attempt"] == 96
+    assert regular == 5702016 < profile["retained_bytes_per_attempt"] == 8388608
+    assert profile["attempts"] * profile["retained_bytes_per_attempt"] == 33554432
+
+
+def test_policy_revision_preserves_consumed_attempt(tmp_path, monkeypatch):
+    monkeypatch.setattr(q.shared, "ROOT", tmp_path)
+    (tmp_path / "runtime").mkdir(mode=0o700)
+    base = tmp_path / "runtime/media-elf-version-proofs"
+    base.mkdir(mode=0o700)
+    previous = base / "version-proof-pr81"
+    previous.mkdir(mode=0o700)
+    retained = previous / "cases.json"
+    retained.write_bytes(b"retained historical fixture")
+    original_digest = q.shared._digest(q.policy())
+    for i in range(3):
+        monkeypatch.setattr(q, "TARGET_LOCK_SHA", str(i + 1) * 64)
+        assert q.shared._digest(q.policy()) != original_digest
+        q._proof_directory(base)
+    monkeypatch.setattr(q, "TARGET_LOCK_SHA", "4" * 64)
+    with pytest.raises(q.QualificationRefused, match="attempt_limit"):
+        q._proof_directory(base)
+    assert retained.read_bytes() == b"retained historical fixture"
+    assert len(list(base.iterdir())) == 4
+
+
+def test_same_admission_excludes_different_policy_digest(tmp_path):
+    controller, lease = lease_at(tmp_path / "admission")
+    try:
+        with pytest.raises(AdmissionDenied):
+            controller.acquire("2" * 64)
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_changed_fixed_platform_lock_rejected_before_use(tmp_path):
+    raw = bytearray(
+        (q.ROOT / "qualification/fixtures/media-platform-elf-target-lock.json").read_bytes()
+    )
+    raw[-1] ^= 1
+    path = tmp_path / "lock.json"
+    path.write_bytes(raw)
+    fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+    try:
+        with pytest.raises(q.QualificationRefused, match="source_pin"):
+            q._read_fd(fd, 16384, q.TARGET_LOCK_SHA)
+    finally:
+        os.close(fd)

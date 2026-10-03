@@ -914,3 +914,15 @@ admission release confirmed. See [final gates](reviews/media-elf-metadata-final-
 Continue [GNU version graph design](v0.15-media-elf-version-metadata.md), with design
 and source reviews before new parser execution. Symbols/ABI/platform/resource/filter/
 decoder/Core authority remain open. Core first; UI61 stays parked as draft.
+
+### Media GNU version graph checkpoint — 4 October 2026 Dubai
+
+PR81 merged8aeaf6b with exactreviewedtree,3,189matchingCI passes,1,372focusedpasses,
+fourstandalones,twocausalfaults and39actualcases/seveninputs. Restrictedversiongraph
+structureonly; noABI/platform/decoder/Coreauthority. See
+[final gates](reviews/media-elf-version-final-gates.md).
+Continue [fixed platform dependency metadata](v0.15-media-platform-dependency-metadata.md):
+12fixedinputs/44cases within SAME fourattemptversionquota (oneconsumed), shared
+capacityoneadmission, unchangedguest/parser. No automaticretry oroldloadercapreset.
+Completeinventory/provenance/materializer/daemon/resources/filter/decoder gatesremain.
+UI61parked, flagsdisabled, v0.14.0preserved; v15then v16->v17->v18.
