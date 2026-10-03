@@ -68,43 +68,43 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media immutable file-image qualification after publisher
-attribution PR #76 at `c83af6c`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media pure syscall-policy qualification after immutable
+file-image PR #77 at `3381ada6`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media immutable file-image qualification
+## Current scope: v0.15 Media pure syscall candidate policy
 
-PR #76 merged with matching reviewed/tested tree, full CI2,475 passed/two
-supplemented skips and all gates in docs/reviews/media-publisher-final-gates.md.
-Read docs/v0.15-media-image-qualification.md before work. Astra Medium design
-review recommends per-file sealed Linux memfds directly from the closed immutable
-wheel bytes, then a separate fixed guest-copy proof; no package-code execution.
+PR #77 merged at3381ada6 with matching reviewed/tested tree, fullCI2,596 passes,
+two supplemented skips,121newimage/launcher tests and13native scanner operations.
+Read docs/reviews/media-image-final-gates.md and docs/v0.15-media-syscall-policy.md.
+Astra Medium design review recommends a pure fixed policy first; it grants no native
+installer/decoder execution. Implement qualification/media_syscall_policy.py with
+immutable candidate bytes/digest, exact current-policy validation and a fixed
+stdlib-only syscall tuple/rationales from authenticated original Moby unconditional
+allow rules. Preserve vendor LICENSE/NOTICE and Browser additions/helpers unchanged.
+No caller policy/path/ABI/action/flags/syscall/compiler/FD/environment selection.
+The canonical artifact expresses fixed x86-64/defaultEPERM/unsupportedABI-kill
+intentions and exact readonly-open/no-new-executable-memory argument restrictions;
+no compilation, installation, enforcement receipt or decoder-ready claim follows.
+Fresh bounded vendor reads before parsing and on every validation; strictbytes and
+canonical identity, no shared mutable cache or constructor true flags.
 
-Implement qualification/media_image.py with a strictbytes-only public managed
-factory; inspect before allocation. Reuse mature wheel inventory, normalized full
-manifest and bounded ZIP streams plus Linux sealing primitives. Do not broaden
-production pin_artifact/sandbox/process helpers or use mutable prepared files.
-Separate stable identity, live one-shot owner and post-cleanup proof receipts.
-Hold image descriptors through every consumer's owned-process settlement; reject
-reuse/concurrent consumption, unknowncleanup, source/content/mode/seal mismatch and
-close failures. No direct public successful construction or public FD export.
+Add adversarial offline fixtures and guarded fresh-interpreter import audit. Astra
+Medium full static source/evidence review, focused checks, matching-head fullCI and
+standalone supplements precede merge. Record post-merge image CI separately.
+Written installer contract must preserve exact libseccomp/platform/loader/dependency
+identity and ABI, x32 handling, single-thread installation, compiled policy evidence,
+causally sensitive safe probes, unchanged owned-process/image lifetimes and uncertain
+cleanup fencing. This phase implements none of those native stages.
 
-Use a distinct read-only Python namespace derived from the existing profile,
-explicit file modes/directories and --file transfers from verified/rewound memfds.
-Trusted scanner bootstrap only; keep package image off sys.path. Close fixed
-resource/descriptor/accounting policy and review before actual guest-copy proof.
-Adversarial fixtures, actual closed-wheel seal/transfer/mutation/ownership controls,
-Astra Medium exact full source/evidence review, fullCI and supplements precede merge.
-
-No Pillow install/import/native-library load/decoder execution, dependency/venv
-installation, Media runtime/task/route/registry/capability/Core/Agent/Mind binding,
-model request, signing/OAuth, live environment/data/config/service/listener change.
-Image identity does not inherit publisher attribution, mutable preparation status
-or execution authority. Current prepared-tree attribution remains separate and
-requires a fresh unchanged scanner comparison. Production flags remain disabled;
-v0.14.0/UI#61 are preserved. Use only the dedicated worktree and retain bounded
-private diagnostic evidence, without user-data or unrelated deletion. Computer/
-external adapters and v0.16 -> v0.17 -> v0.18 remain separate/ordered.
+Keep original PNG RLIMIT/cgroup/seccomp gate BEFORE decoder qualification. No Pillow
+install/import/native member load/decoder, ctypes/libseccomp execution/filter load,
+new process guard probe, dependency installation, Media runtime/task/route/registry/
+capability/Core/Agent/Mind binding, model request, signing/OAuth, live environment/
+data/config/service/listener or host/daemon/cgroup change. No aggregate-resource or
+runtime acceptance is granted. Production flags stay disabled, v0.14.0/UI61 preserved.
+Use only the dedicated worktree, retain bounded private evidence, delete no unrelated
+or user data. Computer/external adapters and v16->v17->v18 stay separate and ordered.
 
 ## Workspace decision
 
