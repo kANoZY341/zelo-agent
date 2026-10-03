@@ -8,7 +8,7 @@ PR: https://github.com/kANoZY341/zelo-agent/pull/77
 - Matching-head CI: run `37145586793`, success; 2,596 passed, two supplemented skips,
   11 existing warnings, 701.63 seconds. The earlier push run was superseded by the
   successful PR run under the existing workflow concurrency rule.
-- Post-merge CI: pending; recorded separately when observed.
+- Post-merge CI: run `37146933110`, success; recorded separately from the PR gate.
 
 ## Artifact and native evidence
 

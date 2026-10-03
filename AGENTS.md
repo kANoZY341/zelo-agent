@@ -68,43 +68,45 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media pure syscall-policy qualification after immutable
-file-image PR #77 at `3381ada6`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media platform metadata qualification after pure syscall
+candidate PR #78 at `0d3ecec5`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media pure syscall candidate policy
+## Current scope: v0.15 Media platform metadata prerequisites
 
-PR #77 merged at3381ada6 with matching reviewed/tested tree, fullCI2,596 passes,
-two supplemented skips,121newimage/launcher tests and13native scanner operations.
-Read docs/reviews/media-image-final-gates.md and docs/v0.15-media-syscall-policy.md.
-Astra Medium design review recommends a pure fixed policy first; it grants no native
-installer/decoder execution. Implement qualification/media_syscall_policy.py with
-immutable candidate bytes/digest, exact current-policy validation and a fixed
-stdlib-only syscall tuple/rationales from authenticated original Moby unconditional
-allow rules. Preserve vendor LICENSE/NOTICE and Browser additions/helpers unchanged.
-No caller policy/path/ABI/action/flags/syscall/compiler/FD/environment selection.
-The canonical artifact expresses fixed x86-64/defaultEPERM/unsupportedABI-kill
-intentions and exact readonly-open/no-new-executable-memory argument restrictions;
-no compilation, installation, enforcement receipt or decoder-ready claim follows.
-Fresh bounded vendor reads before parsing and on every validation; strictbytes and
-canonical identity, no shared mutable cache or constructor true flags.
+PR #78 merged at0d3ecec5 with matching reviewed/tested tree,2,751 CI passes and
+both standalone/negative-control supplements; post-merge CI is successful. Read
+reviews/media-syscall-final-gates.md and v0.15-media-platform-metadata.md under docs.
+The next gate is an exact inert platform inventory for a later COPY-only image.
+Review a mature pinned ELF metadata tool before collecting ELF dependency metadata.
+GNU readelf needs its own native tool closure; compare a pure-Python pyelftools
+candidate by static provenance/license/source inspection first. No homemade ELF
+parser, general dependency resolver, ldd, target loader or execution discovery.
+Bounded official public metadata/wheel retrieval, inert ZIP/source inspection and
+fixed qualification-only tool-source preparation implementation/offline fixtures are allowed; do not install/import/run the optional parser before fixed launcher/source
+review and isolation/resource/ownership gates. Do not modify shared dependencies.
+Preserve required licenses/notices, exact source hashes and explicit provenance limits.
 
-Add adversarial offline fixtures and guarded fresh-interpreter import audit. Astra
-Medium full static source/evidence review, focused checks, matching-head fullCI and
-standalone supplements precede merge. Record post-merge image CI separately.
-Written installer contract must preserve exact libseccomp/platform/loader/dependency
-identity and ABI, x32 handling, single-thread installation, compiled policy evidence,
-causally sensitive safe probes, unchanged owned-process/image lifetimes and uncertain
-cleanup fencing. This phase implements none of those native stages.
+A future isolated metadata parser may inspect immutable target bytes only after a
+separate Astra Medium source/launcher review; no target native library execution.
+Collecting metadata does not qualify platform completeness, loader behavior, native
+ABI, image delivery or aggregate cgroup accounting. Materialization/builds stay blocked
+until exact platform provenance/notices/closure and resource/daemon settlement designs
+are reviewed. Keep Pillow out of the first platform materializer.
 
-Keep original PNG RLIMIT/cgroup/seccomp gate BEFORE decoder qualification. No Pillow
-install/import/native member load/decoder, ctypes/libseccomp execution/filter load,
-new process guard probe, dependency installation, Media runtime/task/route/registry/
-capability/Core/Agent/Mind binding, model request, signing/OAuth, live environment/
-data/config/service/listener or host/daemon/cgroup change. No aggregate-resource or
-runtime acceptance is granted. Production flags stay disabled, v0.14.0/UI61 preserved.
-Use only the dedicated worktree, retain bounded private evidence, delete no unrelated
-or user data. Computer/external adapters and v16->v17->v18 stay separate and ordered.
+Use fixed qualification-only inputs, numeric byte/count/output/attempt budgets and
+existing qualified ownership helpers unchanged. Add meaningful offline adversarial
+fixtures before any optional execution. Matching-head full CI, static full source/
+evidence review and standalone/fault supplements precede merge. Record historical
+CI separately; source hashes alone do not prove origin or immutable execution.
+
+Original PNG RLIMIT/cgroup/seccomp gates remain BEFORE decoder qualification.
+No Pillow installation/import/decoder, ctypes/libseccomp/filter execution, Docker
+build/create, cgroup/host/daemon changes, Media runtime/task/route/registry/capability/
+Core/Agent/Mind binding, model request, signing/OAuth, live environment/data/config/
+service/listener. Production flags stay disabled; v0.14.0/UI61 remain preserved.
+Use only the dedicated worktree, preserve all retained attempts and unrelated/user
+data. Computer/external adapters and v16->v17->v18 remain separate and ordered.
 
 ## Workspace decision
 
