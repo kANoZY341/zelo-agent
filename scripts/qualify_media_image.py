@@ -72,6 +72,10 @@ def confinement_policy() -> dict:
         "flags": ("-I", "-S", "-B"),
         "environment": shared.confinement_policy()["environment"],
         "guest_added_environment": {"PWD": "/workspace"},
+        "mutation_denials": {
+            "write_truncate": (errno.EACCES, errno.EROFS),
+            "metadata": (errno.EROFS,),
+        },
         "setup_inherited_limits": {
             "fds": 256,
             "cpu_seconds": 30,
@@ -220,7 +224,14 @@ def _accepted(value, manifest, case: str, host_namespace: str) -> bool:
         return (
             type(probes) is dict
             and set(probes) == set(MUTATIONS)
-            and all(v is True for v in probes.values())
+            and all(
+                type(code) is int
+                and code
+                in (
+                    (errno.EACCES, errno.EROFS) if name in ("write", "truncate") else (errno.EROFS,)
+                )
+                for name, code in probes.items()
+            )
         )
     if case == "network":
         return shared._network_accepted(probes, host_namespace)

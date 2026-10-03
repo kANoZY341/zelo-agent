@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import dataclasses
+import errno
 import json
 import os
 import resource
@@ -119,14 +120,33 @@ def test_complete_manifest_changes_refused(manifest, kind):
 
 
 def test_mutations_require_all_independent_readonly_results(manifest):
-    probes = dict.fromkeys(q.MUTATIONS, True)
+    probes = dict.fromkeys(q.MUTATIONS, errno.EROFS)
     value = scanned(manifest, "mutations", probes)
     assert q._accepted(value, manifest, "mutations", "net:[10]")
     for name in probes:
         changed = copy.deepcopy(value)
-        changed["probes"][name] = False
+        changed["probes"][name] = errno.EACCES if name not in ("write", "truncate") else 0
         assert not q._accepted(changed, manifest, "mutations", "net:[10]")
     assert not q._accepted(scanned(manifest, "mutations", {}), manifest, "mutations", "net:[10]")
+
+
+@pytest.mark.parametrize("code", [False, True, 0, errno.EPERM, "13", None])
+def test_mutation_denials_require_strict_allowed_errno(manifest, code):
+    probes = dict.fromkeys(q.MUTATIONS, errno.EROFS)
+    probes["write"] = code
+    assert not q._accepted(
+        scanned(manifest, "mutations", probes), manifest, "mutations", "net:[10]"
+    )
+
+
+def test_readonly_metadata_required_with_mode_denied_writes(manifest):
+    probes = dict.fromkeys(q.MUTATIONS, errno.EROFS)
+    probes.update(write=errno.EACCES, truncate=errno.EACCES)
+    assert q._accepted(scanned(manifest, "mutations", probes), manifest, "mutations", "net:[10]")
+    probes["chmod_file"] = errno.EACCES
+    assert not q._accepted(
+        scanned(manifest, "mutations", probes), manifest, "mutations", "net:[10]"
+    )
 
 
 @pytest.mark.parametrize(

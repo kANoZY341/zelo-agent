@@ -81,11 +81,11 @@ if case == 'mutations':
         try:
             value = action()
         except OSError as error:
-            probes[name] = error.errno == errno.EROFS
+            probes[name] = error.errno
         else:
             if name == 'create':
                 os.close(value)
-            probes[name] = False
+            probes[name] = 0
 elif case == 'network':
     namespace = os.readlink('/proc/self/ns/net')
     interfaces = [name for _, name in socket.if_nameindex()]
