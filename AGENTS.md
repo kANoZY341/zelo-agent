@@ -66,58 +66,52 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 qualified Shell Core binding after identity/owner
-qualification PR #70 at `befaefa`. Continue the established Core roadmap; later UI
+The active work is v0.15 qualified Shell operator/full application proof after Core
+binding PR #71 at `fd686a9`. Continue the established Core roadmap; later UI
 rework requires fresh acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
-## Current scope: v0.15 qualified Shell Core binding
+## Current scope: v0.15 qualified Shell operator/application proof
 
-Shell identity/admission/owner PR #70 merged at
-`befaefa6d2460b4bbaeed46b0e764d06c8c6802c` from reviewed/tested head
-`132b4456213710657b60ba21b0bd2000b62a1416`. Full CI passed 1,729 tests;
-both installed-Codex supplements passed separately. 218 affected focused tests,
-seventeen owned native cases under normal and invalid ambient settings, fourteen
-direct Shell cases and eight real Browser lifecycle cases passed. The pin-evidence
-negative control detected discarded uncertainty. Independent Astra Medium full
-review and exact-head followup found no remaining blockers in combined scope;
-merged/tested Git trees match. See `docs/reviews/shell-owner-final-gates.md`.
+Core binding PR #71 merged at `fd686a9044ddee01e1221d35117e72220c9af0ec`
+from reviewed/tested head `484257bc40abd2c62b8372d892b3d7dfc1a7908f`.
+Full CI passed 1,792 tests with two separately passed installed-Codex supplements.
+255 focused regressions, four standalone supplemental/clean-source checks, nine
+real Core/native cases under both normal and invalid ambient settings, seventeen
+owned Shell cases and eight Browser lifecycle cases passed. Two negative controls
+caught discarded script/validation identity. Astra Medium full review and exact-head
+followup found no remaining blockers; merged/tested trees match. See
+`docs/reviews/shell-core-binding-final-gates.md`.
 
-Read `docs/v0.15-shell-core-binding.md` before implementation. Bind only the
-qualified fixed sealed Dash/prlimit/Bubblewrap built-in compute lane to Core.
-Payload is bounded script text only; no stdin data stream, executable/flags/env/
-cwd/mount/path/source/runtime/admission selection or broader process budget.
-Preserve no workspace, network, credentials, writes and process creation, exact
-resource/output ceilings, nonroot identity and one absolute deadline.
+Read `docs/v0.15-shell-operator-qualification.md` before implementation. Qualify
+unmodified create_app/lifespan, authenticated in-process ASGI routes, background
+Runner, persisted selection/spec/action/audit/evidence, readmission and application
+shutdown in a private diagnostic instance. Use init-only Settings, a fixed diagnostic
+token, private SQLite/admission/workspace, scheduler disabled and a rejecting counted
+provider that verifies zero model requests. No listener or external network.
 
-Add distinct Shell role/capability/skill/authority and strict persisted execution
-specification, bound to trusted worker selection, policy and operator/runtime
-identity. Reuse existing action hashing, approvals, budgets, scheduler, audit,
-Agent WorkerRequirements and migration/trigger conventions. Submission/retry,
-claim and Runner revalidate exact identity; missing/stale/tampered tasks fail
-closed, never silently rebind. Source preparation is outside writer transactions;
-actual execution rechecks/seals approved bytes. Output remains untrusted text.
+Real acceptance must use default qualified runtime/owner/native factories and
+approved fixed sources/policy; no fake runtime standing in for native execution.
+Prove disabled assembly and explicit enabled prerequisite/fence refusal without
+resetting markers. Execute only fixed harmless scripts from the proof, not caller
+script/path/runtime overrides. Preserve any deliberate private diagnostic fence.
+No installed source mutation, arbitrary host process/filesystem surface, default
+AgentSpec/Mind route, production acceptance, live settings/database change or release.
 
-Default disabled: no default AgentSpec or Mind route, live configuration change,
-service or release. Reuse qualified owner/admission helpers without browser or
-Python authority relabelling. One trusted private persistent admission directory
-at assembly, not per task. Only explicit cleanup permits publication/pruning;
-creation pending/grace expiry retains ownership, unknown cleanup/crash preserves
-the fence. No automatic reconciliation, PID-age/TTL inference or host fallback.
+Retain qualified identity, script/spec/action hashes, one absolute deadline, no
+workspace/writes/network/credentials/forks, bounded untrusted output and explicit
+source/native/pin/durable cleanup. Unknown ownership remains retained/fenced; no
+TTL, PID-age/error inference or reconciliation. Preserve approvals, scheduler,
+budgets, audit, Agent WorkerRequirements and migrations. Do not change backend
+semantics merely to make the proof pass; scope any discovered runtime fix explicitly.
 
-Use this dedicated worktree and Astra Medium. Require focused tests, real opt-in
-Core/native TaskService+Runner lifecycle proof, independent exact-head full review
-and exact-head CI plus installed-Codex supplements before merging runtime changes.
-Keep provenance/license/host visibility/operator assumptions explicit. Test reused
-Browser/Python/Developer/OpenCode paths if affected. No system installs, sudo,
-public listeners, fork bombs, production data or credential/model requests in
-native fixtures. Keep the broader process/filesystem surface separate.
-
-Production Browser Worker remains disabled. Do not modify live settings/databases,
-install services, expose listeners, publish a release or merge parked UI PR #61.
-Keep v0.14.0, user chats, UI worktrees and hierarchy/milestone ordering intact.
-Unknown cleanup stays fenced; no TTL, stale-PID inference, automatic marker
-reconciliation or unrelated resource deletion. v0.16 channels -> v0.17 specialist
-organizations -> v0.18 learning/healing/autonomy remains the roadmap order.
+Use this dedicated worktree and Astra Medium. Require offline focused tests,
+normal/invalid-ambient actual application/native proofs, independent exact-head
+static review, exact-head full CI and installed-Codex non-model supplements before
+merge. Keep host/kernel/process visibility/operator/provenance assumptions explicit.
+No system installs, sudo, services, public listeners, model requests, user data or
+unrelated resource deletion. Production Browser and Shell remain disabled, v0.14.0
+and parked UI #61 remain unchanged. Computer/Media and external adapter slices stay
+separate; v0.16 channels -> v0.17 organizations -> v0.18 autonomy stays ordered.
 
 ## Workspace decision
 
