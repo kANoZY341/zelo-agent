@@ -42,8 +42,16 @@ DYNAMIC_TAGS = frozenset(
     "DT_BIND_NOW DT_INIT_ARRAY DT_FINI_ARRAY DT_INIT_ARRAYSZ DT_FINI_ARRAYSZ "
     "DT_RUNPATH DT_FLAGS DT_PREINIT_ARRAY DT_PREINIT_ARRAYSZ DT_RELRSZ DT_RELR "
     "DT_RELRENT DT_GNU_HASH DT_VERSYM DT_RELACOUNT DT_RELCOUNT DT_FLAGS_1 "
-    "DT_VERDEF DT_VERDEFNUM DT_VERNEED DT_VERNEEDNUM".split()
+    "DT_VERDEF DT_VERDEFNUM DT_VERNEED DT_VERNEEDNUM "
+    "DT_X86_64_PLT DT_X86_64_PLTSZ DT_X86_64_PLTENT".split()
 )
+# x86-64 psABI commit6d824a52a42d173eb838b879616c1be5870b593e.
+# Pinned pyelftools0.33 reports the first as DT_LOPROC, others as raw integers.
+X86_64_TAGS = {
+    0x70000000: "DT_X86_64_PLT",
+    0x70000001: "DT_X86_64_PLTSZ",
+    0x70000003: "DT_X86_64_PLTENT",
+}
 PH_FIELDS = (
     "p_type",
     "p_flags",
@@ -266,6 +274,12 @@ def _inspect(raw: bytes, elf, decode) -> bytes:
     for index in range(table["sh_size"] // 16):
         item = record("Elf_Dyn", table["sh_offset"] + index * 16, 16)
         tag, value = item["d_tag"], _integer(item["d_val"])
+        if tag == "DT_LOPROC":
+            tag = X86_64_TAGS[0x70000000]
+        elif type(tag) is int and tag in X86_64_TAGS:
+            tag = X86_64_TAGS[tag]
+        # Already required EM_X86_64; no other processor tags are normalized.
+
         if tag not in DYNAMIC_TAGS:
             # Bounded pinned-enum label/integer diagnostic; never accept this tag.
             label = (

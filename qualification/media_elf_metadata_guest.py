@@ -18,8 +18,8 @@ SOURCE_PINS = (
     ),
     (
         "qualification/media_elf_metadata.py",
-        14044,
-        "c14697ecfaf406d3d6b47f67bcaf542b0db7e9bb09014a259085d3ee663f0a00",
+        14604,
+        "fc5019fbd4597c5ee593ad51cc04e045f6da1829272b4a00b09517e468f84d3e",
     ),
 )
 CASES = (

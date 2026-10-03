@@ -389,3 +389,33 @@ def test_unsupported_tag_diagnostic_is_bounded_and_never_accepted(candidate, tag
     with pytest.raises(m.ElfMetadataError) as error:
         inspect(candidate)
     assert str(error.value) == "media_elf_dynamic_tag:" + label
+
+
+@pytest.mark.parametrize(
+    "encoded,name",
+    [
+        ("DT_LOPROC", "DT_X86_64_PLT"),
+        (0x70000000, "DT_X86_64_PLT"),
+        (0x70000001, "DT_X86_64_PLTSZ"),
+        (0x70000003, "DT_X86_64_PLTENT"),
+    ],
+)
+def test_exact_x64_plt_tags_record_only_no_body_interpretation(candidate, encoded, name):
+    candidate[3][("Elf_Dyn", 548)] = {"d_tag": encoded, "d_val": 12345}
+    result = json.loads(inspect(candidate))
+    assert {"tag": name, "value": 12345} in result["dynamic"]
+    assert result["abi_qualified"] is False and result["symbol_version_content_verified"] is False
+
+
+@pytest.mark.parametrize("tag", [0x70000002, 0x70000004, 0x70000035])
+def test_other_processor_tags_still_refused(candidate, tag):
+    candidate[3][("Elf_Dyn", 548)]["d_tag"] = tag
+    with pytest.raises(m.ElfMetadataError, match="dynamic_tag"):
+        inspect(candidate)
+
+
+def test_normalized_x64_plt_alias_duplicate_refused(candidate):
+    candidate[3][("Elf_Dyn", 500)]["d_tag"] = "DT_LOPROC"
+    candidate[3][("Elf_Dyn", 548)]["d_tag"] = 0x70000000
+    with pytest.raises(m.ElfMetadataError, match="dynamic_duplicate"):
+        inspect(candidate)
