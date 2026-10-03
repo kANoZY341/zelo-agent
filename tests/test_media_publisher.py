@@ -340,6 +340,7 @@ def test_successfully_returned_bytes_still_require_exact_statement(kind):
         (m.DSSE_TYPE, "text"),
         (m.DSSE_TYPE, bytearray(b"x")),
         (m.DSSE_TYPE, b"x"),
+        (m.DSSE_TYPE, b" " + m._envelope(RAW)[1]),
     ],
 )
 def test_verified_type_and_exact_original_bytes_binding(kind, payload):
