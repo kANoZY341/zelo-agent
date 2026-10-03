@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from app import developer_process
 from app.developer_process import DeveloperError
 from qualification.shell_compute import (
     ENVIRONMENT,
@@ -70,7 +71,7 @@ def check_status(text: str) -> None:
 async def exercise(root: Path, report: dict) -> None:
     children = []
     spawned = asyncio.Event()
-    original = asyncio.create_subprocess_exec
+    original = developer_process.spawn_owned_process
 
     async def observed_spawn(*args, **kwargs):
         child = await original(*args, **kwargs)
@@ -80,14 +81,14 @@ async def exercise(root: Path, report: dict) -> None:
         return child
 
     try:
-        with patch("app.developer_process.asyncio.create_subprocess_exec", observed_spawn):
+        with patch("app.developer_process.spawn_owned_process", observed_spawn):
             await _exercise(root, report, spawned, children)
     finally:
         report["native_launchers"] = len(children)
         report["native_launchers_reaped"] = bool(children) and all(
-            child.returncode is not None for child in children
+            child.reaped for child in children
         )
-        if any(child.returncode is None for child in children):
+        if any(not child.reaped for child in children):
             raise RuntimeError("shell_cleanup_unproven")
 
 
@@ -100,9 +101,9 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
             raise RuntimeError("shell_probe_expectation_failed")
         cases.append({"case": name, "passed": True})
 
-    async def rejected(name, script):
+    async def rejected(name, script, denial):
         result = await run_probe(script)
-        if result.exit_code == 0:
+        if result.exit_code == 0 or denial not in result.stderr:
             raise RuntimeError("shell_probe_restriction_failed")
         cases.append({"case": name, "passed": True, "exit_code": result.exit_code})
 
@@ -131,13 +132,14 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
         + " && test ! -e /engine && test ! -e /home && printf HIDDEN\n",
         b"HIDDEN",
     )
-    await rejected("read_only_guest", "printf blocked >/tmp/new-file\n")
-    await rejected("process_creation_denied", "printf harmless | read value\n")
+    await rejected("read_only_guest", ": >/tmp/new-file\n", b"Read-only file system")
+    await rejected("process_creation_denied", "printf 'harmless\\n' | read value\n", b"Cannot fork")
     await rejected(
         "hard_limits_cannot_be_raised",
         "exec /usr/bin/prlimit --nproc=1:1 -- /usr/bin/dash -c 'printf ESCALATED'\n",
+        b"Operation not permitted",
     )
-    await rejected("host_shell_unavailable", "exec /bin/sh -c 'printf ESCAPED'\n")
+    await rejected("host_shell_unavailable", "exec /bin/sh -c 'printf ESCAPED'\n", b"not found")
     result = await run_probe("exec /usr/bin/dash -c " + shlex.quote(STATUS) + "\n")
     if result.exit_code or result.stderr:
         raise RuntimeError("shell_exec_state_failed")
@@ -166,7 +168,7 @@ async def _exercise(root: Path, report: dict, spawned: asyncio.Event, children: 
                 raise
         else:
             raise RuntimeError("shell_expected_failure_missing")
-        if len(children) != previous + 1 or children[-1].returncode is None:
+        if len(children) != previous + 1 or not children[-1].reaped:
             raise RuntimeError("shell_failure_before_native_spawn_or_reap")
         cases.append({"case": name, "passed": True, "error_code": code})
     spawned.clear()

@@ -98,6 +98,17 @@ merging proof/runtime changes. Do not widen Browser/Python authority or reuse
 Browser-specific contract fields as a misleading Shell identity. Qualify any
 broader process/filesystem surface separately before Core binding.
 
+
+The independent Shell review also found a preexisting PID-reuse defect in shared
+native process cleanup. Fix the reused Core process helper and its OpenCode server
+caller within this branch: keep the exact child identity reserved until owned group
+termination is confirmed, refuse released/lost identities, and cover real lifecycle
+and offline reuse cases. This necessary helper correction adds no task, approval,
+worker authority, service or default activation. Broaden review/tests to affected
+Python/Developer/OpenCode paths. Keep Shell restriction probes truthful: require
+specific denial evidence, a successful permitted pipeline and byte-free file
+creation, not arbitrary nonzero exits.
+
 Production Browser Worker remains disabled. Do not modify live settings/databases,
 install services, expose listeners, publish a release or merge parked UI PR #61.
 Keep v0.14.0, user chats, UI worktrees and hierarchy/milestone ordering intact.

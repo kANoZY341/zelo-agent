@@ -369,7 +369,9 @@ Shell remains an [optional native qualification proof](docs/v0.15-shell-boundary
 with fixed installed artifacts, sealed bytes, no host workspace or network,
 read-only guest files and zero process creation. No Shell task, registry entry,
 API or Agent/Mind route exists. Host probes require explicit opt-in; offline CI
-does not launch them.
+does not launch them. The shared native process helper now retains the child
+identity through group cleanup before reaping, and requires Linux pidfd/waitid
+support; unavailable ownership fails closed.
 
 ## Fixed Research specialist
 

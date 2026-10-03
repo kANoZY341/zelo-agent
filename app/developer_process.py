@@ -1,11 +1,14 @@
 """Bounded process execution. No inherited environment or shell interpretation."""
 
 import asyncio
+import errno
 import os
 import signal
+import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class DeveloperError(Exception):
@@ -58,31 +61,180 @@ async def uncancellable(task: asyncio.Task):
     return result, cancelled
 
 
-async def stop_process(process: asyncio.subprocess.Process) -> None:
-    def send(sig: signal.Signals) -> None:
+_RETAINED_IDENTITIES: set["OwnedProcess"] = set()
+
+
+class _InputProtocol(asyncio.streams.FlowControlMixin):
+    def __init__(self, loop):
+        super().__init__(loop=loop)
+        self.closed = loop.create_future()
+
+    def connection_lost(self, exc):
+        super().connection_lost(exc)
+        if not self.closed.done():
+            self.closed.set_result(None)
+
+    def _get_close_waiter(self, stream):
+        return self.closed
+
+
+class OwnedProcess:
+    """Own an unreaped child identity until group termination is confirmed.
+
+    Popen has no asyncio child watcher. waitid(WNOWAIT) observes exit without
+    releasing the leader PID; pidfd binds observation to this exact child. No
+    code may poll/wait/reap the private Popen before this owner's final reap.
+    """
+
+    def __init__(self, argv: tuple[str, ...], kwargs: dict[str, Any]) -> None:
+        if not hasattr(os, "P_PIDFD") or not hasattr(os, "pidfd_open"):
+            raise DeveloperError("process_identity_unavailable")
         try:
-            os.killpg(process.pid, sig)
+            support = os.pidfd_open(os.getpid())
+            try:
+                try:
+                    os.waitid(os.P_PIDFD, support, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+                except OSError as error:
+                    if error.errno != errno.ECHILD:
+                        raise
+            finally:
+                os.close(support)
+        except OSError:
+            raise DeveloperError("process_identity_unavailable") from None
+        if kwargs.get("start_new_session") is not True:
+            raise DeveloperError("process_identity_unowned")
+        limit = kwargs.pop("limit", 8192)
+        self.stdout = asyncio.StreamReader(limit=limit)
+        self.stderr = asyncio.StreamReader(limit=limit)
+        self.stdin = None
+        self._transports = []
+        self._attached_pipes = set()
+        self._code = None
+        self.reaped = False
+        self._stop_task = None
+        self._pidfd = None
+        self._child = subprocess.Popen(argv, **kwargs)
+        self.pid = self._child.pid
+        _RETAINED_IDENTITIES.add(self)
+        try:
+            # This child has not been registered with any reaping watcher.
+            self._pidfd = os.pidfd_open(self.pid)
+        except OSError:
+            self.close_pipes()
+            raise DeveloperError("process_identity_unavailable") from None
+
+    def observe(self) -> int | None:
+        if self.reaped or self._pidfd is None:
+            raise DeveloperError("process_identity_unowned")
+        try:
+            status = os.waitid(os.P_PIDFD, self._pidfd, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+        except ChildProcessError:
+            raise DeveloperError("process_identity_lost") from None
+        if status is not None:
+            if status.si_pid != self.pid:
+                raise DeveloperError("process_identity_lost")
+            self._code = status.si_status if status.si_code == os.CLD_EXITED else -status.si_status
+        return self._code
+
+    @property
+    def returncode(self) -> int | None:
+        return self._code if self.reaped else self.observe()
+
+    async def wait(self) -> int:
+        if self.reaped:
+            assert self._code is not None
+            return self._code
+        while self.observe() is None:
+            await asyncio.sleep(0.01)
+        assert self._code is not None
+        return self._code
+
+    def signal_group(self, sig: signal.Signals) -> None:
+        # Verify the exact pidfd-bound child remains waitable. An unreaped leader
+        # reserves the numeric PGID even after exit. No await before signalling.
+        self.observe()
+        try:
+            os.killpg(self.pid, sig)
         except ProcessLookupError:
             pass
 
-    send(signal.SIGTERM)
+    async def connect(self) -> None:
+        loop = asyncio.get_running_loop()
+        for pipe, reader in ((self._child.stdout, self.stdout), (self._child.stderr, self.stderr)):
+            transport, _ = await loop.connect_read_pipe(
+                lambda reader=reader: asyncio.StreamReaderProtocol(reader), pipe
+            )
+            self._transports.append(transport)
+            self._attached_pipes.add(pipe)
+        if self._child.stdin is not None:
+            protocol = _InputProtocol(loop)
+            transport, _ = await loop.connect_write_pipe(lambda: protocol, self._child.stdin)
+            self._transports.append(transport)
+            self._attached_pipes.add(self._child.stdin)
+            self.stdin = asyncio.StreamWriter(transport, protocol, None, loop)
+
+    def close_pipes(self) -> None:
+        for transport in self._transports:
+            transport.close()
+        for pipe in (self._child.stdin, self._child.stdout, self._child.stderr):
+            if pipe is not None and pipe not in self._attached_pipes:
+                pipe.close()
+
+    def reap(self) -> None:
+        self.observe()
+        if self._code is None:
+            raise DeveloperError("process_reap_failed")
+        self._child.wait(timeout=0)
+        self.reaped = True
+        os.close(self._pidfd)
+        self._pidfd = None
+        _RETAINED_IDENTITIES.discard(self)
+
+
+async def spawn_owned_process(*argv: str, **kwargs: Any) -> OwnedProcess:
+    process = OwnedProcess(argv, kwargs)
     try:
-        await asyncio.wait_for(process.wait(), 0.25)
-    except TimeoutError:
-        pass
-    # Always kill the remaining group, including when its leader already exited.
-    send(signal.SIGKILL)
-    try:
-        await asyncio.wait_for(process.wait(), 2)
-    except TimeoutError:
-        raise DeveloperError("process_reap_failed") from None
-    # PID namespaces kill escaped sessions when their init exits. Also verify that
-    # no live member of our host process group remains (zombies cannot execute).
-    deadline = time.monotonic() + 1
-    while _group_alive(process.pid):
-        if time.monotonic() >= deadline:
-            raise DeveloperError("process_group_survived")
-        await asyncio.sleep(0.01)
+        await process.connect()
+    except BaseException:
+        await stop_process(process)
+        raise
+    return process
+
+
+async def stop_process(process: OwnedProcess) -> None:
+    if not isinstance(process, OwnedProcess):
+        raise DeveloperError("process_identity_unowned")
+
+    async def stop():
+        confirmed = False
+        try:
+            process.signal_group(signal.SIGTERM)
+            try:
+                await asyncio.wait_for(process.wait(), 0.25)
+            except TimeoutError:
+                pass
+            process.signal_group(signal.SIGKILL)
+            try:
+                await asyncio.wait_for(process.wait(), 2)
+            except TimeoutError:
+                raise DeveloperError("process_reap_failed") from None
+            deadline = time.monotonic() + 1
+            while _group_alive(process.pid):
+                if time.monotonic() >= deadline:
+                    raise DeveloperError("process_group_survived")
+                await asyncio.sleep(0.01)
+            confirmed = True
+        finally:
+            process.close_pipes()
+            # Unknown cleanup retains ownership; never release/reuse its PGID.
+            if confirmed:
+                process.reap()
+
+    if process._stop_task is None:
+        process._stop_task = asyncio.create_task(stop())
+    _, cancelled = await uncancellable(process._stop_task)
+    if cancelled:
+        raise asyncio.CancelledError
 
 
 def _group_alive(group: int) -> bool:
@@ -113,7 +265,7 @@ async def run_process(
 ) -> ProcessResult:
     started = time.monotonic()
     try:
-        process = await asyncio.create_subprocess_exec(
+        process = await spawn_owned_process(
             *argv,
             cwd=cwd,
             env=environment() if env is None else env,

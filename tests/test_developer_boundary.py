@@ -461,7 +461,9 @@ def test_boundary_verification_on_all_exits(developer_case, failure):
 )
 def test_actual_launcher_kills_descendants(developer_case, monkeypatch, mode):
     repo, _ = prepared(developer_case)
-    original = asyncio.create_subprocess_exec
+    from app import developer_process
+
+    original = developer_process.spawn_owned_process
     processes = []
 
     async def record(*args, **kwargs):
@@ -469,7 +471,7 @@ def test_actual_launcher_kills_descendants(developer_case, monkeypatch, mode):
         processes.append(process)
         return process
 
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", record)
+    monkeypatch.setattr(developer_process, "spawn_owned_process", record)
     code = """import os, signal, time
 from pathlib import Path
 if os.fork() == 0:

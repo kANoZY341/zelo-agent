@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app import developer_process
 from app.developer_process import DeveloperError, ProcessResult
 from qualification import shell_compute as boundary
 from scripts import qualify_shell_compute as proof
@@ -22,6 +23,7 @@ def no_native_guest(monkeypatch):
         pytest.fail("native guest launched by offline qualification tests")
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", forbidden)
+    monkeypatch.setattr(developer_process, "spawn_owned_process", forbidden)
     monkeypatch.setattr(boundary.os, "geteuid", lambda: 1000)
     monkeypatch.setattr(boundary.os, "getegid", lambda: 1000)
 
@@ -296,3 +298,42 @@ def test_pinned_fds_remain_owned_until_process_cleanup_returns(monkeypatch):
 
     asyncio.run(exercise())
     assert events == ["pins_open", "process_cleanup_confirmed", "pins_closed"]
+
+
+@pytest.mark.parametrize(
+    "case,exit_code,stderr",
+    [
+        ("read_only_guest", 1, b"File size limit exceeded"),
+        ("read_only_guest", 0, b""),
+        ("process_creation_denied", 1, b"read reached EOF"),
+        ("process_creation_denied", 0, b""),
+    ],
+)
+def test_restriction_probes_reject_incidental_failure_or_success(
+    tmp_path, monkeypatch, case, exit_code, stderr
+):
+    calls = []
+
+    async def run(script, **kwargs):
+        calls.append(script)
+        if script == proof.STATUS:
+            return ProcessResult(0, guest_status().encode(), b"", 0.1)
+        if "COMPUTE_" in script:
+            return ProcessResult(0, b"COMPUTE_42\n", b"", 0.1)
+        if "printf CLEAN" in script:
+            return ProcessResult(0, b"CLEAN", b"", 0.1)
+        if "printf HIDDEN" in script:
+            return ProcessResult(0, b"HIDDEN", b"", 0.1)
+        if script == ": >/tmp/new-file\n":
+            if case == "read_only_guest":
+                return ProcessResult(exit_code, b"", stderr, 0.1)
+            return ProcessResult(2, b"", b"Read-only file system", 0.1)
+        assert script == "printf 'harmless\\n' | read value\n"
+        return ProcessResult(exit_code, b"", stderr, 0.1)
+
+    monkeypatch.setattr(proof, "run_probe", run)
+    with pytest.raises(RuntimeError, match="shell_probe_restriction_failed"):
+        asyncio.run(proof._exercise(tmp_path, {"cases": []}, asyncio.Event(), []))
+    assert calls[-1] == (
+        ": >/tmp/new-file\n" if case == "read_only_guest" else "printf 'harmless\\n' | read value\n"
+    )
