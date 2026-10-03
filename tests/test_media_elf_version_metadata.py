@@ -393,3 +393,181 @@ def test_duplicate_dependency_is_not_collapsed():
     report["definitions"][2]["dependency_names"] *= 2
     with pytest.raises(m.ElfMetadataError, match="duplicate"):
         m.validate_report(report, candidate[0])
+
+
+@pytest.mark.parametrize(
+    "role,size",
+    [
+        ("dynsym", 24 * 32769),
+        ("versym", 65538),
+        ("verdef", 65537),
+        ("verneed", 65537),
+    ],
+)
+def test_table_bounds_precede_any_content_access(monkeypatch, role, size):
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    kinds = {
+        "dynsym": "SHT_DYNSYM",
+        "versym": "SHT_GNU_versym",
+        "verdef": "SHT_GNU_verdef",
+        "verneed": "SHT_GNU_verneed",
+    }
+    selected = next(s for s in bound["sections"] if s["sh_type"] == kinds[role])
+    selected["sh_size"] = size
+    bound["programs"][0]["p_filesz"] = 1048576
+
+    class NoContentAccess:
+        def __len__(self):
+            return 1048576
+
+        def __getitem__(self, item):
+            pytest.fail("content accessed before table limit")
+
+    monkeypatch.setattr(m.hashlib, "sha256", lambda *args: pytest.fail("hash before table limit"))
+    with pytest.raises(m.ElfMetadataError, match="count|extent"):
+        m._topology(NoContentAccess(), bound, m._Budget())
+
+
+@pytest.mark.parametrize("has_def,has_need", [(False, False), (True, False), (False, True)])
+def test_supported_partial_version_tables(has_def, has_need):
+    candidate = make()
+    raw, _, elf, records, decode, _ = candidate
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    remove_types, remove_tags = set(), set()
+    if not has_def:
+        remove_types.add("SHT_GNU_verdef")
+        remove_tags.update(("DT_VERDEF", "DT_VERDEFNUM"))
+    if not has_need:
+        remove_types.add("SHT_GNU_verneed")
+        remove_tags.update(("DT_VERNEED", "DT_VERNEEDNUM"))
+    for section in bound["sections"]:
+        if section["sh_type"] in remove_types:
+            section["sh_type"] = "SHT_PROGBITS"
+    bound["dynamic"] = [d for d in bound["dynamic"] if d["tag"] not in remove_tags]
+    for (kind, _), record in records.items():
+        if kind == "Elf_Versym":
+            record["ndx"] = "VER_NDX_GLOBAL"
+    output = json.loads(m._inspect(raw, bound, elf.structs, decode))
+    assert output["versioned"] is True
+    assert bool(output["definitions"]) is has_def
+    assert bool(output["needs"]) is has_need
+    assert output["frequencies"] == [{"raw": 1, "index": 1, "hidden": False, "count": 5}]
+    if not has_def:
+        assert output["tables"]["verdef"] is None
+        assert output["counts"]["definitions_declared"] == 0
+    if not has_need:
+        assert output["tables"]["verneed"] is None
+        assert output["counts"]["needs_declared"] == 0
+
+
+@pytest.mark.parametrize("remove", ["DT_VERDEF", "DT_VERDEFNUM", "DT_VERNEED", "DT_VERNEEDNUM"])
+def test_partial_table_absence_requires_both_tags_absent(remove):
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    kind = "SHT_GNU_verdef" if remove.startswith("DT_VERDEF") else "SHT_GNU_verneed"
+    for section in bound["sections"]:
+        if section["sh_type"] == kind:
+            section["sh_type"] = "SHT_PROGBITS"
+    bound["dynamic"] = [d for d in bound["dynamic"] if d["tag"] != remove]
+    with pytest.raises(m.ElfMetadataError, match="companion"):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+def test_version_parents_without_versym_refused():
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    for section in bound["sections"]:
+        if section["sh_type"] == "SHT_GNU_versym":
+            section["sh_type"] = "SHT_PROGBITS"
+    bound["dynamic"] = [d for d in bound["dynamic"] if d["tag"] != "DT_VERSYM"]
+    with pytest.raises(m.ElfMetadataError, match="companion"):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+@pytest.mark.parametrize("step", [0, 4, 17, 20])
+def test_nonfinal_vernaux_next_before_second_decode(step):
+    candidate = make()
+    offset = candidate[1]["sections"][".gnu.version_r"]
+    candidate[3]["Elf_Verneed", offset]["vn_cnt"] = 2
+    candidate[3]["Elf_Vernaux", offset + 16]["vna_next"] = step
+    with pytest.raises(m.ElfMetadataError, match="chain|extent"):
+        inspect(candidate)
+    assert ("Elf_Vernaux", offset + 16 + step) not in candidate[5][
+        candidate[5].index(("Elf_Vernaux", offset + 16)) + 1 :
+    ]
+
+
+def test_unknown_flags_with_valid_base_are_independently_refused():
+    candidate = make()
+    candidate[3]["Elf_Verdef", candidate[1]["sections"][".gnu.version_d"]]["vd_flags"] = 5
+    with pytest.raises(m.ElfMetadataError, match="flags"):
+        inspect(candidate)
+
+
+@pytest.mark.parametrize(
+    "role,field,value",
+    [
+        ("SHT_DYNSYM", "sh_link", 0),
+        ("SHT_DYNSYM", "sh_entsize", 16),
+        ("SHT_DYNSYM", "sh_size", 121),
+        ("SHT_DYNSYM", "sh_info", 6),
+        ("SHT_GNU_verdef", "sh_link", 2),
+        ("SHT_GNU_verneed", "sh_link", 2),
+        ("SHT_GNU_verdef", "sh_entsize", 20),
+        ("SHT_GNU_verneed", "sh_entsize", 16),
+        ("SHT_GNU_verdef", "sh_info", 2),
+        ("SHT_GNU_verneed", "sh_info", 0),
+        ("SHT_GNU_verdef", "sh_addr", 0),
+        ("SHT_GNU_verneed", "sh_addr", 0),
+    ],
+)
+def test_all_role_links_widths_counts_maps(role, field, value):
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    next(s for s in bound["sections"] if s["sh_type"] == role)[field] = value
+    with pytest.raises(m.ElfMetadataError):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+@pytest.mark.parametrize(
+    "role", ["SHT_DYNSYM", "SHT_GNU_versym", "SHT_GNU_verdef", "SHT_GNU_verneed"]
+)
+def test_duplicate_role_table(role):
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    bound["sections"].append(
+        copy.deepcopy(next(s for s in bound["sections"] if s["sh_type"] == role))
+    )
+    with pytest.raises(m.ElfMetadataError, match="table"):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+def test_ambiguous_full_range_load_mapping():
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    bound["programs"].append(copy.deepcopy(bound["programs"][0]))
+    with pytest.raises(m.ElfMetadataError, match="mapping"):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+def test_overlap_refused_before_hash(monkeypatch):
+    raw, _, elf, _, decode, _ = make()
+    bound = json.loads(loader._inspect(raw, elf, decode))
+    definition = next(s for s in bound["sections"] if s["sh_type"] == "SHT_GNU_verdef")
+    symbols = next(s for s in bound["sections"] if s["sh_type"] == "SHT_DYNSYM")
+    definition["sh_offset"] = symbols["sh_offset"]
+    definition["sh_addr"] = symbols["sh_addr"]
+    next(d for d in bound["dynamic"] if d["tag"] == "DT_VERDEF")["value"] = symbols["sh_addr"]
+    monkeypatch.setattr(m.hashlib, "sha256", lambda *args: pytest.fail("hash before overlap"))
+    with pytest.raises(m.ElfMetadataError, match="overlap"):
+        m._inspect(raw, bound, elf.structs, decode)
+
+
+def test_full_report_multinode_inheritance_cycle():
+    candidate = make()
+    report = json.loads(inspect(candidate))
+    report["definitions"][1]["dependency_names"] = ["FIXTURE_2.0"]
+    report["definitions"][1]["aux_declared"] = report["definitions"][1]["aux_decoded"] = 2
+    with pytest.raises(m.ElfMetadataError, match="graph_cycle"):
+        m.validate_report(report, candidate[0])

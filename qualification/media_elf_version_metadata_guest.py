@@ -23,8 +23,8 @@ SOURCE_PINS = (
     ),
     (
         "qualification/media_elf_version_metadata.py",
-        24484,
-        "22583fa1648a1872290e25bf8c6aa2eb41b1ea1c7b30c8a105c7dcaf22712da2",
+        24787,
+        "44ae8ae9737bb8aff2f8a044525f4e3f8b83cc4cfcf68c4142e992f8118479ac",
     ),
 )
 

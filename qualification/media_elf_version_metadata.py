@@ -48,8 +48,8 @@ def _require(condition, code):
         raise ElfMetadataError("media_elf_version_" + code)
 
 
-def _int(value, low=0, high=2**64 - 1):
-    _require(type(value) is int and low <= value <= high, "integer")
+def _int(value, low=0, high=2**64 - 1, code="integer"):
+    _require(type(value) is int and low <= value <= high, code)
     return value
 
 
@@ -160,7 +160,6 @@ def _topology(raw, report, budget):
             _require(_mapped(raw, programs, address, size) == offset, "mapping")
         digest = s["uninterpreted_content_sha256"]
         _sha(digest)
-        _require(hashlib.sha256(raw[offset : offset + size]).hexdigest() == digest, "digest")
         tables[role] = dict(
             zip(
                 TABLE_FIELDS,
@@ -182,7 +181,7 @@ def _topology(raw, report, budget):
         sym["entry_bytes"] == 24 and sym["bytes"] % 24 == 0 and sym["link"] == string_index,
         "dynsym",
     )
-    count = _int(sym["bytes"] // 24, 1, 32768)
+    count = _int(sym["bytes"] // 24, 1, 32768, "count")
     _int(sym["info"], 0, count)
     _require(strings["info"] == 0 and strings["entry_bytes"] == 0, "table")
     _require(tags.get("DT_SYMENT") == 24 and "DT_SYMTAB" in tags, "companion")
@@ -217,7 +216,7 @@ def _topology(raw, report, budget):
             "mapping",
         )
         if number:
-            parent_counts[role] = _int(tags[number], 1, 128)
+            parent_counts[role] = _int(tags[number], 1, 128, "count")
             _require(table["info"] == tags[number], "count")
         else:
             _require(table["bytes"] == 2 * count and table["info"] == 0, "count")
@@ -233,6 +232,11 @@ def _topology(raw, report, budget):
                 a["offset"] + a["bytes"] <= b["offset"] or b["offset"] + b["bytes"] <= a["offset"],
                 "overlap",
             )
+    # All role widths/counts/extents, companions, maps and disjointness precede
+    # content access. memoryview avoids an input-sized temporary slice.
+    for table in occupied:
+        view = memoryview(raw)[table["offset"] : table["offset"] + table["bytes"]]
+        _require(hashlib.sha256(view).hexdigest() == table["content_sha256"], "digest")
     return tables, count, parent_counts, needed, soname
 
 
@@ -399,7 +403,7 @@ def validate_report(report, raw):
     for item in _list(report["frequencies"], 2050):
         _keys(item, "raw index hidden count".split())
         raw_index = _int(item["raw"], 0, 65535)
-        index = _int(item["index"], 0, 0x7EFF)
+        index = _int(item["index"], 0, 0x7EFF, "index")
         _require(type(item["hidden"]) is bool, "schema")
         _require(
             raw_index > last
@@ -465,7 +469,7 @@ class _Reader:
         for number in range(count):
             parent = self.record(parent_kind, position, parent_width, begin, end, intervals)
             _require(_int(parent[prefix + "_version"], 0, 65535) == 1, "revision")
-            aux_count = _int(parent[prefix + "_cnt"], 1, 64)
+            aux_count = _int(parent[prefix + "_cnt"], 1, 64, "count")
             self.aux_total += aux_count
             _require(self.aux_total <= 1024, "count")
             step = _int(parent[prefix + "_next"], 0, 2**32 - 1)

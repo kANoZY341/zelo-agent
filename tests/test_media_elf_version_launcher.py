@@ -461,3 +461,60 @@ def test_loader_claim_tamper_even_with_rebound_hash():
     ).hexdigest()
     with pytest.raises(q.QualificationRefused):
         q._metadata_result(q.version.canonical(value) + b"\n", raw)
+
+
+@pytest.mark.parametrize(
+    "name,section,field_offset,form,value,kind,record_offset,key,family",
+    [
+        ("need-revision", ".gnu.version_r", 0, "<H", 2, "Elf_Verneed", 0, "vn_version", "revision"),
+        (
+            "definition-revision",
+            ".gnu.version_d",
+            0,
+            "<H",
+            2,
+            "Elf_Verdef",
+            0,
+            "vd_version",
+            "revision",
+        ),
+        ("parent-count", ".dynamic", 136, "<Q", 129, "Elf_Dyn", 128, "d_val", "count"),
+        ("aux-count", ".gnu.version_d", 6, "<H", 65, "Elf_Verdef", 0, "vd_cnt", "count"),
+        ("parent-range", ".gnu.version_d", 16, "<I", 65536, "Elf_Verdef", 0, "vd_next", "extent"),
+        ("aux-range", ".gnu.version_r", 8, "<I", 65536, "Elf_Verneed", 0, "vn_aux", "extent"),
+        ("parent-cycle", ".gnu.version_d", 16, "<I", 0, "Elf_Verdef", 0, "vd_next", "chain"),
+        ("aux-cycle", ".gnu.version_d", 88, "<I", 0, "Elf_Verdaux", 84, "vda_next", "chain"),
+        ("parent-overlap", ".gnu.version_d", 16, "<I", 4, "Elf_Verdef", 0, "vd_next", "chain"),
+        ("aux-overlap", ".gnu.version_d", 12, "<I", 4, "Elf_Verdef", 0, "vd_aux", "chain"),
+        ("nonzero-padding", ".gnu.version_d", 28, "<B", 1, None, 0, None, "padding"),
+        ("unknown-flags", ".gnu.version_d", 2, "<H", 4, "Elf_Verdef", 0, "vd_flags", "flags"),
+        ("reserved-index", ".gnu.version", 8, "<H", 0xFF00, "Elf_Versym", 8, "ndx", "index"),
+        ("duplicate-index", ".gnu.version_d", 36, "<H", 1, "Elf_Verdef", 32, "vd_ndx", "index"),
+        ("missing-index", ".gnu.version", 8, "<H", 5, "Elf_Versym", 8, "ndx", "reference"),
+        ("invalid-string", ".dynstr", 22, "<B", 255, None, 0, None, "string"),
+    ],
+)
+def test_each_native_mutation_exact_field_and_fake_record_causal_oracle(
+    name, section, field_offset, form, value, kind, record_offset, key, family
+):
+    import struct
+
+    candidate = list(make())
+    raw, layout, _, records, _, _ = candidate
+    assert inspect(candidate)  # Independently valid baseline for every mutation.
+    # This independent field table does not use the launcher's mutation table.
+    begin = layout["sections"][section]
+    expected = bytearray(raw)
+    struct.pack_into(form, expected, begin + field_offset, value)
+    changed = q._malformed(raw, layout, name)
+    assert changed == bytes(expected)
+    assert changed[: begin + field_offset] == raw[: begin + field_offset]
+    assert (
+        changed[begin + field_offset + struct.calcsize(form) :]
+        == raw[begin + field_offset + struct.calcsize(form) :]
+    )
+    candidate[0] = changed
+    if kind is not None:
+        records[kind, begin + record_offset][key] = value
+    with pytest.raises(q.version.ElfMetadataError, match="^media_elf_version_" + family + "$"):
+        inspect(candidate)
