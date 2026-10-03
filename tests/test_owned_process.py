@@ -225,8 +225,8 @@ def test_post_spawn_pidfd_failure_terminates_and_reaps_owned_child(monkeypatch):
     owned = []
     calls = []
 
-    def construct(process, argv, kwargs):
-        original_construct(process, argv, kwargs)
+    def construct(process, argv, kwargs, **options):
+        original_construct(process, argv, kwargs, **options)
         owned.append(process)
 
     def acquire(pid):

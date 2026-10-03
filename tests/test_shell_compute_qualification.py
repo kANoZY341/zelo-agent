@@ -38,7 +38,9 @@ def test_host_harness_requires_opt_in_before_native_action(monkeypatch):
 
 def test_root_is_rejected_before_source_or_process_actions(monkeypatch):
     monkeypatch.setattr(boundary.os, "geteuid", lambda: 0)
-    monkeypatch.setattr(boundary, "verify_sources", lambda: pytest.fail("root source scan reached"))
+    monkeypatch.setattr(
+        boundary, "verify_sources", lambda *a: pytest.fail("root source scan reached")
+    )
     with pytest.raises(DeveloperError, match="shell_nonroot_required"):
         asyncio.run(boundary.run_probe("printf harmless"))
 
@@ -86,7 +88,7 @@ def test_policy_mounts_only_fixed_runtime_artifacts_with_no_authority_inputs():
 )
 def test_invalid_inputs_fail_before_source_verification(script, timeout, monkeypatch):
     monkeypatch.setattr(
-        boundary, "verify_sources", lambda: pytest.fail("invalid input source scan")
+        boundary, "verify_sources", lambda *a: pytest.fail("invalid input source scan")
     )
     with pytest.raises(DeveloperError, match="shell_probe_input_invalid"):
         asyncio.run(boundary.run_probe(script, timeout=timeout))
@@ -96,12 +98,12 @@ def test_verified_source_precedes_closed_process_environment(monkeypatch):
     events = []
     monkeypatch.setenv("ZELO_OPERATOR_TOKEN", "ambient-sentinel")
     monkeypatch.setenv("ENV", "/live/profile")
-    monkeypatch.setattr(boundary, "verify_sources", lambda: events.append("verify"))
+    monkeypatch.setattr(boundary, "verify_sources", lambda *a: events.append("verify"))
 
     artifacts = [SimpleNamespace(fd=100 + i) for i in range(len(boundary.SOURCES))]
 
     @contextmanager
-    def pins():
+    def pins(*args):
         events.append("pin")
         yield artifacts
         events.append("close_pins")
@@ -131,7 +133,7 @@ def test_verified_source_precedes_closed_process_environment(monkeypatch):
 
 
 def test_unavailable_source_has_no_host_shell_fallback(monkeypatch):
-    def fail():
+    def fail(*args):
         raise DeveloperError("shell_source_changed")
 
     monkeypatch.setattr(boundary, "verify_sources", fail)
@@ -266,11 +268,11 @@ def test_pins_close_previous_artifacts_when_later_identity_is_rejected(monkeypat
 
 def test_pinned_fds_remain_owned_until_process_cleanup_returns(monkeypatch):
     events = []
-    monkeypatch.setattr(boundary, "verify_sources", lambda: None)
+    monkeypatch.setattr(boundary, "verify_sources", lambda *a, **kw: None)
     artifacts = [SimpleNamespace(fd=100 + i) for i in range(len(boundary.SOURCES))]
 
     @contextmanager
-    def pins():
+    def pins(*args):
         events.append("pins_open")
         try:
             yield artifacts
