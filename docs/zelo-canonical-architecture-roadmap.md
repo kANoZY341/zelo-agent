@@ -871,3 +871,15 @@ mutable prepared-tree attribution and native Media execution remain separate.
 Continue qualification-only immutable per-file image sealing and trusted guest-copy
 proof, without Pillow imports/decoder/Core binding. See
 [image qualification scope](v0.15-media-image-qualification.md).
+
+
+### Media immutable file-image checkpoint — 3 October 2026
+
+PR #77 merged at `3381ada6` with the exact reviewed/tested tree. Full CI passes
+2,596 tests with two supplemented skips. The managed per-file sealed image and fixed
+read-only scanner prove the complete 140-file normalized closure, denied mutations,
+resource controls and ownership cleanup without importing Pillow. This remains file
+qualification, not decoder behavior, publisher inheritance or Core authority.
+See [final gates](reviews/media-image-final-gates.md). Continue with a pure fixed
+Media syscall candidate and concrete installer/resource prerequisites; original
+RLIMIT/cgroup/seccomp gates remain ahead of decoder execution. UI remains parked.
