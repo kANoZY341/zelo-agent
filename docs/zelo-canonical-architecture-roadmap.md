@@ -894,3 +894,13 @@ native ABI, decoder or runtime authority. See [final gates](reviews/media-syscal
 Continue with [platform metadata prerequisites](v0.15-media-platform-metadata.md)
 before an exact inert platform lock/materializer; original resource/filter gates
 remain before decoder qualification. Core first; UI stays parked.
+
+
+### Media inert ELF tool-source checkpoint — 3 October 2026
+
+PR79 merged ata8157ec3 with matching tree,2,800CI passes and all focused/standalone/
+fault gates. The exact55file tool-source copy retains both required notices and grants
+no parser execution or platform authority. See [final gates](reviews/media-elf-tool-final-gates.md).
+Continue [isolated ELF dependency metadata](v0.15-media-elf-dependency-metadata.md)
+with source/launcher review before optional guestcode; original resource/filter/ABI
+and decoder gates remain open. Core first; UI remains parked.

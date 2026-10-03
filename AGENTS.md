@@ -68,45 +68,50 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media platform metadata qualification after pure syscall
-candidate PR #78 at `0d3ecec5`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media isolated ELF dependency metadata after inert tool
+source PR #79 at `a8157ec3`. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media platform metadata prerequisites
+## Current scope: v0.15 Media isolated ELF dependency metadata
 
-PR #78 merged at0d3ecec5 with matching reviewed/tested tree,2,751 CI passes and
-both standalone/negative-control supplements; post-merge CI is successful. Read
-reviews/media-syscall-final-gates.md and v0.15-media-platform-metadata.md under docs.
-The next gate is an exact inert platform inventory for a later COPY-only image.
-Review a mature pinned ELF metadata tool before collecting ELF dependency metadata.
-GNU readelf needs its own native tool closure; compare a pure-Python pyelftools
-candidate by static provenance/license/source inspection first. No homemade ELF
-parser, general dependency resolver, ldd, target loader or execution discovery.
-Bounded official public metadata/wheel retrieval, inert ZIP/source inspection and
-fixed qualification-only tool-source preparation implementation/offline fixtures are allowed; do not install/import/run the optional parser before fixed launcher/source
-review and isolation/resource/ownership gates. Do not modify shared dependencies.
-Preserve required licenses/notices, exact source hashes and explicit provenance limits.
+PR79 merged ata8157ec3 with matching reviewed/tested tree,2,800CI passes,49newtests,
+55file inert toolcopy and all standalone/fault gates. Read docs/reviews/media-elf-tool-
+final-gates.md and docs/v0.15-media-elf-dependency-metadata.md. No parser has imported.
+Implement fixed qualification-only ELF64x64 loader-topology metadata for seven pinned
+host files, using reviewed pyelftools fixed-record decoders and no general resolver.
+Before source: freeze supported tag/structure rules, source/bootstrap authentication,
+compatible inherited hardlimits, count/storage/string budgets and admission release
+limitations. First scope records header/program/section/dependency metadata; symbol/
+version contents and ABI interpretation stay unqualified, explicitly recorded as such.
+No high-level hash/DWARF/section/dynamic/versions APIs or target execution discovery.
 
-A future isolated metadata parser may inspect immutable target bytes only after a
-separate Astra Medium source/launcher review; no target native library execution.
-Collecting metadata does not qualify platform completeness, loader behavior, native
-ABI, image delivery or aggregate cgroup accounting. Materialization/builds stay blocked
-until exact platform provenance/notices/closure and resource/daemon settlement designs
-are reviewed. Keep Pillow out of the first platform materializer.
+Source/tests/launcher may be written and offline fake-record fixtures run now. Before
+ANY optional parser import/execution (even fixtures), full AstraMedium static source/
+launcher review must clear its fixedcode/authentication/isolation/limits/ownership and
+closed case plan. Execute only fixed operator qualifier in the qualified namespace;
+no host/sharedvenv installation/import. Source initializers/dependencies and tooltree
+must authenticate before optional import; exclude bytecode/alternate import candidates.
+Target input buffers are data only; trusted host baseline runtime may overlap inspected
+platform paths. No claim of zero native baseline execution or exact minimal platform.
 
-Use fixed qualification-only inputs, numeric byte/count/output/attempt budgets and
-existing qualified ownership helpers unchanged. Add meaningful offline adversarial
-fixtures before any optional execution. Matching-head full CI, static full source/
-evidence review and standalone/fault supplements precede merge. Record historical
-CI separately; source hashes alone do not prove origin or immutable execution.
+Reuse existing OwnedProcess/NativeExecutionObservation/_own_operation and admission
+helpers unchanged. Register observations before pendingcreation; retain repeatedcancel
+settlement. Unknown owned cleanup/non-admissionFD closure leaves durablemarker; release
+errors may follow marker truncation, so refuse receipt without universal fence claim.
+Limits/attempt/retained storage/source manifests/string work/output and trusted host
+buffers must be numeric/countable; no automatic retry/delete/recovery or broad prune.
+After exact source/launcher review, fixedguestfixtures+isolation/resource/cancel/cleanup
+controls precede seveninput metadata acceptance. Full final source/evidence review,
+focused/matching-head fullCI and standalone/fault supplements precede normalmerge.
 
-Original PNG RLIMIT/cgroup/seccomp gates remain BEFORE decoder qualification.
-No Pillow installation/import/decoder, ctypes/libseccomp/filter execution, Docker
-build/create, cgroup/host/daemon changes, Media runtime/task/route/registry/capability/
-Core/Agent/Mind binding, model request, signing/OAuth, live environment/data/config/
-service/listener. Production flags stay disabled; v0.14.0/UI61 remain preserved.
-Use only the dedicated worktree, preserve all retained attempts and unrelated/user
-data. Computer/external adapters and v16->v17->v18 remain separate and ordered.
+Platform provenance/notices/complete dependency/dlopen/symbolABI lock, actual inert
+platform materialization/context/build/daemonsettlement and resource/filter stages
+remain separate. Original PNG RLIMIT/cgroup/seccomp gates stay BEFORE decoder.
+No Pillow installation/import/decoder, ctypes/libseccomp/filter, Docker build/create,
+cgroup/host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind
+binding, model request, signing/OAuth, live env/data/config/service/listener. Flags
+stay disabled, v0.14.0/UI61 preserved. Dedicated worktree only; retain bounded private
+attempts; delete no unrelated/user data. v16->v17->v18 remain ordered and separate.
 
 ## Workspace decision
 
