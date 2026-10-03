@@ -6,7 +6,7 @@ Reviewed head:24d8f4114b8007f1e8b51bd8b42318ccb1a1baa2.
 Reviewed/merged tree:8e9f48ddace7555503dc20db61639e8d0c44a599.
 Merge:f6a8a58413a8bff9c5f85e6ffee9fd3c220083de; exact tree equality verified.
 Matching-head PR CI37156454994:success,2,928passed,two supplemented skips,
-11existing warnings,715.00seconds. Post-merge CI recorded separately when observed.
+11existing warnings,715.00seconds. Post-merge CI37157548969:success observed separately.
 
 1,111 focused Media tests pass, including128 new offline fixtures. Four standalone
 supplements pass in19.54seconds; two weakened clean clones hit intended host-auth
