@@ -68,51 +68,41 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media fixed Ubuntu origin evidence after PR82 merge
-a473f46da617f0472603fb011c2d571e90a1792f. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media pure package-index selection after PR83 merge
+8b34bd66a1178b8c1f78141dc11ab93b9a9ac30a. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media fixed Ubuntu origin evidence
+## Current scope: v0.15 Media pure package-index selection
 
-PR82 matched its reviewed tree, passed 3194 CI tests and 44 actual cases/12 inputs.
-Read docs/reviews/media-platform-dependency-final-{review,gates}.md. Two of four
-version attempts are consumed; all four loader attempts remain exhausted/retained.
-Never reset/rename/delete those quotas or automatically rerun qualification.
+PR83 matched its reviewed tree, passed3416 CI tests and18actual origin cases.
+Read docs/reviews/media-origin-final-{review,gates}.md. Origin3/4, ELFversion2/4,
+oldloader4/4 attempts are retained; no further origin/ELF run or quota reset.
+Historical selected-root Release authenticity and signed index declarations only.
+No package bytes or installed-member origin, freshness or current key validity.
 
-Astra Medium cleared docs/v0.15-media-platform-origin.md for offline implementation;
-see docs/reviews/media-platform-origin-design-review.md. Implement the fixed
-origin validator/launcher and synthetic adversarial/ownership tests. No native
-GPG execution before exact source, protocol, mount/exec/FD identity, UID/modes,
-root evidence, quota and ledger findings are closed by source review. Index
-retrieval/decompression and deb member inspection require separate execution gates.
-No apt install/update, host keyring/config/service changes or Chisel execution.
-Reuse mature GPGV and later dpkg-deb; no custom crypto/deb decoder or general resolver.
+Astra Medium cleared the complete frozen proposal docs/v0.15-media-package-index.md
+for pure offline implementation; see docs/reviews/media-index-parser-design-review.md.
+Implement the bounded incremental selector for exactly eight pinned amd64 packages,
+strict metadata syntax, normalized Source, and complete three-suite conflict checks.
+No file/network/process I/O in this module. Only synthetic input tests; no real
+index retrieval, decompression or package/member inspection before separate gates.
+No code from the inspected GPL python-debian reference is incorporated/imported.
+No dependency/version resolver or maintainer-script/package execution.
 
-Preserve shared admission runtime/media-elf-metadata-admission, observation before
-creation, repeated-cancel/pending settlement, support FD retention/close-once,
-conservative helper-failure fencing and pending proof before release. No proof-file
-I/O after successful release. Late Lease.finish failure can leave an empty marker;
-refuse receipts without universal fencing claims. Origin attempts1/4 and2/4 are retained; the second reached GPG exit0 but refused
-an unrelated Release declaration above1GiB. See docs/reviews/media-origin-r4-refusal.md.
-R4 mount/FD source findings are closed. Separate design review cleared the
-metadata-only12digit declaration-domain correction with selected128MiB/32MiB bounds
-unchanged; a second offline review cleared literal @ in discarded bounded relative
-path metadata with all traversal/URI/selection refusals retained. New exact-source
-review must clear any third attempt; no automatic
-retry or retroactive acceptance. New origin quota must be one
-fixed namespace across every origin policy revision, never a bypass for ELF quotas.
+Source review, focused/adversarial boundary tests, causal faults, matching-head
+full CI and standalone supplements precede normal exact-tree merge. Metadata-only
+is true; package_member_origin_verified and runtime_authority remain false.
+Preserve all previous origin proofs, source/actual bindings and admission lifecycle.
+No changes to shared ownership helpers or existing native qualifiers.
 
-Focused tests, causal faults, matching-head full CI, standalone supplements and
-full source/actual-evidence review precede normal exact-tree merge. Origin evidence
-is conditional historical attribution, not freshness, safe code or current key
-validity. Platform notices/import/frozen/builtin/dlopen/search/ABI closure,
-materializer/immutable context, build/daemon settlement, resources/startup/installer/
-filter and decoder remain separate. Original resource/filter gates before decoder.
+Platform notices/import/frozen/builtin/dlopen/search/ABI closure, materializer/
+immutable context, build/daemon settlement, resources/startup/installer/filter and
+decoder remain separate. Original resource/filter gates precede decoder.
 
 No Pillow/decoder, ctypes/libseccomp/filter execution, Docker build/create, cgroup/
 host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind binding,
-model requests, signing/OAuth or live env/data/config/listener changes. Flags
-disabled, v0.14.0/UI61 preserved. Dedicated worktree only, no unrelated/user data
+model requests, signing/OAuth or live env/data/config/listener changes. Flags stay
+disabled, v0.14.0/UI61 preserved. Dedicated worktree only, no unrelated/user-data
 deletion. Continue v0.15 then v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision
