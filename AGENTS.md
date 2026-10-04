@@ -106,7 +106,7 @@ settle its exact labelled container; final success also removes the exact labell
 image, releases support once, and emits only a proof-bound post-cleanup receipt.
 No acquired .deb, Pillow, Core route, enabled flag or UI work is eligible.
 
-Offline/fake source currently passes173 focused operator/owner tests and2752
+Offline/fake source currently passes176 focused operator/owner tests and2755
 combined Media/context checks. Real --run is NOT cleared until this new source is
 frozen, reviewed, passes its own full CI, and receives explicit one-attempt
 clearance. Any actual refusal consumes the new native-reader attempt and stops.

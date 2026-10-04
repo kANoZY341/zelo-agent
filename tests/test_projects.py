@@ -96,7 +96,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "4,505 CI" in active_status
     assert "version attempt 3/4" in active_status
     assert "cgroup-v2" in active_status
-    assert "173 focused operator/owner tests" in active_status
+    assert "176 focused operator/owner tests" in active_status
     assert "No Docker/native" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
@@ -104,7 +104,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #92" in roadmap_content
     assert "4,505 CI" in roadmap_content
     assert "Lease-bound" in roadmap_content
-    assert "2,743 combined Media/context checks" in roadmap_content
+    assert "2,755 combined Media/context checks" in roadmap_content
     assert "GNU/PAX" in roadmap_content
     assert "actual load/ABI authority" in roadmap_content
     assert "candidate wheel" not in roadmap_content

@@ -1,25 +1,42 @@
 {
-  "schema": "zelo-media-native-reader-source-gates-v1",
-  "review_method": "direct ChatGPT; no Codex/model job",
-  "prerequisite_merge": "f05abe11cd6b659a8339132028ca710e16393c48",
-  "prerequisite_ci": {
-    "run": 37207303870,
-    "passed": 4505,
-    "skipped": 2
-  },
-  "focused_passed": 173,
-  "combined_media_context_passed": 2752,
-  "native_attempts_used": 0,
-  "native_attempt_limit": 2,
+  "acquired_package_allowed": false,
   "actual_run_cleared": false,
   "clearance_condition": "exact committed source/tree + matching full CI",
-  "acquired_package_allowed": false,
+  "combined_media_context_passed": 2755,
+  "corrected_local_regression": {
+    "combined_media_context_passed": 2755,
+    "focused_passed": 176,
+    "superseded_combined_run": {
+      "cause": "decisive roadmap fact beyond bounded ContextResolver slice",
+      "failed": 1,
+      "passed": 2754
+    }
+  },
+  "focused_passed": 176,
+  "native_attempt_limit": 2,
+  "native_attempts_used": 0,
+  "prerequisite_ci": {
+    "passed": 4505,
+    "run": 37207303870,
+    "skipped": 2
+  },
+  "prerequisite_merge": "f05abe11cd6b659a8339132028ca710e16393c48",
+  "review_method": "direct ChatGPT; no Codex/model job",
   "runtime_authority": false,
+  "schema": "zelo-media-native-reader-source-gates-v1",
   "source_sha256": {
+    "qualification/media_reader_cgroup.py": "4e0b6cd1bf21c06a20eb5c923dc0bd8d9c24bfee4d425b497e6b46e32f223b0e",
     "qualification/media_reader_container.py": "8baec21ebe9c1a0711df86a3627deb407959baffe2665576f94429d5b80b1ce7",
     "qualification/media_reader_process.py": "791e39d43aec4cec8b5954f195685842a8619a3288eaf9e769bcc575d0e51566",
     "qualification/media_reader_setup.py": "a061efd2c9a76c36ec2a6748a4532dde09226bbbd6a1b6546970fd65451a3f00",
-    "qualification/media_reader_cgroup.py": "4e0b6cd1bf21c06a20eb5c923dc0bd8d9c24bfee4d425b497e6b46e32f223b0e",
-    "scripts/qualify_media_native_reader.py": "bb11a932a4d787edfef46ee0b1601806cd68b466298cf0ed398c6f018f5125e1"
+    "scripts/qualify_media_native_reader.py": "524509d4afdd2895350dd93155ce6a7b87658a76c12c1aea63febd41cc26b527"
+  },
+  "superseded_ci_failure": {
+    "cause": "CI test depended on intentionally uncommitted private retained runtime inputs",
+    "failed": 1,
+    "head": "1eee8d0b2905c90a13164e0af8196a29846abaec",
+    "passed": 4565,
+    "run": 37210925105,
+    "skipped": 2
   }
 }

@@ -8,8 +8,8 @@ Direct ChatGPT review; no independent Codex/model execution is claimed.
 - `qualification/media_reader_process.py`: `791e39d43aec4cec8b5954f195685842a8619a3288eaf9e769bcc575d0e51566`
 - `qualification/media_reader_setup.py`: `a061efd2c9a76c36ec2a6748a4532dde09226bbbd6a1b6546970fd65451a3f00`
 - `qualification/media_reader_cgroup.py`: `4e0b6cd1bf21c06a20eb5c923dc0bd8d9c24bfee4d425b497e6b46e32f223b0e`
-- `scripts/qualify_media_native_reader.py`: `bb11a932a4d787edfef46ee0b1601806cd68b466298cf0ed398c6f018f5125e1`
-- `tests/test_media_native_reader_operator.py`: `e0a13de6240a5fdcf68dee481647346d369f5858270b9c131780ab5526ff6864`
+- `scripts/qualify_media_native_reader.py`: `524509d4afdd2895350dd93155ce6a7b87658a76c12c1aea63febd41cc26b527`
+- `tests/test_media_native_reader_operator.py`: `577e2bddb84dac206c89f94f97214352a83abb4c2f7368e0f91ba76de814203f`
 - `tests/test_media_reader_setup.py`: `20d80142efac55050702b9f990c93dfc6c87473e88f683bf6931af111d65a9a5`
 - `tests/test_media_reader_cgroup.py`: `a499dc7a00376b506512bf2c416ef14269e44e7885f2ec03b19c988501d65921`
 - `tests/test_media_reader_container.py`: `2d0cee9fe0027d1d6d30daa827d9641420724af3c0cd84cc505adeffb6eeb39b`
@@ -91,8 +91,8 @@ review does not claim universal crash fencing.
 ## Validation and disposition
 
 Current offline/fake validation:
-- 173 focused native-reader operator/setup/cgroup/container/process tests passed.
-- 2,752 combined Media/context tests passed.
+- 176 focused native-reader operator/setup/cgroup/container/process tests passed.
+- 2,755 combined Media/context tests passed.
 - Ruff lint, Ruff format and diff whitespace checks passed.
 - Context status remains within its 2,200-character budget.
 - No application imports or runtime enabled flags were added.
@@ -108,3 +108,19 @@ This clearance does not permit an acquired package, package installation, arbitr
 Docker operation, host PATH/helper fallback, Pillow/image decoding, Core binding,
 enabled flags, UI work, system configuration changes, or claims of independent
 binary provenance/full ABI/runtime authority.
+
+## Corrected-head regression record
+
+The original PR #93 head `1eee8d0b2905c90a13164e0af8196a29846abaec` failed
+full CI run `37210925105` with **4,565 passed, two skipped and one failed**.
+The failing test tried to read private retained bootstrap binaries from a clean CI
+checkout even though those runtime files are intentionally not committed. Product/
+operator code did not fail. The test now authenticates the committed lock, then
+uses an explicit eight-file temporary synthetic retained-input set for copy-context
+behavior. The real operator still requires the actual private retained inputs.
+
+A subsequent broad local run first had **2,754 passes and one failure** because the
+updated validation fact appeared beyond ContextResolver's roadmap budget. The
+decisive 176/2,755 facts were moved earlier without widening the resolver or its
+budget. Final corrected worktree validation is **176 focused** and **2,755 combined**
+passes. Neither failed run is counted as passing evidence.

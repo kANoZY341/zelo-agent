@@ -27,8 +27,8 @@ timeout, cancellation and repeated-cancellation controls. Success requires exact
 image/container labels, fixed seccomp/argv/env, complete container+image cleanup,
 single support release and a proof-bound receipt. No host PATH/helper fallback.
 
-Offline/fake validation currently passes **173 focused operator/owner tests** and
-**2,752 combined Media/context tests** with static checks green. No Docker/native
+Offline/fake validation currently passes **176 focused operator/owner tests** and
+**2,755 combined Media/context tests** with static checks green. No Docker/native
 run has occurred on this branch. Next: freeze/hash/source-review this exact tree,
 run its own full CI, then clear at most one bounded synthetic native attempt.
 Real authenticated-package compatibility, USTAR composition, runtime/import and

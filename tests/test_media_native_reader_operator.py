@@ -28,7 +28,34 @@ def test_policy_is_synthetic_and_non_authoritative():
     assert value["runtime_authority"] is False
 
 
-def test_copy_context_uses_only_fixed_retained_inputs(tmp_path):
+def test_copy_context_uses_only_fixed_retained_inputs(tmp_path, monkeypatch):
+    real_root = Path(__file__).resolve().parents[1]
+    root = tmp_path / "repo"
+    fixtures = root / "qualification/fixtures"
+    fixtures.mkdir(parents=True)
+    lock_raw = (real_root / "qualification/fixtures/media-reader-elf-target-lock.json").read_bytes()
+    lock_path = fixtures / "media-reader-elf-target-lock.json"
+    lock_path.write_bytes(lock_raw)
+    lock_path.chmod(0o600)
+
+    source_root = root / "runtime/media-package-reader-bootstrap-20261004"
+    source_root.mkdir(parents=True, mode=0o700)
+    fake_lock = {"files": []}
+    expected = {}
+    for index in range(8):
+        raw = (f"synthetic-retained-input-{index}\n").encode()
+        name = f"{index:02d}.binary.reference"
+        digest = hashlib.sha256(raw).hexdigest()
+        fake_lock["files"].append({"relative": name, "bytes": len(raw), "sha256": digest})
+        path = source_root / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        expected[name] = raw
+    synthetic_manifest = image.manifest(fake_lock)
+
+    monkeypatch.setattr(q, "ROOT", root)
+    monkeypatch.setattr(q.image, "manifest", lambda lock: synthetic_manifest)
+
     attempt = tmp_path / "attempt"
     attempt.mkdir(mode=0o700)
     value, manifest = q._copy_context(attempt, "c" * 64)
@@ -44,6 +71,7 @@ def test_copy_context_uses_only_fixed_retained_inputs(tmp_path):
     assert b"ENTRYPOINT " not in dockerfile and b"CMD " not in dockerfile
     for row in manifest.files:
         raw = (value.context / row.source).read_bytes()
+        assert raw == expected[row.source]
         assert len(raw) == row.bytes
         assert hashlib.sha256(raw).hexdigest() == row.sha256
 
@@ -339,3 +367,31 @@ def test_stdout_control_refuses_unrelated_exception(monkeypatch, tmp_path):
                 "stdout_limit",
             )
         )
+
+
+@pytest.mark.parametrize("kind", ["container", "image"])
+def test_lease_preflight_refuses_any_existing_owned_resource(monkeypatch, kind):
+    calls = []
+
+    def discover(which, identity, environment):
+        calls.append(which)
+        if which == kind:
+            return ("d" * 64,) if which == "container" else ("sha256:" + "e" * 64,)
+        return ()
+
+    monkeypatch.setattr(q, "_discover", discover)
+    with pytest.raises(ValueError, match="reader_native_lease_collision"):
+        q._require_empty_lease("c" * 64, {"DOCKER_CONFIG": "/private"})
+    assert calls[0] == "container"
+
+
+def test_lease_preflight_requires_both_namespaces_empty(monkeypatch):
+    calls = []
+
+    def discover(which, identity, environment):
+        calls.append(which)
+        return ()
+
+    monkeypatch.setattr(q, "_discover", discover)
+    q._require_empty_lease("c" * 64, {"DOCKER_CONFIG": "/private"})
+    assert calls == ["container", "image"]

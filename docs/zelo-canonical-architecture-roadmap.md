@@ -474,12 +474,13 @@ Core-first checkpoint (4 October 2026): PR #92 merged at `f05abe1` after
 attempt 3/4 and still proves declarations only, not actual load/ABI authority.
 
 Current work is the one-shot **synthetic** native reader qualification. Lease-bound
-image ownership closes lost-build-ack cleanup; a stopped exported scratch image is
-verified byte-for-byte before start. The running reader must expose exact cgroup-v2
-memory/swap/PID/CPU limits before stdin. Four fixed synthetic Debian fixtures plus
-stdout-limit, timeout and cancellation controls pass 164 offline/fake owner tests,
-with 2,743 combined Media/context checks green. No Docker/native attempt has run
-on this branch yet: its own source review and full CI must clear one bounded attempt.
+image ownership closes lost-build-ack cleanup. **176 focused operator/owner tests**
+and **2,755 combined Media/context checks** pass before native execution. A stopped
+exported scratch image must verify byte-for-byte before start, and the running
+reader must expose exact cgroup-v2 memory/swap/PID/CPU limits before stdin. Four
+fixed synthetic Debian fixtures plus stdout-limit, timeout and cancellation controls
+are the only eligible matrix. No Docker/native attempt has run on this branch yet:
+its own corrected-head source review and full CI must clear one bounded attempt.
 USTAR stays narrow; GNU/PAX remain unsupported. Real package/member/runtime/import
 closure, image decoding, Core binding and release still remain. UI #61 and v0.14.0
 are unchanged.

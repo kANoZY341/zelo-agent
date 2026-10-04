@@ -263,6 +263,11 @@ def _discover(kind, identity, environment):
     )
 
 
+def _require_empty_lease(identity, environment):
+    if _discover("container", identity, environment) or _discover("image", identity, environment):
+        raise ValueError("reader_native_lease_collision")
+
+
 def _cleanup_owned(identity, environment):
     confirmed = True
     try:
@@ -511,6 +516,8 @@ async def _qualify():
         docker_config = attempt / "docker-config"
         docker_config.mkdir(mode=0o700)
         environment = {"DOCKER_CONFIG": str(docker_config)}
+        stage = "lease-preflight"
+        _require_empty_lease(lease.identity, environment)
         stage = "build"
         plan, manifest, contract_value, image_payload_digest = _build_and_attest(
             attempt, lease.identity, environment
