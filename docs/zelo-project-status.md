@@ -80,8 +80,17 @@ Release preparation is PR #54.
 
 ## Parallel v0.15 preparation — persistent Agent computers (5 October 2026)
 
-The active Media native-reader slice remains unchanged. In parallel, an isolated
-branch prepares the later v0.15 Computer Worker foundation by reusing the
+The active Media native-reader slice remains unchanged. PR #94 now carries the
+first persistent-computer foundation: a pinned OpenBot/OpenDots-derived
+supervisor/computer deployment, Zelo-owned fail-closed backend adapter and
+canonical AgentSpec/skill/Space/computer metadata.
+
+A stacked Core-control slice now adds persisted per-AgentInstance computer grants,
+append-only computer activity and owner-only status/permission/start/stop/
+take/release routes. It still grants no Agent browser/file/shell execution.
+See `docs/v0.15-agent-computer-control.md`.
+
+The foundation branch prepares the later v0.15 Computer Worker by reusing the
 MIT-licensed OpenBot computer supervisor/service pattern already reviewed by
 CopilotKit/OpenDots.
 

@@ -316,6 +316,27 @@ ZELO_COMPUTER_SUPERVISOR_TOKEN=<random-24+-char-secret> ZELO_COMPUTER_TOKEN=<dif
 The future Control Desk Computer Panel remains parked with the rest of the UI
 work until Core qualification reaches that gate.
 
+The stacked Core-control slice adds persisted per-AgentInstance computer grants
+and append-only computer activity plus owner-only Core routes:
+
+```text
+GET   /agents/{instance_id}/computer
+PATCH /agents/{instance_id}/computer/permissions
+POST  /agents/{instance_id}/computer/start
+POST  /agents/{instance_id}/computer/stop
+POST  /agents/{instance_id}/computer/take
+POST  /agents/{instance_id}/computer/release
+GET   /agents/{instance_id}/computer/events
+```
+
+All grants default off and may not exceed the trusted AgentSpec computer profile.
+Widening requires an active/current AgentInstance; revocation remains possible
+for stale/paused instances. Disabling a live grant asks the backend to stop the
+computer but cannot roll the Core revocation back if the backend is unavailable.
+Human handback preserves OpenBot's fresh-snapshot requirement. This still does
+not expose Agent-executable browser/file/shell actions. See
+`docs/v0.15-agent-computer-control.md`.
+
 ## Bounded API Worker (v0.15)
 
 `api_run` uses the trusted `api_core` worker with `api_read` capability and skill.

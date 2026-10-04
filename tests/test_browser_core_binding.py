@@ -564,6 +564,11 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
         assert set(after) - set(before) == {
             "tasks_browser_spec_immutable",
             "tasks_shell_spec_immutable",
+            "agent_computer_events_no_delete",
+            "agent_computer_events_no_update",
+            "agent_computer_events_sequence_guard",
+            "agent_computer_permissions_no_delete",
+            "agent_computer_permissions_no_reassign",
         }
     finally:
         db.close()

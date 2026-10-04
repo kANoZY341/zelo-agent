@@ -12,6 +12,8 @@ from app.agent_activation import AgentActivationEvaluator
 from app.agent_activation_api import router as agent_activation_router
 from app.agent_child_creation import AgentChildCreationService
 from app.agent_child_creation_api import router as agent_child_creation_router
+from app.agent_computer_api import router as agent_computer_router
+from app.agent_computer_service import AgentComputerService
 from app.agent_computers import OpenBotComputerBackend
 from app.agent_delegation_api import router as agent_delegation_router
 from app.agent_delegations import AgentDelegationService
@@ -182,6 +184,11 @@ def create_app(
             projects = ProjectService(database)
             memories = MemoryService(database)
             agent_instances = AgentInstanceService(database, agent_factory, memories)
+            agent_computer_service = AgentComputerService(
+                database,
+                agent_factory,
+                agent_computers,
+            )
             organization = OrganizationService(database, agent_factory)
             performance_evidence = PerformanceEvidenceService(database)
             campaigns = CampaignService(database)
@@ -281,6 +288,7 @@ def create_app(
             application.state.projects = projects
             application.state.memories = memories
             application.state.agent_instances = agent_instances
+            application.state.agent_computer_service = agent_computer_service
             application.state.organization = organization
             application.state.performance_evidence = performance_evidence
             application.state.campaigns = campaigns
@@ -336,6 +344,7 @@ def create_app(
     application.include_router(skill_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
+    application.include_router(agent_computer_router)
     application.include_router(agent_child_creation_router)
     application.include_router(agent_delegation_router)
     application.include_router(agent_execution_router)
