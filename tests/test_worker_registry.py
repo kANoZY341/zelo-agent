@@ -15,6 +15,7 @@ from app.worker_authority import (
     AUTHORITY_POLICY_VERSION,
     WorkerAuthorityProfile,
     authority_policy_fingerprint,
+    authority_policy_version,
     authority_profile,
     codex_permission_semantics,
     realized_authority_policy,
@@ -23,6 +24,7 @@ from app.worker_registry import (
     RegisteredWorker,
     Supervisor,
     WorkerRegistry,
+    descriptor_for_computer_worker,
     descriptor_for_python_worker,
     descriptor_for_reviewer,
 )
@@ -994,3 +996,54 @@ def test_public_api_read_authority_is_core_only_network_surface():
         {"action": "*", "resource": "*", "effect": "deny"},
     )
     assert policy["external_worker_sandbox"]["namespaces"]["network"] is True
+
+
+def test_agent_computer_read_authority_is_core_only_and_non_mutating():
+    profile = authority_profile(("agent-computer-read",))
+    assert profile.name == "agent-computer-read-v1"
+    assert profile.surface == "computer"
+    assert profile.workspace_read is False
+    assert profile.workspace_write is False
+    assert profile.network is False
+
+    policy = realized_authority_policy(profile)
+    assert policy["computer_read"]["actions"] == (
+        "browser_read",
+        "browser_snapshot",
+        "files_list",
+        "files_read",
+    )
+    assert policy["computer_read"]["browser_mutation"] is False
+    assert policy["computer_read"]["filesystem_write"] is False
+    assert policy["computer_read"]["shell"] is False
+    assert policy["computer_read"]["host_fallback"] is False
+    assert policy["computer_read"]["credential_injection"] is False
+    assert policy["codex"]["network_enabled"] is False
+    assert policy["claude_code"]["tools"] == ()
+    assert policy["opencode"]["permissions"] == (
+        {"action": "*", "resource": "*", "effect": "deny"},
+    )
+
+
+def test_computer_policy_semantics_change_invalidates_worker_selection(monkeypatch):
+    registry = WorkerRegistry([(descriptor_for_computer_worker(), StubWorker("computer"))])
+    supervisor = Supervisor(registry)
+    _, snapshot = supervisor.select(
+        role="computer",
+        capabilities=("computer_read",),
+    )
+    assert supervisor.matches(snapshot)
+    baseline = authority_policy_version()
+
+    from app import computer_worker
+
+    original = computer_worker.computer_read_policy_semantics
+
+    def widened():
+        semantics = dict(original())
+        semantics["browser_mutation"] = True
+        return semantics
+
+    monkeypatch.setattr(computer_worker, "computer_read_policy_semantics", widened)
+    assert authority_policy_version() != baseline
+    assert not supervisor.matches(snapshot)

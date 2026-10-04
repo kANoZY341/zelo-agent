@@ -11,7 +11,7 @@ from app.agent_factory import AgentRegistry, AgentSpec
 from app.capabilities import CapabilityRegistry
 from app.developer_contracts import WorkerDescriptor
 
-AGENT_ACTIVATION_POLICY = "zelo-agent-activation-policy-v2"
+AGENT_ACTIVATION_POLICY = "zelo-agent-activation-policy-v3"
 
 
 class ActivationContract(BaseModel):
@@ -38,7 +38,7 @@ class AgentActivationEvaluation(ActivationContract):
 
 
 class AgentActivationReport(ActivationContract):
-    policy_version: Literal["zelo-agent-activation-policy-v2"] = AGENT_ACTIVATION_POLICY
+    policy_version: Literal["zelo-agent-activation-policy-v3"] = AGENT_ACTIVATION_POLICY
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     capability_registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -113,6 +113,14 @@ class AgentActivationEvaluator:
             for worker in self.workers
         )
 
+    def _computer_worker_matches(self, spec: AgentSpec) -> bool | None:
+        if "computer_run" not in spec.allowed_task_kinds:
+            return None
+        return any(
+            worker.enabled and worker.role == "computer" and "computer_read" in worker.capabilities
+            for worker in self.workers
+        )
+
     def _capability_validation(
         self,
         capabilities: Iterable[str],
@@ -133,6 +141,7 @@ class AgentActivationEvaluator:
         executive = spec.organizational_level in {"vp", "director", "manager"}
         specialist = spec.organizational_level == "specialist"
         worker_match = self._worker_matches(spec)
+        computer_worker_match = self._computer_worker_matches(spec)
         agent_capabilities_valid, agent_capabilities_detail = self._capability_validation(
             spec.capabilities,
             subject="agent",
@@ -194,6 +203,48 @@ class AgentActivationEvaluator:
                         "configured worker registry satisfies the declared requirement"
                         if worker_match
                         else "no enabled configured worker satisfies the declared requirement"
+                    )
+                ),
+            ),
+            self._check(
+                "computer_profile",
+                spec.computer is not None if "computer_run" in spec.allowed_task_kinds else None,
+                (
+                    "computer_run is backed by an explicit persistent computer profile"
+                    if "computer_run" in spec.allowed_task_kinds and spec.computer is not None
+                    else (
+                        "computer_run requires an explicit persistent computer profile"
+                        if "computer_run" in spec.allowed_task_kinds
+                        else "template does not declare computer_run"
+                    )
+                ),
+            ),
+            self._check(
+                "computer_capability",
+                "computer_read" in spec.capabilities
+                if "computer_run" in spec.allowed_task_kinds
+                else None,
+                (
+                    "computer_run is bounded by the registered computer_read capability"
+                    if "computer_run" in spec.allowed_task_kinds
+                    and "computer_read" in spec.capabilities
+                    else (
+                        "computer_run requires the computer_read capability"
+                        if "computer_run" in spec.allowed_task_kinds
+                        else "template does not declare computer_run"
+                    )
+                ),
+            ),
+            self._check(
+                "computer_worker_binding",
+                computer_worker_match,
+                (
+                    "configured Computer Worker satisfies the read-only computer requirement"
+                    if computer_worker_match
+                    else (
+                        "computer_run requires an enabled Computer Worker"
+                        if computer_worker_match is False
+                        else "template does not declare computer_run"
                     )
                 ),
             ),

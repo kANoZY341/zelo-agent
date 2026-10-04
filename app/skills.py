@@ -157,6 +157,17 @@ def default_skill_registry() -> SkillRegistry:
     return SkillRegistry(
         (
             SkillSpec(
+                skill_id="computer_observation",
+                description=(
+                    "Inspect bounded browser and workspace evidence from an authorized "
+                    "persistent Agent computer without mutating it."
+                ),
+                required_capabilities=("computer_read",),
+                procedures=("computer_observation",),
+                task_kinds=("computer_run",),
+                lifecycle="active",
+            ),
+            SkillSpec(
                 skill_id="core_implementation",
                 description="Plan and implement bounded Zelo Core software changes.",
                 required_capabilities=("code_change", "code_planning"),

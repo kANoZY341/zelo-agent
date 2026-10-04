@@ -9,7 +9,7 @@ from typing import Literal
 from app import developer_sandbox
 from app.developer_process import environment
 
-AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v5"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v6"
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,7 +21,7 @@ class WorkerAuthorityProfile:
     workspace_write: bool
     network: bool
     workspace_read: bool = True
-    surface: Literal["workspace", "python", "api", "browser", "shell"] = "workspace"
+    surface: Literal["workspace", "python", "api", "browser", "shell", "computer"] = "workspace"
 
 
 _WORKSPACE_WRITE = WorkerAuthorityProfile(
@@ -74,7 +74,17 @@ _ISOLATED_SHELL = WorkerAuthorityProfile(
     surface="shell",
 )
 
+_AGENT_COMPUTER_READ = WorkerAuthorityProfile(
+    name="agent-computer-read-v1",
+    authority=("agent-computer-read",),
+    workspace_write=False,
+    network=False,
+    workspace_read=False,
+    surface="computer",
+)
+
 _PROFILES = {
+    _AGENT_COMPUTER_READ.authority: _AGENT_COMPUTER_READ,
     _ISOLATED_SHELL.authority: _ISOLATED_SHELL,
     _PUBLIC_DOCUMENT_RENDER.authority: _PUBLIC_DOCUMENT_RENDER,
     _ISOLATED_COMPUTE.authority: _ISOLATED_COMPUTE,
@@ -264,6 +274,8 @@ def opencode_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, 
 
 
 def sandbox_permission_semantics(profile: WorkerAuthorityProfile) -> dict[str, object]:
+    if profile.surface == "computer":
+        return {}
     if profile.surface == "shell":
         from app.shell_worker import shell_policy_semantics
 
@@ -289,6 +301,11 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
     python_compute = None
     api_http = None
     shell_compute = None
+    computer_read = None
+    if profile.surface == "computer":
+        from app.computer_worker import computer_read_policy_semantics
+
+        computer_read = computer_read_policy_semantics()
     if profile.surface == "shell":
         from app.shell_worker import shell_policy_semantics
 
@@ -315,6 +332,7 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "python_compute": python_compute,
         "api_http": api_http,
         "shell_compute": shell_compute,
+        "computer_read": computer_read,
     }
 
 

@@ -53,7 +53,13 @@ class AgentExecutionBinding(AgentExecutionContract):
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     spec: AgentSpec
     task_kind: Literal[
-        "browser_run", "api_run", "developer_run", "python_run", "research_run", "shell_run"
+        "browser_run",
+        "api_run",
+        "computer_run",
+        "developer_run",
+        "python_run",
+        "research_run",
+        "shell_run",
     ]
     delegation: DelegationExecutionBinding | None = None
 
