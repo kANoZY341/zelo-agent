@@ -1,0 +1,155 @@
+{
+  "aggregate_bytes": 8745084,
+  "host": "archive.ubuntu.com",
+  "index_merge_commit": "19e0be24cb0a60bac1f540f08a27d82082895e9d",
+  "index_proof_sha256": "199b3b16ee247497b782d78356bb88f3f67ed717401d5cb39ec7a8fc2c0b210d",
+  "index_source_head": "7cc8849c761e450bf683b7010b7b2f38cf4577f6",
+  "packages": [
+    {
+      "architecture": "amd64",
+      "bytes": 2334634,
+      "filename": "pool/main/p/python3.12/python3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "output_name": "python3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "package": "python3.12-minimal",
+      "request_path": "/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "sha256": "d452689b9660845345a4c3e05e4ad82c082d5474e04031b7aa47f1a6d5610a6e",
+      "source": {
+        "name": "python3.12",
+        "version": "3.12.3-1ubuntu0.17"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 838536,
+      "filename": "pool/main/p/python3.12/libpython3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "output_name": "libpython3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "package": "libpython3.12-minimal",
+      "request_path": "/ubuntu/pool/main/p/python3.12/libpython3.12-minimal_3.12.3-1ubuntu0.17_amd64.deb",
+      "sha256": "d646ad7112b5adec21ba0e1af015f04ae8ca7f5efdc619622547dd6673c4c14b",
+      "source": {
+        "name": "python3.12",
+        "version": "3.12.3-1ubuntu0.17"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 2070530,
+      "filename": "pool/main/p/python3.12/libpython3.12-stdlib_3.12.3-1ubuntu0.17_amd64.deb",
+      "output_name": "libpython3.12-stdlib_3.12.3-1ubuntu0.17_amd64.deb",
+      "package": "libpython3.12-stdlib",
+      "request_path": "/ubuntu/pool/main/p/python3.12/libpython3.12-stdlib_3.12.3-1ubuntu0.17_amd64.deb",
+      "sha256": "45d3f530ba1f9d6e879ad46b92046fabab13fe50a82450e4f65557a3bbad1489",
+      "source": {
+        "name": "python3.12",
+        "version": "3.12.3-1ubuntu0.17"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 3264314,
+      "filename": "pool/main/g/glibc/libc6_2.39-0ubuntu8.9_amd64.deb",
+      "output_name": "libc6_2.39-0ubuntu8.9_amd64.deb",
+      "package": "libc6",
+      "request_path": "/ubuntu/pool/main/g/glibc/libc6_2.39-0ubuntu8.9_amd64.deb",
+      "sha256": "ff5557d99b51f761c4b7c92368b9cc45565eda17df9bf9eb4b134d09825008be",
+      "source": {
+        "name": "glibc",
+        "version": "2.39-0ubuntu8.9"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "2.39-0ubuntu8.9"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 24718,
+      "filename": "pool/main/libf/libffi/libffi8_3.4.6-1build1_amd64.deb",
+      "output_name": "libffi8_3.4.6-1build1_amd64.deb",
+      "package": "libffi8",
+      "request_path": "/ubuntu/pool/main/libf/libffi/libffi8_3.4.6-1build1_amd64.deb",
+      "sha256": "637e6a7744de08cd331a41f4efd0d24e6ea9064843dea9d1c6ca87bdb5f038a2",
+      "source": {
+        "name": "libffi",
+        "version": "3.4.6-1build1"
+      },
+      "suites": [
+        "noble"
+      ],
+      "version": "3.4.6-1build1"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 50424,
+      "filename": "pool/main/libs/libseccomp/libseccomp2_2.5.5-1ubuntu3.1_amd64.deb",
+      "output_name": "libseccomp2_2.5.5-1ubuntu3.1_amd64.deb",
+      "package": "libseccomp2",
+      "request_path": "/ubuntu/pool/main/libs/libseccomp/libseccomp2_2.5.5-1ubuntu3.1_amd64.deb",
+      "sha256": "33fc96f1e008d27c042a3db9bcd16f7f4d49e866f7a3141b758a799328dbdc3f",
+      "source": {
+        "name": "libseccomp",
+        "version": "2.5.5-1ubuntu3.1"
+      },
+      "suites": [
+        "noble-updates"
+      ],
+      "version": "2.5.5-1ubuntu3.1"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 62988,
+      "filename": "pool/main/z/zlib/zlib1g_1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+      "output_name": "zlib1g_1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+      "package": "zlib1g",
+      "request_path": "/ubuntu/pool/main/z/zlib/zlib1g_1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+      "sha256": "84b9cf5752b29c9f92c27cd4c4ba9bbcc70b5ccf9b1b515421a28ae23212e273",
+      "source": {
+        "name": "zlib",
+        "version": "1:1.3.dfsg-3.1ubuntu2.2"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "1:1.3.dfsg-3.1ubuntu2.2"
+    },
+    {
+      "architecture": "amd64",
+      "bytes": 98940,
+      "filename": "pool/main/e/expat/libexpat1_2.6.1-2ubuntu0.6_amd64.deb",
+      "output_name": "libexpat1_2.6.1-2ubuntu0.6_amd64.deb",
+      "package": "libexpat1",
+      "request_path": "/ubuntu/pool/main/e/expat/libexpat1_2.6.1-2ubuntu0.6_amd64.deb",
+      "sha256": "494b8e672f722130c6bca6a7bc4cc31a43ca891a31d60d868bfdd699a3c20b13",
+      "source": {
+        "name": "expat",
+        "version": "2.6.1-2ubuntu0.6"
+      },
+      "suites": [
+        "noble-updates",
+        "noble-security"
+      ],
+      "version": "2.6.1-2ubuntu0.6"
+    }
+  ],
+  "port": 443,
+  "runtime_authority": false,
+  "schema": "zelo-media-fixed-package-acquisition-lock-v1",
+  "scheme": "https"
+}
