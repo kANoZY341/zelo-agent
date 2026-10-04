@@ -17,7 +17,7 @@ INPUTS = (
         "source": "/var/lib/apt/lists/archive.ubuntu.com_ubuntu_dists_noble-updates_InRelease",
         "suite": "noble-updates",
         "bytes": 126125,
-        "sha256": "73e9ce9b343db391c104da5f3574adaccd0cd672c450801afa5e6a53de0f2b2c",
+        "sha256": "da1cdfa3f8ddfbbc9f9e7dfedfde41bd2d80ceaa9992f8a96b61526dfe05fb1a",
         "mode": 420,
     },
     {
@@ -31,14 +31,14 @@ INPUTS = (
         "source": "/var/lib/apt/lists/security.ubuntu.com_ubuntu_dists_noble-security_InRelease",
         "suite": "noble-security",
         "bytes": 126127,
-        "sha256": "3b358f744efb789bab437ac77209ac20be2c8665197ce274f65c5f812bd4d519",
+        "sha256": "a7ed9f9b84a70795e01c3763cd8fbcaf678a5683b14074fcd880f442f379e19a",
         "mode": 420,
     },
 )
 NEGATIVES = {
     "altered_text": {
         "bytes": 126125,
-        "sha256": "a03389058ac6ba3b7b0507aca0a667ee76f2e168acbefa8437d3f4e4549aac45",
+        "sha256": "bf9f9e4791647b9f516204a79889c06bd2d3f729d94f9c4bf4aaa4a0ac22b07c",
     }
 }
 

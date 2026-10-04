@@ -58,6 +58,7 @@ _open = helpers._open
 _read_fd = helpers._read_fd
 _helper = helpers._helper
 _release = helpers._release
+_QUARANTINED = []  # Interrupted cleanup never retries original descriptor numbers.
 MATRIX = (
     "network",
     "write",
@@ -463,12 +464,21 @@ async def _qualify():
             "instruction_trust": "none",
         }
         proof_raw = store.json("cases.json", result)
-        complete = state.processes_settled and state.close_all()
-        if not complete:
-            raise QualificationRefused("media_origin_support_cleanup")
+        complete = state.processes_settled
     finally:
-        if not _release(state, lease):
-            complete = False
+        error_type = sys.exc_info()[0]
+        if error_type is not None and not issubclass(error_type, Exception):
+            # Cancellation/interrupt may leave native ownership unknown. Retain
+            # support and lease until operator exit; no inferred cleanup/retry.
+            _QUARANTINED.append((state, lease))
+        else:
+            try:
+                released = _release(state, lease)  # Exactly one cleanup path.
+            except BaseException:
+                _QUARANTINED.append((state, lease))
+                raise
+            if released is not True:
+                complete = False
     if not complete or result is None:
         raise QualificationRefused("media_origin_job_unproven")
     return {
