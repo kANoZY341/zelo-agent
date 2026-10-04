@@ -68,42 +68,45 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media fixed platform dependency metadata after GNU
-version graph PR #81 at 8aeaf6b. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media fixed Ubuntu origin evidence after PR82 merge
+a473f46da617f0472603fb011c2d571e90a1792f. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media platform dependency metadata
+## Current scope: v0.15 Media fixed Ubuntu origin evidence
 
-PR81 merged8aeaf6b with exactreviewedtree,3,189CI passes and39actualcases/seveninputs.
-Read docs/reviews/media-elf-version-final-gates.md. One versionattempt consumed;
-allfour oldloaderattempts remain exhausted/retained. No ABI/platform/decoder/Core
-authority. AstraMedium cleared the next fixed12input/44case design foroffline
-implementation afterPR81merge: docs/v0.15-media-platform-dependency-metadata.md.
+PR82 matched its reviewed tree, passed 3194 CI tests and 44 actual cases/12 inputs.
+Read docs/reviews/media-platform-dependency-final-{review,gates}.md. Two of four
+version attempts are consumed; all four loader attempts remain exhausted/retained.
+Never reset/rename/delete those quotas or automatically rerun qualification.
 
-Extend only the versionqualifier's fixedlock/path/hash/counts, tests anddocs; reuse
-unchangedfive-sourceauthenticatedguest/bootstrap/parser/validator/fixtures/helpers.
-Fiveextra inputs are libm/z/expat/resource/_json, fixedroot-owned/usr bytes only.
-No optionalparser/nativeexecution until exactsource/bootstrap/lock review clears.
-SAME runtime/media-elf-version-proofs/version-proof-* quota remainsfour acrossall
-policydigests/revisions (oneused,atmostthreeleft); SAME capacityone
-runtime/media-elf-metadata-admission. Neverreset/rename/bypass/delete/increasecap,
-rerun exhaustedoldloaderqualifier, clear markers or automaticallyretry.
+Astra Medium cleared docs/v0.15-media-platform-origin.md for offline implementation;
+see docs/reviews/media-platform-origin-design-review.md. Implement the fixed
+origin validator/launcher and synthetic adversarial/ownership tests. No native
+GPG execution before exact source, protocol, mount/exec/FD identity, UID/modes,
+root evidence, quota and ledger findings are closed by source review. Index
+retrieval/decompression and deb member inspection require separate execution gates.
+No apt install/update, host keyring/config/service changes or Chisel execution.
+Reuse mature GPGV and later dpkg-deb; no custom crypto/deb decoder or general resolver.
 
-44cases fit95entries/5,702,016regularbytes withinunchanged96entries/8MiB. All source
-pins/closure, bounds-beforeaccess, hostnestedvalidation, deadlines/resources,
-observation-beforecreation, pendingcreation/repeatedcancel settlement, supportFD
-retention/closeonce, conservativehelperfailurefencing, pendingproofbeforerelease and
-finalstdoutafterrelease remain mandatory. Late Lease.finish mayalreadyemptymarker:
-refuse receipt withoutuniversal-fenceclaim. No proof-fileIOaftersuccessfulrelease.
+Preserve shared admission runtime/media-elf-metadata-admission, observation before
+creation, repeated-cancel/pending settlement, support FD retention/close-once,
+conservative helper-failure fencing and pending proof before release. No proof-file
+I/O after successful release. Late Lease.finish failure can leave an empty marker;
+refuse receipts without universal fencing claims. New origin quota must be one
+fixed namespace across every origin policy revision, never a bypass for ELF quotas.
 
-Full source/evidence review, focused/matching-head fullCI and standalone/causal-fault
-supplements precede normalexacttreemerge. Complete platformprovenance/notices/import/
-dlopen/search/ABI closure, materializer/immutablecontext, build/daemonsettlement,
-resources/startup/installer/filter remainseparategates; originalresource/filterbefore
-decoder. No Pillow/decoder, ctypes/libseccomp/filter, Dockerbuild/create, cgroup/host/
-daemonchanges, runtime/task/route/registry/capability/Core/Agent/Mind binding, model
-request, signing/OAuth, liveenv/data/config/service/listener. Flagsdisabled,v0.14.0/
-UI61preserved. Dedicatedworktreeonly; no unrelated/userdata deletion. v16->v17->v18.
+Focused tests, causal faults, matching-head full CI, standalone supplements and
+full source/actual-evidence review precede normal exact-tree merge. Origin evidence
+is conditional historical attribution, not freshness, safe code or current key
+validity. Platform notices/import/frozen/builtin/dlopen/search/ABI closure,
+materializer/immutable context, build/daemon settlement, resources/startup/installer/
+filter and decoder remain separate. Original resource/filter gates before decoder.
+
+No Pillow/decoder, ctypes/libseccomp/filter execution, Docker build/create, cgroup/
+host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind binding,
+model requests, signing/OAuth or live env/data/config/listener changes. Flags
+disabled, v0.14.0/UI61 preserved. Dedicated worktree only, no unrelated/user data
+deletion. Continue v0.15 then v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision
 

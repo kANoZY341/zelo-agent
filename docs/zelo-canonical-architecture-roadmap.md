@@ -926,3 +926,13 @@ Continue [fixed platform dependency metadata](v0.15-media-platform-dependency-me
 capacityoneadmission, unchangedguest/parser. No automaticretry oroldloadercapreset.
 Completeinventory/provenance/materializer/daemon/resources/filter/decoder gatesremain.
 UI61parked, flagsdisabled, v0.14.0preserved; v15then v16->v17->v18.
+
+### Media platform dependency metadata checkpoint — 4 October 2026 UTC
+
+PR82 merged at a473f46 with exact reviewed tree, 3194 matching-CI passes,
+44 actual cases and 12 fixed input identities. Two version attempts are retained;
+four old loader attempts remain exhausted. This is declaration metadata, with no
+platform/ABI/native/decoder/Core authority. Continue the fixed Ubuntu origin
+evidence design in [platform origin](v0.15-media-platform-origin.md), cleared for
+offline implementation only. Native GPG, index and package stages retain distinct
+source/execution gates. Original resources/filter gates remain before decoder.
