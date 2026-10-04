@@ -64,6 +64,7 @@ class AgentComputerSpec(AgentContract):
     files: bool = False
     shell: bool = False
     human_takeover: bool = False
+    browser_endpoint_ids: tuple[Identifier, ...] = Field(default=(), max_length=32)
 
     @model_validator(mode="after")
     def _validate_computer_profile(self):
@@ -71,6 +72,10 @@ class AgentComputerSpec(AgentContract):
             raise ValueError("computer_capability_required")
         if self.human_takeover and not self.browser:
             raise ValueError("computer_takeover_requires_browser")
+        if self.browser_endpoint_ids != tuple(sorted(set(self.browser_endpoint_ids))):
+            raise ValueError("computer_browser_endpoints_not_canonical")
+        if self.browser_endpoint_ids and not self.browser:
+            raise ValueError("computer_browser_endpoints_require_browser")
         return self
 
 
@@ -187,6 +192,10 @@ def _agent_registry_payload(spec: AgentSpec) -> dict:
         payload.pop("skill_learning", None)
     if spec.computer is None:
         payload.pop("computer", None)
+    elif not spec.computer.browser_endpoint_ids:
+        computer = payload.get("computer")
+        if isinstance(computer, dict):
+            computer.pop("browser_endpoint_ids", None)
     return payload
 
 
