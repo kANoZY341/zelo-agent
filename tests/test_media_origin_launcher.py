@@ -329,7 +329,8 @@ def test_error_controls_require_specific_owned_result(tmp_path, monkeypatch, err
         assert state.close_all()
 
 
-def test_whole_job_admission_and_release_order(tmp_path, monkeypatch):
+@pytest.fixture
+def origin_job(tmp_path, monkeypatch):
     monkeypatch.setattr(q, "ROOT", tmp_path)
     monkeypatch.setattr(q.shared, "ROOT", tmp_path)
     (tmp_path / "runtime").mkdir(mode=0o700)
@@ -337,7 +338,6 @@ def test_whole_job_admission_and_release_order(tmp_path, monkeypatch):
     monkeypatch.setattr(q.os, "getresgid", lambda: (1000, 1000, 1000))
     events = []
     original_save = q._Store.save
-    original_read = q._read_fd
 
     def host_file(state, *pin):
         events.append("source")
@@ -375,13 +375,16 @@ def test_whole_job_admission_and_release_order(tmp_path, monkeypatch):
     monkeypatch.setattr(q, "_negative", lambda *args: armor())
     monkeypatch.setattr(q._Store, "save", save)
     monkeypatch.setattr(q, "_read_fd", lambda *args: b"checked")
+    return events
+
+
+def test_whole_job_admission_and_release_order(origin_job):
+    events = origin_job
     result = asyncio.run(q._qualify())
     assert result["cases"] == 18 and result["admission_release_confirmed"]
     assert events[0] == "admission" and events[-1] == "release"
     with open(result["proof"], "rb") as proof:
         assert hashlib.sha256(proof.read()).hexdigest() == result["proof_sha256"]
-    # Avoid leaking monkeypatched shared symbols into other tests.
-    assert original_read is q.helpers._read_fd
 
 
 def probe_segment():
@@ -845,3 +848,172 @@ def test_readiness_wrong_owner_refuses_before_launch(tmp_path, monkeypatch, uid)
         assert not state.observations
     finally:
         assert state.close_all()
+
+
+def test_refreshed_candidate_pins_are_literal():
+    assert [row["sha256"] for row in INPUTS] == [
+        "da1cdfa3f8ddfbbc9f9e7dfedfde41bd2d80ceaa9992f8a96b61526dfe05fb1a",
+        "cdb2f31d809f589719a53c6ad15f255b27569c4059542ada282aaa21b8e164b0",
+        "a7ed9f9b84a70795e01c3763cd8fbcaf678a5683b14074fcd880f442f379e19a",
+    ]
+    assert NEGATIVES == {
+        "altered_text": {
+            "bytes": 126125,
+            "sha256": "bf9f9e4791647b9f516204a79889c06bd2d3f729d94f9c4bf4aaa4a0ac22b07c",
+        }
+    }
+
+
+@pytest.fixture
+def synthetic_support(origin_job, monkeypatch):
+    state = q._State()
+    monkeypatch.setattr(q, "_State", lambda: state)
+    monkeypatch.setattr(
+        q, "_open", lambda state, *args, **kwargs: state.hold(70000 + len(state.fds))
+    )
+    calls = []
+    original_close = os.close
+
+    def close(fd):
+        if 70000 <= fd <= 80002:
+            calls.append(fd)
+        else:
+            original_close(fd)
+
+    monkeypatch.setattr(os, "close", close)
+    return state, calls, close
+
+
+def test_support_closure_once_after_proof(origin_job, synthetic_support):
+    state, calls, _ = synthetic_support
+    result = asyncio.run(q._qualify())
+    assert result["admission_release_confirmed"] is True
+    assert calls == list(range(70000, 70009))
+    assert state.fds == [] and len(state.observations) == 18
+    assert origin_job[-2:] == ["cases.json", "release"]
+
+
+@pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit])
+def test_interrupted_support_loop_never_retries(origin_job, synthetic_support, monkeypatch, error):
+    state, calls, close = synthetic_support
+
+    def interrupted(fd):
+        if fd == 70001:
+            calls.append(fd)
+            raise error()
+        close(fd)
+
+    monkeypatch.setattr(os, "close", interrupted)
+    with pytest.raises(error):
+        asyncio.run(q._qualify())
+    assert calls == [70000, 70001]
+    assert state.fds == list(range(70000, 70009))
+    assert "release" not in origin_job
+    assert q._QUARANTINED[-1][0] is state
+
+
+@pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit, asyncio.CancelledError])
+def test_body_abort_retains_support_without_release(
+    origin_job, synthetic_support, monkeypatch, error
+):
+    state, calls, _ = synthetic_support
+
+    async def abort(*args):
+        state.observations.append(SimpleNamespace(cleanup_confirmed=None))
+        raise error()
+
+    monkeypatch.setattr(q, "_native", abort)
+    with pytest.raises(error):
+        asyncio.run(q._qualify())
+    assert calls == [] and state.fds
+    assert "release" not in origin_job
+    assert q._QUARANTINED[-1][0] is state
+
+
+def test_ordinary_release_error_is_not_retried(origin_job, synthetic_support, monkeypatch):
+    state, calls, _ = synthetic_support
+    attempts = []
+
+    def fail(*args):
+        attempts.append(1)
+        raise OSError("release")
+
+    monkeypatch.setattr(q, "_release", fail)
+    with pytest.raises(OSError, match="release"):
+        asyncio.run(q._qualify())
+    assert attempts == [1] and calls == []
+    assert q._QUARANTINED[-1][0] is state
+
+
+@pytest.mark.parametrize("failed_fd", [80002, 80001, 80000])
+@pytest.mark.parametrize("error", [OSError, KeyboardInterrupt])
+def test_real_finish_close_failure_not_retried(
+    origin_job, synthetic_support, monkeypatch, failed_fd, error
+):
+    from qualification import admission
+
+    state, calls, close = synthetic_support
+    lease = admission.Lease(80000, 80001, 80002, "synthetic", "a" * 64)
+    finishes = []
+    original_finish = lease.finish
+
+    def finish(**kwargs):
+        finishes.append(kwargs)
+        original_finish(**kwargs)
+
+    lease.finish = finish
+    monkeypatch.setattr(
+        q, "AdmissionController", lambda path: SimpleNamespace(acquire=lambda d: lease)
+    )
+    monkeypatch.setattr(admission, "_private", lambda *args, **kwargs: None)
+    original_truncate, original_sync = os.ftruncate, os.fsync
+    writes = []
+
+    def truncate(fd, length):
+        if fd == 80002:
+            writes.append((fd, length))
+        else:
+            original_truncate(fd, length)
+
+    def sync(fd):
+        if fd not in (80000, 80002):
+            original_sync(fd)
+
+    def interrupted(fd):
+        if fd == failed_fd:
+            calls.append(fd)
+            raise error()
+        close(fd)
+
+    monkeypatch.setattr(os, "ftruncate", truncate)
+    monkeypatch.setattr(os, "fsync", sync)
+    monkeypatch.setattr(os, "close", interrupted)
+    with pytest.raises(error):
+        asyncio.run(q._qualify())
+    closure = [80002, 80001, 80000]
+    assert calls == list(range(70000, 70009)) + closure[: closure.index(failed_fd) + 1]
+    assert finishes == [{"cleanup_confirmed": True}]
+    assert writes == [(80002, 0)]  # Failure can follow marker clearing.
+    assert lease._fds is None
+    assert q._QUARANTINED[-1] == (state, lease)
+
+
+def test_unsettled_native_job_fences_without_support_close(
+    origin_job, synthetic_support, monkeypatch
+):
+    state, calls, _ = synthetic_support
+    finishes = []
+    lease = SimpleNamespace(finish=lambda **kwargs: finishes.append(kwargs))
+    monkeypatch.setattr(
+        q, "AdmissionController", lambda path: SimpleNamespace(acquire=lambda d: lease)
+    )
+
+    async def unsettled(*args):
+        state.observations.append(SimpleNamespace(cleanup_confirmed=None))
+        raise ValueError("unsettled")
+
+    monkeypatch.setattr(q, "_native", unsettled)
+    with pytest.raises(ValueError, match="unsettled"):
+        asyncio.run(q._qualify())
+    assert calls == [] and state.fds
+    assert finishes == [{"cleanup_confirmed": False}]

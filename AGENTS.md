@@ -68,42 +68,43 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media pure package-index selection after PR83 merge
-8b34bd66a1178b8c1f78141dc11ab93b9a9ac30a. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media fixed local-index qualification after PR84 merge
+070f820bb90e493d2287ad6b0b96fd33e0dc4db6. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media pure package-index selection
+## Current scope: second fixed local-index qualification gate
 
-PR83 matched its reviewed tree, passed3416 CI tests and18actual origin cases.
-Read docs/reviews/media-origin-final-{review,gates}.md. Origin3/4, ELFversion2/4,
-oldloader4/4 attempts are retained; no further origin/ELF run or quota reset.
-Historical selected-root Release authenticity and signed index declarations only.
-No package bytes or installed-member origin, freshness or current key validity.
+PR85 original60f0199 passed source/tests/CI but actual index1 refused changed
+updates size. Preserve index-proof-qe5u08n9 SHA0030fb0a8a4e87aaa2d5f762b94b3a232f7f2a0925d3cf49fc0eb8b12fc27e3b.
+Refreshed origin source1d533c35d38d6ce7d155b2de54275573e85061a9 and its actual
+fourth18case proof received FULL source/actual acceptance. Read archived source
+and final reviews in docs/reviews/media-origin-refresh-*.md.
+New origin proof origin-proof-o5l0ydws SHAfaab51dce2a95073a251049a559ceddb027ff01a36f3219e5236ca0c1bd6cd52;
+all18cases and cleanup passed,36entries/772054bytes,receipt binds pending proof.
+Origin4/4 EXHAUSTED: no fifth run/reset. Version2/4,loader4/4 unchanged.
 
-Astra Medium cleared the complete frozen proposal docs/v0.15-media-package-index.md
-for pure offline implementation; see docs/reviews/media-index-parser-design-review.md.
-Implement the bounded incremental selector for exactly eight pinned amd64 packages,
-strict metadata syntax, normalized Source, and complete three-suite conflict checks.
-No file/network/process I/O in this module. Only synthetic input tests; no real
-index retrieval, decompression or package/member inspection before separate gates.
-No code from the inspected GPL python-debian reference is incorporated/imported.
-No dependency/version resolver or maintainer-script/package execution.
+Only accepted signed raw-index declarations have now been promoted into the
+wrapper: updates7375495/SHA1a82e1177b4a1eefab5f4a985c79911fac514e7ad6c5c31ebf780c1983663185;
+noble/security declarations unchanged. Exact8package/version/amd64 targets and
+pure selector unchanged. Metadata-only preflight precedes admission/allocation;
+all immutable bytes still hash-authenticated before parsing with held-FD checks.
 
-Source review, focused/adversarial boundary tests, causal faults, matching-head
-full CI and standalone supplements precede normal exact-tree merge. Metadata-only
-is true; package_member_origin_verified and runtime_authority remain false.
-Preserve all previous origin proofs, source/actual bindings and admission lifecycle.
-No changes to shared ownership helpers or existing native qualifiers.
+Synthetic tests only until new frozen FULLsource review explicitly clears at most
+ONE second index attempt. Scope remains1/4, with first failure preserved. Do not
+rerun origin or read/parse actual index contents yet. Clean exacthead/tree, full
+source metadata preflight and empty canonical marker must precede cleared attempt.
+Any refusal preserves evidence and returns to design; no automatic third attempt,
+source/pin/grammar widening or quota reset. Single cleanup/release path unchanged.
 
-Platform notices/import/frozen/builtin/dlopen/search/ABI closure, materializer/
-immutable context, build/daemon settlement, resources/startup/installer/filter and
-decoder remain separate. Original resource/filter gates precede decoder.
-
-No Pillow/decoder, ctypes/libseccomp/filter execution, Docker build/create, cgroup/
-host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind binding,
-model requests, signing/OAuth or live env/data/config/listener changes. Flags stay
-disabled, v0.14.0/UI61 preserved. Dedicated worktree only, no unrelated/user-data
-deletion. Continue v0.15 then v0.16 -> v0.17 -> v0.18.
+PR85 remains draft pending full finalsource/actual review, matching latest-head CI,
+focused/causal checks and fourstandalone supplements. Prior CI3617passes belongs
+60f0199, not later revisions. Historical conditional indexmetadata is not package-
+member provenance/platform/ABI/freshness/current-key/runtimeauthority.
+No network/download/decompression, package/member inspection, Pillow/decoder,
+ctypes/filter execution, Docker/cgroup/daemon/system/updater changes, live data/
+config/model calls/listeners, Core/Mind/Agent/route binding or enabled flags.
+Original resource/filter gates precede decoder. Continuev15thenv16->v17->v18;
+preservev0.14.0andparkedUI61. Shared ownership/admission helpers unchanged.
 
 ## Workspace decision
 
