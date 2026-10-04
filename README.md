@@ -1127,3 +1127,28 @@ Only frozen-source clearance permits the opt-in native metadata run.
 ```
 
 See [bootstrap design and gates](docs/v0.15-media-reader-bootstrap.md).
+
+
+## Native Media reader container contract (v0.15 development)
+
+`qualification/media_reader_container.py` is a pure configuration validator for
+the **future synthetic** native package-reader gate. It binds the accepted PR #91
+ELF proof/lock to a content-addressed image and requires an exact fixed loader
+command, fail-closed environment, `runc`, no network, read-only root, non-root
+identity, no capabilities, no-new-privileges, 512 MiB memory/no extra swap,
+PID limit 8, half CPU and nofile 32. It rejects mounts, devices, ports, DNS,
+sysctls, extra groups, tmpfs and other authority widening.
+
+The container contract itself does not contact Docker or execute `dpkg-deb`.
+The adjacent fixture, image-manifest and seccomp-pin modules are inert, and the
+Media-specific owner is covered only by a fake daemon in this checkpoint. No real
+Docker/native process has run. Configuration equality is not runtime/cgroup
+evidence. The first later native qualification must use only the four fixed
+synthetic `.deb` fixtures, not an acquired package, and must independently prove
+the complete owned container/process tree is settled before success.
+
+```sh
+.venv/bin/python -m pytest -q tests/test_media_reader_container.py
+```
+
+See [the offline contract and next gates](docs/v0.15-media-native-reader-container.md).

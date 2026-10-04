@@ -6,35 +6,36 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media package-reader bootstrap declarations
+## Active increment: v0.15 Media native-reader offline boundary
 
-Core v0.15 stays active; UI is parked. PR #86 established historical archive-byte identity
-for eight archives. PR #87 repaired current-context selection.
-PR #88's member contract guarantees metadata consistency only.
-PR #89's USTAR scanner never extracts or follows links; GNU/PAX remain unsupported.
-PR #90 merged at`8c52e7c` after4,257 CI passes/two skips and its 18 fixed synthetic cases
-passed in the sandbox, including resource, output, timeout and cancellation checks.
-The separate proof audit and8 tamper controls passed; USTAR scope is1/2 consumed.
+Core v0.15 stays active; UI is parked. PR #91 merged at 09b68a5 after 4,347 CI
+passes/two skips. Its one cleared 40-case ELF batch is version-proof attempt 3/4;
+the eight-node declaration graph closes dpkg-deb over the fixed libraries/loader
+but does not prove actual loading, symbols, ABI, provenance or runtime authority.
 
-The reader bootstrap now has eight inert binary copies and six notices, separately
-audited without execution. The new declaration profile reuses the unchanged ELF
-version/parser guest and original four-attempt proof scope:32 controls+8 copies,
-40 calls, with attempt3/4 available only after frozen-source clearance.
-90 new offline tests,2,533 combined Media/context checks and5 causal controls passed.
-The native ELF profile has not yet run at this source checkpoint; its own full
-CI, actual evidence review and exact-tree merge remain separate gates.
+The current slice is offline only. One canonical container contract binds the
+PR #91 proof/lock, inert content-addressed image identity, fixed loader/argv,
+PATH/HOME/TMPDIR=/nonexistent, runc, network none, read-only root, uid/gid65534,
+cap-drop ALL, no-new-privileges plus the exact vendored Moby default seccomp,
+512 MiB/no-extra-swap, PID8, half CPU and nofile32. A deterministic scratch-image
+manifest contains only the eight fixed binaries; entrypoint/env/user stay outside
+the image and are applied only at container creation.
 
-Cross-file checks require expected SONAMEs, exact interpreter, present providers
-and version declarations, no loader search/textrel features, and false authority
-claims. This is not actual dynamic loading, complete ABI, symbol resolution or
-independent binary provenance. See `v0.15-media-reader-bootstrap.md` and reviews.
+A separate fixed-fixture module creates four bounded synthetic Debian inputs
+(positive, bad version, wrong order, truncated). The Media-specific Docker owner
+has fake-only tests for exact inspect validation, output bounds, lost create
+acknowledgement, cleanup failure, profile drift and repeated cancellation while
+the capacity-one admission remains fenced. **No Docker daemon, loader, dpkg-deb,
+compressor or acquired archive has run in this slice.** The consolidated image,
+fixture, seccomp, contract and owner gates pass 158 offline tests.
 
-Next: accept the bounded dependency evidence, then separately qualify the native
-package reader under container-wide memory/PID/CPU controls and review supported
-tar formats. Real package/member/runtime/import closure, resource/filter and image
-decoding, Core binding and release remain. No acquired .deb, dpkg/Pillow execution,
-model job, UI/flag/system/live-data change occurred. Existing proof quotas and
-failed observations are preserved; v0.14.0 remains unchanged.
+Next: freeze/review this source and merge it, then implement the one-shot operator
+that builds/exports/attests the inert scratch image and runs only the four fixed
+synthetic cases. Actual cgroup/process-tree evidence and complete cleanup precede
+any real authenticated package. USTAR remains narrow (GNU/PAX unsupported), then
+Media still needs real member/runtime/import closure, decoder/filter qualification,
+Core binding and release. Proof quotas/failures remain preserved; no model/UI/live
+system/config/data change occurred and v0.14.0 is unchanged.
 
 ## Checkpoint history
 

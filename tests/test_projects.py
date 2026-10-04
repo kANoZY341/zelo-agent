@@ -90,26 +90,23 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.15" in sources
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
-    assert active_status.startswith("## Active increment: v0.15 Media package-reader")
+    assert active_status.startswith("## Active increment: v0.15 Media native-reader")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #86" in active_status
-    assert "historical archive-byte identity" in active_status
+    assert "PR #91" in active_status
+    assert "4,347 CI" in active_status
+    assert "version-proof attempt 3/4" in active_status
+    assert "Moby default seccomp" in active_status
+    assert "158 offline tests" in active_status
+    assert "No Docker daemon" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
-    assert "PR #86" in roadmap_content
-    assert "member inventory contract" in roadmap_content
-    assert "metadata consistency" in roadmap_content
-    assert "PR #87" in active_status
-    assert "metadata consistency only" in active_status
-    assert "PR #88" in active_status
-    assert "PR #89" in active_status
-    assert "PR #90" in active_status
-    assert "bootstrap" in active_status
-    assert "18 fixed synthetic cases" in active_status
-    assert "USTAR" in active_status
-    assert "never extracts" in active_status
+    assert "PR #91" in roadmap_content
+    assert "40-case ELF metadata batch" in roadmap_content
+    assert "158 offline/fake-only tests" in roadmap_content
+    assert "native-reader-container" in roadmap_content
     assert "GNU/PAX" in roadmap_content
+    assert "ABI/runtime authority" in roadmap_content
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

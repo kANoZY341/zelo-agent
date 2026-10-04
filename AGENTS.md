@@ -68,59 +68,59 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 fixed reader-bootstrap ELF declarations after PR90
-merge8c52e7c12eec69aa50fa37a11f92be3995bbedab. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 native Media package-reader container contract after
+PR91 merge 09b68a5355098e15f3549faa98126203c08309eb. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: fixed reader-bootstrap ELF declaration source review
+## Current scope: pure native-reader container contract and synthetic next gate
 
-PR90 merged at8c52e7c12eec69aa50fa37a11f92be3995bbedab with exact reviewed tree
-456f1b5c260439f1ff9347791b900b492d073b9c. CI37197794882 passed4,257/two skips;
-one18-case native SYNTHETIC matrix passed, audited with8 semantic tamper controls.
-ProofSHA1539de958da77b1650d0f4a9538892e81989ba6df945d89a2864ad39819d45ac.
-That new USTAR scope is1/2 consumed, not real-package or aggregate-cgroup authority.
+PR91 merged at 09b68a5355098e15f3549faa98126203c08309eb with exact reviewed
+tree 4b39b2f253108e7bbf1461b4cccaffac321d270e. Exact-head CI 37204122789
+passed 4,347 tests, two skips. One source-cleared 40-case ELF metadata batch ran
+once and passed as version-proof attempt 3/4. Proof SHA256:
+cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5.
+Independent stdlib-only audit accepted all 40 retained records and the eight-node
+dependency graph; no target executable, loader, compressor or package member ran.
 
-Read docs/v0.15-media-reader-bootstrap.md and its source review. One fixed inert
-observation copied8 binaries/3,718,288bytes and6 notices/60,489bytes. Retained audit
-passed; root bootstrap is conditional, not independently authenticated platform.
-The lock SHA753df1ca08e5be5b29ae8b73d220bf6bfea052b8bed9ffdc0f64ac12091a8e4f
-binds only their private copies. No installed file reread is needed by this phase.
+The graph closes dpkg-deb over fixed libz/liblzma/libzstd/libbz2/libmd/libc and
+the fixed loader, with every declared required version present. This is declaration
+consistency only: actual dynamic load, symbol resolution, ABI qualification,
+platform completeness, independent binary provenance and runtime authority remain
+false. Version proof quota is now 3/4 consumed; do not spend the final attempt
+without a separately reviewed need.
 
-The new scripts/qualify_media_reader_elf.py composes existing version _native,
-loader/version validators and source/tool pins unchanged. Its32 controls+8 fixed
-data inputs=40 calls fit the prior44-call envelope. Use SAME existing
-runtime/media-elf-version-proofs/version-proof-* quota of4 attempts across all
-revisions:2 already consumed, at most ONE source-cleared batch consumes3/4.
-No new prefix/reset, retry, proof rewrite, old-loader or origin/acquisition run.
-No target executable/dynamic loader is run: these8 files are ELF parser data only.
-Source freeze/review precede native --run; actual evidence, matching own full CI
-and exact-tree merge remain.90 new tests,2,533 combined Media/context checks and
-5 causal guard controls passed at the implementation checkpoint.
+Current tracked work may include only the consolidated offline boundary in
+docs/v0.15-media-native-reader-container.md: deterministic inert image manifest,
+four fixed synthetic Debian fixtures, exact vendored-default seccomp pin, canonical
+container policy, Media-specific owner and fake-only lifecycle tests. No Docker
+daemon call, image build/create/start/export, dpkg-deb/loader/compressor run,
+acquired archive/member read or Pillow execution is cleared by this source slice.
+Focused offline tests pass158 and combined Media/context checks pass2691.
 
-The pure cross-file graph receives already source-bound outputs accepted by both
-unchanged validators; it is not replacement child-output validation. Every needed
-provider/required version must be present by exact recorded SONAME, interpreter
-fixed, loader search/textrel refused. Preserve weak flags and leave actual load,
-symbol/ABI/runtime/provenance claims false. Missing dependencies never trigger
-recursive filesystem/network discovery. Keep all copy/source FDs through cleanup
-and final readback, preserve native-written refusal files, release once and emit
-only the separate post-cleanup proof-bound receipt. Existing marker-close caveats
-remain; no guessed owner or rawFD retry. Same96-entry/8MiB/version attempt caps.
+The proposed future command is fixed loader + fixed library path + dpkg-deb
+--threads-max=1 --fsys-tarfile -, stdin only, no host PATH/helper fallback. Runtime
+policy remains fail-closed: content image/bundle identity, runc, network none,
+read-only root, uid/gid65534, cap-drop ALL, no-new-privileges plus exact Moby
+default seccomp,512MiB/no extra swap,pids8,half CPU,nofile32, private IPC/cgroupns,
+no host user/PID/UTS namespace, init, mounts/devices/ports/DNS/sysctls/tmpfs,
+ambient Docker config or daemon logs/restart.
 
-After accepted declarations, a separate mature native package reader container
-and supported-format design are required. No dpkg/compressor/Docker/Pillow run,
-actual .deb member operation, source install, Core route, system/config/daemon/
-updater change, user-data or enabled flag from this metadata source checkpoint.
+After this offline slice passes its own full CI and exact-tree merge, implement a
+separate one-shot setup/operator. That later branch may build/export/attest only
+the inert fixed image and must receive new frozen-source clearance before one
+synthetic native matrix. Use only the four fixed synthetic inputs; none of the
+eight acquired archives. Actual cgroup/process-tree enforcement and cleanup must
+be evidenced before receipt. Native reader and USTAR scanner remain separate
+trust boundaries; GNU/PAX refusal returns to design. Real package/member/runtime/
+import closure, resource/filter and image decoding, Core binding and release remain.
 
-Original scopes: origin4/4 and old-loader4/4 exhausted; index2/4; ELF-version2/4
-before this proposed third batch; acquisition1/4; dpkg identity1/1; source16/16;
-helpers8/8+one directory read; tarfile contentsR1/R2=2/2 and one metadata diagnostic.
-All failures preserved, no chmod/repair/reset. Root tarfile retained hash
-664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512.
-Archiveproofc7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
-No model/Codex jobs; reviews direct ChatGPT only. Preserve exactly one active
-status heading, decisive facts<=2200chars and matching roadmap. Finish v0.15
-then v0.16->v0.17->v0.18; parked UI #61/worktrees and v0.14.0 stay untouched.
+Original scopes remain preserved: origin4/4 and old-loader4/4 exhausted; index2/4;
+ELF-version3/4; acquisition1/4; dpkg identity1/1; source16/16; helpers8/8+directory;
+tarfile content observations consumed; USTAR isolation1/2. No reset, proof rewrite,
+automatic retry, system/config/daemon/updater change or user-data mutation.
+No model/Codex job. Preserve exactly one machine-consumed active status heading,
+decisive facts <=2200 chars, parked UI #61/worktrees and v0.14.0. Finish v0.15,
+then canonical v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision
 

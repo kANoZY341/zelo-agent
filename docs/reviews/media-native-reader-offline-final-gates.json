@@ -1,0 +1,57 @@
+{
+  "acquired_archive_read": false,
+  "base": "09b68a5355098e15f3549faa98126203c08309eb",
+  "bootstrap_lock_sha256": "753df1ca08e5be5b29ae8b73d220bf6bfea052b8bed9ffdc0f64ac12091a8e4f",
+  "bootstrap_proof_sha256": "cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5",
+  "docker_daemon_used": false,
+  "elf_version_attempt_limit": 4,
+  "elf_version_attempts_used": 3,
+  "focused_tests_passed": 158,
+  "media_context_tests_passed": 2691,
+  "native_execution": false,
+  "offline_controls_passed": 13,
+  "runtime_authority": false,
+  "schema": "zelo-media-native-reader-offline-final-gates-v1",
+  "sources": {
+    "qualification/media_reader_container.py": {
+      "bytes": 9095,
+      "sha256": "f964288fc9647177e1210dbb51b5e0b81f45e161329468ba03786046ead19104"
+    },
+    "qualification/media_reader_fixture.py": {
+      "bytes": 3711,
+      "sha256": "f04aee2dfe8cdfdd8266986ff9c981649223ffbbdfe04439d09bb929b83132e9"
+    },
+    "qualification/media_reader_image.py": {
+      "bytes": 3783,
+      "sha256": "eaaf10144f3e4f0d2fc574e97789e9af4fb9839b80a0b572d8808c44960a27e4"
+    },
+    "qualification/media_reader_process.py": {
+      "bytes": 12187,
+      "sha256": "fe8e639c5cb32f663234448baeccafc3151de114b7ec264c150bcb419ab44fcf"
+    },
+    "qualification/media_reader_seccomp.py": {
+      "bytes": 1175,
+      "sha256": "1c77745c497c971929ef1ba2c7931785a9d3b6ce0fd7d5342886bd286ad5e1b3"
+    }
+  },
+  "tests": {
+    "tests/test_media_reader_container.py": {
+      "bytes": 12419,
+      "sha256": "4a1a011a28c7ea82bbba8e132f538f64de8dfe7ba148dc733687d849f3c1c03f"
+    },
+    "tests/test_media_reader_fixture.py": {
+      "bytes": 5787,
+      "sha256": "9370107c288c08f29c240fdeafb2eea82c75a8426166bc6250d36d33b2eea7ab"
+    },
+    "tests/test_media_reader_image.py": {
+      "bytes": 3969,
+      "sha256": "354efabda159f0076c736b72f2740f3f788575defe3c5036c722ecd9bd534bed"
+    },
+    "tests/test_media_reader_process.py": {
+      "bytes": 17331,
+      "sha256": "f2e6d2e6511ecaaf7e7c3483baf2749a88d944bddfe4d3172f0712401346db47"
+    }
+  },
+  "ustar_attempt_limit": 2,
+  "ustar_attempts_used": 1
+}
