@@ -68,43 +68,49 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media fixed local-index qualification after PR84 merge
-070f820bb90e493d2287ad6b0b96fd33e0dc4db6. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media package archive acquisition implementation after PR85
+merge 19e0be24cb0a60bac1f540f08a27d82082895e9d. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: second fixed local-index qualification gate
+## Current scope: offline package acquisition implementation and source review
 
-PR85 original60f0199 passed source/tests/CI but actual index1 refused changed
-updates size. Preserve index-proof-qe5u08n9 SHA0030fb0a8a4e87aaa2d5f762b94b3a232f7f2a0925d3cf49fc0eb8b12fc27e3b.
-Refreshed origin source1d533c35d38d6ce7d155b2de54275573e85061a9 and its actual
-fourth18case proof received FULL source/actual acceptance. Read archived source
-and final reviews in docs/reviews/media-origin-refresh-*.md.
-New origin proof origin-proof-o5l0ydws SHAfaab51dce2a95073a251049a559ceddb027ff01a36f3219e5236ca0c1bd6cd52;
-all18cases and cleanup passed,36entries/772054bytes,receipt binds pending proof.
-Origin4/4 EXHAUSTED: no fifth run/reset. Version2/4,loader4/4 unchanged.
+PR85 merged at 19e0be24cb0a60bac1f540f08a27d82082895e9d, matching its reviewed
+tree. CI passed 3,640 tests, 209 selector/operator tests and 1,823 Media checks;
+four standalone checks and ten causal controls (14 intended failures) passed.
+Read docs/reviews/media-local-index-{final-review,final-gates}.md.
+Accepted index proof SHA256:
+199b3b16ee247497b782d78356bb88f3f67ed717401d5cb39ec7a8fc2c0b210d.
+It authenticates three indexes and selects eight fixed package records. It does
+not authenticate package members or grant platform/runtime authority.
 
-Only accepted signed raw-index declarations have now been promoted into the
-wrapper: updates7375495/SHA1a82e1177b4a1eefab5f4a985c79911fac514e7ad6c5c31ebf780c1983663185;
-noble/security declarations unchanged. Exact8package/version/amd64 targets and
-pure selector unchanged. Metadata-only preflight precedes admission/allocation;
-all immutable bytes still hash-authenticated before parsing with held-FD checks.
+Retain all scopes: origin 4/4 exhausted, index 2/4 (first refused, second passed),
+ELF version 2/4, old loader 4/4. No further origin/index/ELF attempt or quota reset.
+Shared ownership/admission helpers stay unchanged. Preserve every old proof.
 
-Synthetic tests only until new frozen FULLsource review explicitly clears at most
-ONE second index attempt. Scope remains1/4, with first failure preserved. Do not
-rerun origin or read/parse actual index contents yet. Clean exacthead/tree, full
-source metadata preflight and empty canonical marker must precede cleared attempt.
-Any refusal preserves evidence and returns to design; no automatic third attempt,
-source/pin/grammar widening or quota reset. Single cleanup/release path unchanged.
+The next acquisition proposal is runtime/media-package-acquisition-next-design.md.
+Its preliminary review is archived in docs/reviews/media-package-acquisition-design-review-r1.md.
+Astra Medium cleared the refined design for offline implementation; read
+docs/v0.15-media-package-acquisition.md and the R2 design review. The source
+references and license are retained under runtime/media-package-http-reference.
+The signed eight-record lock is pinned at
+0c7b800977288ea8beb88f765718d8df42e0a40729ef5bbc6c3d41c2f4f298d6.
 
-PR85 remains draft pending full finalsource/actual review, matching latest-head CI,
-focused/causal checks and fourstandalone supplements. Prior CI3617passes belongs
-60f0199, not later revisions. Historical conditional indexmetadata is not package-
-member provenance/platform/ABI/freshness/current-key/runtimeauthority.
-No network/download/decompression, package/member inspection, Pillow/decoder,
-ctypes/filter execution, Docker/cgroup/daemon/system/updater changes, live data/
-config/model calls/listeners, Core/Mind/Agent/route binding or enabled flags.
-Original resource/filter gates precede decoder. Continuev15thenv16->v17->v18;
-preservev0.14.0andparkedUI61. Shared ownership/admission helpers unchanged.
+Implement only the closed acquisition adapter and fake-only tests. No real DNS,
+socket, TLS context/CA loading, endpoint probe or download is cleared. Real
+stdlib HTTPResponse may parse synthetic BytesIO. Preserve exact ownership
+transitions, pre-parser header bounds, direct verified TLS context, immutable
+CA data, framed-body-only claims and explicitly cooperative deadlines. Hold
+archive/CA/support FDs; JSON closes inside _Store. Count both read-back copies.
+
+A frozen full source review must explicitly clear at most one eight-file batch;
+actual review, matching CI and supplements precede normal merge. No automatic retry.
+
+No package/member tool execution, Pillow/decoder, ctypes/filter, Docker/cgroup/
+daemon/system/updater changes, live data/config/model calls/listeners, Core/Mind/
+Agent/route binding or enabled flags. Original resource/filter gates precede image
+decoder. Conditional historical attribution does not establish freshness, current
+key validity, package-member provenance, platform/ABI or runtime authority.
+Continue v0.15, then v0.16 -> v0.17 -> v0.18. Preserve v0.14.0 and parked UI #61.
 
 ## Workspace decision
 
