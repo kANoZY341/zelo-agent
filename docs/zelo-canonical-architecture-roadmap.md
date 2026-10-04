@@ -275,6 +275,10 @@ need them. The UI, model and worker layers never become the authority boundary.
     autonomous browser actions continue.
 20. Learning may propose or improve skills, but learned skills never widen tool,
     capability, Space, budget or external-action authority automatically.
+21. Mutation-capable Agent Computers have no direct public egress. Public browser
+    traffic must cross a Zelo Core-owned, per-Agent authenticated allowlist proxy;
+    Core computer control may use only a validated private address inside the exact
+    configured internal computer network.
 
 ## Reuse before rebuild
 
@@ -579,9 +583,12 @@ Computer Worker rollout is explicitly phased:
 3. Agent-only **read-only observation** (`browser_snapshot`, `browser_read`,
    `files_list`, `files_read`) with exact permission/backend execution
    identity and claim-time revocation;
-4. separately qualified browser mutation actions;
-5. separately qualified workspace writes; and
-6. shell only through an explicit later authority decision.
+4. Core-owned browser egress and internal-network topology: no direct public
+   computer egress, per-Agent proxy credentials, trusted HTTPS endpoint grants,
+   private-CIDR Core control and live revocation;
+5. separately qualified browser mutation actions;
+6. separately qualified workspace writes; and
+7. shell only through an explicit later authority decision.
 
 Passing an earlier phase never implicitly grants a later phase. Screenshots may
 be owner-facing through the Computer Panel without automatically becoming

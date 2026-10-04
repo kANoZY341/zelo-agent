@@ -108,14 +108,26 @@ refused with `computer_human_control_active` while the owner held control; after
 handback, OpenBot reported `resume_snapshot_required=true`. The disposable
 container, profile, workspace and supervisor were removed after the proof.
 
-The active next phase is the **browser mutation egress prerequisite**, not
-navigation itself. It adds Agent-scoped canonical HTTPS endpoint grants, a
-derived per-Agent proxy credential, Core-owned public-address DNS resolution and
-a bounded CONNECT proxy. The proxy revalidates current Agent/permission/endpoint
-authority on connection establishment, after DNS and before forwarding tunnel
-chunks, so revocation blocks new and already-open traffic. `computer_navigate`
-is registered as a capability but no mutation action is exposed yet. See
-`docs/v0.15-computer-browser-mutation-egress-gate.md`.
+PR #97 is merged at `b67d0d85aa24e2c2a376e1baa08996788fe86b1d` and adds
+the **browser mutation egress prerequisite**, not navigation itself:
+Agent-scoped canonical HTTPS endpoint grants, a derived per-Agent proxy
+credential, Core-owned public-address DNS resolution and a bounded CONNECT proxy.
+The proxy revalidates current Agent/permission/endpoint authority on connection
+establishment, after DNS and before forwarding tunnel chunks, so revocation
+blocks new and already-open traffic. `computer_navigate` is registered as a
+capability but no mutation action is exposed yet. Exact-head CI run #2009 passed.
+See `docs/v0.15-computer-browser-mutation-egress-gate.md`.
+
+The stacked internal-topology slice has now passed the live Zelo-host proof.
+Agent computers join an internal-only Docker network, Core control uses the
+validated private computer IP, and public browser traffic can leave only through
+the Core proxy bound to the bridge gateway. In the disposable .252 proof the
+computer was 172.30.252.3:4100, direct public curl was blocked, real Chromium
+reached allowlisted https://example.com through the proxy with title
+Example Domain, then Browser permission revocation caused the next navigation
+to fail. The Agent container did not contain the master computer token. All
+.252 qualification resources were removed. See
+docs/v0.15-computer-internal-topology.md.
 
 Workspace writes, shell, credentials, screenshots in Agent results, host access,
 host fallback and the parked UI remain out of scope. See

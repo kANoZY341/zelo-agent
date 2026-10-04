@@ -25,13 +25,16 @@ services:
       COMPUTER_NAMESPACE: ${ZELO_COMPUTER_NAMESPACE:-zelo}
       COMPUTER_IMAGE: zelo-agent-computer:b6932d3
       COMPUTER_BROWSER_MODE: headless
-      COMPUTER_NETWORK: ''
+      COMPUTER_NETWORK: ${ZELO_COMPUTER_NETWORK_NAME:-}
+      ZELO_COMPUTER_EGRESS_PROXY_HOST: ${ZELO_COMPUTER_EGRESS_PROXY_HOST:-}
+      ZELO_COMPUTER_EGRESS_PROXY_PORT: ${ZELO_COMPUTER_EGRESS_PROXY_PORT:-4390}
       COMPUTER_MEMORY_BYTES: ${ZELO_COMPUTER_MEMORY_BYTES:-2147483648}
       COMPUTER_RUNTIME: ${ZELO_COMPUTER_RUNTIME:-}
     volumes:
       - ${ENGINE_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
     networks:
       - agent-computer-control
+      - agent-computer-sandbox
     init: true
     restart: unless-stopped
     security_opt:
@@ -52,3 +55,11 @@ services:
 networks:
   agent-computer-control:
     driver: bridge
+  agent-computer-sandbox:
+    name: ${ZELO_COMPUTER_NETWORK_NAME:-zelo-agent-computer-sandbox}
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: ${ZELO_COMPUTER_INTERNAL_NETWORK_CIDR:-172.30.250.0/24}
+          gateway: ${ZELO_COMPUTER_EGRESS_PROXY_HOST:-172.30.250.1}

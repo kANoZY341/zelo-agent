@@ -9,6 +9,6 @@ COPY --from=openbot supervisor/src ./src
 COPY deployment/agent-computers/LICENSE.openbot ./LICENSE.openbot
 COPY deployment/agent-computers/LICENSE.opendots ./LICENSE.opendots
 COPY deployment/agent-computers/harden-supervisor.mjs /tmp/harden-supervisor.mjs
-RUN bun /tmp/harden-supervisor.mjs /app/src/environment.ts && rm /tmp/harden-supervisor.mjs
+RUN bun /tmp/harden-supervisor.mjs /app/src/environment.ts /app/src/docker.ts /app/src/index.ts && rm /tmp/harden-supervisor.mjs
 EXPOSE 4300
 CMD ["bun", "src/index.ts"]
