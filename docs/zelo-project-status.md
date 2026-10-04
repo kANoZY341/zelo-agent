@@ -6,37 +6,39 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Current checkpoint — 4 October 2026
+## Active increment: v0.15 Media package-reader source research
 
-Core v0.15 remains active; UI remains parked. PR #86 (fixed Media archive
-acquisition) is merged at `b1638a0e7f074c8ca8a2bc47326e315d510a0820`, with its
-merged tree verified identical to reviewed tree `53f8fcd719b51058c99081557dc0bb37453c80e7`.
-Matching pre-merge CI passed 3,737 tests with two skips; existing standalone
-coverage passed four checks. A fresh direct acquisition suite passed 97 tests.
+Core v0.15 remains active; UI remains parked. PR #86 (Media archive acquisition)
+is merged at `b1638a0e7f074c8ca8a2bc47326e315d510a0820`. Its reviewed-tree merge
+and post-merge CI succeeded. One batch verified eight archives / 8,745,084 bytes:
+**historical archive-byte identity**, not Media readiness or runtime authority.
 
-The one source-cleared batch verified all eight archives / 8,745,084 bytes. Its
-actual evidence, exact retained inventory and proof-bound cleanup receipt were
-accepted. This proves only historical archive-byte identity, not Media readiness.
+Local identity research observed dpkg `1.22.6ubuntu6.6` amd64. Exact-version Ubuntu
+publication and source research now retain 15 files / 1,115,169 bytes from applied
+commit `ba5fe18eb68084206981fb7b3a7c281eb2d38372`. A separate audit passed 33 tamper
+controls. Sixteen source requests included one retained HTTP404 and a reviewed
+path correction; no source-corpus quota was reset or package reader executed.
 
-On `feat/v0.15-media-package-member-identity`, the bounded three-path local identity
-research also completed: 12 offline text-fixture checks, one observation, and a
-separate audit of three retained files. The dpkg status record reports
-`1.22.6ubuntu6.6` amd64; its absent Source field leaves correspondence unresolved.
-No package reader was executed and no archive members were inspected.
+The next work is bounded helper/build closure and secondary tar-reader selection,
+then native stream/member-reader design and qualification. The source review
+identified subprocess ownership, unbounded decoder memory, temporary extraction
+in information commands and SIGPIPE-success handling as concrete design concerns.
+Binary/source correspondence, dsc signature, complete runtime/ABI/import closure,
+resource/filter and image-decoder qualification, Core binding and release remain
+unproved. See `v0.15-media-package-reader-source.md` and the reader candidate design.
 
-The next work is a reviewed closed official-source manifest, then separately
-reviewed source inspection and bounded native member-reader design. No public
-retrieval is cleared by the local identity gate. Media still needs provenance/
-runtime closure, immutable delivery, resource/filter and decoder qualification,
-Core binding and release checks. No v0.15 release or later completion is claimed.
+PR #87's original CI failed on the renamed active-status heading. The stable
+heading and current roadmap facts are restored with regression tests; replacement
+head review/full CI remain required. This is direct ChatGPT work, not a new Codex
+job. All original proof quotas and user/runtime data are preserved. No enabled
+flag, UI change, v0.15 release or later milestone completion is claimed.
 
-See `docs/v0.15-media-package-member-identity.md` and the acquisition/identity
-review records. Current work used direct ChatGPT tools after Codex exhausted its
-usage limit; no new Codex review/job is claimed. All proof quotas are preserved.
+## Checkpoint history
 
-The sections below retain earlier release and implementation checkpoints. Any
-older wording about an active Browser increment is historical and superseded by
-this current checkpoint; it must not be used as the next-work instruction.
+The sections below preserve prior releases and implementation checkpoints. Their
+older active-work descriptions are historical, not instructions to repeat proofs.
+The `## Active increment:` heading above is a stable ContextResolver interface;
+keep exactly one and update its content rather than renaming it.
 
 ## Published release
 

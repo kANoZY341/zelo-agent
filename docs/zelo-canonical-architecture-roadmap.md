@@ -469,19 +469,21 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (3 October 2026): Media PNG contract PR #73 merged at
-`aed13e6`, matching reviewed/tested head `043aa2a`. Full CI passed 2,053 tests;
-513 focused/Browser checks, four supplements, two negative controls and independent
-Astra Medium review passed. This qualification contract does not decode pixels or
-grant Media runtime/cleanup/provenance acceptance. Continue with
-`docs/v0.15-media-wheel-artifact-qualification.md`: inspect one independently pinned
-candidate wheel without importing/installing/extracting or activating Core.
-Default Shell/Browser remain disabled, UI #61 parked and v0.14.0 unchanged.
+Core-first checkpoint (4 October 2026): PR #86 completed fixed Media archive
+acquisition, not the Media Worker. Eight archives have accepted historical byte
+identity. Exact-version package-reader source research now retains 15 files and
+passed 33 tamper controls; binary/source and complete runtime correspondence are
+not independently authenticated. See `docs/v0.15-media-package-reader-source.md`.
+
+Next: bounded helper/build closure and a mature secondary tar-reader choice, then
+native stream/member qualification, runtime/import closure, resource/filter and
+image-decoder qualification, Core binding and release checks. No package reader
+or image decoder is activated. UI #61 stays parked and v0.14.0 is unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
 Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
-Resume Browser Worker qualification and the existing Core milestones below.
+Continue Media Worker completion and the existing Core milestones below.
 The v0.16 channels, v0.17 specialist organizations and v0.18 autonomy order stays
 unchanged; UI redesign and final integration follow the Core-first work.
 

@@ -1,0 +1,184 @@
+{
+  "audit_path": "runtime/media-reader-source-audit-20261004.json",
+  "audit_sha256": "44a0239b015f22a90e956f48d1428d7f047c080a2681a20a87c5b177641e273a",
+  "known_deviation": "Two tag metadata responses used a single bounded read rather than the proposed 64KiB loop. Static research only; no execution qualification claim.",
+  "native_reader_execution_cleared": false,
+  "native_reader_implementation_cleared": false,
+  "pr87_prior_ci": {
+    "cause": "Renamed active-status heading left ContextResolver active content empty; assertion still expected historical Browser increment.",
+    "conclusion": "failure",
+    "failed": 1,
+    "head": "f8dcbd9774c4221a8fba3ec865277f4c6aa6ad1f",
+    "passed": 3736,
+    "run": 37192058474,
+    "skipped": 2
+  },
+  "public_identity_logical_limit": 12,
+  "public_identity_logical_operations": 11,
+  "replacement_head_ci": "required; not claimed by this source-research record",
+  "review_method": "direct continuing ChatGPT; no Codex job",
+  "schema": "zelo-media-reader-source-checkpoint-v1",
+  "source_collection": {
+    "archive_read": false,
+    "commit": "ba5fe18eb68084206981fb7b3a7c281eb2d38372",
+    "copyright_matches_retained_local_notice": true,
+    "dsc_signature_verified": false,
+    "git_object_membership_verified": false,
+    "in_memory_tamper_controls_passed": 33,
+    "installed_binary_correspondence_verified": false,
+    "installed_files_reopened": false,
+    "manifests": [
+      {
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "requests": 6,
+        "sha256": "28e61177e6007bda1ccd7c569f75760dc382f9e989bf881d16c55c724216fb81"
+      },
+      {
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "requests": 10,
+        "sha256": "ae74fe9bebf85b7e00cfbc3fd6e15cb98f8e44b206b794cdcaaeed13d86124ff"
+      }
+    ],
+    "network": false,
+    "project_imports": false,
+    "runtime_authority": false,
+    "schema": "zelo-media-reader-source-direct-audit-v1",
+    "source_bytes": 1115169,
+    "source_files": [
+      {
+        "bytes": 17987,
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "file": "00.reference",
+        "git_blob_sha1_observed": "d511905c1647a1e311e8b20d5930a37a9c2531cd",
+        "path": "COPYING",
+        "sha256": "ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6"
+      },
+      {
+        "bytes": 5661,
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "file": "01.reference",
+        "git_blob_sha1_observed": "79904ff3a659e1b1538c28c5e327217470d36e94",
+        "path": "debian/copyright",
+        "sha256": "6511e06b27f2297fde6ee8fb2e59807b7712dda61837ca00a0980da1e5df07ac"
+      },
+      {
+        "bytes": 973743,
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "file": "02.reference",
+        "git_blob_sha1_observed": "09675cec5ed4a88d398fb7ade12cf17e8fadf185",
+        "path": "debian/changelog",
+        "sha256": "63512a7a715b9090228ae3cc819313f1d4a44e2e632cba9b705bc86766985980"
+      },
+      {
+        "bytes": 3167,
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "file": "03.reference",
+        "git_blob_sha1_observed": "1aca4196517fa827b35af9ab7d6b85aa609bc3f1",
+        "path": "debian/rules",
+        "sha256": "6ee611eecf80b9fd818fad9b5a5c898f208e82af79f925b03a5591d8df1b9b60"
+      },
+      {
+        "bytes": 10360,
+        "directory": "media-reader-source-ba5fe18-20261004",
+        "file": "04.reference",
+        "git_blob_sha1_observed": "f883912322efba14013a8e39dfe76b706d10f85e",
+        "path": "configure.ac",
+        "sha256": "d2d7a0d9032eb50c7b4bdf73cfbfb1d592f0b817bb44f9dd3c90e293f8a6ebec"
+      },
+      {
+        "bytes": 3109,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "00.reference",
+        "git_blob_sha1_observed": "6d0f2f24afb4c1af5fe8ccb9ceeb16822630c16c",
+        "path": "src/Makefile.am",
+        "sha256": "65ddd1f76ecc963f8d4a19e37a272432e3b4aa33360399ade067febd6d6deea7"
+      },
+      {
+        "bytes": 10872,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "01.reference",
+        "git_blob_sha1_observed": "2c53811725d1cda0f8b24a243faec31d124c4b13",
+        "path": "src/deb/main.c",
+        "sha256": "5779b6199ad367c71d7a9de0e6da4f28f71ad6888439eb7d431330f622bb2ed9"
+      },
+      {
+        "bytes": 14895,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "02.reference",
+        "git_blob_sha1_observed": "8b78a7eab93b432d5d81a8768ec97ca7aa66caa6",
+        "path": "src/deb/extract.c",
+        "sha256": "a35fc963dd31f7b08e244e3072ccbf92f4784d9980afd795097bf43b17f4215f"
+      },
+      {
+        "bytes": 5616,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "03.reference",
+        "git_blob_sha1_observed": "6eea5ad13bcd99a2bce72ae7c5a773b666ae69a1",
+        "path": "lib/dpkg/ar.c",
+        "sha256": "ffa2c537e033fbbaa3bbcadde159876bcf1b92bdcdfb23c0873e25b6aa57a18a"
+      },
+      {
+        "bytes": 33306,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "04.reference",
+        "git_blob_sha1_observed": "8e4b672e105e561e0013bf614f7c46227a654cbc",
+        "path": "lib/dpkg/compress.c",
+        "sha256": "b91bce922d36c9e15f65f892adbd85d130fee7d22540f741cde0a48707195ee6"
+      },
+      {
+        "bytes": 4364,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "05.reference",
+        "git_blob_sha1_observed": "7b3fb99065c44541e3004986b383b982a7afc77b",
+        "path": "lib/dpkg/subproc.c",
+        "sha256": "911dba2dac83a9b2a4a9c876e328efe92d72efc9416642f2a304ac895af52bc3"
+      },
+      {
+        "bytes": 6613,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "06.reference",
+        "git_blob_sha1_observed": "ed05f4b4ab5cb2d9c029a6e96062826966b45b98",
+        "path": "lib/dpkg/buffer.c",
+        "sha256": "b4c24171a25f607c37ed630ad856dae78003f282347ab0df700f5b2b10025958"
+      },
+      {
+        "bytes": 3859,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "07.reference",
+        "git_blob_sha1_observed": "b50322bad3c961f3c21acf3f05f3e97cf5c628e9",
+        "path": "lib/dpkg/fdio.c",
+        "sha256": "443a29bf325ec0e5177a0c026676f799f0542de18790691457ad0fc43e93ddf7"
+      },
+      {
+        "bytes": 12562,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "08.reference",
+        "git_blob_sha1_observed": "b9529a5d9bbdc801ec66dffe60a48e911f50c31f",
+        "path": "man/dpkg-deb.pod",
+        "sha256": "7c63e844666d83a874901f920479d6a60a3a9183e7921cfbf5752580ef43e55e"
+      },
+      {
+        "bytes": 9055,
+        "directory": "media-reader-source-ba5fe18-r2-20261004",
+        "file": "09.reference",
+        "git_blob_sha1_observed": "01ee260fb604bf2bf2cd70651f7b97ec765392da",
+        "path": "src/deb/info.c",
+        "sha256": "de16258073d26b5b854faabed9b03612f97f7a83a8f88b449d06c70c52b40b7c"
+      }
+    ],
+    "source_requests_failed": 1,
+    "source_requests_limit": 16,
+    "source_requests_used": 16,
+    "status": "accepted-conditional-static-source-records",
+    "target_code_executed": false
+  },
+  "source_commit": "ba5fe18eb68084206981fb7b3a7c281eb2d38372",
+  "source_manifest_urls": [
+    "https://api.launchpad.net/1.0/ubuntu/+archive/primary?ws.op=getPublishedSources&distro_series=https%3A%2F%2Fapi.launchpad.net%2F1.0%2Fubuntu%2Fnoble&source_name=dpkg&version=1.22.6ubuntu6.6&exact_match=true",
+    "https://archive.ubuntu.com/ubuntu/pool/main/d/dpkg/dpkg_1.22.6ubuntu6.6.dsc",
+    "https://git.launchpad.net/ubuntu/+source/dpkg/commit/?id=ba5fe18eb68084206981fb7b3a7c281eb2d38372",
+    "https://git.launchpad.net/ubuntu/+source/dpkg/commit/?id=921380b137c23dca61ed746e0136995a765686bf"
+  ],
+  "source_tree_reported": "037fc7f75d736e9c14fcd7dbf2c3b09288ac5dec",
+  "source_url_rule": "https://git.launchpad.net/ubuntu/+source/dpkg/plain/{path}?id=ba5fe18eb68084206981fb7b3a7c281eb2d38372"
+}

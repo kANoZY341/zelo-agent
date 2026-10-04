@@ -68,59 +68,76 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media package-reader source/provenance research after PR86
+The active work is v0.15 Media package-reader helper/runtime closure design after PR86
 merge b1638a0e7f074c8ca8a2bc47326e315d510a0820. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: package-reader official-source manifest design
+## Current scope: package-reader closure design; current-context regression fix
 
-PR86 merged at b1638a0e7f074c8ca8a2bc47326e315d510a0820 with its exact reviewed
-tree 53f8fcd719b51058c99081557dc0bb37453c80e7. Matching pre-merge CI passed
-3,737 tests, two skips; four retained standalone passes and seven causal controls
-are recorded. A fresh direct acquisition suite passed 97 tests. Read
-`docs/reviews/media-package-acquisition-r2-source-review.md`,
-`docs/reviews/media-package-acquisition-actual-review.md` and
-`docs/reviews/media-package-acquisition-final-gates.md`.
-
-Exactly one acquisition batch passed: eight archives / 8,745,084 bytes; all exact
-hashes and the retained inventory were audited. Accepted proof SHA256:
+PR86 merged at b1638a0e7f074c8ca8a2bc47326e315d510a0820 with exact reviewed tree
+53f8fcd719b51058c99081557dc0bb37453c80e7. Pre-merge CI passed 3,737 tests,
+two skips; post-merge CI 37191575787 also succeeded. Acquisition is one accepted
+batch: eight archives / 8,745,084 bytes, without package-member parsing.
+Accepted proof SHA256 is
 c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
-No archive members were parsed and no runtime authority was granted.
+The earlier acquisition and local-identity review records remain authoritative
+only for their exact documented source/evidence scopes.
 
-The three-path R2 local identity observation also completed after design review.
-Read `docs/v0.15-media-package-member-identity.md` and its two review records.
-Only /usr/bin/dpkg-deb, /usr/share/doc/dpkg/copyright and /var/lib/dpkg/status
-were observed as inert bytes. The installed status record reports dpkg
-1.22.6ubuntu6.6 amd64 but has NO Source field. Binary-to-source correspondence
-and independent package membership are unresolved, not inferred from that record.
-No package tool was executed. Local identity research is consumed (1/1).
+The three-path local identity observation is consumed, 1/1. It observed dpkg
+1.22.6ubuntu6.6 amd64 with no Source field. No installed inputs were reopened by
+the following source research and no package tool was executed.
 
-Next: prepare a separately reviewed closed official-source retrieval/inspection
-manifest with exact distribution revision/patch identity, literal source/document/
-license paths, finite request/file/per-file/aggregate/retained limits, failed-request
-accounting and no retries or recursive discovery. ZERO public requests are cleared
-by the completed local identity observation. Do not inspect arbitrary installed
-files, rerun the identity observation, invoke dpkg-deb (even --version), read archive
-members, decompress/extract/install, or write a reusable member parser/materializer.
-A future mature-tool adapter and native sandbox qualification are separate gates.
+The separately reviewed public-source research now pins official Ubuntu metadata
+and an applied source commit ba5fe18eb68084206981fb7b3a7c281eb2d38372. Fifteen
+retained source files / 1,115,169 bytes passed a separate audit with 33 in-memory
+tamper controls. The 16-request source budget is consumed, including one retained
+HTTP404 and the reviewed correction to src/deb paths. Public identity discovery
+used 11/12 logical operations, with gateway failures and a bounded tag-read
+chunking deviation disclosed. Do not present these as native qualification proof.
+Read docs/v0.15-media-package-reader-source.md,
+docs/reviews/media-package-reader-source-review.md,
+docs/reviews/media-package-reader-source-gates.json and
+docs/v0.15-media-package-member-reader-design.md.
 
-The prior local-identity Codex review hit its usage limit and is NOT a completed
-verdict. The continuing session used direct ChatGPT review and tools; no new Codex
-job was launched. Do not retry exhausted Codex jobs or claim a review occurred when
-it did not. Preserve explicit source, actual-evidence, matching CI and exact-tree
-merge requirements; direct review is not a claim of a separate Codex execution.
+Source-host metadata, observed blob hashes and matching copyright do not prove
+installed executable membership, a verified dsc signature, Git tree membership,
+archive/tree equivalence, complete runtime/library closure or ABI compatibility.
+Do not silently promote those unresolved claims. No downloaded source was built,
+imported, executed or copied into product implementation.
 
-Retain all scopes: origin 4/4 exhausted, index 2/4, ELF version 2/4, old loader
-4/4 exhausted, acquisition 1/4, and local identity 1/1. No quota reset, proof
-repair/overwrite or additional actual attempt. Shared admission/ownership helpers
-remain unchanged. Preserve every old proof and all user/runtime data.
+Next: a bounded explicit closure proposal for missing initialization/options/
+command helpers, the passthrough enum/build facts and a mature secondary tar reader.
+Do not recursively fetch sources or repeat the spent 16-request corpus. Any new
+research must have a reviewed literal manifest and retain its original failures.
+The candidate design is NOT cleared for native launcher/parser/materializer
+implementation or execution. It documents child-process ownership, hard decoder
+memory/output limits, SIGPIPE-success refusal, temporary writes in information
+commands, input-format and helper-execution risks that must be addressed first.
 
-No Pillow/image decoder, native member tool, ctypes/filter, Docker/cgroup/daemon/
-system/updater changes, live data/config/model calls/listeners, Core/Mind/Agent/
-route binding or enabled flags. Resource/filter gates still precede decoding.
-Historical archive attribution is not freshness, current-key validity, member
-provenance, platform/ABI qualification or runtime authority. Continue v0.15 and
-then the canonical roadmap to v0.18; preserve v0.14.0 and parked UI #61.
+PR87's original documentation head f8dcbd9 failed full CI: renamed status heading
+left ContextResolver's active source empty (1 failed, 3,736 passed, 2 skipped).
+The correction restores the stable heading and aligns current roadmap facts,
+with tests for nonempty current context and historical-section exclusion. This
+is a documentation/test fix; application resolver/authority code stays unchanged.
+The corrected head requires fresh review/full CI; the earlier failed run and
+old documentation review cannot be claimed as matching passes. Preserve exactly
+one `## Active increment:` heading in docs/zelo-project-status.md: it is a
+machine-consumed interface. Keep decisive current facts within its 2200-character
+context budget. The canonical v0.15 checkpoint must not contradict that status.
+
+The interrupted Codex review is not a completed verdict. Continue with direct
+ChatGPT tools and truthful review attribution; do not retry exhausted Codex jobs.
+Retain source review, actual evidence, matching CI and exact-tree merge gates.
+Retain all original scopes: origin4/4 and old-loader4/4 exhausted; index2/4,
+ELF-version2/4, acquisition1/4 and local-identity1/1. No scope reset, proof repair,
+overwrite or extra qualification attempt. Shared admission/ownership helpers and
+all runtime/user data stay unchanged.
+
+No package/member tool, Pillow/image decoder, native ctypes/filter, Docker/cgroup/
+daemon/system/updater change, live config/data/model call/listener, Core/Mind/Agent/
+route binding or enabled flag. Resource/filter gates still precede image decoding.
+Continue v0.15 then canonical v0.16 -> v0.17 -> v0.18. UI #61 stays parked and
+v0.14.0 unchanged. No release or later milestone completion is claimed.
 
 ## Workspace decision
 
