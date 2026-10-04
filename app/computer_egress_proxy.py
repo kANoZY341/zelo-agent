@@ -156,13 +156,14 @@ class ComputerEgressProxy:
         self._server = None
         if server is not None:
             server.close()
-            await server.wait_closed()
         current = asyncio.current_task()
         clients = tuple(task for task in self._clients if task is not current and not task.done())
         for task in clients:
             task.cancel()
         if clients:
             await asyncio.gather(*clients, return_exceptions=True)
+        if server is not None:
+            await server.wait_closed()
 
     @staticmethod
     async def _close_writer(writer: asyncio.StreamWriter) -> None:

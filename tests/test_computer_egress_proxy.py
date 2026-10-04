@@ -443,13 +443,16 @@ def test_proxy_close_terminates_active_tunnel(database):
             assert response.startswith(b"HTTP/1.1 200 Connection Established")
             await asyncio.wait_for(accepted.wait(), timeout=3)
 
-            await proxy.aclose()
+            await asyncio.wait_for(proxy.aclose(), timeout=3)
             assert await asyncio.wait_for(reader.read(), timeout=3) == b""
             assert not proxy._clients
         finally:
             release.set()
             writer.close()
-            await writer.wait_closed()
+            try:
+                await asyncio.wait_for(writer.wait_closed(), timeout=1)
+            except (TimeoutError, ConnectionError, OSError):
+                pass
             echo_server.close()
             await echo_server.wait_closed()
 
