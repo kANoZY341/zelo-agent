@@ -20,13 +20,17 @@ def contract():
     return m.ReaderContainerContract(IMAGE, BUNDLE)
 
 
+def identity():
+    return LEASE
+
+
 def image():
     return {
         "Id": IMAGE,
         "Architecture": "amd64",
         "Os": "linux",
         "Config": {
-            "Labels": {m.BUNDLE_LABEL: BUNDLE},
+            "Labels": {m.LEASE_LABEL: LEASE, m.BUNDLE_LABEL: BUNDLE},
             "Entrypoint": None,
             "Cmd": None,
             "Env": None,
@@ -194,7 +198,7 @@ def test_create_rejects_bad_lease(identity):
 
 
 def test_valid_image_and_container():
-    m.verify_image(image(), contract())
+    m.verify_image(image(), contract(), identity())
     m.verify_container(container(), contract(), NAME, LEASE, seccomp.profile_bytes())
 
 
@@ -205,7 +209,7 @@ def test_valid_image_and_container():
         (("Architecture",), "arm64"),
         (("Os",), "windows"),
         (("Config", "Labels"), {}),
-        (("Config", "Labels"), {m.BUNDLE_LABEL: BUNDLE, "extra": "x"}),
+        (("Config", "Labels"), {m.LEASE_LABEL: LEASE, m.BUNDLE_LABEL: BUNDLE, "extra": "x"}),
         (("Config", "Entrypoint"), ["/reader/ld.so"]),
         (("Config", "Cmd"), ["x"]),
         (("Config", "Env"), ["PATH=/bin"]),
@@ -224,7 +228,7 @@ def test_image_drift_refused(path, value):
         target = target[key]
     target[path[-1]] = value
     with pytest.raises(m.Refused):
-        m.verify_image(value_dict, contract())
+        m.verify_image(value_dict, contract(), identity())
 
 
 @pytest.mark.parametrize(

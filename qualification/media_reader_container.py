@@ -136,8 +136,9 @@ def create_arguments(
     )
 
 
-def verify_image(data: object, contract: ReaderContainerContract) -> None:
+def verify_image(data: object, contract: ReaderContainerContract, identity: str) -> None:
     contract.validate()
+    _require(type(identity) is str and re.fullmatch(r"[0-9a-f]{64}", identity) is not None, "lease")
     _require(type(data) is dict, "image_shape")
     config = data.get("Config")
     _require(type(config) is dict, "image_shape")
@@ -149,7 +150,7 @@ def verify_image(data: object, contract: ReaderContainerContract) -> None:
     )
     labels = config.get("Labels")
     _require(
-        labels == {BUNDLE_LABEL: contract.bundle_sha256}
+        labels == {LEASE_LABEL: identity, BUNDLE_LABEL: contract.bundle_sha256}
         and config.get("Entrypoint") in (None, [])
         and config.get("Cmd") in (None, [])
         and config.get("Env") in (None, [])
@@ -169,6 +170,8 @@ def verify_container(
     name: str,
     identity: str,
     profile_bytes: bytes,
+    *,
+    running: bool = False,
 ) -> None:
     contract.validate()
     _require(type(data) is dict, "container_shape")
@@ -212,7 +215,7 @@ def verify_container(
         and not config.get("Volumes")
         and not config.get("ExposedPorts")
         and not config.get("Healthcheck")
-        and data.get("State", {}).get("Running") is False,
+        and data.get("State", {}).get("Running") is running,
         "configuration",
     )
     _require(host.get("CapDrop") == ["ALL"] and not host.get("CapAdd"), "capabilities")

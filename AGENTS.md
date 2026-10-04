@@ -68,59 +68,55 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 native Media package-reader container contract after
-PR91 merge 09b68a5355098e15f3549faa98126203c08309eb. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 synthetic native Media reader qualification after
+PR92 merge f05abe11cd6b659a8339132028ca710e16393c48. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: pure native-reader container contract and synthetic next gate
+## Current scope: synthetic native-reader operator; no actual run yet
 
-PR91 merged at 09b68a5355098e15f3549faa98126203c08309eb with exact reviewed
-tree 4b39b2f253108e7bbf1461b4cccaffac321d270e. Exact-head CI 37204122789
-passed 4,347 tests, two skips. One source-cleared 40-case ELF metadata batch ran
-once and passed as version-proof attempt 3/4. Proof SHA256:
+PR92 merged at f05abe11cd6b659a8339132028ca710e16393c48 with the exact reviewed
+tree. CI37207303870 passed 4,505 tests and two skips. It added only the offline
+container/image/fixture/seccomp/owner boundary; no Docker/native process ran in
+that PR. PR91's dependency proof remains version attempt3/4 with proof
 cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5.
-Independent stdlib-only audit accepted all 40 retained records and the eight-node
-dependency graph; no target executable, loader, compressor or package member ran.
 
-The graph closes dpkg-deb over fixed libz/liblzma/libzstd/libbz2/libmd/libc and
-the fixed loader, with every declared required version present. This is declaration
-consistency only: actual dynamic load, symbol resolution, ABI qualification,
-platform completeness, independent binary provenance and runtime authority remain
-false. Version proof quota is now 3/4 consumed; do not spend the final attempt
-without a separately reviewed need.
+Current tracked work may implement the separate one-shot synthetic operator only.
+Image build ownership MUST be bound to the unpredictable 64-hex admission lease
+before create/start, including the built image label, so lost build acknowledgement
+can be recovered by exact label. Zero or one resource per lease label is accepted;
+multiple images/containers refuse. Cleanup verifies exact labels before removal
+and never deletes unrelated resources.
 
-Current tracked work may include only the consolidated offline boundary in
-docs/v0.15-media-native-reader-container.md: deterministic inert image manifest,
-four fixed synthetic Debian fixtures, exact vendored-default seccomp pin, canonical
-container policy, Media-specific owner and fake-only lifecycle tests. No Docker
-daemon call, image build/create/start/export, dpkg-deb/loader/compressor run,
-acquired archive/member read or Pillow execution is cleared by this source slice.
-Focused offline tests pass158 and combined Media/context checks pass2691.
+The setup copies only eight retained bootstrap binaries into a private0700 build
+context, uses FROM scratch, docker build --network=none --pull=false, and creates
+a stopped setup container for bounded export verification. Reuse the reviewed
+Browser image-export verifier; do not write another tar extractor. Verify exact
+image bytes/modes and re-read build-context inputs before any start.
 
-The proposed future command is fixed loader + fixed library path + dpkg-deb
---threads-max=1 --fsys-tarfile -, stdin only, no host PATH/helper fallback. Runtime
-policy remains fail-closed: content image/bundle identity, runc, network none,
-read-only root, uid/gid65534, cap-drop ALL, no-new-privileges plus exact Moby
-default seccomp,512MiB/no extra swap,pids8,half CPU,nofile32, private IPC/cgroupns,
-no host user/PID/UTS namespace, init, mounts/devices/ports/DNS/sysctls/tmpfs,
-ambient Docker config or daemon logs/restart.
+Runtime uses the fixed loader/library path and dpkg-deb --threads-max=1
+--fsys-tarfile -, stdin only. Before stdin, inspect the actual running container
+and read only its exact cgroup-v2 membership plus memory.max, memory.swap.max,
+pids.max, pids.current and cpu.max. Require512MiB, zero extra swap, pids8 and
+50000/100000 CPU. No recursive cgroup discovery.
 
-After this offline slice passes its own full CI and exact-tree merge, implement a
-separate one-shot setup/operator. That later branch may build/export/attest only
-the inert fixed image and must receive new frozen-source clearance before one
-synthetic native matrix. Use only the four fixed synthetic inputs; none of the
-eight acquired archives. Actual cgroup/process-tree enforcement and cleanup must
-be evidenced before receipt. Native reader and USTAR scanner remain separate
-trust boundaries; GNU/PAX refusal returns to design. Real package/member/runtime/
-import closure, resource/filter and image decoding, Core binding and release remain.
+The native synthetic matrix is four fixed Debian fixtures plus stdout saturation,
+timeout, cancellation and repeated-cancellation controls. Cancellation or output
+saturation is permanent refusal regardless of later exit status. Each case must
+settle its exact labelled container; final success also removes the exact labelled
+image, releases support once, and emits only a proof-bound post-cleanup receipt.
+No acquired .deb, Pillow, Core route, enabled flag or UI work is eligible.
 
-Original scopes remain preserved: origin4/4 and old-loader4/4 exhausted; index2/4;
+Offline/fake source currently passes173 focused operator/owner tests and2752
+combined Media/context checks. Real --run is NOT cleared until this new source is
+frozen, reviewed, passes its own full CI, and receives explicit one-attempt
+clearance. Any actual refusal consumes the new native-reader attempt and stops.
+
+Original scopes remain: origin4/4 and old-loader4/4 exhausted; index2/4;
 ELF-version3/4; acquisition1/4; dpkg identity1/1; source16/16; helpers8/8+directory;
-tarfile content observations consumed; USTAR isolation1/2. No reset, proof rewrite,
-automatic retry, system/config/daemon/updater change or user-data mutation.
-No model/Codex job. Preserve exactly one machine-consumed active status heading,
-decisive facts <=2200 chars, parked UI #61/worktrees and v0.14.0. Finish v0.15,
-then canonical v0.16 -> v0.17 -> v0.18.
+tarfile observations consumed; USTAR isolation1/2. New native-reader scope is0/2.
+No reset, proof rewrite, automatic retry, system/config/daemon/updater/user-data
+change or model/Codex job. Preserve one active status heading <=2200 chars,
+parked UI #61/worktrees and v0.14.0. Finish v0.15, then v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision
 

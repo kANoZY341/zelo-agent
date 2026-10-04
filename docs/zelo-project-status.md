@@ -6,36 +6,34 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader offline boundary
+## Active increment: v0.15 Media native-reader qualification
 
-Core v0.15 stays active; UI is parked. PR #91 merged at 09b68a5 after 4,347 CI
-passes/two skips. Its one cleared 40-case ELF batch is version-proof attempt 3/4;
-the eight-node declaration graph closes dpkg-deb over the fixed libraries/loader
-but does not prove actual loading, symbols, ABI, provenance or runtime authority.
+Core v0.15 stays active; UI is parked. PR #92 merged at `f05abe1` after
+**4,505 CI passes and two skips**, preserving PR #91's accepted ELF dependency
+proof at version attempt 3/4. No acquired package, decoder or Core runtime is enabled.
 
-The current slice is offline only. One canonical container contract binds the
-PR #91 proof/lock, inert content-addressed image identity, fixed loader/argv,
-PATH/HOME/TMPDIR=/nonexistent, runc, network none, read-only root, uid/gid65534,
-cap-drop ALL, no-new-privileges plus the exact vendored Moby default seccomp,
-512 MiB/no-extra-swap, PID8, half CPU and nofile32. A deterministic scratch-image
-manifest contains only the eight fixed binaries; entrypoint/env/user stay outside
-the image and are applied only at container creation.
+The new branch implements the one-shot **synthetic** native-reader operator only.
+Image ownership now carries the unpredictable 64-hex admission lease before
+`docker create`, so lost build acknowledgement can be recovered by exact label
+without guessing image IDs. Setup copies only the eight retained bootstrap
+binaries into a private scratch build context, builds with network disabled and
+pull=false, creates a stopped setup container, exports it, and reuses the bounded
+Browser image verifier to prove exact bytes/modes before any start.
 
-A separate fixed-fixture module creates four bounded synthetic Debian inputs
-(positive, bad version, wrong order, truncated). The Media-specific Docker owner
-has fake-only tests for exact inspect validation, output bounds, lost create
-acknowledgement, cleanup failure, profile drift and repeated cancellation while
-the capacity-one admission remains fenced. **No Docker daemon, loader, dpkg-deb,
-compressor or acquired archive has run in this slice.** The consolidated image,
-fixture, seccomp, contract and owner gates pass 158 offline tests.
+The running reader is probed **before stdin**. Its real cgroup-v2 membership must
+show memory.max=512MiB, memory.swap.max=0, pids.max=8 and cpu.max=50000/100000.
+The matrix uses only the four fixed synthetic Debian fixtures plus stdout-limit,
+timeout, cancellation and repeated-cancellation controls. Success requires exact
+image/container labels, fixed seccomp/argv/env, complete container+image cleanup,
+single support release and a proof-bound receipt. No host PATH/helper fallback.
 
-Next: freeze/review this source and merge it, then implement the one-shot operator
-that builds/exports/attests the inert scratch image and runs only the four fixed
-synthetic cases. Actual cgroup/process-tree evidence and complete cleanup precede
-any real authenticated package. USTAR remains narrow (GNU/PAX unsupported), then
-Media still needs real member/runtime/import closure, decoder/filter qualification,
-Core binding and release. Proof quotas/failures remain preserved; no model/UI/live
-system/config/data change occurred and v0.14.0 is unchanged.
+Offline/fake validation currently passes **173 focused operator/owner tests** and
+**2,752 combined Media/context tests** with static checks green. No Docker/native
+run has occurred on this branch. Next: freeze/hash/source-review this exact tree,
+run its own full CI, then clear at most one bounded synthetic native attempt.
+Real authenticated-package compatibility, USTAR composition, runtime/import and
+image-decoder closure, Core binding and release remain later gates. GNU/PAX remain
+unsupported; all prior quotas/failures and v0.14.0 stay preserved.
 
 ## Checkpoint history
 

@@ -1139,16 +1139,25 @@ identity, no capabilities, no-new-privileges, 512 MiB memory/no extra swap,
 PID limit 8, half CPU and nofile 32. It rejects mounts, devices, ports, DNS,
 sysctls, extra groups, tmpfs and other authority widening.
 
-The container contract itself does not contact Docker or execute `dpkg-deb`.
-The adjacent fixture, image-manifest and seccomp-pin modules are inert, and the
-Media-specific owner is covered only by a fake daemon in this checkpoint. No real
-Docker/native process has run. Configuration equality is not runtime/cgroup
-evidence. The first later native qualification must use only the four fixed
-synthetic `.deb` fixtures, not an acquired package, and must independently prove
-the complete owned container/process tree is settled before success.
+PR #92 merged the offline boundary after 4,505 CI passes/two skips. The
+current development branch adds the separate one-shot synthetic operator:
+lease-labelled image ownership, private scratch build context, stopped image-export
+attestation, pre-stdin cgroup-v2 verification, and four terminal refusal controls.
+No acquired archive is eligible.
+
+The operator source is intentionally opt-in and **must not be run** until its own
+frozen-source review and matching full CI clear one attempt. Its current fake/offline
+suite passes 164 owner/setup/cgroup/operator checks; the broader Media/context
+regression passes 2,743 tests. A later accepted synthetic run still will not grant
+real-package, image-decoder or Core runtime authority.
 
 ```sh
-.venv/bin/python -m pytest -q tests/test_media_reader_container.py
+.venv/bin/python -m pytest -q \
+  tests/test_media_native_reader_operator.py \
+  tests/test_media_reader_setup.py \
+  tests/test_media_reader_cgroup.py \
+  tests/test_media_reader_container.py \
+  tests/test_media_reader_process.py
 ```
 
 See [the offline contract and next gates](docs/v0.15-media-native-reader-container.md).

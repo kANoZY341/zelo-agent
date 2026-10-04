@@ -1,0 +1,25 @@
+{
+  "schema": "zelo-media-native-reader-source-gates-v1",
+  "review_method": "direct ChatGPT; no Codex/model job",
+  "prerequisite_merge": "f05abe11cd6b659a8339132028ca710e16393c48",
+  "prerequisite_ci": {
+    "run": 37207303870,
+    "passed": 4505,
+    "skipped": 2
+  },
+  "focused_passed": 173,
+  "combined_media_context_passed": 2752,
+  "native_attempts_used": 0,
+  "native_attempt_limit": 2,
+  "actual_run_cleared": false,
+  "clearance_condition": "exact committed source/tree + matching full CI",
+  "acquired_package_allowed": false,
+  "runtime_authority": false,
+  "source_sha256": {
+    "qualification/media_reader_container.py": "8baec21ebe9c1a0711df86a3627deb407959baffe2665576f94429d5b80b1ce7",
+    "qualification/media_reader_process.py": "791e39d43aec4cec8b5954f195685842a8619a3288eaf9e769bcc575d0e51566",
+    "qualification/media_reader_setup.py": "a061efd2c9a76c36ec2a6748a4532dde09226bbbd6a1b6546970fd65451a3f00",
+    "qualification/media_reader_cgroup.py": "4e0b6cd1bf21c06a20eb5c923dc0bd8d9c24bfee4d425b497e6b46e32f223b0e",
+    "scripts/qualify_media_native_reader.py": "bb11a932a4d787edfef46ee0b1601806cd68b466298cf0ed398c6f018f5125e1"
+  }
+}

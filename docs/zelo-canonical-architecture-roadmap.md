@@ -469,22 +469,20 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #91 merged at 09b68a5 after
-4,347 CI passes/two skips. Its single cleared 40-case ELF metadata batch consumed
-version-proof attempt 3/4 and established a closed eight-node dependency/version
-declaration graph for the fixed reader bootstrap. It did not execute dpkg-deb or
-prove ABI/runtime authority.
+Core-first checkpoint (4 October 2026): PR #92 merged at `f05abe1` after
+4,505 CI passes/two skips. PR #91's accepted dependency graph remains ELF-version
+attempt 3/4 and still proves declarations only, not actual load/ABI authority.
 
-Current work is docs/v0.15-media-native-reader-container.md: the consolidated
-offline native-reader boundary. Its canonical container, fixed Debian fixtures,
-deterministic inert scratch-image manifest, exact default seccomp pin and
-Media-specific owned-container lifecycle pass 158 offline/fake-only tests. No
-Docker/native execution is cleared in this phase. The next one-shot operator must
-build/export/attest the inert image and prove aggregate cgroup/process cleanup
-using only fixed synthetic packages before any real authenticated package attempt.
-USTAR remains narrow; GNU/PAX stay unsupported. Media still needs native stream
-qualification, real member/runtime/import closure, resource/filter and image
-decoding, Core binding and release. UI #61 and v0.14.0 remain unchanged.
+Current work is the one-shot **synthetic** native reader qualification. Lease-bound
+image ownership closes lost-build-ack cleanup; a stopped exported scratch image is
+verified byte-for-byte before start. The running reader must expose exact cgroup-v2
+memory/swap/PID/CPU limits before stdin. Four fixed synthetic Debian fixtures plus
+stdout-limit, timeout and cancellation controls pass 164 offline/fake owner tests,
+with 2,743 combined Media/context checks green. No Docker/native attempt has run
+on this branch yet: its own source review and full CI must clear one bounded attempt.
+USTAR stays narrow; GNU/PAX remain unsupported. Real package/member/runtime/import
+closure, image decoding, Core binding and release still remain. UI #61 and v0.14.0
+are unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
