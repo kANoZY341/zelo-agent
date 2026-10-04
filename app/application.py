@@ -32,6 +32,7 @@ from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.capabilities import default_capability_registry
 from app.capability_api import router as capability_router
+from app.computer_worker import ComputerRuntime
 from app.config import ROOT, Settings
 from app.context import ContextResolver
 from app.developer import DeveloperRuntime
@@ -76,6 +77,7 @@ from app.worker_registry import (
     WorkerRegistry,
     descriptor_for_api_worker,
     descriptor_for_browser_worker,
+    descriptor_for_computer_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
     descriptor_for_shell_worker,
@@ -141,8 +143,16 @@ def create_app(
                 ((descriptor_for_browser_worker(), browser_runtime),) if browser_runtime else ()
             )
             browser_supervisor = Supervisor[BrowserRuntime](browser_worker_registry)
+            computer_runtime = ComputerRuntime(database, agent_computers)
+            computer_worker_registry = WorkerRegistry[ComputerRuntime](
+                ((descriptor_for_computer_worker(), computer_runtime),)
+                if agent_computers.configured
+                else ()
+            )
+            computer_supervisor = Supervisor[ComputerRuntime](computer_worker_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(browser_worker_registry.list())
+            capability_registry.validate_workers(computer_worker_registry.list())
             shell_runtime = configured_shell_runtime(configuration)
             shell_worker_registry = WorkerRegistry[ShellRuntime](
                 ((descriptor_for_shell_worker(), shell_runtime),) if shell_runtime else ()
@@ -176,6 +186,7 @@ def create_app(
                     *python_registry.list(),
                     *api_worker_registry.list(),
                     *browser_worker_registry.list(),
+                    *computer_worker_registry.list(),
                     *shell_worker_registry.list(),
                 ),
                 capability_registry=capability_registry,
@@ -240,6 +251,7 @@ def create_app(
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
+                computer_supervisor=computer_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -275,6 +287,7 @@ def create_app(
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
+                computer_supervisor=computer_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
@@ -311,6 +324,9 @@ def create_app(
             application.state.browser_runtime = browser_runtime
             application.state.browser_supervisor = browser_supervisor
             application.state.browser_worker_registry = browser_worker_registry
+            application.state.computer_runtime = computer_runtime
+            application.state.computer_worker_registry = computer_worker_registry
+            application.state.computer_supervisor = computer_supervisor
             application.state.shell_runtime = shell_runtime
             application.state.shell_supervisor = shell_supervisor
             application.state.shell_worker_registry = shell_worker_registry

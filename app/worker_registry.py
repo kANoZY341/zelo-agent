@@ -279,6 +279,22 @@ def descriptor_for_browser_worker(
     )
 
 
+def descriptor_for_computer_worker(
+    *,
+    implementation: str = "openbot_computer_read",
+    worker_id: str = "computer_core",
+) -> WorkerDescriptor:
+    return WorkerDescriptor(
+        worker_id=worker_id,
+        role="computer",
+        capabilities=("computer_read",),
+        authority=("agent-computer-read",),
+        implementation=implementation,
+        priority=100,
+        max_concurrency=1,
+    )
+
+
 def descriptor_for_shell_worker(
     *, implementation: str = "core_shell", worker_id: str = "shell_core"
 ) -> WorkerDescriptor:

@@ -20,6 +20,8 @@ from app.api_worker import ApiRuntimeError
 from app.browser_contracts import BrowserExecutionSpec
 from app.browser_worker import BrowserRuntimeError
 from app.campaigns import append_campaign_event
+from app.computer_contracts import ComputerExecutionSpec
+from app.computer_worker import ComputerRuntimeError
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
 from app.developer_contracts import WorkerSelectionSnapshot
@@ -118,6 +120,7 @@ class Execution:
     release_request: ReleaseRequest | None = None
     agent_execution: AgentExecutionBinding | None = None
     shell_request: ShellExecutionSpec | None = None
+    computer_request: ComputerExecutionSpec | None = None
 
 
 def audit(
@@ -509,6 +512,58 @@ def _minimal_research_result_projection(result: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _computer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
+    """Project only non-content metadata from private Agent computers."""
+
+    action = result.get("action")
+    projection: dict[str, Any] = {
+        "action": action,
+        "agent_instance_id": _bounded_projection_text(
+            result.get("agent_instance_id"),
+            36,
+        ),
+    }
+    if action == "browser_snapshot" and isinstance(result.get("browser_snapshot"), dict):
+        value = result["browser_snapshot"]
+        elements = value.get("elements")
+        projection["browser_snapshot"] = {
+            "snapshot_id": value.get("snapshot_id"),
+            "url": _bounded_projection_json_text(value.get("url"), TASK_PROJECTION_PATH_CHARS),
+            "title": _bounded_projection_json_text(value.get("title"), TASK_PROJECTION_FIELD_CHARS),
+            "element_count": len(elements) if isinstance(elements, list) else 0,
+            "truncated": value.get("truncated"),
+            "challenge_present": value.get("challenge_present"),
+        }
+    elif action == "browser_read" and isinstance(result.get("browser_read"), dict):
+        value = result["browser_read"]
+        text_value = value.get("text")
+        projection["browser_read"] = {
+            "url": _bounded_projection_json_text(value.get("url"), TASK_PROJECTION_PATH_CHARS),
+            "title": _bounded_projection_json_text(value.get("title"), TASK_PROJECTION_FIELD_CHARS),
+            "text_chars": len(text_value) if isinstance(text_value, str) else 0,
+            "truncated": value.get("truncated"),
+            "challenge_present": value.get("challenge_present"),
+        }
+    elif action == "files_list" and isinstance(result.get("files_list"), dict):
+        value = result["files_list"]
+        entries = value.get("entries")
+        projection["files_list"] = {
+            "path": _bounded_projection_json_text(value.get("path"), TASK_PROJECTION_PATH_CHARS),
+            "entry_count": len(entries) if isinstance(entries, list) else 0,
+            "truncated": value.get("truncated"),
+        }
+    elif action == "files_read" and isinstance(result.get("files_read"), dict):
+        value = result["files_read"]
+        text_value = value.get("text")
+        projection["files_read"] = {
+            "path": _bounded_projection_json_text(value.get("path"), TASK_PROJECTION_PATH_CHARS),
+            "bytes": value.get("bytes"),
+            "text_chars": len(text_value) if isinstance(text_value, str) else 0,
+            "truncated": value.get("truncated"),
+        }
+    return projection
+
+
 def _project_task_result(
     kind: str,
     result: dict[str, Any] | None,
@@ -516,6 +571,9 @@ def _project_task_result(
 ) -> tuple[dict[str, Any] | None, bool]:
     if result is None:
         return None, False
+
+    if kind == "computer_run":
+        return _computer_result_projection(result), True
 
     if kind == "research_run":
         effective_limit = min(limit, TASK_PROJECTION_RESULT_CHARS)
@@ -607,6 +665,7 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "python_spec": task.python_spec,
         "api_spec": task.api_spec,
         "browser_spec": task.browser_spec,
+        "computer_spec": task.computer_spec,
         "shell_spec": task.shell_spec,
         "promotion_spec": task.promotion_spec,
         "merge_spec": task.merge_spec,
@@ -646,6 +705,7 @@ class TaskService:
         api_supervisor: Supervisor[Any] | None = None,
         browser_supervisor: Supervisor[Any] | None = None,
         shell_supervisor: Supervisor[Any] | None = None,
+        computer_supervisor: Supervisor[Any] | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -661,6 +721,7 @@ class TaskService:
         self.api_supervisor = api_supervisor
         self.browser_supervisor = browser_supervisor
         self.shell_supervisor = shell_supervisor
+        self.computer_supervisor = computer_supervisor
 
     @staticmethod
     def _agent_execution_selection(
@@ -800,6 +861,8 @@ class TaskService:
 
         if task.kind == "browser_run":
             return task.browser_spec
+        if task.kind == "computer_run":
+            return task.computer_spec
         if task.kind == "shell_run":
             return task.shell_spec
         if task.kind == "developer_run":
@@ -1621,6 +1684,10 @@ class TaskService:
         return validations
 
     @staticmethod
+    def _computer_action_identity(task: Task) -> tuple[Any, ...]:
+        return task.id, task.action_version, task.action_hash, task.computer_spec
+
+    @staticmethod
     def _shell_action_identity(task: Task) -> tuple[Any, ...]:
         return task.id, task.action_version, task.action_hash, task.shell_spec
 
@@ -1633,12 +1700,15 @@ class TaskService:
         if agent_execution is not None and request.kind not in {
             "api_run",
             "browser_run",
+            "computer_run",
             "shell_run",
             "developer_run",
             "python_run",
             "research_run",
         }:
             raise DomainError("Agent execution supports only specialist task kinds", 422)
+        if request.kind == "computer_run" and agent_execution is None:
+            raise DomainError("Computer worker requires Agent execution", 422)
         if request.kind == "promotion_run":
             return self._submit_promotion(request, key)
         if request.kind == "merge_run":
@@ -1867,6 +1937,37 @@ class TaskService:
                     self._agent_execution_selection(task.browser_spec, agent_execution_spec),
                 )
 
+            computer_request = None
+            if request.kind == "computer_run":
+                if self.computer_supervisor is None or agent_execution is None:
+                    raise DomainError("Computer worker unavailable", 503)
+                if "computer_read" not in agent_execution.spec.capabilities:
+                    raise DomainError("Agent computer capability is invalid", 409)
+                try:
+                    selected, computer_selection = self.computer_supervisor.select(
+                        role="computer",
+                        capabilities=("computer_read",),
+                    )
+                    computer_request = selected.worker.bind(
+                        computer_selection,
+                        agent_execution,
+                        payload["action"],
+                        payload.get("path", ""),
+                        request.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ComputerRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.computer_spec = computer_request.model_dump(mode="json")
+                task.action_hash = action_hash(
+                    request.kind,
+                    payload,
+                    request.timeout_seconds,
+                    1,
+                    self._agent_execution_selection(task.computer_spec, agent_execution_spec),
+                )
+
             shell_request = None
             if request.kind == "shell_run":
                 if self.shell_supervisor is None:
@@ -2079,6 +2180,37 @@ class TaskService:
                     endpoint_id=browser_request.endpoint.endpoint.endpoint_id,
                     endpoint_registry_version=browser_request.endpoint.registry_version,
                     browser_policy_version=browser_request.policy_version,
+                )
+
+            if task.kind == "computer_run":
+                if computer_request is None:
+                    raise DomainError("Computer routing state unavailable", 503)
+                selection = computer_request.worker_selection
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "computer_permission_bound",
+                    agent_instance_id=computer_request.agent_instance_id,
+                    action=computer_request.action,
+                    permission_version=computer_request.permission_version,
+                    backend_identity=computer_request.backend_identity,
                 )
 
             if task.kind == "shell_run":
@@ -2670,12 +2802,15 @@ class TaskService:
     def retry(self, task_id: str) -> TaskResponse:
         browser_action = None
         browser_validations = {}
+        computer_action = None
         shell_action = None
         shell_validations = {}
         with self.database.read() as session:
             candidate = require_task(session, task_id)
             if candidate.kind == "browser_run":
                 browser_action = self._browser_action_identity(candidate)
+            if candidate.kind == "computer_run":
+                computer_action = self._computer_action_identity(candidate)
             if candidate.kind == "shell_run":
                 shell_action = self._shell_action_identity(candidate)
         if browser_action is not None:
@@ -2686,6 +2821,10 @@ class TaskService:
             task = require_task(session, task_id)
             if browser_action is not None and browser_action != self._browser_action_identity(task):
                 raise DomainError("Browser task changed during validation", 409)
+            if computer_action is not None and computer_action != self._computer_action_identity(
+                task
+            ):
+                raise DomainError("Computer task changed during validation", 409)
             if shell_action is not None and shell_action != self._shell_action_identity(task):
                 raise DomainError("Shell task changed during validation", 409)
             agent_execution = None
@@ -2961,6 +3100,58 @@ class TaskService:
                     endpoint_registry_version=refreshed_browser.endpoint.registry_version,
                     browser_policy_version=refreshed_browser.policy_version,
                 )
+
+            if task.kind == "computer_run":
+                if self.computer_supervisor is None:
+                    raise DomainError("Computer worker unavailable", 503)
+                if agent_execution is None:
+                    raise DomainError("Computer worker requires Agent execution", 409)
+                if "computer_read" not in agent_execution.spec.capabilities:
+                    raise DomainError("Agent computer capability is invalid", 409)
+                try:
+                    selected, selection = self.computer_supervisor.select(
+                        role="computer",
+                        capabilities=("computer_read",),
+                    )
+                    refreshed_computer = selected.worker.bind(
+                        selection,
+                        agent_execution,
+                        task.payload["action"],
+                        task.payload.get("path", ""),
+                        task.timeout_seconds,
+                    )
+                except DeveloperRuntimeError as error:
+                    raise DomainError(error.args[0], 422) from None
+                except ComputerRuntimeError as error:
+                    raise DomainError(error.code, 422) from None
+                task.computer_spec = refreshed_computer.model_dump(mode="json")
+                audit(
+                    session,
+                    task,
+                    "supervisor_routing_requested",
+                    role=selection.requested_role,
+                    capabilities=list(selection.requested_capabilities),
+                    routing_policy=selection.routing_policy,
+                )
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_selected",
+                    worker_id=selection.descriptor.worker_id,
+                    implementation=selection.descriptor.implementation,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "computer_permission_bound",
+                    agent_instance_id=refreshed_computer.agent_instance_id,
+                    action=refreshed_computer.action,
+                    permission_version=refreshed_computer.permission_version,
+                    backend_identity=refreshed_computer.backend_identity,
+                )
+
             if task.kind == "shell_run":
                 if self.shell_supervisor is None:
                     raise DomainError("Shell worker unavailable", 503)
@@ -3420,6 +3611,52 @@ class TaskService:
                     browser_policy_version=browser_request.policy_version,
                 )
 
+            computer_request = None
+            if task.kind == "computer_run":
+                try:
+                    if (
+                        self.computer_supervisor is None
+                        or task.computer_spec is None
+                        or agent_execution is None
+                    ):
+                        raise ValueError("computer_execution_spec_unavailable")
+                    computer_request = ComputerExecutionSpec.model_validate(task.computer_spec)
+                    selection = computer_request.worker_selection
+                    selected = self.computer_supervisor.registry.get(selection.descriptor.worker_id)
+                    if (
+                        selected is None
+                        or not self.computer_supervisor.matches(selection)
+                        or not selected.worker.matches(computer_request)
+                        or not selected.worker.request_matches(
+                            computer_request, task.payload, task.timeout_seconds
+                        )
+                        or computer_request.agent_instance_id != agent_execution.agent_instance_id
+                        or "computer_read" not in agent_execution.spec.capabilities
+                    ):
+                        raise ValueError("computer_execution_spec_stale")
+                except ValueError:
+                    task.error = "computer_execution_spec_invalid"
+                    transition(session, task, State.CANCELLED)
+                    audit(session, task, "execution_denied", reason=task.error)
+                    return None
+                audit(
+                    session,
+                    task,
+                    "supervisor_worker_revalidated",
+                    worker_id=selection.descriptor.worker_id,
+                    registry_version=selection.registry_version,
+                    authority_profile=selection.authority_profile,
+                )
+                audit(
+                    session,
+                    task,
+                    "computer_permission_revalidated",
+                    agent_instance_id=computer_request.agent_instance_id,
+                    action=computer_request.action,
+                    permission_version=computer_request.permission_version,
+                    backend_identity=computer_request.backend_identity,
+                )
+
             shell_request = None
             if task.kind == "shell_run":
                 try:
@@ -3635,6 +3872,7 @@ class TaskService:
                 release_request,
                 agent_execution,
                 shell_request=shell_request,
+                computer_request=computer_request,
             )
 
     def finish(
@@ -3807,6 +4045,20 @@ class TaskService:
                     session,
                     task,
                     "browser_completed" if outcome == State.SUCCEEDED else "browser_failed",
+                    attempt_id=attempt.id,
+                    **details,
+                )
+            if task.kind == "computer_run":
+                details = {"reason": error}
+                if result is not None:
+                    details.update(
+                        action=result["action"],
+                        agent_instance_id=result["agent_instance_id"],
+                    )
+                audit(
+                    session,
+                    task,
+                    "computer_completed" if outcome == State.SUCCEEDED else "computer_failed",
                     attempt_id=attempt.id,
                     **details,
                 )
@@ -4033,6 +4285,14 @@ class TaskService:
                         session,
                         task,
                         "browser_failed",
+                        attempt_id=attempt.id if attempt else None,
+                        reason="process_interrupted",
+                    )
+                if task.kind == "computer_run":
+                    audit(
+                        session,
+                        task,
+                        "computer_failed",
                         attempt_id=attempt.id if attempt else None,
                         reason="process_interrupted",
                     )

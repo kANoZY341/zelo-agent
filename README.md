@@ -333,9 +333,20 @@ All grants default off and may not exceed the trusted AgentSpec computer profile
 Widening requires an active/current AgentInstance; revocation remains possible
 for stale/paused instances. Disabling a live grant asks the backend to stop the
 computer but cannot roll the Core revocation back if the backend is unavailable.
-Human handback preserves OpenBot's fresh-snapshot requirement. This still does
-not expose Agent-executable browser/file/shell actions. See
+Human handback preserves OpenBot's fresh-snapshot requirement. See
 `docs/v0.15-agent-computer-control.md`.
+
+The next stacked slice adds the first **Agent-executable read-only Computer
+Worker**. `computer_run` is Agent-only and is restricted to
+`browser_snapshot`, `browser_read`, `files_list`, and `files_read`.
+Submission binds the exact AgentInstance, Supervisor selection, worker-authority
+policy, persisted permission digest, and OpenBot backend identity. Claim
+revalidates all of them before creating an attempt, so permission revocation can
+cancel queued work before execution. Human takeover blocks Agent reads.
+
+Browser navigation/click/type, workspace writes, screenshots in Agent/model
+results, shell, credentials, and host fallback remain disabled. See
+`docs/v0.15-computer-worker-read.md`.
 
 ## Bounded API Worker (v0.15)
 

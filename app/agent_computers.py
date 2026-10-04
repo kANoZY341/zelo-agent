@@ -18,10 +18,13 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.computer_contracts import ComputerReadAction
 from app.config import Settings
 
 _AGENT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 _MAX_RESPONSE_BYTES = 4_000_000
+OPENBOT_COMPUTER_REVISION = "b6932d31a8d6e7896c15139dfc27a6c6911deb27"
+COMPUTER_ADAPTER_VERSION = "zelo-openbot-computer-v1"
 
 
 class ComputerBackendError(RuntimeError):
@@ -83,6 +86,23 @@ class OpenBotComputerBackend:
                 self.settings.computer_token,
             )
         )
+
+    @property
+    def identity(self) -> str:
+        payload = {
+            "adapter": COMPUTER_ADAPTER_VERSION,
+            "openbot_revision": OPENBOT_COMPUTER_REVISION,
+            "namespace": self.settings.computer_namespace,
+            "supervisor_url": self.settings.computer_supervisor_url,
+        }
+        return hashlib.sha256(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("ascii")
+        ).hexdigest()
 
     @staticmethod
     def _require_agent_id(agent_instance_id: str) -> str:
@@ -285,6 +305,41 @@ class OpenBotComputerBackend:
     async def stop(self, agent_instance_id: str) -> None:
         agent_instance_id = self._require_agent_id(agent_instance_id)
         await self._request(f"/computers/{agent_instance_id}/stop", body={})
+
+    async def read_action(
+        self,
+        agent_instance_id: str,
+        action: ComputerReadAction,
+        *,
+        path: str = "",
+    ) -> object:
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        if action == "browser_snapshot":
+            return await self._computer_request(
+                agent_instance_id,
+                state,
+                "/snapshot",
+                body={},
+            )
+        if action == "browser_read":
+            return await self._computer_request(agent_instance_id, state, "/read")
+        if action == "files_list":
+            return await self._computer_request(
+                agent_instance_id,
+                state,
+                "/files/list",
+                body={"path": path},
+            )
+        if action == "files_read":
+            return await self._computer_request(
+                agent_instance_id,
+                state,
+                "/files/read",
+                body={"path": path},
+            )
+        raise ComputerBackendError("computer_action_unsupported")
 
     async def control(self, agent_instance_id: str) -> ComputerControlState:
         state = await self.existing(agent_instance_id)

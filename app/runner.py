@@ -7,6 +7,7 @@ from typing import Any
 from app.agent import AgentRuntime, AgentRuntimeError
 from app.api_worker import ApiRuntime, ApiRuntimeError
 from app.browser_worker import BrowserRuntime, BrowserRuntimeError
+from app.computer_worker import ComputerRuntime, ComputerRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
 from app.policy import DomainError, State
@@ -47,6 +48,7 @@ class Runner:
         api_supervisor: Supervisor[ApiRuntime] | None = None,
         browser_supervisor: Supervisor[BrowserRuntime] | None = None,
         shell_supervisor: Supervisor[ShellRuntime] | None = None,
+        computer_supervisor: Supervisor[ComputerRuntime] | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -57,6 +59,7 @@ class Runner:
         self.api_supervisor = api_supervisor
         self.browser_supervisor = browser_supervisor
         self.shell_supervisor = shell_supervisor
+        self.computer_supervisor = computer_supervisor
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -229,6 +232,8 @@ class Runner:
             operation = asyncio.create_task(self._shell_worker(execution))
         elif execution.kind == "browser_run":
             operation = asyncio.create_task(self._browser_worker(execution))
+        elif execution.kind == "computer_run":
+            operation = asyncio.create_task(self._computer_worker(execution))
         elif execution.kind == "api_run":
             operation = asyncio.create_task(self._api_worker(execution))
         elif execution.kind == "self_improvement_run":
@@ -254,6 +259,7 @@ class Runner:
                     "python_run",
                     "developer_run",
                     "browser_run",
+                    "computer_run",
                     "shell_run",
                 }
                 else await asyncio.wait_for(operation, timeout=execution.timeout_seconds)
@@ -335,6 +341,8 @@ class Runner:
         except ShellRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except BrowserRuntimeError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
+        except ComputerRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except ApiRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
@@ -571,6 +579,40 @@ class Runner:
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
             deadline=deadline,
+        )
+
+    async def _computer_worker(self, execution: Execution) -> dict[str, Any]:
+        if execution.computer_request is None:
+            raise ComputerRuntimeError("computer_execution_spec_unavailable")
+        if self.computer_supervisor is None:
+            raise ComputerRuntimeError("computer_worker_registry_unavailable")
+        selection = execution.computer_request.worker_selection
+        selected = self.computer_supervisor.registry.get(selection.descriptor.worker_id)
+        if (
+            selected is None
+            or not self.computer_supervisor.matches(selection)
+            or not selected.worker.request_matches(
+                execution.computer_request,
+                execution.payload,
+                execution.timeout_seconds,
+            )
+        ):
+            raise ComputerRuntimeError("computer_execution_spec_stale")
+
+        def emit(event: str, details: dict[str, Any]) -> None:
+            self.service.model_event(
+                execution.task_id,
+                event,
+                execution.attempt_id,
+                **details,
+            )
+
+        return await selected.worker.run(
+            spec=execution.computer_request,
+            action=execution.payload["action"],
+            path=execution.payload.get("path", ""),
+            timeout_seconds=execution.timeout_seconds,
+            emit=emit,
         )
 
     async def _shell_worker(self, execution: Execution) -> dict[str, Any]:

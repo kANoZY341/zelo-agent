@@ -80,24 +80,37 @@ Release preparation is PR #54.
 
 ## Parallel v0.15 preparation — persistent Agent computers (5 October 2026)
 
-The active Media native-reader slice remains unchanged. PR #94 now carries the
-first persistent-computer foundation: a pinned OpenBot/OpenDots-derived
-supervisor/computer deployment, Zelo-owned fail-closed backend adapter and
-canonical AgentSpec/skill/Space/computer metadata.
+The active Media native-reader slice remains unchanged. PR #94 is merged at
+`46da8794e6b6b4c9fd55fd449bc4e6439acaf710` and provides the persistent-computer
+foundation: pinned OpenBot/OpenDots-derived supervisor/computer deployment,
+Zelo-owned fail-closed backend adapter, and canonical
+AgentSpec/skill/Space/computer metadata.
 
-A stacked Core-control slice now adds persisted per-AgentInstance computer grants,
-append-only computer activity and owner-only status/permission/start/stop/
-take/release routes. It still grants no Agent browser/file/shell execution.
-See `docs/v0.15-agent-computer-control.md`.
+PR #95 is merged at `905560dbdf45e31fa148f0c0f30bbb00e90503f2`. It adds
+persisted per-AgentInstance computer grants, append-only computer activity and
+owner-only status/permission/start/stop/take/release routes. The first CI attempt
+exposed three stale migration expectations; follow-up commit `667ef18` corrected
+them and CI run #2001 passed before merge.
 
-The foundation branch prepares the later v0.15 Computer Worker by reusing the
-MIT-licensed OpenBot computer supervisor/service pattern already reviewed by
-CopilotKit/OpenDots.
+A third stacked v0.15 slice now adds the first Agent-executable Computer Worker,
+but **read-only only**: `browser_snapshot`, `browser_read`, `files_list`,
+and `files_read`. `computer_run` is Agent-only and binds exact Agent identity,
+Supervisor selection, worker-authority policy, persisted computer permission
+digest and OpenBot backend identity. Claim revalidates all of them before an
+attempt is created.
 
-The preparation adds only trusted metadata/configuration, a fail-closed
-Zelo-owned lifecycle adapter, exact pinned OpenBot deployment/provenance, and
-tests. It does **not** register a Computer Worker, add a task kind, expose
-browser/files/shell execution, merge the parked UI, or widen any Agent authority.
+Live Zelo-host qualification succeeded against the real pinned OpenBot computer:
+an Agent read `qualification/proof.txt` through `computer_run`, then a second
+queued read was cancelled with `computer_execution_spec_invalid` and zero
+attempts after Files permission was revoked. A claimed browser read was also
+refused with `computer_human_control_active` while the owner held control; after
+handback, OpenBot reported `resume_snapshot_required=true`. The disposable
+container, profile, workspace and supervisor were removed after the proof.
+
+Browser mutation, workspace writes, shell, credentials, screenshots in Agent
+results, host access, host fallback and the parked UI remain out of scope. See
+`docs/v0.15-agent-computer-control.md` and
+`docs/v0.15-computer-worker-read.md`.
 
 Canonical revision 3.3 now records that persistent factory-managed Agents own
 explicit instructions, memory, skills, Space/tool grants and authority; Agents

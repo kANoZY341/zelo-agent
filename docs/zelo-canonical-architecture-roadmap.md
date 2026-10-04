@@ -572,6 +572,21 @@ volumes, derived per-agent credentials, start/stop lifecycle and human-takeover
 semantics without exposing the Docker socket or master token to Agent computers.
 Actual browser/file/shell actions remain separate capability/authority gates.
 
+Computer Worker rollout is explicitly phased:
+
+1. backend foundation and persistent per-AgentInstance identity;
+2. Core-owned persisted permissions, lifecycle, audit and human takeover;
+3. Agent-only **read-only observation** (`browser_snapshot`, `browser_read`,
+   `files_list`, `files_read`) with exact permission/backend execution
+   identity and claim-time revocation;
+4. separately qualified browser mutation actions;
+5. separately qualified workspace writes; and
+6. shell only through an explicit later authority decision.
+
+Passing an earlier phase never implicitly grants a later phase. Screenshots may
+be owner-facing through the Computer Panel without automatically becoming
+Agent/model context.
+
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
