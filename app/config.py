@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     browser_worker_runtime: Path | None = None
     browser_worker_admission: Path | None = None
     api_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    computer_browser_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    computer_egress_proxy_host: str | None = None
+    computer_egress_proxy_port: int = Field(default=4390, ge=1024, le=65535)
     computer_supervisor_url: str | None = None
     computer_supervisor_token: SecretStr | None = None
     computer_token: SecretStr | None = None
@@ -138,12 +141,40 @@ class Settings(BaseSettings):
             )
         return self
 
-    @field_validator("api_worker_endpoints", "browser_worker_endpoints")
+    @field_validator(
+        "api_worker_endpoints",
+        "browser_worker_endpoints",
+        "computer_browser_endpoints",
+    )
     @classmethod
     def validate_api_worker_endpoints(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         from app.api_contracts import ApiEndpointRegistry
 
         ApiEndpointRegistry.from_entries(value)
+        return value
+
+    @field_validator("computer_egress_proxy_host")
+    @classmethod
+    def validate_computer_egress_proxy_host(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        import ipaddress
+
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError:
+            raise ValueError("Computer egress proxy host must be an IPv4 address") from None
+        private_networks = (
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+        )
+        if (
+            address.version != 4
+            or str(address) != value
+            or not any(address in network for network in private_networks)
+        ):
+            raise ValueError("Computer egress proxy host must be a canonical RFC1918 IPv4 address")
         return value
 
     @model_validator(mode="after")
@@ -157,6 +188,12 @@ class Settings(BaseSettings):
             item is not None for item in values
         ):
             raise ValueError("Computer backend configuration must be complete")
+        if self.computer_egress_proxy_host is not None and not all(
+            item is not None for item in values
+        ):
+            raise ValueError(
+                "Computer egress proxy requires the complete computer backend configuration"
+            )
         return self
 
     @field_validator("computer_supervisor_url")

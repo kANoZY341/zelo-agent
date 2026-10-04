@@ -92,12 +92,13 @@ owner-only status/permission/start/stop/take/release routes. The first CI attemp
 exposed three stale migration expectations; follow-up commit `667ef18` corrected
 them and CI run #2001 passed before merge.
 
-A third stacked v0.15 slice now adds the first Agent-executable Computer Worker,
-but **read-only only**: `browser_snapshot`, `browser_read`, `files_list`,
-and `files_read`. `computer_run` is Agent-only and binds exact Agent identity,
-Supervisor selection, worker-authority policy, persisted computer permission
-digest and OpenBot backend identity. Claim revalidates all of them before an
-attempt is created.
+PR #96 is merged at `825d25aed68be425176d706c61aa99ff6213a291` and adds
+the first Agent-executable Computer Worker, deliberately **read-only only**:
+`browser_snapshot`, `browser_read`, `files_list`, and `files_read`.
+`computer_run` is Agent-only and binds exact Agent identity, Supervisor
+selection, worker-authority policy, persisted computer permission digest and
+OpenBot backend identity. Claim revalidates all of them before an attempt is
+created.
 
 Live Zelo-host qualification succeeded against the real pinned OpenBot computer:
 an Agent read `qualification/proof.txt` through `computer_run`, then a second
@@ -107,8 +108,17 @@ refused with `computer_human_control_active` while the owner held control; after
 handback, OpenBot reported `resume_snapshot_required=true`. The disposable
 container, profile, workspace and supervisor were removed after the proof.
 
-Browser mutation, workspace writes, shell, credentials, screenshots in Agent
-results, host access, host fallback and the parked UI remain out of scope. See
+The active next phase is the **browser mutation egress prerequisite**, not
+navigation itself. It adds Agent-scoped canonical HTTPS endpoint grants, a
+derived per-Agent proxy credential, Core-owned public-address DNS resolution and
+a bounded CONNECT proxy. The proxy revalidates current Agent/permission/endpoint
+authority on connection establishment, after DNS and before forwarding tunnel
+chunks, so revocation blocks new and already-open traffic. `computer_navigate`
+is registered as a capability but no mutation action is exposed yet. See
+`docs/v0.15-computer-browser-mutation-egress-gate.md`.
+
+Workspace writes, shell, credentials, screenshots in Agent results, host access,
+host fallback and the parked UI remain out of scope. See
 `docs/v0.15-agent-computer-control.md` and
 `docs/v0.15-computer-worker-read.md`.
 

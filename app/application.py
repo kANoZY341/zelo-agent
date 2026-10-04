@@ -32,6 +32,8 @@ from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.capabilities import default_capability_registry
 from app.capability_api import router as capability_router
+from app.computer_egress import ComputerEgressPolicy
+from app.computer_egress_proxy import ComputerEgressProxy
 from app.computer_worker import ComputerRuntime
 from app.config import ROOT, Settings
 from app.context import ContextResolver
@@ -103,6 +105,7 @@ def create_app(
         database = build_storage(configuration)
         browser_runtime = None
         shell_runtime = None
+        computer_egress_proxy = None
         runner = None
         scheduler = None
         try:
@@ -132,6 +135,9 @@ def create_app(
             python_supervisor = Supervisor[PythonRuntime](python_registry)
             api_endpoint_registry = ApiEndpointRegistry.from_entries(
                 configuration.api_worker_endpoints
+            )
+            computer_browser_endpoint_registry = ApiEndpointRegistry.from_entries(
+                configuration.computer_browser_endpoints
             )
             api_runtime = ApiRuntime(api_endpoint_registry)
             api_worker_registry = WorkerRegistry[ApiRuntime](
@@ -192,6 +198,20 @@ def create_app(
                 capability_registry=capability_registry,
             ).require()
             agent_factory = AgentFactory(agent_registry)
+            computer_egress_policy = ComputerEgressPolicy(
+                database,
+                agent_factory,
+                computer_browser_endpoint_registry,
+                configuration,
+            )
+            computer_egress_policy.validate_agents(agent_registry.list_agents())
+            if configuration.computer_egress_proxy_host is not None:
+                computer_egress_proxy = ComputerEgressProxy(
+                    computer_egress_policy,
+                    host=configuration.computer_egress_proxy_host,
+                    port=configuration.computer_egress_proxy_port,
+                )
+                await computer_egress_proxy.start()
             projects = ProjectService(database)
             memories = MemoryService(database)
             agent_instances = AgentInstanceService(database, agent_factory, memories)
@@ -318,6 +338,11 @@ def create_app(
             application.state.python_registry = python_registry
             application.state.python_supervisor = python_supervisor
             application.state.api_endpoint_registry = api_endpoint_registry
+            application.state.computer_browser_endpoint_registry = (
+                computer_browser_endpoint_registry
+            )
+            application.state.computer_egress_policy = computer_egress_policy
+            application.state.computer_egress_proxy = computer_egress_proxy
             application.state.api_runtime = api_runtime
             application.state.api_worker_registry = api_worker_registry
             application.state.api_supervisor = api_supervisor
@@ -350,7 +375,11 @@ def create_app(
                         if shell_runtime:
                             await shell_runtime.aclose()
                     finally:
-                        database.close()
+                        try:
+                            if computer_egress_proxy:
+                                await computer_egress_proxy.aclose()
+                        finally:
+                            database.close()
 
     application = FastAPI(title=configuration.app_name, version=__version__, lifespan=lifespan)
     application.state.settings = configuration
