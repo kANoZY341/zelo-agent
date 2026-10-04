@@ -98,7 +98,10 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     assert "PR #86" in roadmap_content
-    assert "15 files" in roadmap_content
+    assert "member inventory contract" in roadmap_content
+    assert "metadata consistency" in roadmap_content
+    assert "PR #87" in active_status
+    assert "metadata consistency only" in active_status
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

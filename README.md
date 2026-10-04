@@ -1049,3 +1049,26 @@ stable identity from live descriptor ownership, refuses concurrent consumption,
 and retains descriptors on uncertain cleanup. The fixed scanner-copy launcher
 imports no copied package code and adds no Core route or dependency. Native copy
 acceptance remains pending; see [image scope](docs/v0.15-media-image-qualification.md).
+
+
+## Offline Media member inventory contract (v0.15 development)
+
+`qualification/media_member_contract.py` checks synthetic/future reader metadata
+against caller-owned archive/run/policy bindings and process outcomes. It rejects
+unsafe member names, duplicate and non-directory ancestor conflicts, malformed
+fields, impossible sizes, output budgets and failed/cancelled cleanup even when
+an upstream process reports exit zero. Results are immutable metadata only.
+
+This is **not** an archive parser, extractor, authenticated inventory, activated
+Media Worker or runtime permission. No package/native/image code is imported.
+The eventual qualified owner must independently establish its observations;
+child JSON is never trusted to grant cleanup or execution authority. Link targets
+stay inert and unresolved. See [the contract](docs/v0.15-media-member-contract.md).
+
+Run the fake-only checks with:
+
+```bash
+.venv/bin/python -m pytest -q tests/test_media_member_contract.py
+```
+
+No native setup command, new dependency or enabled setting accompanies this gate.

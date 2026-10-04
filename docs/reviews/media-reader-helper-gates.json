@@ -1,0 +1,61 @@
+{
+  "archive_parsing": false,
+  "directory_requests": 1,
+  "files": [
+    {
+      "bytes": 2608,
+      "path": "src/deb/dpkg-deb.h",
+      "sha256": "484a10673898f5503c83955439f80784d9a4b3c29393a177efa47a615344ce3e"
+    },
+    {
+      "bytes": 1495,
+      "path": "lib/dpkg/program.c",
+      "sha256": "7af5528c3c743dda66dcb3a09c5e50ea808588d3cb881846464f5afd9c42b2f8"
+    },
+    {
+      "bytes": 8288,
+      "path": "lib/dpkg/options.c",
+      "sha256": "76d52ac10164d91b9e0b36937d5d86d767392ae898383919a39bb46ecff5f5fb"
+    },
+    {
+      "bytes": 1593,
+      "path": "lib/dpkg/options-parsers.c",
+      "sha256": "1074347e0af3f5ddf7423aba906dfd2f9ea801647664f187a4ffb7968672079d"
+    },
+    {
+      "bytes": 6166,
+      "path": "lib/dpkg/command.c",
+      "sha256": "0fb1591aa7e5e1da8fe2f74590c52399de6e2e93f589802a96e79bbf4c4851fd"
+    },
+    {
+      "bytes": 3817,
+      "path": "lib/dpkg/meminfo.c",
+      "sha256": "7f6b244e318cc9f38108dcb63f1fe467be66a5fda5cf56d0a26b1c7ddda67b0a"
+    },
+    {
+      "bytes": 2626,
+      "path": "lib/dpkg/error.c",
+      "sha256": "428417dea5db63a2c79a10c32646f95e3d88d8afc21636c5c4c03e89e13e240e"
+    },
+    {
+      "bytes": 4608,
+      "path": "lib/dpkg/Makefile.am",
+      "sha256": "0f765a2a8cbde36ea0ff4a9106009596452a3ffc5897b91bbcdd6411a46ed296"
+    }
+  ],
+  "installed_inputs_reopened": false,
+  "manifest_sha256": "b147e6b34d1784fde416808faf159c69c86888841be33c5f2a2686ce26e58aa1",
+  "native_execution": false,
+  "runtime_authority": false,
+  "schema": "zelo-reader-helper-research-audit-v1",
+  "source_bytes": 31201,
+  "source_requests": 8,
+  "status": "accepted-static-corpus-only",
+  "web_research": {
+    "byte_bounds_claimed": false,
+    "candidate": "CPython tarfile file-object API only; exact source review pending",
+    "documentation_successes": 1,
+    "operations": 3,
+    "source_fetch_failures": 2
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "archive_parsing": false,
+  "controls": [
+    {
+      "baseline_refusal": "member_owner_outcome",
+      "bypass_detected": true,
+      "case": "owner"
+    },
+    {
+      "baseline_refusal": "member_duplicate_name",
+      "bypass_detected": true,
+      "case": "duplicate"
+    },
+    {
+      "baseline_refusal": "member_ancestor",
+      "bypass_detected": true,
+      "case": "ancestor"
+    },
+    {
+      "baseline_refusal": "member_extent",
+      "bypass_detected": true,
+      "case": "extent"
+    },
+    {
+      "baseline_refusal": "member_batch_budget",
+      "bypass_detected": true,
+      "case": "batch-members"
+    },
+    {
+      "baseline_refusal": "member_binding",
+      "bypass_detected": true,
+      "case": "binding"
+    }
+  ],
+  "intended_failures_detected": 6,
+  "network": false,
+  "runtime_authority": false,
+  "schema": "zelo-member-contract-causal-controls-v1",
+  "source_files_modified": false,
+  "source_sha256": "ff297c9c854255508289889ae6cc44e674d6b7dc0123ca0c2686e88f7c8acba0"
+}
