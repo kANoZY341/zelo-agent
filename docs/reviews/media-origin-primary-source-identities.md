@@ -26,3 +26,19 @@ chisel.yaml SHA256 954a98ea87100fd0e892f2933c7f6832b8b85608e2bc55db3ee60f01de7f1
 Historical selected-root attribution only; no current revocation/freshness claim.
 
 Additional status-writer source g10/cpr.c: 16571 bytes, SHA256 362a4192537359b4d85a2154782ace1665465609c19f0b94c5979682fb58ac24.
+
+## Static bubblewrap identity reference
+
+Official repository: https://github.com/containers/bubblewrap
+
+v0.9.0 commit 8e51677abd7e3338e4952370bf7d902e37d8cbb6.
+GitHub HTTPS/Git-blob identities checked; no independent tag signature claim.
+Read only, no code copied or executed. Downstream installed build remains the
+explicit trusted operator baseline. --dev selects devpts setup; --disable-userns
+creates the final namespace. Guest1000 maps to setup0, which maps to host1000.
+
+| Path | Bytes | SHA256 |
+|---|---:|---|
+| bubblewrap.c | 107265 | 6a89bc9b7a794d19e2bdb1e139ab9d5bba84e807b330336f363f88f130cfeab6 |
+| bwrap.xml | 27203 | 076efc46f0db00b06be6d28cde306659da39fa536a6803b7135e19f952b7c564 |
+| utils.c | 18278 | 68a39cc25753addb04a21c22f41e3805e63f3106d24e67d39a24ce6727f6bd69 |

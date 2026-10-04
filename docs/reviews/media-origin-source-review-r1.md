@@ -1,11 +1,11 @@
 **BLOCKED — do not execute the 19-case origin attempt at `8a536f0633101809839e846483190053bacbf8ee`.** Two control-validation findings require fixes and exact-source re-review.
 
-1. **The write control can pass on a writable filesystem.**  
+1. **The write control can pass on a writable filesystem.**
    [media_origin_guest.py:169](/home/zelo/zelo/core-v015-browser-renderer/qualification/media_origin_guest.py:169) treats any `OSError` from opening, writing or closing as proof of confinement. With `RLIMIT_FSIZE=0`, creation can succeed and the subsequent buffered write/close fail with `EFBIG`; the control still reports `enforced=True`.
 
    Require failure of the **creation operation itself**, with the expected `EROFS`, and fail immediately if creation succeeds. Add an offline regression covering successful creation followed by `EFBIG`. The adjacent host-file probe also needs an absence-specific result: arbitrary `OSError`, including `EACCES` or `EIO`, does not prove absence.
 
-2. **The negative-input checks do not establish precise failure causality.**  
+2. **The negative-input checks do not establish precise failure causality.**
    [qualify_media_origin.py:294](/home/zelo/zelo/core-v015-browser-renderer/scripts/qualify_media_origin.py:294) accepts the armor negative with exit `2`, no helper error, and no `GOODSIG`/`VALIDSIG`. Empty stderr—or unrelated GPG failure statuses—satisfies that predicate.
 
    The pinned [gpgv exit implementation](/home/zelo/zelo/core-v015-browser-renderer/runtime/media-platform-gnupg-reference/g10_gpgv.c:291) uses exit `2` for general logged errors. The [CRC failure implementation](/home/zelo/zelo/core-v015-browser-renderer/runtime/media-platform-gnupg-reference/g10_armor.c:829) does not supply a unique machine-status marker, while this invocation discards diagnostics to `/dev/null`. Therefore the retained evidence cannot distinguish the intended CRC refusal from another failure.

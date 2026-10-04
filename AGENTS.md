@@ -92,7 +92,8 @@ Preserve shared admission runtime/media-elf-metadata-admission, observation befo
 creation, repeated-cancel/pending settlement, support FD retention/close-once,
 conservative helper-failure fencing and pending proof before release. No proof-file
 I/O after successful release. Late Lease.finish failure can leave an empty marker;
-refuse receipts without universal fencing claims. New origin quota must be one
+refuse receipts without universal fencing claims. Origin attempt1/4 is retained after an identity refusal before GPG; see
+docs/reviews/media-origin-r2-refusal.md. No automatic retry. New origin quota must be one
 fixed namespace across every origin policy revision, never a bypass for ELF quotas.
 
 Focused tests, causal faults, matching-head full CI, standalone supplements and

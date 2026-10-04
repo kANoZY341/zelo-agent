@@ -73,22 +73,30 @@ expected_env={'PATH':'/usr/bin','LANG':'C.UTF-8','LC_ALL':'C.UTF-8',
               'PWD':'/workspace'}
 if dict(os.environ)!=expected_env:
     raise SystemExit(21)
-if os.getresuid()!=(1000,1000,1000) or os.getresgid()!=(1000,1000,1000):
+def identity_refused(check,observed):
+    print(json.dumps({'status':'identity_refused','check':check,'observed':observed}))
     raise SystemExit(22)
+if os.getresuid()!=(1000,1000,1000) or os.getresgid()!=(1000,1000,1000):
+    identity_refused('ids',[list(os.getresuid()),list(os.getresgid())])
 with open('/proc/self/status','rb') as source:
     status=source.read(16385)
 if len(status)>16384:
-    raise SystemExit(22)
+    identity_refused('status-bound',len(status))
 caps={row.split(b':',1)[0]:row.split(b':',1)[1].strip()
       for row in status.splitlines() if row.startswith(b'Cap')}
 if (set(caps)!={b'CapInh',b'CapPrm',b'CapEff',b'CapBnd',b'CapAmb'}
     or any(int(v,16) for v in caps.values())):
-    raise SystemExit(22)
+    identity_refused('capabilities',{k.decode('ascii'):v.decode('ascii')
+                                    for k,v in caps.items()})
 for name in ('uid_map','gid_map'):
     with open('/proc/self/'+name,'rb') as source:
         mapping=source.read(257)
-    if len(mapping)>256 or mapping.split()!=[b'1000',b'1000',b'1']:
-        raise SystemExit(22)
+    if len(mapping)>256:
+        identity_refused(name+'-bound',len(mapping))
+    # --dev needs devpts: outer setup namespace maps host1000 to0, then
+    # --disable-userns creates the final namespace mapping guest1000 to outer0.
+    if mapping.split()!=[b'1000',b'0',b'1']:
+        identity_refused(name,mapping.decode('ascii'))
 def read(path,size,digest,mode):
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
     try:

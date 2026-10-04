@@ -488,3 +488,54 @@ def test_negative_native_exit_two_alone_never_passes(tmp_path, monkeypatch, stde
                 q.time.monotonic() + 30,
             )
         )
+
+
+def identity_segment():
+    start = GUEST_BOOTSTRAP.index("def identity_refused(")
+    end = GUEST_BOOTSTRAP.index("def read(path", start)
+    return compile(GUEST_BOOTSTRAP[start:end], "isolated-identity-control", "exec")
+
+
+@pytest.mark.parametrize(
+    "uid,gid,cap,mapping,expected",
+    [
+        (1000, 1000, 0, b"1000 0 1\n", None),
+        (1000, 1000, 0, b"1000 1000 1\n", "uid_map"),
+        (1000, 1000, 0, b"0 0 1\n", "uid_map"),
+        (1000, 1000, 0, b"1000 0 2\n", "uid_map"),
+        (1000, 1000, 0, b"1000 0 1\n0 1 1\n", "uid_map"),
+        (0, 1000, 0, b"1000 0 1\n", "ids"),
+        (1000, 0, 0, b"1000 0 1\n", "ids"),
+        (1000, 1000, 1, b"1000 0 1\n", "capabilities"),
+    ],
+)
+def test_identity_mapping_is_exact_two_level_not_host_root(uid, gid, cap, mapping, expected):
+    import io
+    import json
+
+    caps = b"".join(
+        name.encode() + f":\t{cap:016x}\n".encode()
+        for name in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")
+    )
+    observed = []
+
+    def opening(path, mode):
+        assert mode == "rb"
+        assert path in ("/proc/self/status", "/proc/self/uid_map", "/proc/self/gid_map")
+        return io.BytesIO(caps if path.endswith("/status") else mapping)
+
+    scope = dict(
+        os=SimpleNamespace(getresuid=lambda: (uid,) * 3, getresgid=lambda: (gid,) * 3),
+        json=json,
+        open=opening,
+        print=lambda value: observed.append(json.loads(value)),
+    )
+    if expected is None:
+        exec(identity_segment(), scope)
+        assert not observed
+    else:
+        with pytest.raises(SystemExit) as stopped:
+            exec(identity_segment(), scope)
+        assert stopped.value.code == 22
+        assert observed[0]["status"] == "identity_refused"
+        assert observed[0]["check"] == expected
