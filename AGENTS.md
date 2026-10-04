@@ -68,42 +68,48 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media pure package-index selection after PR83 merge
-8b34bd66a1178b8c1f78141dc11ab93b9a9ac30a. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media fixed local-index qualification after PR84 merge
+070f820bb90e493d2287ad6b0b96fd33e0dc4db6. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media pure package-index selection
+## Current scope: v0.15 Media fixed local-index qualification
 
-PR83 matched its reviewed tree, passed3416 CI tests and18actual origin cases.
-Read docs/reviews/media-origin-final-{review,gates}.md. Origin3/4, ELFversion2/4,
-oldloader4/4 attempts are retained; no further origin/ELF run or quota reset.
-Historical selected-root Release authenticity and signed index declarations only.
-No package bytes or installed-member origin, freshness or current key validity.
+PR84 matched its reviewed tree, passed3580 CI tests,164synthetic selector tests,
+1763Media tests,4standalone checks and7causal controls/14intended failures.
+Read docs/reviews/media-package-index-{source-review,final-gates}.md.
+PR83 origin proof remains accepted; origin3/4, ELFversion2/4, loader4/4 retained.
+No further origin/ELF run, quota reset or changes to shared ownership helpers.
 
-Astra Medium cleared the complete frozen proposal docs/v0.15-media-package-index.md
-for pure offline implementation; see docs/reviews/media-index-parser-design-review.md.
-Implement the bounded incremental selector for exactly eight pinned amd64 packages,
-strict metadata syntax, normalized Source, and complete three-suite conflict checks.
-No file/network/process I/O in this module. Only synthetic input tests; no real
-index retrieval, decompression or package/member inspection before separate gates.
-No code from the inspected GPL python-debian reference is incorporated/imported.
-No dependency/version resolver or maintainer-script/package execution.
+Astra Medium cleared docs/v0.15-media-local-index.md for OFFLINE implementation
+only; see docs/reviews/media-local-index-design-review.md. Three local raw Packages
+files have observed sizes/root IDs/modes matching the signed declaration plan,
+but their contents have NOT yet been read, hashed or parsed. No network or decoder
+is necessary if immutable bytes match the accepted signed uncompressed hashes.
 
-Source review, focused/adversarial boundary tests, causal faults, matching-head
-full CI and standalone supplements precede normal exact-tree merge. Metadata-only
-is true; package_member_origin_verified and runtime_authority remain false.
-Preserve all previous origin proofs, source/actual bindings and admission lifecycle.
-No changes to shared ownership helpers or existing native qualifiers.
+Implement a fixed operator-only wrapper. Authenticate all three immutable byte
+strings before any parser call. Preserve exact held-FD root/GID/mode/type/nlink/
+size/hash identity, fixed selectors, capacity-one admission and a canonical new
+four-attempt semantic scope across policy revisions. Reuse helpers unchanged.
+Use ONE support cleanup/release path; never preliminary close_all then _release.
+Interrupted close or Lease.finish must not retry original descriptor numbers.
+Failure may leave only partial evidence; no receipt or universal fencing claim.
+Pending proof precedes release; no subsequent proof-file I/O.
 
-Platform notices/import/frozen/builtin/dlopen/search/ABI closure, materializer/
-immutable context, build/daemon settlement, resources/startup/installer/filter and
-decoder remain separate. Original resource/filter gates precede decoder.
+Only synthetic offline tests now. Actual local index read/hash/parse requires a
+new frozen full source review explicitly clearing at most ONE fixed attempt,
+then preflight and that attempt. No automatic retry or pin/grammar widening.
+Final source/actual-evidence review, matching CI, focused/causal tests and standalone
+supplements precede normal exact-tree merge. Index evidence remains conditional
+historical attribution; package-member origin, platform/ABI/runtime authority,
+freshness and current-key validity remain false.
 
-No Pillow/decoder, ctypes/libseccomp/filter execution, Docker build/create, cgroup/
-host/daemon changes, runtime/task/route/registry/capability/Core/Agent/Mind binding,
-model requests, signing/OAuth or live env/data/config/listener changes. Flags stay
-disabled, v0.14.0/UI61 preserved. Dedicated worktree only, no unrelated/user-data
-deletion. Continue v0.15 then v0.16 -> v0.17 -> v0.18.
+No index download/decompression, package/member inspection, Pillow/decoder,
+ctypes/libseccomp/filter execution, Docker/cgroup/host/daemon changes, model calls,
+Core/Mind/Agent/task/route/registry binding, signing/OAuth, live env/data/config/
+listener changes or enabled flags. Notices/import/frozen/builtin/dlopen/search/
+ABI closure, materializer/build/resources/startup/installer/filter/decoder remain
+separate; original resource/filter gates precede decoder. Preserve v0.14.0, UI61,
+old proof scopes and all user data. Continue v0.15 then v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision
 
