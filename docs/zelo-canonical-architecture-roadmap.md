@@ -469,18 +469,22 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #90 merged with4,257 CI passes/two
-skips and18 accepted synthetic sandbox cases. PR #86 archive bytes and PR #88's
-member inventory contract remain scoped: metadata consistency is not execution
-or platform authority. The USTAR scanner never extracts; GNU/PAX stay unsupported.
+Core-first checkpoint (4 October 2026): PR #91 merged at 09b68a5 after
+4,347 CI passes/two skips. Its single cleared 40-case ELF metadata batch consumed
+version-proof attempt 3/4 and established a closed eight-node dependency/version
+declaration graph for the fixed reader bootstrap. It did not execute dpkg-deb or
+prove ABI/runtime authority.
 
-Eight reader-bootstrap binaries and six notices were copied inertly and audited.
-The next40-call ELF declaration profile reuses the unchanged reader and original
-version quota;90 offline tests,2,533 combined checks and5 causal controls passed.
-Source clearance precedes attempt3/4, with its own CI and actual review. See
-`docs/v0.15-media-reader-bootstrap.md`. Native package/container/format qualification,
-member/runtime/import closure, resource/filter and image decoding, Core binding
-and release remain. UI #61 and v0.14.0 remain unchanged.
+Current work is docs/v0.15-media-native-reader-container.md: the consolidated
+offline native-reader boundary. Its canonical container, fixed Debian fixtures,
+deterministic inert scratch-image manifest, exact default seccomp pin and
+Media-specific owned-container lifecycle pass 158 offline/fake-only tests. No
+Docker/native execution is cleared in this phase. The next one-shot operator must
+build/export/attest the inert image and prove aggregate cgroup/process cleanup
+using only fixed synthetic packages before any real authenticated package attempt.
+USTAR remains narrow; GNU/PAX stay unsupported. Media still needs native stream
+qualification, real member/runtime/import closure, resource/filter and image
+decoding, Core binding and release. UI #61 and v0.14.0 remain unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

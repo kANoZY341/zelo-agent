@@ -1,0 +1,29 @@
+{
+  "attempt": 3,
+  "attempt_limit": 4,
+  "ci_passed": 4347,
+  "ci_run": 37204122789,
+  "ci_skipped": 2,
+  "declared_dependency_graph_consistent": true,
+  "evidence": {
+    "media-reader-elf-actual-20261004.stdout.json": {
+      "bytes": 443,
+      "sha256": "d500babd8c820c5d5559546616015fc8997993cf0282dd69e2b64b8b5574bd0b"
+    },
+    "media-reader-elf-actual-audit-20261004.json": {
+      "bytes": 971,
+      "sha256": "da3d7daa0394be35aacc3ed9845f269900a3ca9b107b87c0387c06ae09a28f23"
+    },
+    "media-reader-elf-actual-review-20261004.md": {
+      "bytes": 3427,
+      "sha256": "0447c9e4ec105c69a02838f1baedce25e841a387765ba8cc2144593cc9e6dcd9"
+    }
+  },
+  "head": "d51074661f15071a7c93d0030a3c55f224678300",
+  "metadata_inputs": 8,
+  "proof_sha256": "cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5",
+  "records": 40,
+  "runtime_authority": false,
+  "schema": "zelo-reader-bootstrap-elf-final-gates-v1",
+  "tree": "4b39b2f253108e7bbf1461b4cccaffac321d270e"
+}

@@ -1,0 +1,83 @@
+{
+  "controls": [
+    {
+      "case": "network",
+      "passed": true,
+      "refusal": "reader_container_limits"
+    },
+    {
+      "case": "writable-root",
+      "passed": true,
+      "refusal": "reader_container_limits"
+    },
+    {
+      "case": "capability",
+      "passed": true,
+      "refusal": "reader_container_capabilities"
+    },
+    {
+      "case": "runtime",
+      "passed": true,
+      "refusal": "reader_container_limits"
+    },
+    {
+      "case": "memory",
+      "passed": true,
+      "refusal": "reader_container_limits"
+    },
+    {
+      "case": "userns",
+      "passed": true,
+      "refusal": "reader_container_limits"
+    },
+    {
+      "case": "seccomp",
+      "passed": true,
+      "refusal": "reader_container_security"
+    },
+    {
+      "case": "mount",
+      "passed": true,
+      "refusal": "reader_container_mounts"
+    },
+    {
+      "case": "argv",
+      "passed": true,
+      "refusal": "reader_container_configuration"
+    },
+    {
+      "case": "env",
+      "passed": true,
+      "refusal": "reader_container_configuration"
+    },
+    {
+      "case": "lease-width",
+      "passed": true,
+      "refusal": "reader_container_name"
+    },
+    {
+      "case": "positive-result-drift",
+      "passed": true,
+      "refusal": "reader_fixture_positive_stdout"
+    },
+    {
+      "case": "image-lock-pin",
+      "passed": true,
+      "refusal": "reader_image_lock"
+    }
+  ],
+  "controls_passed": 13,
+  "docker": false,
+  "focused_tests_passed": 158,
+  "media_context_tests_passed": 2691,
+  "native_execution": false,
+  "runtime_authority": false,
+  "schema": "zelo-media-native-reader-offline-gates-v1",
+  "source_sha256": {
+    "qualification/media_reader_container.py": "f964288fc9647177e1210dbb51b5e0b81f45e161329468ba03786046ead19104",
+    "qualification/media_reader_fixture.py": "f04aee2dfe8cdfdd8266986ff9c981649223ffbbdfe04439d09bb929b83132e9",
+    "qualification/media_reader_image.py": "eaaf10144f3e4f0d2fc574e97789e9af4fb9839b80a0b572d8808c44960a27e4",
+    "qualification/media_reader_process.py": "fe8e639c5cb32f663234448baeccafc3151de114b7ec264c150bcb419ab44fcf",
+    "qualification/media_reader_seccomp.py": "1c77745c497c971929ef1ba2c7931785a9d3b6ce0fd7d5342886bd286ad5e1b3"
+  }
+}
