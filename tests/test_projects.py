@@ -2,7 +2,9 @@
 
 import json
 
-from app.context import CONTEXT_MAX_CHARS, ContextResolver
+import pytest
+
+from app.context import ACTIVE_STATUS_CHARS, CONTEXT_MAX_CHARS, ContextResolver
 from app.projects import ProjectService
 from app.schemas import GoalCreate, GoalSpec, ProjectCreate
 from tests.conftest import AUTH
@@ -87,11 +89,21 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "docs/zelo-project-status.md#active" in sources
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.15" in sources
     assert "core.projects" in sources
+    active_status = sources["docs/zelo-project-status.md#active"]["content"]
+    assert active_status.startswith("## Active increment: v0.15 Media package-reader")
+    assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
+    assert "PR #86" in active_status
+    assert "historical archive-byte identity" in active_status
+    assert "Historical increment:" not in active_status
+    assert "Early Zelo Chat" not in active_status
+    roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
+    assert "PR #86" in roadmap_content
+    assert "15 files" in roadmap_content
+    assert "candidate wheel" not in roadmap_content
+    status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
-        "Active increment: v0.15 Browser renderer integration"
-        in sources["docs/zelo-project-status.md#active"]["content"]
+        sum(line.startswith("## Active increment:") for line in status_document.splitlines()) == 1
     )
-    assert "Early Zelo Chat" not in sources["docs/zelo-project-status.md#active"]["content"]
     assert sources["core.projects"]["provenance"] == "operator_records"
     assert sources["core.projects"]["instruction_trust"] == "none"
     assert "Project context" in sources["core.projects"]["content"]
@@ -115,3 +127,43 @@ def test_context_budget_is_enforced_after_unicode_serialization(database, tmp_pa
     assert len(context) <= CONTEXT_MAX_CHARS
     envelope = json.loads(context)
     assert envelope["instruction_trust"] == "none"
+
+
+@pytest.mark.parametrize("history_first", [False, True])
+def test_context_resolver_selects_active_section_not_historical(database, tmp_path, history_first):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    historical = "## Historical increment: old browser work\nSTALE-HISTORY\n"
+    active = "## Active increment: current media work\nCURRENT-FACT\n### Limits\nNO-AUTHORITY\n"
+    sections = [historical, active] if history_first else [active, historical]
+    (docs / "zelo-project-status.md").write_text("\n".join(sections), encoding="utf-8")
+    resolver = ContextResolver(ProjectService(database), root=tmp_path)
+    context = resolver.resolve("what are we building")
+    assert context is not None
+    assert len(context) <= CONTEXT_MAX_CHARS
+    source = next(
+        item
+        for item in json.loads(context)["sources"]
+        if item["source"] == "docs/zelo-project-status.md#active"
+    )
+    assert source["instruction_trust"] == "none"
+    assert source["content"] == active.strip()
+    assert "STALE-HISTORY" not in source["content"]
+
+
+def test_context_resolver_missing_active_heading_does_not_promote_history(database, tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "zelo-project-status.md").write_text(
+        "## Historical increment: old work\nSTALE-HISTORY\n", encoding="utf-8"
+    )
+    resolver = ContextResolver(ProjectService(database), root=tmp_path)
+    context = resolver.resolve("what are we building")
+    assert context is not None
+    source = next(
+        item
+        for item in json.loads(context)["sources"]
+        if item["source"] == "docs/zelo-project-status.md#active"
+    )
+    assert source["content"] == ""
+    assert source["instruction_trust"] == "none"

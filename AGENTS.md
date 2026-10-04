@@ -68,49 +68,76 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media package archive acquisition implementation after PR85
-merge 19e0be24cb0a60bac1f540f08a27d82082895e9d. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media package-reader helper/runtime closure design after PR86
+merge b1638a0e7f074c8ca8a2bc47326e315d510a0820. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: offline package acquisition implementation and source review
+## Current scope: package-reader closure design; current-context regression fix
 
-PR85 merged at 19e0be24cb0a60bac1f540f08a27d82082895e9d, matching its reviewed
-tree. CI passed 3,640 tests, 209 selector/operator tests and 1,823 Media checks;
-four standalone checks and ten causal controls (14 intended failures) passed.
-Read docs/reviews/media-local-index-{final-review,final-gates}.md.
-Accepted index proof SHA256:
-199b3b16ee247497b782d78356bb88f3f67ed717401d5cb39ec7a8fc2c0b210d.
-It authenticates three indexes and selects eight fixed package records. It does
-not authenticate package members or grant platform/runtime authority.
+PR86 merged at b1638a0e7f074c8ca8a2bc47326e315d510a0820 with exact reviewed tree
+53f8fcd719b51058c99081557dc0bb37453c80e7. Pre-merge CI passed 3,737 tests,
+two skips; post-merge CI 37191575787 also succeeded. Acquisition is one accepted
+batch: eight archives / 8,745,084 bytes, without package-member parsing.
+Accepted proof SHA256 is
+c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
+The earlier acquisition and local-identity review records remain authoritative
+only for their exact documented source/evidence scopes.
 
-Retain all scopes: origin 4/4 exhausted, index 2/4 (first refused, second passed),
-ELF version 2/4, old loader 4/4. No further origin/index/ELF attempt or quota reset.
-Shared ownership/admission helpers stay unchanged. Preserve every old proof.
+The three-path local identity observation is consumed, 1/1. It observed dpkg
+1.22.6ubuntu6.6 amd64 with no Source field. No installed inputs were reopened by
+the following source research and no package tool was executed.
 
-The next acquisition proposal is runtime/media-package-acquisition-next-design.md.
-Its preliminary review is archived in docs/reviews/media-package-acquisition-design-review-r1.md.
-Astra Medium cleared the refined design for offline implementation; read
-docs/v0.15-media-package-acquisition.md and the R2 design review. The source
-references and license are retained under runtime/media-package-http-reference.
-The signed eight-record lock is pinned at
-0c7b800977288ea8beb88f765718d8df42e0a40729ef5bbc6c3d41c2f4f298d6.
+The separately reviewed public-source research now pins official Ubuntu metadata
+and an applied source commit ba5fe18eb68084206981fb7b3a7c281eb2d38372. Fifteen
+retained source files / 1,115,169 bytes passed a separate audit with 33 in-memory
+tamper controls. The 16-request source budget is consumed, including one retained
+HTTP404 and the reviewed correction to src/deb paths. Public identity discovery
+used 11/12 logical operations, with gateway failures and a bounded tag-read
+chunking deviation disclosed. Do not present these as native qualification proof.
+Read docs/v0.15-media-package-reader-source.md,
+docs/reviews/media-package-reader-source-review.md,
+docs/reviews/media-package-reader-source-gates.json and
+docs/v0.15-media-package-member-reader-design.md.
 
-Implement only the closed acquisition adapter and fake-only tests. No real DNS,
-socket, TLS context/CA loading, endpoint probe or download is cleared. Real
-stdlib HTTPResponse may parse synthetic BytesIO. Preserve exact ownership
-transitions, pre-parser header bounds, direct verified TLS context, immutable
-CA data, framed-body-only claims and explicitly cooperative deadlines. Hold
-archive/CA/support FDs; JSON closes inside _Store. Count both read-back copies.
+Source-host metadata, observed blob hashes and matching copyright do not prove
+installed executable membership, a verified dsc signature, Git tree membership,
+archive/tree equivalence, complete runtime/library closure or ABI compatibility.
+Do not silently promote those unresolved claims. No downloaded source was built,
+imported, executed or copied into product implementation.
 
-A frozen full source review must explicitly clear at most one eight-file batch;
-actual review, matching CI and supplements precede normal merge. No automatic retry.
+Next: a bounded explicit closure proposal for missing initialization/options/
+command helpers, the passthrough enum/build facts and a mature secondary tar reader.
+Do not recursively fetch sources or repeat the spent 16-request corpus. Any new
+research must have a reviewed literal manifest and retain its original failures.
+The candidate design is NOT cleared for native launcher/parser/materializer
+implementation or execution. It documents child-process ownership, hard decoder
+memory/output limits, SIGPIPE-success refusal, temporary writes in information
+commands, input-format and helper-execution risks that must be addressed first.
 
-No package/member tool execution, Pillow/decoder, ctypes/filter, Docker/cgroup/
-daemon/system/updater changes, live data/config/model calls/listeners, Core/Mind/
-Agent/route binding or enabled flags. Original resource/filter gates precede image
-decoder. Conditional historical attribution does not establish freshness, current
-key validity, package-member provenance, platform/ABI or runtime authority.
-Continue v0.15, then v0.16 -> v0.17 -> v0.18. Preserve v0.14.0 and parked UI #61.
+PR87's original documentation head f8dcbd9 failed full CI: renamed status heading
+left ContextResolver's active source empty (1 failed, 3,736 passed, 2 skipped).
+The correction restores the stable heading and aligns current roadmap facts,
+with tests for nonempty current context and historical-section exclusion. This
+is a documentation/test fix; application resolver/authority code stays unchanged.
+The corrected head requires fresh review/full CI; the earlier failed run and
+old documentation review cannot be claimed as matching passes. Preserve exactly
+one `## Active increment:` heading in docs/zelo-project-status.md: it is a
+machine-consumed interface. Keep decisive current facts within its 2200-character
+context budget. The canonical v0.15 checkpoint must not contradict that status.
+
+The interrupted Codex review is not a completed verdict. Continue with direct
+ChatGPT tools and truthful review attribution; do not retry exhausted Codex jobs.
+Retain source review, actual evidence, matching CI and exact-tree merge gates.
+Retain all original scopes: origin4/4 and old-loader4/4 exhausted; index2/4,
+ELF-version2/4, acquisition1/4 and local-identity1/1. No scope reset, proof repair,
+overwrite or extra qualification attempt. Shared admission/ownership helpers and
+all runtime/user data stay unchanged.
+
+No package/member tool, Pillow/image decoder, native ctypes/filter, Docker/cgroup/
+daemon/system/updater change, live config/data/model call/listener, Core/Mind/Agent/
+route binding or enabled flag. Resource/filter gates still precede image decoding.
+Continue v0.15 then canonical v0.16 -> v0.17 -> v0.18. UI #61 stays parked and
+v0.14.0 unchanged. No release or later milestone completion is claimed.
 
 ## Workspace decision
 

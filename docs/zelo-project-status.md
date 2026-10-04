@@ -1,10 +1,44 @@
 # Zelo live project status
 
-Verified: 2 October 2026
+Latest checkpoint verified: 4 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
+
+## Active increment: v0.15 Media package-reader source research
+
+Core v0.15 remains active; UI remains parked. PR #86 (Media archive acquisition)
+is merged at `b1638a0e7f074c8ca8a2bc47326e315d510a0820`. Its reviewed-tree merge
+and post-merge CI succeeded. One batch verified eight archives / 8,745,084 bytes:
+**historical archive-byte identity**, not Media readiness or runtime authority.
+
+Local identity research observed dpkg `1.22.6ubuntu6.6` amd64. Exact-version Ubuntu
+publication and source research now retain 15 files / 1,115,169 bytes from applied
+commit `ba5fe18eb68084206981fb7b3a7c281eb2d38372`. A separate audit passed 33 tamper
+controls. Sixteen source requests included one retained HTTP404 and a reviewed
+path correction; no source-corpus quota was reset or package reader executed.
+
+The next work is bounded helper/build closure and secondary tar-reader selection,
+then native stream/member-reader design and qualification. The source review
+identified subprocess ownership, unbounded decoder memory, temporary extraction
+in information commands and SIGPIPE-success handling as concrete design concerns.
+Binary/source correspondence, dsc signature, complete runtime/ABI/import closure,
+resource/filter and image-decoder qualification, Core binding and release remain
+unproved. See `v0.15-media-package-reader-source.md` and the reader candidate design.
+
+PR #87's original CI failed on the renamed active-status heading. The stable
+heading and current roadmap facts are restored with regression tests; replacement
+head review/full CI remain required. This is direct ChatGPT work, not a new Codex
+job. All original proof quotas and user/runtime data are preserved. No enabled
+flag, UI change, v0.15 release or later milestone completion is claimed.
+
+## Checkpoint history
+
+The sections below preserve prior releases and implementation checkpoints. Their
+older active-work descriptions are historical, not instructions to repeat proofs.
+The `## Active increment:` heading above is a stable ContextResolver interface;
+keep exactly one and update its content rather than renaming it.
 
 ## Published release
 
@@ -107,8 +141,8 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 bounded renderer/lifecycle integration after native
-sandbox qualification merge `e16d370`. Continue the established Core roadmap; later UI rework requires fresh
+The active work is v0.15 Media package-reader source/provenance research after
+PR #86. Continue the established Core roadmap; later UI rework requires fresh
 acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
 
 ## Browser broker qualification merged
@@ -120,7 +154,7 @@ passed CI #1842 with 1114 passed and 2 skipped, and the two installed-Codex
 probes passed separately on the host. Independent Astra Medium review and
 the 169-case expanded focused gate passed. See the PR for diagnostic evidence.
 
-## Active increment: v0.15 Browser renderer integration
+## Historical increment: v0.15 Browser renderer integration
 
 Branch: `feat/v0.15-browser-renderer-integration`. The broker, fixed anonymous-pipe
 renderer and crash-fenced owner are now implemented together in qualification code.
