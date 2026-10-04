@@ -68,42 +68,42 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media GNU version graph design after isolated loader
-metadata PR #80 at `f6a8a584`. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media fixed platform dependency metadata after GNU
+version graph PR #81 at 8aeaf6b. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: v0.15 Media GNU version graph implementation
+## Current scope: v0.15 Media platform dependency metadata
 
-PR80 merged f6a8a584 with matching reviewed tree,2,928CI passes and37 actual isolated
-cases/seveninputs. Read docs/reviews/media-elf-metadata-final-gates.md. Allfour loader
-qualification attempts remain retained and exhausted: no fifth attempt, cap increase,
-marker clearing or deletion. No platform/ABI/decoder/Core authority was granted.
+PR81 merged8aeaf6b with exactreviewedtree,3,189CI passes and39actualcases/seveninputs.
+Read docs/reviews/media-elf-version-final-gates.md. One versionattempt consumed;
+allfour oldloaderattempts remain exhausted/retained. No ABI/platform/decoder/Core
+authority. AstraMedium cleared the next fixed12input/44case design foroffline
+implementation afterPR81merge: docs/v0.15-media-platform-dependency-metadata.md.
 
-Astra Medium cleared Revision2 at11540a2 for offline implementation only; see
- docs/reviews/media-elf-version-design-r2-review.md. Current design
- docs/v0.15-media-elf-version-metadata.md: bounded GNU
-version definitions/requirements/index frequencies only. Symbol bodies and symbol
-provider/ABI semantics remain excluded. Complete AstraMedium design review and
-resolve its findings before implementation; then exact source/launcher review before
-ANY new optional parser/guest execution. A distinct new policy/proof directory requires
-review as new work, never as a bypass of the old exhausted qualification. Keep the
-same persistent capacity-one admission and existing owned-process/admission helpers.
+Extend only the versionqualifier's fixedlock/path/hash/counts, tests anddocs; reuse
+unchangedfive-sourceauthenticatedguest/bootstrap/parser/validator/fixtures/helpers.
+Fiveextra inputs are libm/z/expat/resource/_json, fixedroot-owned/usr bytes only.
+No optionalparser/nativeexecution until exactsource/bootstrap/lock review clears.
+SAME runtime/media-elf-version-proofs/version-proof-* quota remainsfour acrossall
+policydigests/revisions (oneused,atmostthreeleft); SAME capacityone
+runtime/media-elf-metadata-admission. Neverreset/rename/bypass/delete/increasecap,
+rerun exhaustedoldloaderqualifier, clear markers or automaticallyretry.
 
-Source authentication includes every initializer/dependency before imports, exactpins,
-no bytecode/alternate module paths. Numeric work/storage/buffer/resource limits,
-observation-before-creation, pendingcreation/repeatedcancel settlement, conservative
-helper-failure fencing and pendingproof-before-release/finalreceipt-after-release stay
-mandatory. Late Lease.finish errors may already truncate marker; refuse receipt
-without a universal fence claim. No automatic retry/recovery/deletion.
+44cases fit95entries/5,702,016regularbytes withinunchanged96entries/8MiB. All source
+pins/closure, bounds-beforeaccess, hostnestedvalidation, deadlines/resources,
+observation-beforecreation, pendingcreation/repeatedcancel settlement, supportFD
+retention/closeonce, conservativehelperfailurefencing, pendingproofbeforerelease and
+finalstdoutafterrelease remain mandatory. Late Lease.finish mayalreadyemptymarker:
+refuse receipt withoutuniversal-fenceclaim. No proof-fileIOaftersuccessfulrelease.
 
 Full source/evidence review, focused/matching-head fullCI and standalone/causal-fault
-supplements precede normal merge. Platform provenance/notices/complete dependency/
-dlopen/symbolABI lock, materialization/build/daemonsettlement/resources/filter stages
-remain separate. Original PNG RLIMIT/cgroup/seccomp gates stay BEFORE decoder.
-No Pillow/decoder, ctypes/libseccomp/filter, Docker build/create, cgroup/host/daemon
-changes, runtime/task/route/registry/capability/Core/Agent/Mind binding, model request,
-signing/OAuth, live env/data/config/service/listener. Flags disabled,v0.14.0/UI61
-preserved. Dedicated worktree only; no unrelated/userdata deletion. v16->v17->v18.
+supplements precede normalexacttreemerge. Complete platformprovenance/notices/import/
+dlopen/search/ABI closure, materializer/immutablecontext, build/daemonsettlement,
+resources/startup/installer/filter remainseparategates; originalresource/filterbefore
+decoder. No Pillow/decoder, ctypes/libseccomp/filter, Dockerbuild/create, cgroup/host/
+daemonchanges, runtime/task/route/registry/capability/Core/Agent/Mind binding, model
+request, signing/OAuth, liveenv/data/config/service/listener. Flagsdisabled,v0.14.0/
+UI61preserved. Dedicatedworktreeonly; no unrelated/userdata deletion. v16->v17->v18.
 
 ## Workspace decision
 

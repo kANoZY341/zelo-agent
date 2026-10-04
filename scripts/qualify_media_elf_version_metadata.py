@@ -50,7 +50,7 @@ from scripts import qualify_media_elf_metadata as prior  # noqa: E402
 from scripts import qualify_media_publisher as shared  # noqa: E402
 from scripts.qualify_media_image import _repeated_cancel  # noqa: E402
 
-TARGET_LOCK_SHA = "53ccb8107b27a9141dd3267df44970426ef76eb6248e1b47984df26fe6c4e30c"
+TARGET_LOCK_SHA = "e6aa07b1e59342dc4b202f1f4a81f6c49a3768289d0569c6d2a9e6eb6a2f7018"
 FIXTURE_SHA = "f96dfe4c8c0ba5920c55e0e65aa762e409f6c0a23082468034dbab0ad8d0be17"
 TOOL_RECEIPT_SHA = "a41e2c4252dffafe8ab851f9dc2316a0830eb67eb1fe3b46683505b2a23daa52"
 MATRIX = (
@@ -123,7 +123,7 @@ def policy():
         "metadata_seconds": 210,
         "case_seconds": 30,
         "timeout_control_seconds": 2,
-        "processes": 39,
+        "processes": 44,
         "attempts": 4,
         "proof_scope": "runtime/media-elf-version-proofs/version-proof-*",
         "version_work_limits": version.LIMITS,
@@ -643,9 +643,9 @@ async def _qualify():
             state, ROOT / "qualification/fixtures/media-elf-version-unversioned.bin"
         )
         unversioned = _read_fd(unversioned_fd, 65536, UNVERSIONED_SHA, 984)
-        lock_fd = _open(state, ROOT / "qualification/fixtures/media-elf-target-lock.json")
+        lock_fd = _open(state, ROOT / "qualification/fixtures/media-platform-elf-target-lock.json")
         lock = json.loads(_read_fd(lock_fd, 16384, TARGET_LOCK_SHA))
-        if len(lock["files"]) != 7 or lock["aggregate_bytes"] > 33554432:
+        if len(lock["files"]) != 12 or lock["aggregate_bytes"] > 33554432:
             raise QualificationRefused("media_elf_target_lock")
         if time.monotonic() > started + 30:
             raise QualificationRefused("media_elf_setup_deadline")
@@ -717,7 +717,7 @@ async def _qualify():
                     metadata_deadline,
                 )
             )
-        if len(records) != 39 or total != lock["aggregate_bytes"]:
+        if len(records) != 44 or total != lock["aggregate_bytes"]:
             raise QualificationRefused("media_elf_job_count")
         for (_name, size, sha), fd in zip(SOURCE_PINS, source_fds, strict=True):
             _read_fd(fd, 32768, sha, size)
@@ -760,8 +760,8 @@ async def _qualify():
         "status": "qualified-version-graph-tool",
         "proof": str(proof),
         "proof_sha256": hashlib.sha256(proof_raw).hexdigest(),
-        "cases": 39,
-        "metadata_inputs": 7,
+        "cases": 44,
+        "metadata_inputs": 12,
         "admission_release_confirmed": True,
         "platform_complete": False,
         "abi_qualified": False,
