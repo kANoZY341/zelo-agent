@@ -42,3 +42,31 @@ creates the final namespace. Guest1000 maps to setup0, which maps to host1000.
 | bubblewrap.c | 107265 | 6a89bc9b7a794d19e2bdb1e139ab9d5bba84e807b330336f363f88f130cfeab6 |
 | bwrap.xml | 27203 | 076efc46f0db00b06be6d28cde306659da39fa536a6803b7135e19f952b7c564 |
 | utils.c | 18278 | 68a39cc25753addb04a21c22f41e3805e63f3106d24e67d39a24ce6727f6bd69 |
+
+## Ubuntu bubblewrap downstream patch evidence
+
+Official source: https://git.launchpad.net/ubuntu/+source/bubblewrap
+Pinned ubuntu/noble-updates commit e95a0205d97a5bf147053bc88f790cadb7ae8d65,
+changelog version 0.9.0-1ubuntu0.3. Exact plaintext fetched via Ubuntu Git HTTPS;
+no independent archive/tag signature or binary reproducibility claim.
+The unpatched top-level bubblewrap.c is byte-identical to the upstream source above.
+The patch series contains the EPERM message patch and FD-bind parser backport.
+
+| Path | Bytes | SHA256 |
+|---|---:|---|
+| debian/changelog | 22312 | af9fb84c101e6ee23140a932f7b77b3f24a5e6ac5fbfda11a69e55f63f423467 |
+| debian/patches/series | 132 | c873516d6ab78f0cccfe87de86949b48b38f8b6a791b43735dfa07a71ce282a1 |
+| debian/patches/Add-bind-fd-and-ro-bind-fd-to-let-you-bind-a-O_PATH-fd.patch | 3218 | 6c7e503d19445cc7583da2de020fd84648acfad4feefb69a219af88259e0199d |
+
+The backport registers operation FDs and adds parser/help/tests, but does not
+replace the base source's realpath operation or add a post-mount inode check.
+Its prose is not proof of original-inode attachment. The revised qualifier uses
+the older source-supported --ro-bind-data operation instead: copy directly from
+the held descriptor into private setup tmpfs, set exact permissions, read-only
+bind, then unlink the temporary name. Guest nlink is therefore zero; bytes,
+size, mode and stable-read identity are authenticated again before exec.
+
+The setup root is the private tmpfs after pivot_root, before setup_newroot.
+No temporary tool copy is written to the host root. These three short-lived
+copies total at most 569873 bytes per sequential case. Neither source retrieval
+nor this source analysis executed bubblewrap, GPG, or a package decoder.

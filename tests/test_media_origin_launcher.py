@@ -88,25 +88,25 @@ def test_frozen_identity_and_retention_ledger():
     assert not p["aggregate_cgroup_verified"] and not p["runtime_authority"]
 
 
-def test_mounts_bind_held_executable_key_and_input_before_readonly(tmp_path, monkeypatch):
+def test_mounts_copy_selected_held_descriptors_before_readonly(tmp_path, monkeypatch):
     monkeypatch.setattr(
         q, "python_compute_sandbox", lambda command: ["bwrap", "--remount-ro", "/", *command]
     )
     fds = dict(tool=100, keyring=101, input=102, bad_tool=103, bad_keyring=104, bad_input=105)
-    argv = q._argv(fds, "input", tmp_path / "sentinel", "net:[1]", 0, -1)
+    argv = q._argv(fds, "input", tmp_path / "sentinel", "net:[1]", 0, None)
     mount_pairs = [
-        (argv[i + 1], argv[i + 2]) for i, value in enumerate(argv) if value == "--ro-bind"
+        (argv[i + 1], argv[i + 2]) for i, value in enumerate(argv) if value == "--ro-bind-data"
     ]
     assert mount_pairs == [
-        ("/proc/self/fd/100", "/opt/zelo-origin-gpgv"),
-        ("/proc/self/fd/101", "/opt/zelo-origin-keyring.gpg"),
-        ("/proc/self/fd/102", "/opt/zelo-origin.InRelease"),
+        ("100", "/opt/zelo-origin-gpgv"),
+        ("101", "/opt/zelo-origin-keyring.gpg"),
+        ("102", "/opt/zelo-origin.InRelease"),
     ]
     assert argv.index("/tmp/zelo-gnupg") < argv.index("--remount-ro")
     assert argv[1:7] == ["--cap-drop", "ALL", "--uid", "1000", "--gid", "1000"]
     for role in ("tool", "keyring", "input"):
-        bad = q._argv(fds, role + "_pin", tmp_path / "sentinel", "net:[1]", 0, -1)
-        assert f"/proc/self/fd/{fds['bad_' + role]}" in bad
+        bad = q._argv(fds, role + "_pin", tmp_path / "sentinel", "net:[1]", 0, None)
+        assert str(fds["bad_" + role]) in bad
 
 
 def test_four_attempt_quota_counts_failed_partial_across_digests(tmp_path, monkeypatch):
@@ -219,6 +219,7 @@ def test_native_acceptance_requires_observed_settlement(tmp_path, monkeypatch, s
 
     monkeypatch.setattr(q, "run_process", launch)
     monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: ())
     monkeypatch.setattr(q, "INPUTS", ({"suite": "noble"},))
     state = q._State()
     store = q._Store(tmp_path, state)
@@ -241,6 +242,7 @@ def test_good_status_does_not_override_failed_exit(tmp_path, monkeypatch, code):
 
     monkeypatch.setattr(q, "run_process", launch)
     monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: ())
     monkeypatch.setattr(q, "INPUTS", ({"suite": "noble"},))
     state = q._State()
     with pytest.raises((q.QualificationRefused, q.origin.OriginError)):
@@ -281,6 +283,7 @@ def test_error_controls_require_specific_owned_result(tmp_path, monkeypatch, err
 
     monkeypatch.setattr(q, "run_process", launch)
     monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: ())
     monkeypatch.setattr(q.shared, "_own_operation", own)
     monkeypatch.setattr(q, "_repeated_cancel", repeated)
     state = q._State()
@@ -474,6 +477,7 @@ def test_negative_native_exit_two_alone_never_passes(tmp_path, monkeypatch, stde
 
     monkeypatch.setattr(q, "run_process", launch)
     monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: ())
     state = q._State()
     with pytest.raises(q.QualificationRefused, match="case_failed"):
         asyncio.run(
@@ -539,3 +543,252 @@ def test_identity_mapping_is_exact_two_level_not_host_root(uid, gid, cap, mappin
         assert stopped.value.code == 22
         assert observed[0]["status"] == "identity_refused"
         assert observed[0]["check"] == expected
+
+
+def test_attachment_modes_and_readiness_identity_are_explicit(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        q, "python_compute_sandbox", lambda command: ["bwrap", "--remount-ro", "/", *command]
+    )
+    fds = dict(tool=100, keyring=101, input=102, bad_tool=103, bad_keyring=104, bad_input=105)
+    ready = (tmp_path / "cancel-ready.fifo", 17, 42)
+    argv = q._argv(fds, "cancel", tmp_path / "sentinel", "net:[1]", 0, ready)
+    assert [argv[i + 1 : i + 5] for i, value in enumerate(argv) if value == "--perms"] == [
+        ["0755", "--ro-bind-data", "100", "/opt/zelo-origin-gpgv"],
+        ["0644", "--ro-bind-data", "101", "/opt/zelo-origin-keyring.gpg"],
+        ["0644", "--ro-bind-data", "102", "/opt/zelo-origin.InRelease"],
+    ]
+    assert "--bind-fd" not in argv and "--ro-bind" not in argv
+    assert not any(value.startswith("/proc/self/fd/") for value in argv)
+    point = argv.index("--bind")
+    assert argv[point + 1 : point + 3] == [str(ready[0]), "/opt/zelo-origin-ready"]
+    assert argv[-2:] == ["17", "42"]
+    assert (
+        q.policy()["copied_bytes_per_case"]
+        == TOOL[1] + KEYRING[1] + max(item["bytes"] for item in INPUTS)
+        == 569873
+    )
+
+
+@pytest.mark.parametrize("case", ["input", "tool_pin", "keyring_pin", "input_pin"])
+def test_selected_copy_offsets_reset_without_touching_unused_descriptors(tmp_path, case):
+    state = q._State()
+    fds = {}
+    try:
+        for role in ("tool", "keyring", "input", "bad_tool", "bad_keyring", "bad_input"):
+            path = tmp_path / role
+            path.write_bytes(b"bounded-copy")
+            fds[role] = q._open(state, path)
+            os.lseek(fds[role], 12, os.SEEK_SET)
+        selected = q._prepare_fds(fds, case)
+        assert len(selected) == 3
+        for role, fd in fds.items():
+            expected = role in ("tool", "keyring", "input")
+            if case.endswith("_pin"):
+                replaced = case.removesuffix("_pin")
+                if role == replaced:
+                    expected = False
+                elif role == "bad_" + replaced:
+                    expected = True
+            assert (fd in selected) == expected
+            assert os.lseek(fd, 0, os.SEEK_CUR) == (0 if expected else 12)
+        for fd in selected:
+            assert os.read(fd, 12) == b"bounded-copy"
+        assert q._prepare_fds(fds, case) == selected
+        assert all(os.lseek(fd, 0, os.SEEK_CUR) == 0 for fd in selected)
+    finally:
+        assert state.close_all()
+
+
+def test_descriptor_alias_refuses_before_rewind(monkeypatch):
+    monkeypatch.setattr(q.os, "lseek", lambda *args: pytest.fail("must reject aliases first"))
+    with pytest.raises(q.QualificationRefused, match="attachment_alias"):
+        q._prepare_fds(dict(tool=10, keyring=10, input=11), "input")
+
+
+def test_prior_unsettled_operation_refuses_before_rewind(tmp_path, monkeypatch):
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: pytest.fail("unsettled offset mutation"))
+    state = q._State()
+    state.observations.append(SimpleNamespace(cleanup_confirmed=False))
+    with pytest.raises(q.QualificationRefused, match="previous_operation_unsettled"):
+        asyncio.run(
+            q._native(
+                state,
+                q._Store(tmp_path, state),
+                {},
+                "input",
+                armor(),
+                "input",
+                0,
+                q.time.monotonic() + 30,
+            )
+        )
+
+
+def close_segment():
+    start = GUEST_BOOTSTRAP.index("names=os.listdir('/proc/self/fd')")
+    end = GUEST_BOOTSTRAP.index("if len(sys.argv)", start)
+    return compile(GUEST_BOOTSTRAP[start:end], "offline-child-fd-close", "exec")
+
+
+@pytest.mark.parametrize("failure", [None, "fstat", "close"])
+def test_child_closes_support_once_and_only_ignores_scanner_ebadf(failure):
+    import errno
+
+    calls = []
+
+    def fstat(fd):
+        calls.append(("fstat", fd))
+        if fd == 9:
+            raise OSError(errno.EBADF, "ephemeral proc scanner")
+        if failure == "fstat" and fd == 8:
+            raise OSError(errno.EIO, "unproven identity")
+        return object()
+
+    def close(fd):
+        calls.append(("close", fd))
+        if failure == "close" and fd == 8:
+            raise OSError(errno.EINTR, "ambiguous close")
+
+    fake = SimpleNamespace(
+        listdir=lambda path: ["0", "1", "2", "7", "8", "9"], fstat=fstat, close=close
+    )
+    scope = dict(os=fake, errno=errno)
+    if failure is None:
+        exec(close_segment(), scope)
+        assert calls == [("fstat", 7), ("close", 7), ("fstat", 8), ("close", 8), ("fstat", 9)]
+    else:
+        with pytest.raises(OSError):
+            exec(close_segment(), scope)
+        assert calls.count(("close", 8)) == (1 if failure == "close" else 0)
+    assert GUEST_BOOTSTRAP.count("names=os.listdir('/proc/self/fd')") == 2
+    assert GUEST_BOOTSTRAP.index("os.close(fd)") < GUEST_BOOTSTRAP.index("def read(path")
+
+
+@pytest.mark.parametrize("names", [["0", "unexpected"], [str(n) for n in range(257)]])
+def test_child_fd_inventory_must_be_bounded_numeric(names):
+    fake = SimpleNamespace(
+        listdir=lambda path: names,
+        fstat=lambda fd: pytest.fail("refuse before descriptor operations"),
+    )
+    with pytest.raises(SystemExit) as stopped:
+        exec(close_segment(), dict(os=fake))
+    assert stopped.value.code == 31
+
+
+@pytest.mark.parametrize("change", [None, "device", "inode", "type", "mode", "links"])
+def test_cancel_writes_only_to_opened_expected_fifo(change):
+    import stat
+
+    calls = []
+    info = dict(st_dev=17, st_ino=42, st_mode=stat.S_IFIFO | 0o600, st_nlink=1)
+    replacements = {
+        "device": ("st_dev", 18),
+        "inode": ("st_ino", 43),
+        "type": ("st_mode", stat.S_IFREG | 0o600),
+        "mode": ("st_mode", stat.S_IFIFO | 0o644),
+        "links": ("st_nlink", 2),
+    }
+    if change:
+        key, value = replacements[change]
+        info[key] = value
+    fake = SimpleNamespace(
+        open=lambda *args: 7,
+        fstat=lambda fd: SimpleNamespace(**info),
+        write=lambda fd, value: calls.append(("write", fd, value)) or 1,
+        close=lambda fd: calls.append(("close", fd)),
+        O_WRONLY=1,
+        O_NOFOLLOW=2,
+        O_NONBLOCK=4,
+        O_CLOEXEC=8,
+    )
+    start = GUEST_BOOTSTRAP.index("    ready=os.open(")
+    end = GUEST_BOOTSTRAP.index("    time.sleep(300)", start)
+    import textwrap
+
+    code = compile(textwrap.dedent(GUEST_BOOTSTRAP[start:end]), "offline-fifo-identity", "exec")
+    scope = dict(os=fake, stat=stat, ready_identity=(17, 42))
+    if change:
+        with pytest.raises(SystemExit) as stopped:
+            exec(code, scope)
+        assert stopped.value.code == 32
+        assert calls == [("close", 7)]
+    else:
+        exec(code, scope)
+        assert calls == [("write", 7, b"R"), ("close", 7)]
+
+
+@pytest.mark.parametrize("links", [0, 1, 2])
+def test_guest_authenticates_unlinked_copy_not_original_inode(links):
+    import stat
+
+    data = b"authenticated-private-copy"
+    events = []
+    chunks = iter([data, b""])
+    info = SimpleNamespace(
+        st_mode=stat.S_IFREG | 0o755,
+        st_nlink=links,
+        st_size=len(data),
+        st_dev=1,
+        st_ino=2,
+        st_mtime_ns=3,
+        st_ctime_ns=4,
+    )
+    fake = SimpleNamespace(
+        open=lambda *args: 7,
+        fstat=lambda fd: info,
+        read=lambda *args: next(chunks),
+        close=lambda fd: events.append(fd),
+        O_RDONLY=0,
+        O_NOFOLLOW=1,
+        O_NONBLOCK=2,
+        O_CLOEXEC=4,
+    )
+    start = GUEST_BOOTSTRAP.index("def read(path")
+    end = GUEST_BOOTSTRAP.index("target=NEGATIVES", start)
+    scope = dict(os=fake, stat=stat, hashlib=hashlib)
+    exec(compile(GUEST_BOOTSTRAP[start:end], "offline-copy-auth", "exec"), scope)
+    if links:
+        with pytest.raises(ValueError, match="identity"):
+            scope["read"]("/fixed", len(data), hashlib.sha256(data).hexdigest(), 0o755)
+    else:
+        scope["read"]("/fixed", len(data), hashlib.sha256(data).hexdigest(), 0o755)
+    assert events == [7]
+
+
+def test_native_passes_only_selected_copy_fds_and_retains_parent_ownership(tmp_path, monkeypatch):
+    state = q._State()
+    fds = {}
+    for role in ("tool", "keyring", "input", "bad_tool", "bad_keyring", "bad_input"):
+        path = tmp_path / role
+        path.write_bytes(b"bounded-copy")
+        fds[role] = q._open(state, path)
+        os.lseek(fds[role], 12, os.SEEK_SET)
+    expected = (fds["bad_tool"], fds["keyring"], fds["input"])
+
+    async def launch(*args, **kwargs):
+        assert kwargs["pass_fds"] == expected
+        assert len(state.observations) == 1
+        assert all(os.read(fd, 12) == b"bounded-copy" for fd in expected)
+        assert all(os.fstat(fd) for fd in fds.values())
+        kwargs["observation"]._no_child()
+        return SimpleNamespace(exit_code=0, stdout=b'{"status":"tool_refused"}', stderr=b"")
+
+    monkeypatch.setattr(q, "run_process", launch)
+    monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    try:
+        record = asyncio.run(
+            q._native(
+                state,
+                q._Store(tmp_path, state),
+                fds,
+                "tool_pin",
+                b"input",
+                "tool_pin",
+                0,
+                q.time.monotonic() + 30,
+            )
+        )
+        assert record["passed"]
+        assert all(os.fstat(fd) for fd in fds.values())
+    finally:
+        assert state.close_all()

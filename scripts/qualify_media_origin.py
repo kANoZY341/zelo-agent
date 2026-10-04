@@ -116,6 +116,11 @@ def policy():
         "stdout_control_bytes": 65536,
         "stderr_bytes": 16384,
         "parent_buffers_reservation_bytes": 16777216,
+        "attachment": "held-fd-data-copy-to-private-unlinked-readonly-mount",
+        "copied_bytes_per_case": 569873,
+        "copy_budget": "included-in-16MiB-support-reservation-not-cgroup-limit",
+        "child_support_fds": "three-selected-consumed-then-explicit-close-and-final-guard",
+        "readiness": "private-path-fifo-bind-opened-device-inode-verified",
         "attempts": 4,
         "proof_scope": PROOF_BASE + "/" + PROOF_PREFIX + "*",
         "admission_scope": ADMISSION,
@@ -157,7 +162,26 @@ def _proof_directory(base):
     return path
 
 
-def _argv(fds, case, sentinel, host_namespace, index, ready_fd):
+def _selected_fds(fds, case):
+    return tuple(
+        fds["bad_" + role] if case == role + "_pin" else fds[role]
+        for role in ("tool", "keyring", "input")
+    )
+
+
+def _prepare_fds(fds, case):
+    selected = _selected_fds(fds, case)
+    if len(set(selected)) != 3:
+        raise QualificationRefused("media_origin_attachment_alias")
+    # Serial launches only: no shared open-file-description offset is rewound
+    # until the preceding operation has confirmed settlement.
+    for fd in selected:
+        if os.lseek(fd, 0, os.SEEK_SET) != 0:
+            raise QualificationRefused("media_origin_attachment_offset")
+    return selected
+
+
+def _argv(fds, case, sentinel, host_namespace, index, ready):
     command = [
         "/usr/bin/python3.12",
         "-I",
@@ -169,6 +193,8 @@ def _argv(fds, case, sentinel, host_namespace, index, ready_fd):
         str(sentinel),
         host_namespace,
         str(index),
+        str(ready[1]) if ready is not None else "-",
+        str(ready[2]) if ready is not None else "-",
     ]
     argv = python_compute_sandbox(command)
     mounts = [
@@ -183,15 +209,15 @@ def _argv(fds, case, sentinel, host_namespace, index, ready_fd):
         "--dir",
         "/tmp/zelo-gnupg",
     ]
-    for role, destination in (
-        ("tool", "/opt/zelo-origin-gpgv"),
-        ("keyring", "/opt/zelo-origin-keyring.gpg"),
-        ("input", "/opt/zelo-origin.InRelease"),
+    for selected, mode, destination in zip(
+        _selected_fds(fds, case),
+        ("0755", "0644", "0644"),
+        ("/opt/zelo-origin-gpgv", "/opt/zelo-origin-keyring.gpg", "/opt/zelo-origin.InRelease"),
+        strict=True,
     ):
-        selected = fds["bad_" + role] if case == role + "_pin" else fds[role]
-        mounts += ["--ro-bind", f"/proc/self/fd/{selected}", destination]
-    if ready_fd >= 0:
-        mounts += ["--bind-fd", str(ready_fd), "/opt/zelo-origin-ready"]
+        mounts += ["--perms", mode, "--ro-bind-data", str(selected), destination]
+    if ready is not None:
+        mounts += ["--bind", str(ready[0]), "/opt/zelo-origin-ready"]
     if case == "setup_failure":
         mounts += ["--ro-bind", str(sentinel.parent / "fixed-missing"), "/opt/zelo-missing"]
     point = argv.index("--remount-ro")
@@ -231,6 +257,7 @@ async def _native(state, store, fds, case, raw, label, index, job_deadline):
     sentinel = store.path / "host-only-sentinel"
     host_namespace = os.readlink("/proc/self/ns/net")
     ready_fd = -1
+    ready = None
     if case in ("cancel", "cancel_repeated"):
         if store.entries >= 96:
             raise QualificationRefused("media_origin_retained_entries")
@@ -240,12 +267,23 @@ async def _native(state, store, fds, case, raw, label, index, job_deadline):
         ready_fd = state.hold(
             os.open(fifo, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         )
+        info = os.fstat(ready_fd)
+        if (
+            not stat.S_ISFIFO(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_nlink != 1
+            or info.st_uid != 1000
+        ):
+            raise QualificationRefused("media_origin_readiness_identity")
+        ready = (fifo, info.st_dev, info.st_ino)
+    if not state.processes_settled:
+        raise QualificationRefused("media_origin_previous_operation_unsettled")
+    passed_fds = _prepare_fds(fds, case)
     observation = NativeExecutionObservation()
     state.observations.append(observation)
-    passed_fds = tuple(fds.values()) + ((ready_fd,) if ready_fd >= 0 else ())
     operation = asyncio.create_task(
         run_process(
-            _argv(fds, case, sentinel, host_namespace, index, ready_fd),
+            _argv(fds, case, sentinel, host_namespace, index, ready),
             cwd=ROOT,
             timeout=max(0.001, deadline - time.monotonic()),
             deadline=deadline,

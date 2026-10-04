@@ -59,7 +59,23 @@ for kind,bound in ((resource.RLIMIT_AS,268435456),(resource.RLIMIT_CPU,10),
                    (resource.RLIMIT_CORE,0),(resource.RLIMIT_NPROC,0)):
     resource.setrlimit(kind,(bound,bound))
 import errno,hashlib,json,os,stat,sys
-if len(sys.argv)!=5:
+# The parent retains its own copies until settlement. Close any inherited child
+# support descriptors before probes; only EBADF from the proc scanner is benign.
+names=os.listdir('/proc/self/fd')
+if len(names)>256 or any(not name.isdecimal() for name in names):
+    raise SystemExit(31)
+for name in names:
+    fd=int(name)
+    if fd<=2:
+        continue
+    try:
+        os.fstat(fd)
+    except OSError as error:
+        if error.errno==errno.EBADF:
+            continue
+        raise
+    os.close(fd)
+if len(sys.argv)!=7:
     raise SystemExit(20)
 case=sys.argv[1]
 allowed=('input','altered_text','network','write','host_file',
@@ -68,6 +84,13 @@ allowed=('input','altered_text','network','write','host_file',
 if case not in allowed or sys.argv[4] not in ('0','1','2'):
     raise SystemExit(20)
 index=int(sys.argv[4])
+if case in ('cancel','cancel_repeated'):
+    if any(not value.isdecimal() or len(value)>20 or str(int(value))!=value
+           for value in sys.argv[5:7]):
+        raise SystemExit(20)
+    ready_identity=tuple(int(value) for value in sys.argv[5:7])
+elif sys.argv[5:7]!=['-','-']:
+    raise SystemExit(20)
 expected_env={'PATH':'/usr/bin','LANG':'C.UTF-8','LC_ALL':'C.UTF-8',
               'TMPDIR':'/tmp','HOME':'/tmp/zelo-gnupg','GNUPGHOME':'/tmp/zelo-gnupg',
               'PWD':'/workspace'}
@@ -101,7 +124,7 @@ def read(path,size,digest,mode):
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
     try:
         before=os.fstat(fd)
-        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=0
             or stat.S_IMODE(before.st_mode)!=mode or before.st_size!=size
             or not 0<size<=524288):
             raise ValueError('identity')
@@ -112,9 +135,9 @@ def read(path,size,digest,mode):
                 raise ValueError('size')
         after=os.fstat(fd)
         if (len(raw)!=size or hashlib.sha256(raw).hexdigest()!=digest
-            or (before.st_dev,before.st_ino,before.st_mode,before.st_size,
+            or (before.st_dev,before.st_ino,before.st_mode,before.st_nlink,before.st_size,
                 before.st_mtime_ns,before.st_ctime_ns)!=(after.st_dev,after.st_ino,
-                after.st_mode,after.st_size,after.st_mtime_ns,after.st_ctime_ns)):
+                after.st_mode,after.st_nlink,after.st_size,after.st_mtime_ns,after.st_ctime_ns)):
             raise ValueError('drift')
     finally:
         os.close(fd)
@@ -138,8 +161,17 @@ if case in ('cpu','timeout'):
     time.sleep(300)
 if case in ('cancel','cancel_repeated'):
     import time
-    with open('/opt/zelo-origin-ready','wb',buffering=0) as ready:
-        ready.write(b'R')
+    ready=os.open('/opt/zelo-origin-ready',
+                  os.O_WRONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+    try:
+        info=os.fstat(ready)
+        if (not stat.S_ISFIFO(info.st_mode) or stat.S_IMODE(info.st_mode)!=0o600
+            or info.st_nlink!=1 or (info.st_dev,info.st_ino)!=ready_identity):
+            raise SystemExit(32)
+        if os.write(ready,b'R')!=1:
+            raise SystemExit(32)
+    finally:
+        os.close(ready)
     time.sleep(300)
 if case=='output':
     sys.stdout.write('x'*65537)
@@ -211,8 +243,8 @@ if case in ('network','write','host_file','imports','memory'):
     raise SystemExit(0 if ok else 28)
 
 # No caller code, optional library, shell, or additional process. The already
-# authenticated inode is mounted at this one fixed path until ownership settles.
-# Bubblewrap must have closed all supplied support FDs; verify no surviving FD >2.
+# authenticated private byte copy is mounted read-only at this fixed path.
+# Preserve a final independent guard after explicit early support-FD closure.
 names=os.listdir('/proc/self/fd')
 if len(names)>8 or any(not name.isdecimal() for name in names):
     raise SystemExit(31)
