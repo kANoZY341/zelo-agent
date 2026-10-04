@@ -284,6 +284,38 @@ operator-authenticated activation endpoint.
 v0.14 does not add the broad Browser/Computer/Python/API/Shell/Media capability
 ecosystem; that remains the v0.15 milestone.
 
+## Persistent Agent Computer foundation (v0.15 development)
+
+Zelo now has an **inert, default-unconfigured foundation** for per-AgentInstance
+persistent computers. It deliberately reuses the MIT-licensed OpenBot
+computer/supervisor infrastructure pattern reviewed in CopilotKit/OpenDots
+instead of rebuilding container and browser-profile lifecycle from zero.
+
+The imported deployment is pinned to OpenBot commit
+`b6932d31a8d6e7896c15139dfc27a6c6911deb27`. Zelo keeps its own Core authority
+boundary, derives a separate HMAC credential for each AgentInstance, requires a
+loopback-only supervisor in this first topology, preserves upstream license and
+provenance notices, and fails closed if the patched supervisor contract changes.
+
+`AgentSpec` can now describe optional persistent-computer intent plus explicit
+instructions, skill IDs, Space grants and skill-learning policy. Those fields are
+metadata and upper bounds only; they do not grant execution authority.
+
+This foundation currently exposes only trusted backend configuration and
+computer lifecycle identity/list/ensure/stop plumbing. It does **not** register a
+Computer Worker, add a task kind, expose browser/file/shell actions to Mind or
+Agents, or fall back to host execution. See
+`docs/v0.15-agent-computer-openbot-foundation.md`.
+
+Build validation uses:
+
+```bash
+ZELO_COMPUTER_SUPERVISOR_TOKEN=<random-24+-char-secret> ZELO_COMPUTER_TOKEN=<different-random-24+-char-secret> docker compose -f compose.agent-computers.yml build   agent-computer-image agent-computer-supervisor
+```
+
+The future Control Desk Computer Panel remains parked with the rest of the UI
+work until Core qualification reaches that gate.
+
 ## Bounded API Worker (v0.15)
 
 `api_run` uses the trusted `api_core` worker with `api_read` capability and skill.

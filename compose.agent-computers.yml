@@ -1,0 +1,54 @@
+# Persistent agent-computer backend adapted from CopilotKit/OpenDots.
+# OpenBot is pinned to the exact revision OpenDots reviewed for its computer layer.
+services:
+  agent-computer-image:
+    profiles: [build-agent-computers]
+    image: zelo-agent-computer:b6932d3
+    build:
+      context: https://github.com/CopilotKit/OpenBot.git#b6932d31a8d6e7896c15139dfc27a6c6911deb27
+      dockerfile: agent-computer/Dockerfile
+    command: ['true']
+
+  agent-computer-supervisor:
+    image: zelo-agent-computer-supervisor:b6932d3-zelo-auth
+    build:
+      context: .
+      dockerfile: deployment/agent-computers/supervisor.Dockerfile
+      additional_contexts:
+        openbot: https://github.com/CopilotKit/OpenBot.git#b6932d31a8d6e7896c15139dfc27a6c6911deb27
+    ports:
+      - '127.0.0.1:4312:4300'
+    environment:
+      PORT: '4300'
+      SUPERVISOR_TOKEN: ${ZELO_COMPUTER_SUPERVISOR_TOKEN:?Set ZELO_COMPUTER_SUPERVISOR_TOKEN}
+      COMPUTER_TOKEN: ${ZELO_COMPUTER_TOKEN:?Set ZELO_COMPUTER_TOKEN}
+      COMPUTER_NAMESPACE: ${ZELO_COMPUTER_NAMESPACE:-zelo}
+      COMPUTER_IMAGE: zelo-agent-computer:b6932d3
+      COMPUTER_BROWSER_MODE: headless
+      COMPUTER_NETWORK: ''
+      COMPUTER_MEMORY_BYTES: ${ZELO_COMPUTER_MEMORY_BYTES:-2147483648}
+      COMPUTER_RUNTIME: ${ZELO_COMPUTER_RUNTIME:-}
+    volumes:
+      - ${ENGINE_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+    networks:
+      - agent-computer-control
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r = await fetch('http://localhost:4300/health'); const j = await r.json(); process.exit(r.ok && j.docker ? 0 : 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  agent-computer-control:
+    driver: bridge
