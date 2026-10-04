@@ -469,16 +469,18 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #86 completed fixed Media archive
-acquisition, not the Media Worker. Eight archives have accepted historical byte
-identity. Exact-version package-reader source research now retains 15 files and
-passed 33 tamper controls; binary/source and complete runtime correspondence are
-not independently authenticated. See `docs/v0.15-media-package-reader-source.md`.
+Core-first checkpoint (4 October 2026): PR #87 merged after 3,740 exact-head CI
+passes and two skips. PR #86's eight archives have historical byte identity only.
+The new offline member inventory contract enforces run/archive/policy bindings,
+owner outcome refusal, safe names/topology and aggregate limits. It establishes
+metadata consistency, not member authentication, archive parsing or runtime authority.
+See `docs/v0.15-media-member-contract.md`; its new PR needs full CI and review.
 
-Next: bounded helper/build closure and a mature secondary tar-reader choice, then
-native stream/member qualification, runtime/import closure, resource/filter and
-image-decoder qualification, Core binding and release checks. No package reader
-or image decoder is activated. UI #61 stays parked and v0.14.0 is unchanged.
+The original 15 files of source research plus eight additional helpers are
+recorded, but complete native/build/runtime closure and the selected tar parser
+remain unqualified. Next: exact parser-source inspection and isolated owner
+qualification, runtime/import closure, resource/filter and image decoding, Core
+binding and release gates. UI #61 is parked and v0.14.0 is unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

@@ -6,32 +6,34 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media package-reader source research
+## Active increment: v0.15 Media package-reader contract
 
-Core v0.15 remains active; UI remains parked. PR #86 (Media archive acquisition)
-is merged at `b1638a0e7f074c8ca8a2bc47326e315d510a0820`. Its reviewed-tree merge
-and post-merge CI succeeded. One batch verified eight archives / 8,745,084 bytes:
-**historical archive-byte identity**, not Media readiness or runtime authority.
+Core v0.15 remains active; UI stays parked. PR #86 established
+**historical archive-byte identity** for eight archives / 8,745,084 bytes, not Media readiness.
+PR #87 is merged at `63d2aae`; corrected-head CI passed 3,740 tests with two skips.
+Its exact reviewed merge tree was verified. The current-context heading is fixed.
 
-Local identity research observed dpkg `1.22.6ubuntu6.6` amd64. Exact-version Ubuntu
-publication and source research now retain 15 files / 1,115,169 bytes from applied
-commit `ba5fe18eb68084206981fb7b3a7c281eb2d38372`. A separate audit passed 33 tamper
-controls. Sixteen source requests included one retained HTTP404 and a reviewed
-path correction; no source-corpus quota was reset or package reader executed.
+On `feat/v0.15-media-member-contract`, the offline member inventory contract
+validates exact archive/run/policy/proof bindings and separately supplied owner
+outcomes. It refuses unsafe names, duplicate/ancestor conflicts, contradictory
+sizes, forged fields and failed cleanup/cancellation even with exit zero. Bounded
+immutable results mean **metadata consistency only**, not authenticated contents
+or runtime authority. It imports no archive parser, native tool or live settings.
 
-The next work is bounded helper/build closure and secondary tar-reader selection,
-then native stream/member-reader design and qualification. The source review
-identified subprocess ownership, unbounded decoder memory, temporary extraction
-in information commands and SIGPIPE-success handling as concrete design concerns.
-Binary/source correspondence, dsc signature, complete runtime/ABI/import closure,
-resource/filter and image-decoder qualification, Core binding and release remain
-unproved. See `v0.15-media-package-reader-source.md` and the reader candidate design.
+Validation: 181 new synthetic cases, 284 focused passes, 2,101 Media passes and
+six detected in-memory guard bypasses. Fresh review/full CI and exact-tree merge
+remain required for this new increment. See `v0.15-media-member-contract.md`.
 
-PR #87's original CI failed on the renamed active-status heading. The stable
-heading and current roadmap facts are restored with regression tests; replacement
-head review/full CI remain required. This is direct ChatGPT work, not a new Codex
-job. All original proof quotas and user/runtime data are preserved. No enabled
-flag, UI change, v0.15 release or later milestone completion is claimed.
+The original 15-file source research is preserved. Eight additional helper files
+(31,201 bytes) confirm passthrough enum/dispatch constraints; a retained audit
+passed. Full locale/debug/build/runtime closure is NOT complete. Python tarfile
+is only a candidate: its documentation was reviewed but both source fetches
+failed. Exact patched-source inspection and parser semantics remain open.
+
+Next: qualify the selected parser and isolated owner, then authenticated member/
+runtime/import closure, resource/filter and decoder qualification, Core binding
+and release checks. No native parsing, installation, model job, UI change or
+runtime flag occurred. Existing proof quotas and user data are unchanged.
 
 ## Checkpoint history
 
