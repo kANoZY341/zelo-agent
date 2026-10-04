@@ -68,49 +68,59 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media package archive acquisition implementation after PR85
-merge 19e0be24cb0a60bac1f540f08a27d82082895e9d. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media package-reader source/provenance research after PR86
+merge b1638a0e7f074c8ca8a2bc47326e315d510a0820. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: offline package acquisition implementation and source review
+## Current scope: package-reader official-source manifest design
 
-PR85 merged at 19e0be24cb0a60bac1f540f08a27d82082895e9d, matching its reviewed
-tree. CI passed 3,640 tests, 209 selector/operator tests and 1,823 Media checks;
-four standalone checks and ten causal controls (14 intended failures) passed.
-Read docs/reviews/media-local-index-{final-review,final-gates}.md.
-Accepted index proof SHA256:
-199b3b16ee247497b782d78356bb88f3f67ed717401d5cb39ec7a8fc2c0b210d.
-It authenticates three indexes and selects eight fixed package records. It does
-not authenticate package members or grant platform/runtime authority.
+PR86 merged at b1638a0e7f074c8ca8a2bc47326e315d510a0820 with its exact reviewed
+tree 53f8fcd719b51058c99081557dc0bb37453c80e7. Matching pre-merge CI passed
+3,737 tests, two skips; four retained standalone passes and seven causal controls
+are recorded. A fresh direct acquisition suite passed 97 tests. Read
+`docs/reviews/media-package-acquisition-r2-source-review.md`,
+`docs/reviews/media-package-acquisition-actual-review.md` and
+`docs/reviews/media-package-acquisition-final-gates.md`.
 
-Retain all scopes: origin 4/4 exhausted, index 2/4 (first refused, second passed),
-ELF version 2/4, old loader 4/4. No further origin/index/ELF attempt or quota reset.
-Shared ownership/admission helpers stay unchanged. Preserve every old proof.
+Exactly one acquisition batch passed: eight archives / 8,745,084 bytes; all exact
+hashes and the retained inventory were audited. Accepted proof SHA256:
+c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
+No archive members were parsed and no runtime authority was granted.
 
-The next acquisition proposal is runtime/media-package-acquisition-next-design.md.
-Its preliminary review is archived in docs/reviews/media-package-acquisition-design-review-r1.md.
-Astra Medium cleared the refined design for offline implementation; read
-docs/v0.15-media-package-acquisition.md and the R2 design review. The source
-references and license are retained under runtime/media-package-http-reference.
-The signed eight-record lock is pinned at
-0c7b800977288ea8beb88f765718d8df42e0a40729ef5bbc6c3d41c2f4f298d6.
+The three-path R2 local identity observation also completed after design review.
+Read `docs/v0.15-media-package-member-identity.md` and its two review records.
+Only /usr/bin/dpkg-deb, /usr/share/doc/dpkg/copyright and /var/lib/dpkg/status
+were observed as inert bytes. The installed status record reports dpkg
+1.22.6ubuntu6.6 amd64 but has NO Source field. Binary-to-source correspondence
+and independent package membership are unresolved, not inferred from that record.
+No package tool was executed. Local identity research is consumed (1/1).
 
-Implement only the closed acquisition adapter and fake-only tests. No real DNS,
-socket, TLS context/CA loading, endpoint probe or download is cleared. Real
-stdlib HTTPResponse may parse synthetic BytesIO. Preserve exact ownership
-transitions, pre-parser header bounds, direct verified TLS context, immutable
-CA data, framed-body-only claims and explicitly cooperative deadlines. Hold
-archive/CA/support FDs; JSON closes inside _Store. Count both read-back copies.
+Next: prepare a separately reviewed closed official-source retrieval/inspection
+manifest with exact distribution revision/patch identity, literal source/document/
+license paths, finite request/file/per-file/aggregate/retained limits, failed-request
+accounting and no retries or recursive discovery. ZERO public requests are cleared
+by the completed local identity observation. Do not inspect arbitrary installed
+files, rerun the identity observation, invoke dpkg-deb (even --version), read archive
+members, decompress/extract/install, or write a reusable member parser/materializer.
+A future mature-tool adapter and native sandbox qualification are separate gates.
 
-A frozen full source review must explicitly clear at most one eight-file batch;
-actual review, matching CI and supplements precede normal merge. No automatic retry.
+The prior local-identity Codex review hit its usage limit and is NOT a completed
+verdict. The continuing session used direct ChatGPT review and tools; no new Codex
+job was launched. Do not retry exhausted Codex jobs or claim a review occurred when
+it did not. Preserve explicit source, actual-evidence, matching CI and exact-tree
+merge requirements; direct review is not a claim of a separate Codex execution.
 
-No package/member tool execution, Pillow/decoder, ctypes/filter, Docker/cgroup/
-daemon/system/updater changes, live data/config/model calls/listeners, Core/Mind/
-Agent/route binding or enabled flags. Original resource/filter gates precede image
-decoder. Conditional historical attribution does not establish freshness, current
-key validity, package-member provenance, platform/ABI or runtime authority.
-Continue v0.15, then v0.16 -> v0.17 -> v0.18. Preserve v0.14.0 and parked UI #61.
+Retain all scopes: origin 4/4 exhausted, index 2/4, ELF version 2/4, old loader
+4/4 exhausted, acquisition 1/4, and local identity 1/1. No quota reset, proof
+repair/overwrite or additional actual attempt. Shared admission/ownership helpers
+remain unchanged. Preserve every old proof and all user/runtime data.
+
+No Pillow/image decoder, native member tool, ctypes/filter, Docker/cgroup/daemon/
+system/updater changes, live data/config/model calls/listeners, Core/Mind/Agent/
+route binding or enabled flags. Resource/filter gates still precede decoding.
+Historical archive attribution is not freshness, current-key validity, member
+provenance, platform/ABI qualification or runtime authority. Continue v0.15 and
+then the canonical roadmap to v0.18; preserve v0.14.0 and parked UI #61.
 
 ## Workspace decision
 
