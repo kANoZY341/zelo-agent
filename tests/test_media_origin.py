@@ -259,3 +259,38 @@ def test_release_row_and_field_count_bounds():
     raw = b"".join(f"Field{i}: value\n".encode() for i in range(65))
     with pytest.raises(m.OriginError, match="release_field"):
         m.parse_release(raw, "noble")
+
+
+def bad_status():
+    return (
+        "[GNUPG:] PLAINTEXT 74 0 \n[GNUPG:] NEWSIG\n"
+        f"[GNUPG:] KEY_CONSIDERED {m.FINGERPRINT} 0\n"
+        f"[GNUPG:] BADSIG {m.KEY_ID} Example UID\n"
+    ).encode()
+
+
+def test_bad_signature_requires_complete_pinned_transcript():
+    assert m.validate_bad_signature_status(bad_status()) == {
+        "status": "pinned-key-bad-signature",
+        "primary": m.FINGERPRINT,
+    }
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"",
+        b"[GNUPG:] FAILURE gpg-exit 2\n",
+        b"diagnostic with [GNUPG:] BADSIG " + m.KEY_ID.encode() + b" UID\n",
+        bad_status().replace(m.KEY_ID.encode(), b"0" * 16),
+        bad_status() + b"[GNUPG:] FAILURE unrelated 1\n",
+        bad_status() + bad_status(),
+        bad_status().replace(b"NEWSIG\n", b"NEWSIG\n[GNUPG:] NEWSIG\n"),
+        bad_status().replace(b"BADSIG", b"GOODSIG"),
+        bad_status().replace(b"Example UID", b""),
+        status(),
+    ],
+)
+def test_negative_status_rejects_unrelated_incomplete_or_embedded_failure(raw):
+    with pytest.raises(m.OriginError):
+        m.validate_bad_signature_status(raw)

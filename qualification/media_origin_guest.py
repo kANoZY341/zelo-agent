@@ -39,11 +39,7 @@ NEGATIVES = {
     "altered_text": {
         "bytes": 126125,
         "sha256": "a03389058ac6ba3b7b0507aca0a667ee76f2e168acbefa8437d3f4e4549aac45",
-    },
-    "malformed_armor": {
-        "bytes": 126125,
-        "sha256": "1e2cf93555ccc797d9d4fb3e83e2a3704f5830a0d7fcbc06f6e991d46195719a",
-    },
+    }
 }
 
 GUEST_BOOTSTRAP = (
@@ -66,7 +62,7 @@ import errno,hashlib,json,os,stat,sys
 if len(sys.argv)!=5:
     raise SystemExit(20)
 case=sys.argv[1]
-allowed=('input','altered_text','malformed_armor','network','write','host_file',
+allowed=('input','altered_text','network','write','host_file',
          'imports','memory','output','cpu','timeout','cancel','cancel_repeated',
          'setup_failure','tool_pin','keyring_pin','input_pin')
 if case not in allowed or sys.argv[4] not in ('0','1','2'):
@@ -171,19 +167,23 @@ if case in ('network','write','host_file','imports','memory'):
         for path in ('/tmp/origin-probe','/workspace/origin-probe',
                      '/opt/origin-probe'):
             try:
-                with open(path,'xb') as output:
-                    output.write(b'probe')
-            except OSError:
-                results.append(True)
+                fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_CLOEXEC,0o600)
+            except OSError as error:
+                results.append(error.errno==errno.EROFS)
             else:
-                results.append(False)
+                os.close(fd)
+                # Creation itself succeeded: fail even when later writes would EFBIG.
+                print(json.dumps({'status':'probe','case':case,'enforced':False}))
+                raise SystemExit(28)
         ok=all(results)
     elif case=='host_file':
         try:
-            with open(sys.argv[2],'rb') as private:
-                private.read(1)
-        except OSError:
-            ok=True
+            fd=os.open(sys.argv[2],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC)
+        except OSError as error:
+            ok=error.errno==errno.ENOENT
+        else:
+            os.close(fd)
+            ok=False
     elif case=='imports':
         results=[]
         for name in ('PIL','app','tests','scripts'):

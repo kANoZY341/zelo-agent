@@ -77,10 +77,10 @@ def test_frozen_identity_and_retention_ledger():
     assert [row["suite"] for row in INPUTS] == ["noble-updates", "noble", "noble-security"]
     assert sum(row["bytes"] for row in INPUTS) == 508102
     p = q.policy()
-    assert p["processes"] == len(q.MATRIX) + len(INPUTS) + len(NEGATIVES) == 19
-    # 38 channels, pending report, sentinel + three bad pins + two negatives, two FIFOs.
-    assert p["retained_ledger_entries"] == 2 * 19 + 1 + 6 + 2 == 47
-    maximum = 5 * 524288 + 14 * 65536 + 19 * 16384 + 2097152 + 4 * 128 + 2 * 126125
+    assert p["processes"] == len(q.MATRIX) + len(INPUTS) + len(NEGATIVES) == 18
+    # 36 channels, pending report, sentinel + three bad pins + one negative, two FIFOs.
+    assert p["retained_ledger_entries"] == 2 * 18 + 1 + 5 + 2 == 44
+    maximum = 4 * 524288 + 14 * 65536 + 18 * 16384 + 2097152 + 4 * 128 + 126125
     assert p["retained_ledger_bytes"] == maximum < 8388608
     assert p["attempts"] == 4
     assert p["admission_scope"] == "runtime/media-elf-metadata-admission"
@@ -352,9 +352,139 @@ def test_whole_job_admission_and_release_order(tmp_path, monkeypatch):
     monkeypatch.setattr(q._Store, "save", save)
     monkeypatch.setattr(q, "_read_fd", lambda *args: b"checked")
     result = asyncio.run(q._qualify())
-    assert result["cases"] == 19 and result["admission_release_confirmed"]
+    assert result["cases"] == 18 and result["admission_release_confirmed"]
     assert events[0] == "admission" and events[-1] == "release"
     with open(result["proof"], "rb") as proof:
         assert hashlib.sha256(proof.read()).hexdigest() == result["proof_sha256"]
     # Avoid leaking monkeypatched shared symbols into other tests.
     assert original_read is q.helpers._read_fd
+
+
+def probe_segment():
+    # Run only the fixed pure probe block with fake filesystem operations.
+    # Never execute the guest bootstrap or any real file access.
+    start = GUEST_BOOTSTRAP.index("if case in ('network','write','host_file','imports','memory'):")
+    end = GUEST_BOOTSTRAP.index("# No caller code", start)
+    return compile(GUEST_BOOTSTRAP[start:end], "isolated-offline-probe-control", "exec")
+
+
+@pytest.mark.parametrize(
+    "case,number,expected",
+    [
+        ("write", 30, True),
+        ("write", 27, False),
+        ("write", 13, False),
+        ("write", 5, False),
+        ("host_file", 2, True),
+        ("host_file", 13, False),
+        ("host_file", 5, False),
+    ],
+)
+def test_probe_requires_creation_erofs_or_specific_absence(case, number, expected):
+    import errno
+    import json
+
+    observed = []
+
+    def opening(*args):
+        raise OSError(number, "synthetic")
+
+    fake = SimpleNamespace(
+        open=opening,
+        close=lambda fd: pytest.fail("nothing was opened"),
+        O_RDONLY=0,
+        O_WRONLY=1,
+        O_CREAT=2,
+        O_EXCL=4,
+        O_CLOEXEC=8,
+        O_NOFOLLOW=16,
+        O_NONBLOCK=32,
+    )
+    with pytest.raises(SystemExit) as stopped:
+        exec(
+            probe_segment(),
+            dict(
+                case=case,
+                os=fake,
+                sys=SimpleNamespace(argv=["program", case, "/host/sentinel"]),
+                errno=errno,
+                json=json,
+                print=lambda value: observed.append(json.loads(value)),
+            ),
+        )
+    assert stopped.value.code == (0 if expected else 28)
+    assert observed == [{"status": "probe", "case": case, "enforced": expected}]
+
+
+def test_creation_success_cannot_pass_via_later_efbig():
+    import errno
+    import json
+
+    calls = []
+    observed = []
+
+    class LateFileSizeFailure:
+        def __enter__(self):
+            calls.append("buffered-created")
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def write(self, value):
+            raise OSError(errno.EFBIG, "zero FSIZE after creation")
+
+    fake = SimpleNamespace(
+        open=lambda *args: calls.append("created") or 42,
+        close=lambda fd: calls.append(("closed", fd)),
+        O_WRONLY=1,
+        O_CREAT=2,
+        O_EXCL=4,
+        O_CLOEXEC=8,
+    )
+    with pytest.raises(SystemExit) as stopped:
+        exec(
+            probe_segment(),
+            dict(
+                case="write",
+                os=fake,
+                errno=errno,
+                json=json,
+                open=lambda *args: LateFileSizeFailure(),
+                print=lambda value: observed.append(json.loads(value)),
+            ),
+        )
+    assert stopped.value.code == 28
+    assert observed == [{"status": "probe", "case": "write", "enforced": False}]
+    assert calls == ["created", ("closed", 42)]
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        b"",
+        b"[GNUPG:] FAILURE unrelated 2\n",
+        b"embedded [GNUPG:] BADSIG 871920D1991BC93C fake\n",
+    ],
+)
+def test_negative_native_exit_two_alone_never_passes(tmp_path, monkeypatch, stderr):
+    async def launch(*args, **kwargs):
+        kwargs["observation"]._no_child()
+        return SimpleNamespace(exit_code=2, stdout=b"", stderr=stderr)
+
+    monkeypatch.setattr(q, "run_process", launch)
+    monkeypatch.setattr(q, "_argv", lambda *args: ["fake"])
+    state = q._State()
+    with pytest.raises(q.QualificationRefused, match="case_failed"):
+        asyncio.run(
+            q._native(
+                state,
+                q._Store(tmp_path, state),
+                {},
+                "altered_text",
+                b"input",
+                "altered",
+                0,
+                q.time.monotonic() + 30,
+            )
+        )

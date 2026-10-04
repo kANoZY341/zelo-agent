@@ -101,7 +101,7 @@ def policy():
         "capabilities": "all-dropped",
         "environment": ENV,
         "matrix": MATRIX,
-        "processes": 19,
+        "processes": 18,
         "whole_seconds": 120,
         "setup_seconds": 30,
         "case_seconds": 15,
@@ -121,8 +121,8 @@ def policy():
         "admission_scope": ADMISSION,
         "retained_entries_per_attempt": 96,
         "retained_bytes_per_attempt": 8388608,
-        "retained_ledger_entries": 47,
-        "retained_ledger_bytes": 6200154,
+        "retained_ledger_entries": 44,
+        "retained_ledger_bytes": 5533357,
         "host_tool_trust": "conditional-operator-baseline-not-platform-origin",
         "host_source_assumption": "trusted-ancestors-mounts-and-no-concurrent-mutator",
         "filesystem_deadline": "not-hard",
@@ -216,12 +216,6 @@ def _negative(raw, name):
         if raw.count(b"Origin: Ubuntu\n") != 1:
             raise QualificationRefused("media_origin_negative_source")
         result = raw.replace(b"Origin: Ubuntu\n", b"Origin: Ubuntx\n")
-    elif name == "malformed_armor":
-        lines = raw.splitlines(keepends=True)
-        if not lines[-2].startswith(b"="):
-            raise QualificationRefused("media_origin_negative_source")
-        lines[-2] = b"=AAAA\n" if lines[-2] != b"=AAAA\n" else b"=BBBB\n"
-        result = b"".join(lines)
     else:
         raise QualificationRefused("media_origin_negative_case")
     pin = NEGATIVES[name]
@@ -292,17 +286,13 @@ async def _native(state, store, fds, case, raw, label, index, job_deadline):
             else:
                 passed = error is None
     elif case in NEGATIVES:
-        passed = (
-            result is not None
-            and error is None
-            and result.exit_code in (1, 2)
-            and b"[GNUPG:] VALIDSIG " not in result.stderr
-            and b"[GNUPG:] GOODSIG " not in result.stderr
-            and (
-                (case == "altered_text" and b"[GNUPG:] BADSIG " in result.stderr)
-                or (case == "malformed_armor" and result.exit_code == 2)
-            )
-        )
+        if result is not None and error is None and result.exit_code in (1, 2):
+            try:
+                value = origin.validate_bad_signature_status(result.stderr)
+            except origin.OriginError as refusal:
+                error = str(refusal)
+            else:
+                passed = True
     elif case.endswith("_pin"):
         value = (
             json.loads(result.stdout)
@@ -408,7 +398,7 @@ async def _qualify():
         for case, (fd, raw) in negative_inputs.items():
             fds["input"] = fd
             records.append(await _native(state, store, fds, case, raw, case, 0, started + 120))
-        if len(records) != 19:
+        if len(records) != 18:
             raise QualificationRefused("media_origin_job_count")
         for role, pin in (("tool", TOOL), ("keyring", KEYRING)):
             _read_fd(fds[role], 524288, pin[2], pin[1])
@@ -443,7 +433,7 @@ async def _qualify():
         "status": "qualified-fixed-historical-release-declarations",
         "proof": str(store.path / "cases.json"),
         "proof_sha256": hashlib.sha256(proof_raw).hexdigest(),
-        "cases": 19,
+        "cases": 18,
         "release_inputs": 3,
         "admission_release_confirmed": True,
         "platform_complete": False,

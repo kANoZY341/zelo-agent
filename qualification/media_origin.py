@@ -196,6 +196,25 @@ def validate_status(raw):
     return valid
 
 
+def validate_bad_signature_status(raw):
+    """Exact negative transcript, not arbitrary failure or a substring witness."""
+    lines = _lines(raw, bound=STATUS_BYTES, count=16, width=2048, code="negative_status")
+    if len(lines) < 4 or lines[:2] != ["[GNUPG:] PLAINTEXT 74 0 ", "[GNUPG:] NEWSIG"]:
+        _refuse("negative_status_order")
+    keys = lines[2:-1]
+    if not 1 <= len(keys) <= 8 or any(
+        line != "[GNUPG:] KEY_CONSIDERED " + FINGERPRINT + " 0" for line in keys
+    ):
+        _refuse("negative_status_key")
+    prefix = "[GNUPG:] BADSIG " + KEY_ID + " "
+    if not lines[-1].startswith(prefix):
+        _refuse("negative_status_badsig")
+    uid = lines[-1][len(prefix) :]
+    if not 1 <= len(uid) <= 1024 or re.search(r"%(?![0-9A-Fa-f]{2})", uid):
+        _refuse("negative_status_uid")
+    return {"status": "pinned-key-bad-signature", "primary": FINGERPRINT}
+
+
 def _fields(lines):
     fields = {}
     current = None
