@@ -4,7 +4,14 @@ from sqlalchemy import func, select
 
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.memory import MemoryService
-from app.models import AgentInstance, AgentInstanceEvent, OrganizationAssignment, Project, utcnow
+from app.models import (
+    AgentComputerPermission,
+    AgentInstance,
+    AgentInstanceEvent,
+    OrganizationAssignment,
+    Project,
+    utcnow,
+)
 from app.policy import DomainError
 from app.schemas import (
     AgentInstanceCreate,
@@ -135,6 +142,19 @@ class AgentInstanceService:
             )
             session.add(instance)
             session.flush()
+            if binding.spec.computer is not None:
+                session.add(
+                    AgentComputerPermission(
+                        agent_instance_id=instance.id,
+                        enabled=False,
+                        browser=False,
+                        files=False,
+                        shell=False,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+                session.flush()
             self._append_event(
                 session,
                 instance,

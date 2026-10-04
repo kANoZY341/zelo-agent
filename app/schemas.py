@@ -7,7 +7,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_execution_contracts import AgentExecutionBinding
-from app.agent_factory import AgentSpec
+from app.agent_factory import AgentComputerSpec, AgentSpec
 from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
 from app.browser_contracts import BrowserExecutionSpec
 from app.developer_contracts import (
@@ -632,6 +632,64 @@ class AgentInstanceResponse(StrictModel):
 
 class AgentInstancePage(StrictModel):
     items: list[AgentInstanceResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class AgentComputerPermissionPatch(StrictModel):
+    enabled: bool | None = None
+    browser: bool | None = None
+    files: bool | None = None
+    shell: bool | None = None
+
+    @model_validator(mode="after")
+    def _require_change(self):
+        if all(value is None for value in (self.enabled, self.browser, self.files, self.shell)):
+            raise ValueError("computer_permission_patch_empty")
+        return self
+
+
+class AgentComputerPermissionsResponse(StrictModel):
+    enabled: bool
+    browser: bool
+    files: bool
+    shell: bool
+    updated_at: datetime
+
+
+class AgentComputerControlResponse(StrictModel):
+    holder: Literal["bot", "human"]
+    requested: bool
+    transitioning: bool
+    resume_snapshot_required: bool
+    request_id: str | None = None
+    request_status: str | None = None
+
+
+class AgentComputerStatusResponse(StrictModel):
+    agent_instance_id: TaskId
+    configured: bool
+    state: Literal["not_configured", "stopped", "running", "unavailable"]
+    spec: AgentComputerSpec
+    permissions: AgentComputerPermissionsResponse
+    control: AgentComputerControlResponse | None = None
+    error: str | None = Field(default=None, max_length=256)
+
+
+class AgentComputerEventResponse(StrictModel):
+    id: TaskId
+    agent_instance_id: TaskId
+    sequence: int = Field(ge=1)
+    event: str = Field(min_length=1, max_length=64)
+    actor: Literal["owner", "system"]
+    outcome: Literal["succeeded", "failed"]
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AgentComputerEventPage(StrictModel):
+    items: list[AgentComputerEventResponse]
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)

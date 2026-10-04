@@ -44,6 +44,23 @@ class ComputerListing(BaseModel):
     computers: tuple[ComputerState, ...]
 
 
+class ComputerControlRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    id: str
+    status: str
+
+
+class ComputerControlState(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True, populate_by_name=True)
+
+    holder: Literal["bot", "human"]
+    requested: bool = False
+    transitioning: bool = False
+    resume_snapshot_required: bool = Field(alias="resumeSnapshotRequired")
+    request: ComputerControlRequest | None = None
+
+
 class OpenBotComputerBackend:
     """Zelo-owned boundary over OpenBot's computer supervisor."""
 
@@ -154,6 +171,68 @@ class OpenBotComputerBackend:
             raise ComputerBackendError("computer_identity_mismatch")
         return state
 
+    async def _computer_request(
+        self,
+        agent_instance_id: str,
+        state: ComputerState,
+        path: str,
+        *,
+        body: dict | None = None,
+    ) -> object:
+        agent_instance_id = self._require_agent_id(agent_instance_id)
+        endpoint = self.endpoint(agent_instance_id, state)
+        token = self.derive_agent_token(agent_instance_id)
+        timeout = httpx.Timeout(self.settings.computer_request_timeout_seconds)
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                follow_redirects=False,
+                timeout=timeout,
+            ) as client:
+                async with client.stream(
+                    "GET" if body is None else "POST",
+                    f"{endpoint}{path}",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "x-openbot-bot-id": agent_instance_id,
+                        "Content-Type": "application/json",
+                    },
+                    json=body,
+                ) as response:
+                    if response.status_code < 200 or response.status_code >= 300:
+                        raise ComputerBackendError(f"computer_http_{response.status_code}")
+                    chunks: list[bytes] = []
+                    size = 0
+                    async for chunk in response.aiter_bytes():
+                        size += len(chunk)
+                        if size > _MAX_RESPONSE_BYTES:
+                            raise ComputerBackendError("computer_response_too_large")
+                        chunks.append(chunk)
+        except ComputerBackendError:
+            raise
+        except (httpx.HTTPError, ValueError):
+            raise ComputerBackendError("computer_unavailable") from None
+
+        raw = b"".join(chunks)
+        if not raw:
+            raise ComputerBackendError("computer_response_empty")
+        text = raw.decode("utf-8", errors="replace")
+        for secret in (
+            token,
+            self.settings.computer_token.get_secret_value()
+            if self.settings.computer_token is not None
+            else None,
+            self.settings.computer_supervisor_token.get_secret_value()
+            if self.settings.computer_supervisor_token is not None
+            else None,
+        ):
+            if secret:
+                text = text.replace(secret, "[redacted]")
+        try:
+            return json.loads(text)
+        except ValueError:
+            raise ComputerBackendError("computer_response_invalid") from None
+
     async def list(self) -> tuple[ComputerState, ...]:
         try:
             payload = ComputerListing.model_validate(await self._request("/computers"))
@@ -206,6 +285,74 @@ class OpenBotComputerBackend:
     async def stop(self, agent_instance_id: str) -> None:
         agent_instance_id = self._require_agent_id(agent_instance_id)
         await self._request(f"/computers/{agent_instance_id}/stop", body={})
+
+    async def control(self, agent_instance_id: str) -> ComputerControlState:
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        try:
+            return ComputerControlState.model_validate(
+                await self._computer_request(agent_instance_id, state, "/control")
+            )
+        except ValueError:
+            raise ComputerBackendError("computer_response_invalid") from None
+
+    async def take(self, agent_instance_id: str) -> ComputerControlState:
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        current = await self.control(agent_instance_id)
+        if current.holder == "human":
+            return current
+        request = current.request
+        if request is None or request.status not in {"waiting", "taken"}:
+            try:
+                current = ComputerControlState.model_validate(
+                    await self._computer_request(
+                        agent_instance_id,
+                        state,
+                        "/control/request",
+                        body={"reason": "Owner requested control."},
+                    )
+                )
+            except ValueError:
+                raise ComputerBackendError("computer_response_invalid") from None
+            request = current.request
+        if request is None:
+            raise ComputerBackendError("computer_control_request_missing")
+        try:
+            return ComputerControlState.model_validate(
+                await self._computer_request(
+                    agent_instance_id,
+                    state,
+                    "/control/take",
+                    body={"requestId": request.id},
+                )
+            )
+        except ValueError:
+            raise ComputerBackendError("computer_response_invalid") from None
+
+    async def release(self, agent_instance_id: str) -> ComputerControlState:
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        current = await self.control(agent_instance_id)
+        if current.holder == "bot":
+            return current
+        request = current.request
+        if request is None:
+            raise ComputerBackendError("computer_control_request_missing")
+        try:
+            return ComputerControlState.model_validate(
+                await self._computer_request(
+                    agent_instance_id,
+                    state,
+                    "/control/release",
+                    body={"requestId": request.id},
+                )
+            )
+        except ValueError:
+            raise ComputerBackendError("computer_response_invalid") from None
 
 
 ComputerBackendKind = Literal["openbot"]
