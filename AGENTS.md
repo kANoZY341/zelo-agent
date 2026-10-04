@@ -68,60 +68,57 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is the v0.15 restricted USTAR inventory adapter after PR88
-merge 59dc5f540ec8028b7e016c0ba078f62c4a5a3266. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 isolated USTAR qualification after PR89 merge
+69dd06818bd8ba37ac7669dd58b5667dc1dc8209. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: restricted USTAR adapter, synthetic qualification only
+## Current scope: isolated synthetic USTAR launcher source review
 
-PR88 merged at59dc5f540ec8028b7e016c0ba078f62c4a5a3266 with exact reviewed tree
-1d3a7237ee4722f1fbd11667e02e94e8fd4ae942. Its matching CI37194678705 passed
-3,921 tests, two skips. The pure member contract remains metadata consistency
-only; no fabricated owner outcomes or authenticated-payload claims.
+PR89 merged at69dd06818bd8ba37ac7669dd58b5667dc1dc8209 with reviewed tree
+7419f3a46183afa7fb035fef4dafa73b112f2819. CI37196275201 passed4,122 tests,
+two skips. The scanner has no extraction or GNU/PAX/legacy/sparse fallback.
 
-Read docs/v0.15-media-ustar-inventory.md and
- docs/reviews/media-ustar-inventory-review.md. This slice implements only bounded
-uncompressed POSIX USTAR scanning over trusted caller-provided byte streams.
-TarInfo.frombuf/nts/calc_chksums are the only reused tarfile APIs. No TarFile/open/
-fromtarfile/extraction/automatic GNU/PAX/sparse/compression path. Only regular0,
-directory5 and inert link1/2 types are accepted. Unsupported formats refuse.
-Synthetic real-stdlib header tests are cleared development work, not a qualified
-live runtime or source-to-bytecode proof. No acquired .deb/native tool operation.
+Read docs/v0.15-media-ustar-isolation.md and its source review. The new fixed
+18-case qualifier and fake tests are implemented; native --run is allowed only
+after a frozen-source review explicitly clears one full matrix. No actual
+synthetic proof is yet claimed at this source checkpoint. Never invoke dpkg,
+read retained .deb members, import Pillow or activate a Media route from this gate.
 
-Tests passed201 scanner cases and2,308 combined Media/context cases;9 in-memory
-causal guard removals were detected. Source review and its own full CI/exact-tree
-merge remain gates. Shared admission/ownership helpers, app/routes/dependencies,
-live settings/flags and UI are unchanged. Preserve exactly one active-status
-heading and decisive current facts within2200 characters. Keep roadmap consistent.
+Reuse unchanged Python namespace, NativeExecutionObservation/run_process and
+existing readiness/repeated-cancel helpers, with three pinned read-only source
+copies. No project mount or inherited credentials/config. All source/ready FDs
+stay held until actual owned process cleanup; no result on unknown cleanup.
+Other interpreter/stdlib/loader/library/bwrap bytes are a conditional trusted
+host baseline, not complete package/binary/source/ABI authentication. Effective
+rlimits and allocation refusal are not an aggregate cgroup proof.
 
-Tarfile R1's0644 requirement refused. One separately scoped metadata-only lstat
-observed root-owned0755/nlink1/113907bytes. A revised explicit final inert read of
-that non-group/world-writable identity passed. Total content observations2/2
-across R1/R2 are consumed; do not retry, chmod, repair or overwrite old records.
-Retained source SHA256:
-664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512.
-The separate retained-file audit passed4 tamper controls. Static observations
-never executed/imported the source; synthetic tests use trusted development
-stdlib, not independently authenticated installed binary/bytecode correspondence.
-Full original notice remains with the inert reference; no vendored implementation.
+The new runtime/media-ustar-isolation/ustar-proof-* scope allows at most TWO
+retained attempts across revisions. Any real mismatch stops the matrix without
+retry; preserve all failed bytes. Exact0700 directories, <=8 entries/5MiB, fixed
+JSON names/ceilings and at most two0600 named FIFOs. Pending proof before single
+support release; receipt binds its hash after confirmed cleanup with no further
+proof-file I/O. A shared lease close can clear marker before failing: refuse
+receipt, do not claim a universal retained fence. No source/descriptor close retry.
 
-Next: a separately reviewed isolated parser/owner and format qualification plan.
-Current cooperative checks cannot preempt blocked reads/callbacks and are not
-OS resource containment. ParsedTar is not OwnerOutcome or a cleanup receipt.
-USTAR-only tests do not prove acquired package compatibility. Do not silently
-activate GNU/PAX processing or general tar extraction to make a fixture pass.
-Native package reader, runtime/import closure, resource/filter and PNG decoder,
-Core binding and release remain open. No cgroup/Docker/daemon/system/config/data/
-service changes or new native attempt is authorized by this synthetic slice.
+135 fake/synthetic cases,515 focused cases before the last two mode checks and
+four causal controls passed. The combined Media/context suite had2,441 passes
+before those extra checks. Repeat final-source regressions and full CI. Source
+review, actual evidence review, matching full CI and exact-tree merge all remain.
+Current-status heading stays unique and under2200 characters; roadmap consistent.
 
-Original scopes remain: origin4/4 and old-loader4/4 exhausted, index2/4,
-ELF-version2/4, acquisition1/4, dpkg-identity1/1, source corpus16/16 and helper
-corpus8/8 plus its single directory observation. All failures/evidence are retained.
-PR86 archive proof remains
-c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
-No resets or inferred signature/Git/source-archive/binary membership/ABI claims.
-No new model/Codex job; reviews are direct ChatGPT work, not independent Codex.
-Continue v0.15 then v0.16 -> v0.17 -> v0.18; v0.14.0 and parked UI #61 remain.
+Original scopes unchanged: origin4/4 and old-loader4/4 exhausted, index2/4,
+ELF-version2/4, acquisition1/4, dpkg identity1/1, source corpus16/16, helpers8/8
+plus one directory read. Tarfile observationR1 refused on0644 expectation; one
+metadata diagnostic foundroot0755, and explicitly scoped finalR2 inert read
+passed. Total content observations2/2 consumed, with original refusal preserved;
+no chmod, repair, installed source reread, quota reset or new authenticity claim.
+Retained tarfile hash664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512.
+Original archive proof c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
+
+No new Codex/model job; direct ChatGPT reviews only. No shared authority helper,
+app route/dependency/flag/UI, daemon/system/updater/config/live data modification.
+Resource/filter still precedes image decoding. Continue v0.15 then v0.16->v0.17
+->v0.18, preserving v0.14.0 and parked UI #61 and its worktrees.
 
 ## Workspace decision
 

@@ -469,19 +469,19 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #88 merged after3,921 exact-head CI
-passes and two skips. PR #86's eight archives have historical byte identity only.
-The member inventory contract provides metadata consistency, not authentication.
-The next restricted USTAR adapter now hashes bounded synthetic file/tar bytes,
-refuses unsafe topology and malformed termination, and never extracts or grants
-runtime authority.201 scanner cases,2,308 combined Media/context cases and9 causal
-controls passed; its own CI/review are required. See
-`docs/v0.15-media-ustar-inventory.md`. GNU/PAX extensions remain unsupported.
+Core-first checkpoint (4 October 2026): PR #89's restricted USTAR scanner merged
+with4,122 CI passes and two skips. PR #88's member inventory contract guarantees
+metadata consistency only. PR #86's archive-byte proof also remains scoped;
+neither grants runtime authority. The new18-case isolated synthetic
+harness and independent expected outputs are implemented, with135 fake/synthetic
+cases and four causal controls passing. The scanner never extracts; GNU/PAX forms
+remain unsupported. See `docs/v0.15-media-ustar-isolation.md`.
 
-The source-read mismatch was diagnosed and one explicit final inert observation
-completed; old failures and quotas are preserved. Native parser/owner and format
-qualification, package/runtime/import closure, resource/filter and image decoding,
-Core binding and release remain. UI #61 is parked and v0.14.0 is unchanged.
+Frozen source/launcher review precedes the first actual controlled matrix. The
+new proof uses existing ownership/admission helpers, pinned read-only source
+copies, fixed limits and no network. It is not complete runtime/package provenance
+or real package compatibility. Native package/runtime/import closure, resource/
+filter and image decoding, Core binding and release remain. UI #61 stays parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

@@ -6,35 +6,34 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media package-reader USTAR adapter
+## Active increment: v0.15 Media package-reader isolated USTAR tests
 
-Core v0.15 remains active; UI stays parked. PR #86 established
-**historical archive-byte identity** for eight archives, not Media readiness.
-PR #87 fixed current-context selection. PR #88 is merged at `59dc5f5` after
-3,921 exact-head CI passes and two skips, with its reviewed tree verified.
-Its member inventory contract establishes **metadata consistency only**.
+Core v0.15 stays active; UI is parked. PR #86 established historical archive-byte identity
+for eight packages, not Media readiness. PR #87 fixed current project context.
+PR #88's contract guarantees metadata consistency only. PR #89 merged at`69dd068`
+after4,122 CI passes/two skips and exact-tree verification. Its USTAR scanner
+never extracts or follows links; GNU/PAX/legacy/sparse forms remain unsupported.
 
-The new restricted USTAR adapter reads bounded uncompressed synthetic streams,
-reuses stdlib fixed-header decoding, hashes file payloads and the complete tar,
-checks safe names/topology, exact padding/termination and byte/call/output limits.
-It never extracts files or follows links, and never fabricates owner cleanup or
-archive provenance. GNU/PAX/legacy/sparse records deliberately fail before payload
-processing. It is not yet a general package reader or a qualified native runtime.
+The next isolated harness is implemented with18 fixed synthetic cases: successful
+parsing, seven malformed inputs, network/read-only/host/import/resource checks,
+stdout/stderr saturation, timeout and ready-confirmed cancellation twice.
+It copies and hashes three pinned source files into the read-only namespace,
+uses unchanged process/admission ownership helpers, and refuses a result unless
+native cleanup is confirmed.135 fake/synthetic tests and four causal controls
+passed; the first actual matrix still requires frozen-source clearance.
 
-Validation:201 new scanner cases,2,308 combined Media/context passes and9 detected
-in-memory guard bypasses. Its own full CI, final review and exact-tree merge remain
-required. See `v0.15-media-ustar-inventory.md` and the source/causal review records.
+See `v0.15-media-ustar-isolation.md` and its review. Exact0700 proof directories,
+source/fixture/output binding, bounded JSON/FIFO retention, two retained attempts
+across revisions, and no post-release proof rewriting are required. Existing
+native/runtime proofs and failed source observations are preserved without reset.
 
-The tarfile source-read blocker was an observed0755-versus-required0644 mismatch.
-An explicitly reviewed final inert R2 observation retained the113,907-byte source;
-a separate audit passed4 tamper checks. The original refusal stays intact, with
-source-content attempts2/2 consumed. Binary/bytecode/package correspondence is
-not independently authenticated by this research.
-
-Next: isolated parser/owner qualification and supported-format review, then native
-package/member/runtime/import closure, resource/filter and decoder qualification,
-Core binding and release gates. No acquired .deb processing, installation, model
-job, UI change or runtime activation occurred. Original proof quotas stay intact.
+The source/bytecode and complete interpreter/library chain remain conditional
+host baseline, not independently authenticated package provenance. The isolated
+synthetic path cannot establish real package compatibility, full runtime closure,
+aggregate cgroup control, image decoding or production authority. Native package
+reader/runtime/import closure, resource/filter and decoder qualification, Core
+binding and release remain. No model job, acquired .deb processing, UI change or
+enabled flag occurred in this increment. Its own CI and actual evidence are pending.
 
 ## Checkpoint history
 

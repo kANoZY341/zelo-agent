@@ -1,0 +1,30 @@
+{
+  "controls": [
+    {
+      "baseline_refusal": "ustar_cleanup_unknown",
+      "case": "cleanup",
+      "mutant_admitted_bad_result": true
+    },
+    {
+      "baseline_refusal": "ustar_result_mismatch",
+      "case": "binding",
+      "mutant_admitted_bad_result": true
+    },
+    {
+      "baseline_refusal": "ustar_native_control",
+      "case": "native-error",
+      "mutant_admitted_bad_result": true
+    },
+    {
+      "baseline_refusal": "ustar_output_bound",
+      "case": "output-budget",
+      "mutant_admitted_bad_result": true
+    }
+  ],
+  "detected_bypasses": 4,
+  "native_execution": false,
+  "on_disk_source_changed": false,
+  "runtime_authority": false,
+  "schema": "zelo-ustar-isolation-causal-v1",
+  "source_sha256": "041b63fab388f2be41a08ba49105f3189581491875f6cfc73452c214ed332082"
+}

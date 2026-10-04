@@ -1092,3 +1092,21 @@ See [design and gates](docs/v0.15-media-ustar-inventory.md).
 ```sh
 .venv/bin/python -m pytest -q tests/test_media_tar_inventory.py
 ```
+
+
+## Isolated USTAR synthetic qualification (v0.15 development)
+
+The opt-in `scripts/qualify_media_tar_isolation.py` harness tests18 fixed synthetic
+cases in the existing no-network/read-only Python namespace. It makes pinned
+source copies, verifies their hashes before imports and requires owned process
+cleanup for every accepted result. It is not a general package parser or a Core
+route; actual .deb processing, full runtime provenance and image decoding remain
+separate. Do not run its optional `--run` without the recorded source clearance.
+
+Offline tests:
+
+```sh
+.venv/bin/python -m pytest -q tests/test_media_tar_isolation.py
+```
+
+See [design, limits and proof gates](docs/v0.15-media-ustar-isolation.md).
