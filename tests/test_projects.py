@@ -104,6 +104,8 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "metadata consistency only" in active_status
     assert "PR #88" in active_status
     assert "PR #89" in active_status
+    assert "PR #90" in active_status
+    assert "bootstrap" in active_status
     assert "18 fixed synthetic cases" in active_status
     assert "USTAR" in active_status
     assert "never extracts" in active_status

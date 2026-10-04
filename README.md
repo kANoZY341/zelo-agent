@@ -1110,3 +1110,20 @@ Offline tests:
 ```
 
 See [design, limits and proof gates](docs/v0.15-media-ustar-isolation.md).
+
+
+## Reader-bootstrap dependency declarations (v0.15 development)
+
+`qualification/media_reader_bootstrap.py` checks a fixed copied-runtime lock and
+cross-file ELF dependency/version declarations. `scripts/qualify_media_reader_elf.py`
+reuses the existing qualified metadata guest for32 controls plus8 inert input
+files; it shares the original four-attempt version-proof scope. It never executes
+dpkg, its loader or a package member. A declared match is not ABI compatibility,
+actual dynamic loading or independently authenticated platform provenance.
+Only frozen-source clearance permits the opt-in native metadata run.
+
+```sh
+.venv/bin/python -m pytest -q tests/test_media_reader_bootstrap.py
+```
+
+See [bootstrap design and gates](docs/v0.15-media-reader-bootstrap.md).

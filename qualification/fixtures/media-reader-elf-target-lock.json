@@ -1,0 +1,74 @@
+{
+  "aggregate_bytes": 3718288,
+  "bootstrap_manifest_sha256": "7c794478d55e159d784086932d64ea0adfc56946cc754e666b14a8e8485da3d4",
+  "files": [
+    {
+      "bytes": 146000,
+      "name": "dpkg-deb",
+      "relative": "00.binary.reference",
+      "role": "reader",
+      "sha256": "fc9dde782ca8309b65ab92e61d13318bf463cd1aa71daa8967b87b81b48b63d2",
+      "soname": null
+    },
+    {
+      "bytes": 2129424,
+      "name": "libc.so.6",
+      "relative": "01.binary.reference",
+      "role": "library",
+      "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+      "soname": "libc.so.6"
+    },
+    {
+      "bytes": 236616,
+      "name": "ld-linux-x86-64.so.2",
+      "relative": "02.binary.reference",
+      "role": "loader",
+      "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+      "soname": "ld-linux-x86-64.so.2"
+    },
+    {
+      "bytes": 113000,
+      "name": "libz.so.1",
+      "relative": "03.binary.reference",
+      "role": "library",
+      "sha256": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+      "soname": "libz.so.1"
+    },
+    {
+      "bytes": 78944,
+      "name": "libbz2.so.1.0",
+      "relative": "04.binary.reference",
+      "role": "library",
+      "sha256": "cc08c9f50a8009ffd6391e0116a100369b11ca9238fa52392c019e6645b122a1",
+      "soname": "libbz2.so.1.0"
+    },
+    {
+      "bytes": 202904,
+      "name": "liblzma.so.5",
+      "relative": "05.binary.reference",
+      "role": "library",
+      "sha256": "696e868dd0700a19a6d65fc01608ec2d70d3cb91f65710e89180cd2e688f30cb",
+      "soname": "liblzma.so.5"
+    },
+    {
+      "bytes": 755864,
+      "name": "libzstd.so.1",
+      "relative": "06.binary.reference",
+      "role": "library",
+      "sha256": "0a2128bc10841fb29e76d08d945864dfb0b6a66da5df6df5d8299197439e54bb",
+      "soname": "libzstd.so.1"
+    },
+    {
+      "bytes": 55536,
+      "name": "libmd.so.0",
+      "relative": "07.binary.reference",
+      "role": "library",
+      "sha256": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+      "soname": "libmd.so.0"
+    }
+  ],
+  "independent_binary_provenance": false,
+  "root": "runtime/media-package-reader-bootstrap-20261004",
+  "runtime_authority": false,
+  "schema": "zelo-reader-bootstrap-elf-lock-v1"
+}

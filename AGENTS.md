@@ -68,57 +68,59 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 isolated USTAR qualification after PR89 merge
-69dd06818bd8ba37ac7669dd58b5667dc1dc8209. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 fixed reader-bootstrap ELF declarations after PR90
+merge8c52e7c12eec69aa50fa37a11f92be3995bbedab. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: isolated synthetic USTAR launcher source review
+## Current scope: fixed reader-bootstrap ELF declaration source review
 
-PR89 merged at69dd06818bd8ba37ac7669dd58b5667dc1dc8209 with reviewed tree
-7419f3a46183afa7fb035fef4dafa73b112f2819. CI37196275201 passed4,122 tests,
-two skips. The scanner has no extraction or GNU/PAX/legacy/sparse fallback.
+PR90 merged at8c52e7c12eec69aa50fa37a11f92be3995bbedab with exact reviewed tree
+456f1b5c260439f1ff9347791b900b492d073b9c. CI37197794882 passed4,257/two skips;
+one18-case native SYNTHETIC matrix passed, audited with8 semantic tamper controls.
+ProofSHA1539de958da77b1650d0f4a9538892e81989ba6df945d89a2864ad39819d45ac.
+That new USTAR scope is1/2 consumed, not real-package or aggregate-cgroup authority.
 
-Read docs/v0.15-media-ustar-isolation.md and its source review. The new fixed
-18-case qualifier and fake tests are implemented; native --run is allowed only
-after a frozen-source review explicitly clears one full matrix. No actual
-synthetic proof is yet claimed at this source checkpoint. Never invoke dpkg,
-read retained .deb members, import Pillow or activate a Media route from this gate.
+Read docs/v0.15-media-reader-bootstrap.md and its source review. One fixed inert
+observation copied8 binaries/3,718,288bytes and6 notices/60,489bytes. Retained audit
+passed; root bootstrap is conditional, not independently authenticated platform.
+The lock SHA753df1ca08e5be5b29ae8b73d220bf6bfea052b8bed9ffdc0f64ac12091a8e4f
+binds only their private copies. No installed file reread is needed by this phase.
 
-Reuse unchanged Python namespace, NativeExecutionObservation/run_process and
-existing readiness/repeated-cancel helpers, with three pinned read-only source
-copies. No project mount or inherited credentials/config. All source/ready FDs
-stay held until actual owned process cleanup; no result on unknown cleanup.
-Other interpreter/stdlib/loader/library/bwrap bytes are a conditional trusted
-host baseline, not complete package/binary/source/ABI authentication. Effective
-rlimits and allocation refusal are not an aggregate cgroup proof.
+The new scripts/qualify_media_reader_elf.py composes existing version _native,
+loader/version validators and source/tool pins unchanged. Its32 controls+8 fixed
+data inputs=40 calls fit the prior44-call envelope. Use SAME existing
+runtime/media-elf-version-proofs/version-proof-* quota of4 attempts across all
+revisions:2 already consumed, at most ONE source-cleared batch consumes3/4.
+No new prefix/reset, retry, proof rewrite, old-loader or origin/acquisition run.
+No target executable/dynamic loader is run: these8 files are ELF parser data only.
+Source freeze/review precede native --run; actual evidence, matching own full CI
+and exact-tree merge remain.90 new tests,2,533 combined Media/context checks and
+5 causal guard controls passed at the implementation checkpoint.
 
-The new runtime/media-ustar-isolation/ustar-proof-* scope allows at most TWO
-retained attempts across revisions. Any real mismatch stops the matrix without
-retry; preserve all failed bytes. Exact0700 directories, <=8 entries/5MiB, fixed
-JSON names/ceilings and at most two0600 named FIFOs. Pending proof before single
-support release; receipt binds its hash after confirmed cleanup with no further
-proof-file I/O. A shared lease close can clear marker before failing: refuse
-receipt, do not claim a universal retained fence. No source/descriptor close retry.
+The pure cross-file graph receives already source-bound outputs accepted by both
+unchanged validators; it is not replacement child-output validation. Every needed
+provider/required version must be present by exact recorded SONAME, interpreter
+fixed, loader search/textrel refused. Preserve weak flags and leave actual load,
+symbol/ABI/runtime/provenance claims false. Missing dependencies never trigger
+recursive filesystem/network discovery. Keep all copy/source FDs through cleanup
+and final readback, preserve native-written refusal files, release once and emit
+only the separate post-cleanup proof-bound receipt. Existing marker-close caveats
+remain; no guessed owner or rawFD retry. Same96-entry/8MiB/version attempt caps.
 
-135 fake/synthetic cases,515 focused cases before the last two mode checks and
-four causal controls passed. The combined Media/context suite had2,441 passes
-before those extra checks. Repeat final-source regressions and full CI. Source
-review, actual evidence review, matching full CI and exact-tree merge all remain.
-Current-status heading stays unique and under2200 characters; roadmap consistent.
+After accepted declarations, a separate mature native package reader container
+and supported-format design are required. No dpkg/compressor/Docker/Pillow run,
+actual .deb member operation, source install, Core route, system/config/daemon/
+updater change, user-data or enabled flag from this metadata source checkpoint.
 
-Original scopes unchanged: origin4/4 and old-loader4/4 exhausted, index2/4,
-ELF-version2/4, acquisition1/4, dpkg identity1/1, source corpus16/16, helpers8/8
-plus one directory read. Tarfile observationR1 refused on0644 expectation; one
-metadata diagnostic foundroot0755, and explicitly scoped finalR2 inert read
-passed. Total content observations2/2 consumed, with original refusal preserved;
-no chmod, repair, installed source reread, quota reset or new authenticity claim.
-Retained tarfile hash664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512.
-Original archive proof c7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
-
-No new Codex/model job; direct ChatGPT reviews only. No shared authority helper,
-app route/dependency/flag/UI, daemon/system/updater/config/live data modification.
-Resource/filter still precedes image decoding. Continue v0.15 then v0.16->v0.17
-->v0.18, preserving v0.14.0 and parked UI #61 and its worktrees.
+Original scopes: origin4/4 and old-loader4/4 exhausted; index2/4; ELF-version2/4
+before this proposed third batch; acquisition1/4; dpkg identity1/1; source16/16;
+helpers8/8+one directory read; tarfile contentsR1/R2=2/2 and one metadata diagnostic.
+All failures preserved, no chmod/repair/reset. Root tarfile retained hash
+664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512.
+Archiveproofc7af88e91dc08c92b83f218c5553574f6a4df6ba89b42ce70010990e22771f51.
+No model/Codex jobs; reviews direct ChatGPT only. Preserve exactly one active
+status heading, decisive facts<=2200chars and matching roadmap. Finish v0.15
+then v0.16->v0.17->v0.18; parked UI #61/worktrees and v0.14.0 stay untouched.
 
 ## Workspace decision
 
