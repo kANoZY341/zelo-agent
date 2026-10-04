@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import os
 import stat
 from types import SimpleNamespace
 
@@ -24,15 +23,16 @@ def inputs(tmp_path, monkeypatch):
         pins.append((suite, str(path), len(raw), hashlib.sha256(raw).hexdigest()))
         raws.append(raw)
     monkeypatch.setattr(m, "INPUTS", tuple(pins))
-    real_fstat = os.fstat
+    real_source_info = m._source_info
 
-    def fake_root(fd):
-        info = real_fstat(fd)
+    def fake_root(info, size):
+        # Explicit root metadata for synthetic path and descriptor inputs,
+        # independent of runner UID; all other real stat attributes remain.
         values = {key: getattr(info, key) for key in dir(info) if key.startswith("st_")}
         values.update(st_uid=0, st_gid=0)
-        return SimpleNamespace(**values)
+        return real_source_info(SimpleNamespace(**values), size)
 
-    monkeypatch.setattr(m.os, "fstat", fake_root)
+    monkeypatch.setattr(m, "_source_info", fake_root)
     return pins, raws
 
 
@@ -64,13 +64,13 @@ def operator(tmp_path, monkeypatch, inputs):
 
 def test_fixed_trust_binding():
     assert [pin[0] for pin in m.INPUTS] == ["noble", "noble-updates", "noble-security"]
-    assert [pin[2] for pin in m.INPUTS] == [7165069, 7375524, 5812460]
-    assert sum(pin[2] for pin in m.INPUTS) == 20353053
-    assert m.ORIGIN_PROOF_SHA == "542570a765e3a6cb3fa3f2ecd1f549e96830007af99345e66dd1e35311951caf"
-    assert m.ORIGIN_HEAD == "fbf1cb21aa1108b73818f81583fec5351729bd1a"
+    assert [pin[2] for pin in m.INPUTS] == [7165069, 7375495, 5812460]
+    assert sum(pin[2] for pin in m.INPUTS) == 20353024
+    assert m.ORIGIN_PROOF_SHA == "faab51dce2a95073a251049a559ceddb027ff01a36f3219e5236ca0c1bd6cd52"
+    assert m.ORIGIN_HEAD == "1d533c35d38d6ce7d155b2de54275573e85061a9"
     assert [pin[3] for pin in m.INPUTS] == [
         "8f6f71ae839c8cba390a7643fcbbdacddb0bc7d12c1583a2dd80a1f8443a30e5",
-        "0929964db78a694c2c35f2ad20337c782794ac121f818facede7243605d24295",
+        "1a82e1177b4a1eefab5f4a985c79911fac514e7ad6c5c31ebf780c1983663185",
         "96ebaa6dcfaa00ad04c5a56f26f7bdc104a6da15d0fdd22ae29c91c299c3f276",
     ]
     policy = m.policy()
@@ -451,3 +451,56 @@ def test_lower_existing_limit_refused(monkeypatch):
     monkeypatch.setattr(m.resource, "setrlimit", lambda *args: pytest.fail("raised a limit"))
     with pytest.raises(ValueError, match="operator_limits"):
         m._operator_limits()
+
+
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_preflight_size_drift_spends_no_attempt(operator, inputs, index):
+    from pathlib import Path
+
+    pins, _ = inputs
+    Path(pins[index][1]).write_bytes(b"different size")
+    with pytest.raises(m.QualificationRefused, match="source_metadata"):
+        m._qualify()
+    root, events = operator
+    assert events == []
+    assert not (root / m.ADMISSION).exists()
+    assert not (root / m.PROOF_BASE).exists()
+
+
+@pytest.mark.parametrize("mode", [0o600, 0o664, 0o755])
+def test_preflight_mode_drift_spends_no_attempt(operator, inputs, mode):
+    from pathlib import Path
+
+    Path(inputs[0][0][1]).chmod(mode)
+    with pytest.raises(m.QualificationRefused, match="source_metadata"):
+        m._qualify()
+    assert operator[1] == []
+    assert not (operator[0] / m.PROOF_BASE).exists()
+
+
+def test_preflight_does_not_replace_authenticated_read(operator, inputs):
+    from pathlib import Path
+
+    pins, raws = inputs
+    Path(pins[2][1]).write_bytes(b"x" * len(raws[2]))
+    with pytest.raises(m.QualificationRefused):
+        m._qualify()
+    assert operator[1][0][0] == "acquire"
+    attempts = list((operator[0] / m.PROOF_BASE).iterdir())
+    assert len(attempts) == 1
+    assert json.loads((attempts[0] / "cases.json").read_bytes())["status"] == "refused"
+
+
+def test_preflight_checks_deadline_after_blocking_metadata(inputs, monkeypatch):
+    clock = [0]
+    check = m._source_info
+    monkeypatch.setattr(m.time, "monotonic", lambda: clock[0])
+
+    def slow(info, size):
+        result = check(info, size)
+        clock[0] = 121
+        return result
+
+    monkeypatch.setattr(m, "_source_info", slow)
+    with pytest.raises(m.QualificationRefused, match="deadline"):
+        m._preflight(120)

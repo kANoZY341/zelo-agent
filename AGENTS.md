@@ -72,37 +72,39 @@ The active work is v0.15 Media fixed local-index qualification after PR84 merge
 070f820bb90e493d2287ad6b0b96fd33e0dc4db6. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: reviewed recovery of changed local index metadata
+## Current scope: second fixed local-index qualification gate
 
-PR85 frozen60f0199 passed full source review,201selector/operator and1800Media
-checks,4standalone checks,6causal controls. Its one cleared index attempt refused
-changed updates metadata:7375495bytes versus signed7375524. Preserve failed
-index-proof-qe5u08n9 (SHA0030fb0a8a4e87aaa2d5f762b94b3a232f7f2a0925d3cf49fc0eb8b12fc27e3b).
-No success receipt. Index1/4,origin3/4,version2/4,loader4/4 remain unchanged.
+PR85 original60f0199 passed source/tests/CI but actual index1 refused changed
+updates size. Preserve index-proof-qe5u08n9 SHA0030fb0a8a4e87aaa2d5f762b94b3a232f7f2a0925d3cf49fc0eb8b12fc27e3b.
+Refreshed origin source1d533c35d38d6ce7d155b2de54275573e85061a9 and its actual
+fourth18case proof received FULL source/actual acceptance. Read archived source
+and final reviews in docs/reviews/media-origin-refresh-*.md.
+New origin proof origin-proof-o5l0ydws SHAfaab51dce2a95073a251049a559ceddb027ff01a36f3219e5236ca0c1bd6cd52;
+all18cases and cleanup passed,36entries/772054bytes,receipt binds pending proof.
+Origin4/4 EXHAUSTED: no fifth run/reset. Version2/4,loader4/4 unchanged.
 
-Read docs/v0.15-media-origin-refresh.md and both refresh design reviews. R1 cleared
-only bounded untrusted candidate collection; R2 cleared OFFLINE implementation:
-two refreshed InRelease SHA literals, exact altered-text fixture derived from
-retained candidate bytes, and correction of origin launcher double-cleanup to one
-_release path. Shared helpers remain unchanged. Body interrupts/release errors
-quarantine ownership without retrying original descriptors or finish. Preserve
-all18native cases, namespaces/protocol/resource/retention/admission contracts.
+Only accepted signed raw-index declarations have now been promoted into the
+wrapper: updates7375495/SHA1a82e1177b4a1eefab5f4a985c79911fac514e7ad6c5c31ebf780c1983663185;
+noble/security declarations unchanged. Exact8package/version/amd64 targets and
+pure selector unchanged. Metadata-only preflight precedes admission/allocation;
+all immutable bytes still hash-authenticated before parsing with held-FD checks.
 
-Only synthetic tests now. New frozen FULL source review must explicitly clear at
-most ONE fourth/LAST origin attempt. No automatic retry/fifth origin/quota reset.
-Full actual-evidence review must accept new signed declarations before index pin
-promotion. Then exact stat-only index metadata preflight before allocation and a
-separate frozen full-source review clearing at most ONE second index attempt.
-Preserve first failed index attempt and all old proofs. Any refusal returns to
-design, not alternate pins/grammar/sources. Finalreview+matchingCI+supplements
-precede merge; PR85 remains draft until complete.
+Synthetic tests only until new frozen FULLsource review explicitly clears at most
+ONE second index attempt. Scope remains1/4, with first failure preserved. Do not
+rerun origin or read/parse actual index contents yet. Clean exacthead/tree, full
+source metadata preflight and empty canonical marker must precede cleared attempt.
+Any refusal preserves evidence and returns to design; no automatic third attempt,
+source/pin/grammar widening or quota reset. Single cleanup/release path unchanged.
 
+PR85 remains draft pending full finalsource/actual review, matching latest-head CI,
+focused/causal checks and fourstandalone supplements. Prior CI3617passes belongs
+60f0199, not later revisions. Historical conditional indexmetadata is not package-
+member provenance/platform/ABI/freshness/current-key/runtimeauthority.
 No network/download/decompression, package/member inspection, Pillow/decoder,
 ctypes/filter execution, Docker/cgroup/daemon/system/updater changes, live data/
 config/model calls/listeners, Core/Mind/Agent/route binding or enabled flags.
-Original resource/filter gates precede decoder. Historical conditional evidence
-is not package-member origin/platform/ABI/freshness/current-key/runtime authority.
-Continue v0.15 then v0.16 -> v0.17 -> v0.18; preserve v0.14.0 and parked UI61.
+Original resource/filter gates precede decoder. Continuev15thenv16->v17->v18;
+preservev0.14.0andparkedUI61. Shared ownership/admission helpers unchanged.
 
 ## Workspace decision
 

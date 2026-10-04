@@ -55,8 +55,8 @@ INPUTS = (
     (
         "noble-updates",
         "/var/lib/apt/lists/archive.ubuntu.com_ubuntu_dists_noble-updates_main_binary-amd64_Packages",
-        7375524,
-        "0929964db78a694c2c35f2ad20337c782794ac121f818facede7243605d24295",
+        7375495,
+        "1a82e1177b4a1eefab5f4a985c79911fac514e7ad6c5c31ebf780c1983663185",
     ),
     (
         "noble-security",
@@ -65,8 +65,8 @@ INPUTS = (
         "96ebaa6dcfaa00ad04c5a56f26f7bdc104a6da15d0fdd22ae29c91c299c3f276",
     ),
 )
-ORIGIN_PROOF_SHA = "542570a765e3a6cb3fa3f2ecd1f549e96830007af99345e66dd1e35311951caf"
-ORIGIN_HEAD = "fbf1cb21aa1108b73818f81583fec5351729bd1a"
+ORIGIN_PROOF_SHA = "faab51dce2a95073a251049a559ceddb027ff01a36f3219e5236ca0c1bd6cd52"
+ORIGIN_HEAD = "1d533c35d38d6ce7d155b2de54275573e85061a9"
 ADMISSION = "runtime/media-elf-metadata-admission"
 PROOF_BASE = "runtime/media-package-index-proofs"
 PROOF_PREFIX = "index-proof-"
@@ -88,6 +88,7 @@ def policy():
         ],
         "origin_proof_sha256": ORIGIN_PROOF_SHA,
         "origin_source_head": ORIGIN_HEAD,
+        "source_metadata_preflight": "before-admission-and-proof-allocation",
         "source_uid": 0,
         "source_gid": 0,
         "source_mode": 0o644,
@@ -140,8 +141,7 @@ def _proof_directory(base):
     return Path(tempfile.mkdtemp(prefix=PROOF_PREFIX, dir=base))
 
 
-def _source_metadata(fd, size):
-    info = os.fstat(fd)
+def _source_info(info, size):
     if (
         not stat.S_ISREG(info.st_mode)
         or info.st_uid != 0
@@ -153,6 +153,24 @@ def _source_metadata(fd, size):
     ):
         raise QualificationRefused("media_index_source_metadata")
     return info
+
+
+def _source_metadata(fd, size):
+    return _source_info(os.fstat(fd), size)
+
+
+def _preflight(deadline):
+    # Metadata-only early refusal. This neither authenticates bytes nor replaces
+    # held-descriptor checks after admission; the host can change between stages.
+    if sum(pin[2] for pin in INPUTS) > AGGREGATE_LIMIT:
+        raise QualificationRefused("media_index_aggregate")
+    for _suite, source, size, _digest in INPUTS:
+        _check_deadline(deadline)
+        path = Path(source)
+        if path.resolve(strict=True) != path:
+            raise QualificationRefused("media_index_source_path")
+        _source_info(path.lstat(), size)
+        _check_deadline(deadline)
 
 
 def _authenticate(state, deadline):
@@ -199,6 +217,7 @@ def _qualify():
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise QualificationRefused("media_index_operator_ids")
     deadline = time.monotonic() + WHOLE_SECONDS
+    _preflight(deadline)
     admission_path = ROOT / ADMISSION
     admission_path.mkdir(mode=0o700, exist_ok=True)
     shared._private_path(admission_path, directory=True)
