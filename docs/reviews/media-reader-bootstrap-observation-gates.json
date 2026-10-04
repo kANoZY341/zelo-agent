@@ -1,0 +1,13 @@
+{
+  "binary_bytes": 3718288,
+  "dependency_closure_verified": false,
+  "files": 14,
+  "installed_inputs_reopened": false,
+  "lock_sha256": "753df1ca08e5be5b29ae8b73d220bf6bfea052b8bed9ffdc0f64ac12091a8e4f",
+  "manifest_sha256": "7c794478d55e159d784086932d64ea0adfc56946cc754e666b14a8e8485da3d4",
+  "notice_bytes": 60489,
+  "runtime_authority": false,
+  "schema": "zelo-reader-bootstrap-retained-audit-v1",
+  "status": "retained-candidate-accepted",
+  "target_executed": false
+}

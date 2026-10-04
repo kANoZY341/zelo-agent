@@ -1,0 +1,40 @@
+{
+  "controls": [
+    {
+      "baseline_refusal": "reader_elf_missing_provider",
+      "case": "provider",
+      "mutant_admitted_bad_report": true,
+      "removed_guards": 1
+    },
+    {
+      "baseline_refusal": "reader_elf_missing_version",
+      "case": "version",
+      "mutant_admitted_bad_report": true,
+      "removed_guards": 1
+    },
+    {
+      "baseline_refusal": "reader_elf_input_binding",
+      "case": "input",
+      "mutant_admitted_bad_report": true,
+      "removed_guards": 1
+    },
+    {
+      "baseline_refusal": "reader_elf_loader_search",
+      "case": "search",
+      "mutant_admitted_bad_report": true,
+      "removed_guards": 1
+    },
+    {
+      "baseline_refusal": "reader_elf_claims",
+      "case": "claims",
+      "mutant_admitted_bad_report": true,
+      "removed_guards": 2
+    }
+  ],
+  "detected_bypasses": 5,
+  "native_execution": false,
+  "runtime_authority": false,
+  "schema": "zelo-reader-bootstrap-causal-v1",
+  "source_files_modified": false,
+  "source_sha256": "783c9f42b0291ebccad7e8f9cb958881fd0e1733a06fc3e8d100ea89e1343b86"
+}

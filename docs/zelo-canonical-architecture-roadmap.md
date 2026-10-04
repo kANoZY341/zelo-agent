@@ -469,19 +469,18 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #89's restricted USTAR scanner merged
-with4,122 CI passes and two skips. PR #88's member inventory contract guarantees
-metadata consistency only. PR #86's archive-byte proof also remains scoped;
-neither grants runtime authority. The new18-case isolated synthetic
-harness and independent expected outputs are implemented, with135 fake/synthetic
-cases and four causal controls passing. The scanner never extracts; GNU/PAX forms
-remain unsupported. See `docs/v0.15-media-ustar-isolation.md`.
+Core-first checkpoint (4 October 2026): PR #90 merged with4,257 CI passes/two
+skips and18 accepted synthetic sandbox cases. PR #86 archive bytes and PR #88's
+member inventory contract remain scoped: metadata consistency is not execution
+or platform authority. The USTAR scanner never extracts; GNU/PAX stay unsupported.
 
-Frozen source/launcher review precedes the first actual controlled matrix. The
-new proof uses existing ownership/admission helpers, pinned read-only source
-copies, fixed limits and no network. It is not complete runtime/package provenance
-or real package compatibility. Native package/runtime/import closure, resource/
-filter and image decoding, Core binding and release remain. UI #61 stays parked.
+Eight reader-bootstrap binaries and six notices were copied inertly and audited.
+The next40-call ELF declaration profile reuses the unchanged reader and original
+version quota;90 offline tests,2,533 combined checks and5 causal controls passed.
+Source clearance precedes attempt3/4, with its own CI and actual review. See
+`docs/v0.15-media-reader-bootstrap.md`. Native package/container/format qualification,
+member/runtime/import closure, resource/filter and image decoding, Core binding
+and release remain. UI #61 and v0.14.0 remain unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

@@ -6,34 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media package-reader isolated USTAR tests
+## Active increment: v0.15 Media package-reader bootstrap declarations
 
 Core v0.15 stays active; UI is parked. PR #86 established historical archive-byte identity
-for eight packages, not Media readiness. PR #87 fixed current project context.
-PR #88's contract guarantees metadata consistency only. PR #89 merged at`69dd068`
-after4,122 CI passes/two skips and exact-tree verification. Its USTAR scanner
-never extracts or follows links; GNU/PAX/legacy/sparse forms remain unsupported.
+for eight archives. PR #87 repaired current-context selection.
+PR #88's member contract guarantees metadata consistency only.
+PR #89's USTAR scanner never extracts or follows links; GNU/PAX remain unsupported.
+PR #90 merged at`8c52e7c` after4,257 CI passes/two skips and its 18 fixed synthetic cases
+passed in the sandbox, including resource, output, timeout and cancellation checks.
+The separate proof audit and8 tamper controls passed; USTAR scope is1/2 consumed.
 
-The next isolated harness is implemented with18 fixed synthetic cases: successful
-parsing, seven malformed inputs, network/read-only/host/import/resource checks,
-stdout/stderr saturation, timeout and ready-confirmed cancellation twice.
-It copies and hashes three pinned source files into the read-only namespace,
-uses unchanged process/admission ownership helpers, and refuses a result unless
-native cleanup is confirmed.135 fake/synthetic tests and four causal controls
-passed; the first actual matrix still requires frozen-source clearance.
+The reader bootstrap now has eight inert binary copies and six notices, separately
+audited without execution. The new declaration profile reuses the unchanged ELF
+version/parser guest and original four-attempt proof scope:32 controls+8 copies,
+40 calls, with attempt3/4 available only after frozen-source clearance.
+90 new offline tests,2,533 combined Media/context checks and5 causal controls passed.
+The native ELF profile has not yet run at this source checkpoint; its own full
+CI, actual evidence review and exact-tree merge remain separate gates.
 
-See `v0.15-media-ustar-isolation.md` and its review. Exact0700 proof directories,
-source/fixture/output binding, bounded JSON/FIFO retention, two retained attempts
-across revisions, and no post-release proof rewriting are required. Existing
-native/runtime proofs and failed source observations are preserved without reset.
+Cross-file checks require expected SONAMEs, exact interpreter, present providers
+and version declarations, no loader search/textrel features, and false authority
+claims. This is not actual dynamic loading, complete ABI, symbol resolution or
+independent binary provenance. See `v0.15-media-reader-bootstrap.md` and reviews.
 
-The source/bytecode and complete interpreter/library chain remain conditional
-host baseline, not independently authenticated package provenance. The isolated
-synthetic path cannot establish real package compatibility, full runtime closure,
-aggregate cgroup control, image decoding or production authority. Native package
-reader/runtime/import closure, resource/filter and decoder qualification, Core
-binding and release remain. No model job, acquired .deb processing, UI change or
-enabled flag occurred in this increment. Its own CI and actual evidence are pending.
+Next: accept the bounded dependency evidence, then separately qualify the native
+package reader under container-wide memory/PID/CPU controls and review supported
+tar formats. Real package/member/runtime/import closure, resource/filter and image
+decoding, Core binding and release remain. No acquired .deb, dpkg/Pillow execution,
+model job, UI/flag/system/live-data change occurred. Existing proof quotas and
+failed observations are preserved; v0.14.0 remains unchanged.
 
 ## Checkpoint history
 

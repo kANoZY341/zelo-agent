@@ -1,0 +1,60 @@
+{
+  "admission_empty": true,
+  "aggregate_cgroup_verified": false,
+  "all_native_cleanup_confirmed": true,
+  "attempts_used": 1,
+  "audit_correction": "Initial inline auditor hard-coded payload length19; independently checked literal and retained result are20. Corrected auditor uses len(literal). Native proof unchanged and not rerun.",
+  "cases": 18,
+  "full_runtime_closure_verified": false,
+  "native_execution_during_audit": false,
+  "operator_exit": 0,
+  "operator_stderr_empty": true,
+  "package_provenance_verified": false,
+  "policy_digest": "7382249e38629ce700c1de5161e39e1c5bd02563450f3e61b89ce411a6c447fc",
+  "project_imports": false,
+  "proof_sha256": "1539de958da77b1650d0f4a9538892e81989ba6df945d89a2864ad39819d45ac",
+  "receipt_sha256": "b239fd16dc052caf28d5fbe4954ffd4fd164d81837b693da52553348a9d957bf",
+  "retained_fifos": 2,
+  "retained_json_files": 3,
+  "retained_regular_bytes": 24161,
+  "runtime_authority": false,
+  "schema": "zelo-ustar-isolation-actual-audit-v1",
+  "semantic_tamper_controls": [
+    {
+      "case": "cleanup",
+      "refusal": "case-cleanup"
+    },
+    {
+      "case": "order",
+      "refusal": "case-order"
+    },
+    {
+      "case": "authority",
+      "refusal": "authority"
+    },
+    {
+      "case": "source",
+      "refusal": "source-pins"
+    },
+    {
+      "case": "refusal",
+      "refusal": "refusal-code"
+    },
+    {
+      "case": "payload",
+      "refusal": "payload-hash"
+    },
+    {
+      "case": "release",
+      "refusal": "receipt-release"
+    },
+    {
+      "case": "binding",
+      "refusal": "run-binding"
+    }
+  ],
+  "source_head": "18061858e4d8c53cb721302ec54f77156a4cf0bb",
+  "source_tree": "456f1b5c260439f1ff9347791b900b492d073b9c",
+  "sources_sha256": "f320e58a499f1639f1320d761e6836b0420ffc7695c500849b544a0c1273d09c",
+  "status": "accepted-synthetic-evidence"
+}
