@@ -469,18 +469,19 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #87 merged after 3,740 exact-head CI
+Core-first checkpoint (4 October 2026): PR #88 merged after3,921 exact-head CI
 passes and two skips. PR #86's eight archives have historical byte identity only.
-The new offline member inventory contract enforces run/archive/policy bindings,
-owner outcome refusal, safe names/topology and aggregate limits. It establishes
-metadata consistency, not member authentication, archive parsing or runtime authority.
-See `docs/v0.15-media-member-contract.md`; its new PR needs full CI and review.
+The member inventory contract provides metadata consistency, not authentication.
+The next restricted USTAR adapter now hashes bounded synthetic file/tar bytes,
+refuses unsafe topology and malformed termination, and never extracts or grants
+runtime authority.201 scanner cases,2,308 combined Media/context cases and9 causal
+controls passed; its own CI/review are required. See
+`docs/v0.15-media-ustar-inventory.md`. GNU/PAX extensions remain unsupported.
 
-The original 15 files of source research plus eight additional helpers are
-recorded, but complete native/build/runtime closure and the selected tar parser
-remain unqualified. Next: exact parser-source inspection and isolated owner
-qualification, runtime/import closure, resource/filter and image decoding, Core
-binding and release gates. UI #61 is parked and v0.14.0 is unchanged.
+The source-read mismatch was diagnosed and one explicit final inert observation
+completed; old failures and quotas are preserved. Native parser/owner and format
+qualification, package/runtime/import closure, resource/filter and image decoding,
+Core binding and release remain. UI #61 is parked and v0.14.0 is unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

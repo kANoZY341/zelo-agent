@@ -102,6 +102,10 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "metadata consistency" in roadmap_content
     assert "PR #87" in active_status
     assert "metadata consistency only" in active_status
+    assert "PR #88" in active_status
+    assert "USTAR" in active_status
+    assert "never extracts" in active_status
+    assert "GNU/PAX" in roadmap_content
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

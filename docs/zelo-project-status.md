@@ -6,34 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media package-reader contract
+## Active increment: v0.15 Media package-reader USTAR adapter
 
 Core v0.15 remains active; UI stays parked. PR #86 established
-**historical archive-byte identity** for eight archives / 8,745,084 bytes, not Media readiness.
-PR #87 is merged at `63d2aae`; corrected-head CI passed 3,740 tests with two skips.
-Its exact reviewed merge tree was verified. The current-context heading is fixed.
+**historical archive-byte identity** for eight archives, not Media readiness.
+PR #87 fixed current-context selection. PR #88 is merged at `59dc5f5` after
+3,921 exact-head CI passes and two skips, with its reviewed tree verified.
+Its member inventory contract establishes **metadata consistency only**.
 
-On `feat/v0.15-media-member-contract`, the offline member inventory contract
-validates exact archive/run/policy/proof bindings and separately supplied owner
-outcomes. It refuses unsafe names, duplicate/ancestor conflicts, contradictory
-sizes, forged fields and failed cleanup/cancellation even with exit zero. Bounded
-immutable results mean **metadata consistency only**, not authenticated contents
-or runtime authority. It imports no archive parser, native tool or live settings.
+The new restricted USTAR adapter reads bounded uncompressed synthetic streams,
+reuses stdlib fixed-header decoding, hashes file payloads and the complete tar,
+checks safe names/topology, exact padding/termination and byte/call/output limits.
+It never extracts files or follows links, and never fabricates owner cleanup or
+archive provenance. GNU/PAX/legacy/sparse records deliberately fail before payload
+processing. It is not yet a general package reader or a qualified native runtime.
 
-Validation: 181 new synthetic cases, 284 focused passes, 2,101 Media passes and
-six detected in-memory guard bypasses. Fresh review/full CI and exact-tree merge
-remain required for this new increment. See `v0.15-media-member-contract.md`.
+Validation:201 new scanner cases,2,308 combined Media/context passes and9 detected
+in-memory guard bypasses. Its own full CI, final review and exact-tree merge remain
+required. See `v0.15-media-ustar-inventory.md` and the source/causal review records.
 
-The original 15-file source research is preserved. Eight additional helper files
-(31,201 bytes) confirm passthrough enum/dispatch constraints; a retained audit
-passed. Full locale/debug/build/runtime closure is NOT complete. Python tarfile
-is only a candidate: its documentation was reviewed but both source fetches
-failed. Exact patched-source inspection and parser semantics remain open.
+The tarfile source-read blocker was an observed0755-versus-required0644 mismatch.
+An explicitly reviewed final inert R2 observation retained the113,907-byte source;
+a separate audit passed4 tamper checks. The original refusal stays intact, with
+source-content attempts2/2 consumed. Binary/bytecode/package correspondence is
+not independently authenticated by this research.
 
-Next: qualify the selected parser and isolated owner, then authenticated member/
-runtime/import closure, resource/filter and decoder qualification, Core binding
-and release checks. No native parsing, installation, model job, UI change or
-runtime flag occurred. Existing proof quotas and user data are unchanged.
+Next: isolated parser/owner qualification and supported-format review, then native
+package/member/runtime/import closure, resource/filter and decoder qualification,
+Core binding and release gates. No acquired .deb processing, installation, model
+job, UI change or runtime activation occurred. Original proof quotas stay intact.
 
 ## Checkpoint history
 

@@ -1072,3 +1072,23 @@ Run the fake-only checks with:
 ```
 
 No native setup command, new dependency or enabled setting accompanies this gate.
+
+
+## Restricted USTAR inventory adapter (v0.15 development)
+
+`qualification/media_tar_inventory.py` inventories an already uncompressed
+POSIX USTAR stream using fixed-size stdlib header decoding. It incrementally
+hashes regular files and the complete bounded stream; links are inert metadata.
+It rejects unsafe names, duplicate/non-directory ancestors, bad checksums,
+padding, termination, unsupported extensions and resource/output-limit excess.
+It does not extract, decompress or launch a native process. GNU/PAX/legacy/sparse
+archives are deliberately unsupported by this initial policy.
+
+`ParsedTar` does not assert archive provenance, native cleanup or runtime authority.
+A separately qualified owner and parser runtime are required before live package
+use. This is not wired into a Core route or enabled by configuration.
+See [design and gates](docs/v0.15-media-ustar-inventory.md).
+
+```sh
+.venv/bin/python -m pytest -q tests/test_media_tar_inventory.py
+```

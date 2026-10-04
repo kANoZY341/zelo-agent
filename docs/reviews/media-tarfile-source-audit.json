@@ -1,0 +1,14 @@
+{
+  "bytecode_correspondence_verified": false,
+  "identity_sha256": "331a1a984700dcd89de4ead207e9bb4abb307c478b12dc0268cdbfb6ccc36418",
+  "installed_files_reopened": false,
+  "package_membership_verified": false,
+  "retained_files": 2,
+  "runtime_authority": false,
+  "schema": "zelo-tarfile-retained-source-audit-v1",
+  "source_bytes": 113907,
+  "source_executed": false,
+  "source_sha256": "664f862558196d80a46663a81bc16cd51061ccec6c1fdda5950a106e97e12512",
+  "status": "accepted-conditional-source-observation",
+  "tamper_controls": 4
+}
