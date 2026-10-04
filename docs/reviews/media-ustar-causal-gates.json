@@ -1,0 +1,65 @@
+{
+  "acquired_packages_read": false,
+  "controls": [
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_checksum_unsigned",
+      "case": "unsigned-checksum",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_payload_padding",
+      "case": "payload-padding",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_terminator",
+      "case": "second-terminator",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_trailing_data",
+      "case": "trailing-record",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_cancelled",
+      "case": "cancel",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "member_duplicate_name",
+      "case": "duplicate",
+      "guards_removed_in_memory": 1
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "member_ancestor",
+      "case": "ancestor",
+      "guards_removed_in_memory": 2
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_json_bound",
+      "case": "json-budget",
+      "guards_removed_in_memory": 3
+    },
+    {
+      "bad_stream_admitted_by_mutant": true,
+      "baseline_refusal": "tar_member_count",
+      "case": "member-budget",
+      "guards_removed_in_memory": 1
+    }
+  ],
+  "detected_bypasses": 9,
+  "native_package_tools": false,
+  "on_disk_source_changed": false,
+  "runtime_authority": false,
+  "schema": "zelo-ustar-causal-controls-v1",
+  "source_sha256": "7a1afd0bbd6b7616ce9ee1ff286d8004d47926fddd36524fd690600bed897be3"
+}
