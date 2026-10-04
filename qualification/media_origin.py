@@ -19,9 +19,11 @@ INDEX_PATHS = (
 )
 COMPRESSED_BYTES = 33554432
 INDEX_BYTES = 134217728
+DECLARATION_SIZE_MAX = 999999999999
 _KEY = re.compile(r"[A-Za-z][A-Za-z0-9-]{0,63}\Z")
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
-_PATH_PART = re.compile(r"[A-Za-z0-9_+.-]{1,128}\Z")
+PATH_COMPONENT_PATTERN = r"[A-Za-z0-9_+@.-]{1,128}\Z"
+_PATH_PART = re.compile(PATH_COMPONENT_PATTERN)
 _DECIMAL = re.compile(r"(?:0|[1-9][0-9]{0,11})\Z")
 
 
@@ -294,7 +296,9 @@ def parse_release(raw, suite):
         if len(words) != 3 or not _HEX.fullmatch(words[0]):
             _refuse("release_hash_row")
         sha, size, path = words
-        size = _number(size, 1073741824, "release_size")
+        # Unselected lengths are bounded metadata, never allocation or I/O sizes.
+        # Only the three selected indexes can leave this parser, under lower caps.
+        size = _number(size, DECLARATION_SIZE_MAX, "release_size")
         _path(path)
         if path in seen:
             _refuse("release_duplicate_path")

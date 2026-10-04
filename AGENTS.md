@@ -92,9 +92,14 @@ Preserve shared admission runtime/media-elf-metadata-admission, observation befo
 creation, repeated-cancel/pending settlement, support FD retention/close-once,
 conservative helper-failure fencing and pending proof before release. No proof-file
 I/O after successful release. Late Lease.finish failure can leave an empty marker;
-refuse receipts without universal fencing claims. Origin attempt1/4 is retained after an identity refusal before GPG; see
-docs/reviews/media-origin-r2-refusal.md. R3 source review blocked mount/FD semantics; data-copy/explicit-close/FIFO-identity
-corrections require exact re-review before a second attempt. No automatic retry. New origin quota must be one
+refuse receipts without universal fencing claims. Origin attempts1/4 and2/4 are retained; the second reached GPG exit0 but refused
+an unrelated Release declaration above1GiB. See docs/reviews/media-origin-r4-refusal.md.
+R4 mount/FD source findings are closed. Separate design review cleared the
+metadata-only12digit declaration-domain correction with selected128MiB/32MiB bounds
+unchanged; a second offline review cleared literal @ in discarded bounded relative
+path metadata with all traversal/URI/selection refusals retained. New exact-source
+review must clear any third attempt; no automatic
+retry or retroactive acceptance. New origin quota must be one
 fixed namespace across every origin policy revision, never a bypass for ELF quotas.
 
 Focused tests, causal faults, matching-head full CI, standalone supplements and

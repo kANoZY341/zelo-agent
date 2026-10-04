@@ -294,3 +294,102 @@ def test_bad_signature_requires_complete_pinned_transcript():
 def test_negative_status_rejects_unrelated_incomplete_or_embedded_failure(raw):
     with pytest.raises(m.OriginError):
         m.validate_bad_signature_status(raw)
+
+
+@pytest.mark.parametrize("size", [0, 1073741825, 1455981187, 2182275917, 999999999999])
+def test_unselected_size_is_metadata_only_and_never_returned(size):
+    extra = f" {'c' * 64} {size} Contents-amd64\n".encode()
+    result = m.parse_release(release() + extra, "noble")
+    assert result == m.parse_release(release(), "noble")
+    assert all(item["path"] in m.INDEX_PATHS for item in result["indexes"])
+
+
+@pytest.mark.parametrize("size", ["1000000000000", "0001", "+1", "-1", "1e10"])
+def test_unused_declaration_still_requires_bounded_canonical_decimal(size):
+    extra = f" {'c' * 64} {size} Contents-amd64\n".encode()
+    with pytest.raises(m.OriginError, match="release_size"):
+        m.parse_release(release() + extra, "noble")
+
+
+@pytest.mark.parametrize("suffix,maximum", [("", 134217728), (".xz", 33554432), (".gz", 33554432)])
+@pytest.mark.parametrize("position", ["maximum", "over", "zero", "large"])
+def test_selected_size_limits_remain_exact_and_positive(suffix, maximum, position):
+    amount = {"maximum": maximum, "over": maximum + 1, "zero": 0, "large": 999999999999}[position]
+    if suffix:
+        raw = release().replace(b"Packages.xz", ("Packages" + suffix).encode())
+        raw = raw.replace(b"456 ", str(amount).encode() + b" ")
+    else:
+        raw = release().replace(b"1234 ", str(amount).encode() + b" ")
+    if position == "maximum":
+        result = m.parse_release(raw, "noble")
+        selected = next(
+            item for item in result["indexes"] if item["path"].endswith("Packages" + suffix)
+        )
+        assert selected["bytes"] == maximum
+    else:
+        with pytest.raises(m.OriginError, match="release_selected_size"):
+            m.parse_release(raw, "noble")
+
+
+@pytest.mark.parametrize(
+    "extra,code",
+    [
+        (f" {'c' * 63} 999999999999 Contents-amd64\n", "release_hash_row"),
+        (f" {'c' * 64} 999999999999 ../Contents-amd64\n", "release_path"),
+        (f" {'c' * 64} 999999999999 Contents-amd64\n" * 2, "release_duplicate_path"),
+    ],
+)
+def test_large_unused_rows_keep_hash_path_and_duplicate_checks(extra, code):
+    with pytest.raises(m.OriginError, match=code):
+        m.parse_release(release() + extra.encode(), "noble")
+
+
+@pytest.mark.parametrize("path", ["main/dep11/icons-128x128@2.tar.gz", "unused@@literal"])
+def test_literal_at_paths_are_discarded_metadata(path):
+    extra = f" {'c' * 64} 123 {path}\n".encode()
+    assert m.parse_release(release() + extra, "noble") == m.parse_release(release(), "noble")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "https://user@host/file",
+        "//user@host/file",
+        "/icons@2",
+        "../icons@2",
+        "main/../icons@2",
+        "main/./icons@2",
+        "main//icons@2",
+        "main\\icons@2",
+        "main/%2e%2e/icons@2",
+        "main/icons@2?query",
+        "main/icons@2#fragment",
+        "main/icons@2:port",
+        "@/" + "/".join(["a"] * 8),
+        "@" + ("a" * 128),
+    ],
+)
+def test_literal_at_does_not_enable_unsafe_paths(path):
+    extra = f" {'c' * 64} 123 {path}\n".encode()
+    with pytest.raises(m.OriginError, match="release_path"):
+        m.parse_release(release() + extra, "noble")
+
+
+def test_duplicate_at_declaration_still_refuses():
+    extra = f" {'c' * 64} 123 main/dep11/icons@2.tar.gz\n".encode()
+    with pytest.raises(m.OriginError, match="release_duplicate_path"):
+        m.parse_release(release() + extra + extra, "noble")
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        (b"1234 main/binary-amd64/Packages\n", b"1234 main/binary-amd64/Packages@2\n"),
+        (b"456 main/binary-amd64/Packages.xz\n", b"456 main/binary-amd64/Packages@2.xz\n"),
+    ],
+)
+def test_literal_at_cannot_extend_selected_index_names(old, new):
+    raw = release()
+    assert old in raw
+    with pytest.raises(m.OriginError, match="release_indexes_missing"):
+        m.parse_release(raw.replace(old, new), "noble")

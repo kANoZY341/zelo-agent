@@ -4,6 +4,7 @@ import ast
 import asyncio
 import hashlib
 import os
+import stat
 from types import SimpleNamespace
 
 import pytest
@@ -82,6 +83,10 @@ def test_frozen_identity_and_retention_ledger():
     assert p["retained_ledger_entries"] == 2 * 18 + 1 + 5 + 2 == 44
     maximum = 4 * 524288 + 14 * 65536 + 18 * 16384 + 2097152 + 4 * 128 + 126125
     assert p["retained_ledger_bytes"] == maximum < 8388608
+    assert p["declaration_path_component_pattern"] == r"[A-Za-z0-9_+@.-]{1,128}\Z"
+    assert p["declaration_size_max"] == 999999999999
+    assert p["selected_raw_index_bytes"] == 134217728
+    assert p["selected_compressed_index_bytes"] == 33554432
     assert p["attempts"] == 4
     assert p["admission_scope"] == "runtime/media-elf-metadata-admission"
     assert p["proof_scope"] == "runtime/media-origin-proofs/origin-proof-*"
@@ -286,6 +291,22 @@ def test_error_controls_require_specific_owned_result(tmp_path, monkeypatch, err
     monkeypatch.setattr(q, "_prepare_fds", lambda *args: ())
     monkeypatch.setattr(q.shared, "_own_operation", own)
     monkeypatch.setattr(q, "_repeated_cancel", repeated)
+    original_fstat = os.fstat
+
+    def operator_fstat(fd):
+        info = original_fstat(fd)
+        if stat.S_ISFIFO(info.st_mode):
+            # Model the fixed operator identity; CI may run as a different UID.
+            return SimpleNamespace(
+                st_mode=info.st_mode,
+                st_nlink=info.st_nlink,
+                st_uid=1000,
+                st_dev=info.st_dev,
+                st_ino=info.st_ino,
+            )
+        return info
+
+    monkeypatch.setattr(q.os, "fstat", operator_fstat)
     state = q._State()
     try:
         record = asyncio.run(
@@ -790,5 +811,37 @@ def test_native_passes_only_selected_copy_fds_and_retains_parent_ownership(tmp_p
         )
         assert record["passed"]
         assert all(os.fstat(fd) for fd in fds.values())
+    finally:
+        assert state.close_all()
+
+
+@pytest.mark.parametrize("uid", [0, 1001])
+def test_readiness_wrong_owner_refuses_before_launch(tmp_path, monkeypatch, uid):
+    original_fstat = os.fstat
+
+    def wrong_owner(fd):
+        info = original_fstat(fd)
+        if stat.S_ISFIFO(info.st_mode):
+            return SimpleNamespace(st_mode=info.st_mode, st_nlink=info.st_nlink, st_uid=uid)
+        return info
+
+    monkeypatch.setattr(q.os, "fstat", wrong_owner)
+    monkeypatch.setattr(q, "_prepare_fds", lambda *args: pytest.fail("must refuse before launch"))
+    state = q._State()
+    try:
+        with pytest.raises(q.QualificationRefused, match="readiness_identity"):
+            asyncio.run(
+                q._native(
+                    state,
+                    q._Store(tmp_path, state),
+                    {},
+                    "cancel",
+                    b"input",
+                    "cancel",
+                    0,
+                    q.time.monotonic() + 30,
+                )
+            )
+        assert not state.observations
     finally:
         assert state.close_all()
