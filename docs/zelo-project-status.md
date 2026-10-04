@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Latest checkpoint verified: 4 October 2026
+Latest checkpoint verified: 5 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -77,6 +77,24 @@ Titles never widen tool or worker authority.
 
 Merged v0.14 implementation work is PRs #47 through #53.
 Release preparation is PR #54.
+
+## Parallel v0.15 preparation — persistent Agent computers (5 October 2026)
+
+The active Media native-reader slice remains unchanged. In parallel, an isolated
+branch prepares the later v0.15 Computer Worker foundation by reusing the
+MIT-licensed OpenBot computer supervisor/service pattern already reviewed by
+CopilotKit/OpenDots.
+
+The preparation adds only trusted metadata/configuration, a fail-closed
+Zelo-owned lifecycle adapter, exact pinned OpenBot deployment/provenance, and
+tests. It does **not** register a Computer Worker, add a task kind, expose
+browser/files/shell execution, merge the parked UI, or widen any Agent authority.
+
+Canonical revision 3.3 now records that persistent factory-managed Agents own
+explicit instructions, memory, skills, Space/tool grants and authority; Agents
+that need execution may later receive a persistent per-AgentInstance computer.
+The future Control Desk Computer Panel and governed skill-learning lifecycle are
+also canonical. See `docs/v0.15-agent-computer-openbot-foundation.md`.
 
 ## v0.15 merged foundations
 

@@ -4,7 +4,7 @@
 
 This document is the repository-facing roadmap summary.
 
-The current canonical product plan is Zelo Canonical Architecture revision 3.2,
+The current canonical product plan is Zelo Canonical Architecture revision 3.3,
 as amended by `docs/zelo-workspace-decision.md` and
 `docs/zelo-organizational-authority-model.md`. The later explicit decisions win
 where they refine older shorthand.
@@ -13,8 +13,17 @@ Feature design documents may refine an individual milestone, but they must not
 silently redefine Zelo's identity or reorder the roadmap. Material roadmap or
 architecture changes require an explicit operator decision.
 
-This repository summary is governed by Canonical Architecture revision 3.2.
-Revision 3.2 incorporates the 1 October 2026 organizational authority decision:
+This repository summary is governed by Canonical Architecture revision 3.3.
+Revision 3.3 incorporates the 5 October 2026 persistent-specialist decision:
+factory-managed agents are durable digital employees with their own instructions,
+memory namespace, skill bindings/learning policy, Space grants, tool grants and
+Core authority; execution-capable agents may also own a persistent isolated
+computer and corresponding Control Desk Computer Panel. The initial computer
+backend may reuse the MIT-licensed CopilotKit/OpenBot infrastructure through a
+Zelo-owned adapter, pinned and fail-closed, without surrendering Zelo Core
+authority.
+
+Revision 3.2 incorporated the 1 October 2026 organizational authority decision:
 the human Managing Director is the ultimate human principal, Zelo is Group CEO,
 and factory-managed authority descends through VP, Director, Manager and
 Specialist levels. `docs/zelo-organizational-authority-model.md` is canonical for
@@ -104,13 +113,41 @@ or another provider/model.
 
 ### Agent
 
-A persistent specialist with a role, goals, memory namespace, tools, procedures,
-permissions, and budgets.
+A persistent specialist digital employee. Every persistent factory-managed Agent
+has a stable identity and organizational position plus an explicit package of:
+
+- trusted instructions / mission / responsibilities;
+- scoped memory namespace(s);
+- installed/versioned skills and a skill-learning policy;
+- Space/project/document/data grants;
+- tool and capability grants;
+- Core authority, budgets, approval and escalation boundaries; and
+- an optional persistent Agent Computer when execution requires one.
+
+Execution-capable Agents should normally receive their own computer rather than
+sharing browser identity or mutable workspace with unrelated Agents. An Agent
+Computer never grants authority by itself.
 
 Examples include Coding Agent, Research Agent, Business Agent, YouTube Agent,
 Trading Agent, Product Agent, and Security Agent.
 
 An agent is not a model or worker.
+
+### Agent Computer
+
+A persistent, isolated execution environment assigned to one AgentInstance when
+needed. It may contain a browser/profile, private workspace files and bounded
+shell/runtime facilities. Computer state may survive stop/start, but its
+credentials, lifecycle and actions remain scoped to the owning AgentInstance and
+mediated by Zelo Core.
+
+The initial v0.15 backend may reuse a pinned CopilotKit/OpenBot computer service
+and supervisor behind a Zelo-owned adapter. Failure or unavailability must fail
+closed: Zelo must never silently fall back to the host shell, host browser or
+another Agent's workspace.
+
+Human takeover is an owner control, not Agent authority. After takeover/handback,
+stale browser snapshots/actions must not be reused.
 
 ### Worker
 
@@ -229,6 +266,15 @@ need them. The UI, model and worker layers never become the authority boundary.
     neither may silently mutate the other.
 15. Titles do not grant tool/worker authority. Every action still requires explicit
     Core capabilities, policy, budgets and approvals.
+16. Persistent Agent identity includes explicit instructions, memory, skills,
+    Spaces, tools and authority; none of those scopes may be inferred from title.
+17. Agent Computers are per-AgentInstance execution resources, not a shared
+    authority boundary; cross-agent workspace/browser access requires explicit Core grants.
+18. A failed/unconfigured Agent Computer never falls back to the Zelo host.
+19. Human takeover is owner-only and handback requires fresh browser state before
+    autonomous browser actions continue.
+20. Learning may propose or improve skills, but learned skills never widen tool,
+    capability, Space, budget or external-action authority automatically.
 
 ## Reuse before rebuild
 
@@ -283,6 +329,8 @@ These projects are references or optional components, not Zelo itself.
 | Ruflo | Optional swarm / coordinated execution backend |
 | ECC | Engineering skills, hooks, verification and worker procedures |
 | Harness | Agent Factory / agent-team design reference |
+| CopilotKit/OpenDots | Specialist-agent workspace, Computer Panel, per-agent computer and learning UX/reference; selectively adapt compatible code only |
+| CopilotKit/OpenBot | Pinned candidate backend for per-agent persistent browser/files/shell/takeover; always behind Zelo Core/Supervisor authority |
 | OpenClaw | Persistence/autonomy reference; possible later channel/device gateway adapter |
 | OpenMAIC | Durable sessions, runtime and resumability reference |
 | Context Mode | Context Engine / memory handling reference |
@@ -315,7 +363,15 @@ The workspace is one product with three connected views:
    agents, assignments, progress, evidence and outputs. The visual layer reflects
    real Core state and never invents work.
 3. **Control desk** — ordinary project, file, policy, procedure, approval,
-   budget and activity management.
+   budget and activity management, including a per-agent **Computer Panel** for
+   Agents that own persistent computers.
+
+A Computer Panel is a projection over Core/backend state and should expose, as
+authorized: Screen, Browser, Files, Terminal, Activity, Permissions/Resources,
+Start/Stop, Pause Agent, Take Control and Hand Back. It must not create a second
+permission or audit system. The eventual UI may selectively adapt compatible
+OpenDots/OpenBot components, but all actions still resolve through Zelo-owned
+identity and authority.
 
 Mission Control is a strong candidate and reference, not a mandatory dependency.
 Agent Town is a reference or potential adaptation candidate. Build Zelo's own
@@ -508,6 +564,14 @@ Add controlled:
 - selected MCP/plugin adapters;
 - optional Ruflo swarm adapter.
 
+For Computer Worker infrastructure, prefer reuse over rebuilding container and
+browser lifecycle from zero. The first candidate is the exact OpenBot revision
+already consumed by OpenDots, wrapped by a Zelo-owned fail-closed adapter. The
+foundation must provide per-AgentInstance identity, persistent browser/workspace
+volumes, derived per-agent credentials, start/stop lifecycle and human-takeover
+semantics without exposing the Docker socket or master token to Agent computers.
+Actual browser/file/shell actions remain separate capability/authority gates.
+
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
@@ -545,6 +609,13 @@ narrow Specialist Agents such as:
 - Personal-assistant specialists.
 
 Executive roles coordinate and govern; Specialist Agents perform domain work.
+Every persistent Agent receives a trusted package containing its instructions,
+memory namespace, explicit installed skills, Space grants, tool/capability grants,
+authority/budget/escalation boundaries and learning policy. Agents that require
+interactive execution may receive a persistent per-AgentInstance computer with its
+own browser profile and workspace; unrelated Agents do not share those mutable
+identities by default.
+
 Every role receives only the tools, memory and authority explicitly required by
 its trusted specification and organizational assignment.
 
@@ -559,7 +630,30 @@ Add:
 - evidence-based model/worker routing;
 - failed-strategy avoidance;
 - deeper self-improvement;
-- skill improvement.
+- skill improvement;
+- evidence/outcome-driven skill candidates;
+- evaluation before skill promotion;
+- operator/policy approval before publication where required;
+- versioned skill publication, performance evidence and rollback; and
+- skill scopes for agent, organizational unit, project and system use.
+
+Canonical skill-learning flow:
+
+```text
+conversation / task evidence / outcomes
+  -> detect repeatable successful procedure
+  -> candidate skill
+  -> bounded evaluation
+  -> proposal
+  -> approval / policy gate
+  -> versioned publication
+  -> measured use
+  -> improve or roll back
+```
+
+Learning never self-grants new tools, Spaces, credentials, budgets or external
+write authority. A learned skill is procedure knowledge; capability authority
+continues to come only from trusted Core configuration.
 
 ### v0.19 — Release candidate / hardening
 
@@ -597,7 +691,9 @@ v1.0 means Zelo can practically:
 - report progress through useful channels;
 - preserve one Zelo identity across Mission Control/custom workspace, voice,
   WhatsApp and email;
-- expose operator controls, budgets and recovery state; and
+- expose operator controls, budgets and recovery state;
+- let the operator inspect/control persistent Agent computers where configured;
+- retain and improve useful Agent skills through governed learning; and
 - improve itself through controlled engineering loops.
 
 Example target:

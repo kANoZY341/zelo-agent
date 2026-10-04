@@ -118,9 +118,16 @@ class SkillRegistry:
 
     def validate_agents(self, agents: Iterable[AgentSpec]) -> None:
         active_skills = tuple(spec for spec in self._skills.values() if spec.lifecycle == "active")
+        active_by_id = {skill.skill_id: skill for skill in active_skills}
         for agent in agents:
             if agent.lifecycle != "active":
                 continue
+            for skill_id in agent.skill_ids:
+                skill = active_by_id.get(skill_id)
+                if skill is None:
+                    raise ValueError(f"agent_skill_unavailable:{agent.agent_id}:{skill_id}")
+                if not self._compatible(agent, skill):
+                    raise ValueError(f"agent_skill_incompatible:{agent.agent_id}:{skill_id}")
             for procedure in agent.procedures:
                 if not any(self._supports(agent, procedure, skill) for skill in active_skills):
                     raise ValueError(
@@ -128,13 +135,16 @@ class SkillRegistry:
                     )
 
     @staticmethod
-    def _supports(agent: AgentSpec, procedure: str, skill: SkillSpec) -> bool:
+    def _compatible(agent: AgentSpec, skill: SkillSpec) -> bool:
         return (
-            procedure in skill.procedures
-            and set(skill.required_capabilities).issubset(agent.capabilities)
+            set(skill.required_capabilities).issubset(agent.capabilities)
             and set(skill.task_kinds).issubset(agent.allowed_task_kinds)
             and set(skill.tools).issubset(agent.allowed_tools)
         )
+
+    @classmethod
+    def _supports(cls, agent: AgentSpec, procedure: str, skill: SkillSpec) -> bool:
+        return procedure in skill.procedures and cls._compatible(agent, skill)
 
     def snapshot(self) -> SkillRegistrySnapshot:
         return SkillRegistrySnapshot(registry_version=self.version, skills=self.list())

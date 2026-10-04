@@ -12,6 +12,7 @@ from app.agent_activation import AgentActivationEvaluator
 from app.agent_activation_api import router as agent_activation_router
 from app.agent_child_creation import AgentChildCreationService
 from app.agent_child_creation_api import router as agent_child_creation_router
+from app.agent_computers import OpenBotComputerBackend
 from app.agent_delegation_api import router as agent_delegation_router
 from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
@@ -113,6 +114,7 @@ def create_app(
                 mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
+            agent_computers = OpenBotComputerBackend(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             research_runtime = ResearchRuntime(configuration, gateway, tool_gateway)
             research_registry = WorkerRegistry[ResearchRuntime](
@@ -272,6 +274,7 @@ def create_app(
             application.state.agent_registry = agent_registry
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
+            application.state.agent_computers = agent_computers
             application.state.storage = database
             application.state.database = database
             application.state.tasks = tasks
