@@ -377,3 +377,32 @@ class SkillLearningProposalStore:
         except ValueError:
             return None
         return stored if rebuilt == stored.proposal else None
+
+    def accepted_candidate_basis(
+        self, proposal_id: str, principal: OperatorPrincipal
+    ) -> StoredSkillLearningProposal | None:
+        """Return a fresh accepted proposal for an explicit operator candidate action."""
+
+        if not isinstance(principal, OperatorPrincipal) or principal.subject != "ahmad":
+            raise PermissionError("skill_learning_reviewer_forbidden")
+        stored = self.get(proposal_id)
+        if (
+            stored is None
+            or stored.status != "accepted"
+            or stored.review is None
+            or stored.review.decision != "accepted"
+            or not stored.review.checks.all_passed()
+            or stored.review.proposal_id != proposal_id
+            or stored.review.proposal_fingerprint != stored.proposal.proposal_fingerprint
+            or stored.review.revision_sha256 != stored.proposal.proposed_revision.content_sha256
+        ):
+            return None
+        try:
+            rebuilt = self._build(
+                stored.proposal.agent_instance_id,
+                stored.proposal.proposed_revision,
+                stored.proposal.evidence_refs,
+            )
+        except ValueError:
+            return None
+        return stored if rebuilt == stored.proposal else None

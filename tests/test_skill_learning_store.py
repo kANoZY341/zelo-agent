@@ -1,6 +1,8 @@
 """Inert skill-learning persistence on migrated isolated SQLite databases."""
 
 import asyncio
+import hashlib
+import json
 from copy import deepcopy
 
 import pytest
@@ -38,6 +40,7 @@ from app.skill_learning import (
     SkillLearningReviewChecks,
     SkillLearningReviewRequest,
 )
+from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_source_id
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
@@ -531,3 +534,119 @@ def test_evidence_mutation_after_claim_prevents_learning_proposal(
     assert failed.status == State.FAILED
     assert failed.error == "skill_learning_evidence_stale"
     assert store.list() == ()
+
+
+def accepted(store, agent, candidate, ref):
+    proposed, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    reviewed, _ = store.record_review(
+        proposed.proposal.proposal_id, review_request(), OperatorPrincipal()
+    )
+    return reviewed
+
+
+def test_candidate_is_canonical_content_addressed_and_idempotent(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    registry_version = store.skill_registry.version
+    adapter = SkillLearningCandidateAdapter(store)
+
+    first = adapter.materialize(
+        reviewed.proposal.proposal_id,
+        staging_root=tmp_path,
+        principal=OperatorPrincipal(),
+    )
+    second = adapter.materialize(
+        reviewed.proposal.proposal_id,
+        staging_root=tmp_path,
+        principal=OperatorPrincipal(),
+    )
+
+    assert first.created is True
+    assert second.created is False
+    assert (
+        first.content == second.content
+        and first.relative_path == second.relative_path
+        and first.artifact_sha256 == second.artifact_sha256
+    )
+    assert first.relative_path.startswith("skills/procedures/")
+    assert first.relative_path.endswith(f"v{revision.version}-{revision.content_sha256}.json")
+    assert hashlib.sha256(first.content).hexdigest() == first.artifact_sha256
+    assert json.loads(first.content)["content_sha256"] == first.content_sha256
+    assert (tmp_path / first.relative_path).read_bytes() == first.content
+    assert store.skill_registry.version == registry_version
+    assert store.get(reviewed.proposal.proposal_id) == reviewed
+
+
+def test_candidate_requires_accepted_review_and_ahmad_operator(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
+    adapter = SkillLearningCandidateAdapter(store)
+
+    with pytest.raises(ValueError, match="not_accepted_or_stale"):
+        adapter.materialize(
+            proposed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    with pytest.raises(PermissionError, match="reviewer_forbidden"):
+        store.accepted_candidate_basis(
+            proposed.proposal.proposal_id, OperatorPrincipal(subject="someone_else")
+        )
+    assert not list(tmp_path.rglob("*.json"))
+
+
+def test_conflicting_existing_bytes_are_never_overwritten(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    adapter = SkillLearningCandidateAdapter(store)
+    artifact = adapter.materialize(
+        reviewed.proposal.proposal_id,
+        staging_root=tmp_path,
+        principal=OperatorPrincipal(),
+    )
+    target = tmp_path / artifact.relative_path
+    target.chmod(0o644)
+    target.write_bytes(b"modified candidate")
+    with pytest.raises(ValueError, match="candidate_conflict"):
+        adapter.materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert target.read_bytes() == b"modified candidate"
+
+
+def test_symlinked_candidate_parent_cannot_escape_staging_root(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    (tmp_path / "skills").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(OSError):
+        SkillLearningCandidateAdapter(store).materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert list(outside.iterdir()) == []
+
+
+def test_stale_evidence_after_acceptance_blocks_candidate(tmp_path, proposal_case, database):
+    store, agent, task, attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    with database.transaction() as session:
+        stored_task = session.get(Task, task.id)
+        stored_attempt = session.get(TaskAttempt, attempt.attempt_id)
+        changed = dict(stored_attempt.result)
+        changed["answer"] = "Changed after acceptance."
+        stored_attempt.result = changed
+        stored_task.result = changed
+
+    with pytest.raises(ValueError, match="not_accepted_or_stale"):
+        SkillLearningCandidateAdapter(store).materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert not list(tmp_path.rglob("*.json"))
