@@ -11,7 +11,7 @@ from app.agent_factory import AgentRegistry, AgentSpec
 from app.capabilities import CapabilityRegistry
 from app.developer_contracts import WorkerDescriptor
 
-AGENT_ACTIVATION_POLICY = "zelo-agent-activation-policy-v3"
+AGENT_ACTIVATION_POLICY = "zelo-agent-activation-policy-v4"
 
 
 class ActivationContract(BaseModel):
@@ -121,6 +121,16 @@ class AgentActivationEvaluator:
             for worker in self.workers
         )
 
+    def _computer_navigation_worker_matches(self, spec: AgentSpec) -> bool | None:
+        if "computer_navigate" not in spec.capabilities:
+            return None
+        return any(
+            worker.enabled
+            and worker.role == "computer"
+            and "computer_navigate" in worker.capabilities
+            for worker in self.workers
+        )
+
     def _capability_validation(
         self,
         capabilities: Iterable[str],
@@ -142,6 +152,7 @@ class AgentActivationEvaluator:
         specialist = spec.organizational_level == "specialist"
         worker_match = self._worker_matches(spec)
         computer_worker_match = self._computer_worker_matches(spec)
+        computer_navigation_worker_match = self._computer_navigation_worker_matches(spec)
         agent_capabilities_valid, agent_capabilities_detail = self._capability_validation(
             spec.capabilities,
             subject="agent",
@@ -245,6 +256,43 @@ class AgentActivationEvaluator:
                         "computer_run requires an enabled Computer Worker"
                         if computer_worker_match is False
                         else "template does not declare computer_run"
+                    )
+                ),
+            ),
+            self._check(
+                "computer_navigation_profile",
+                (
+                    spec.computer is not None
+                    and spec.computer.browser
+                    and bool(spec.computer.browser_endpoint_ids)
+                )
+                if "computer_navigate" in spec.capabilities
+                else None,
+                (
+                    "computer_navigate is bounded by explicit browser endpoint grants"
+                    if (
+                        "computer_navigate" in spec.capabilities
+                        and spec.computer is not None
+                        and spec.computer.browser
+                        and bool(spec.computer.browser_endpoint_ids)
+                    )
+                    else (
+                        "computer_navigate requires explicit browser endpoint grants"
+                        if "computer_navigate" in spec.capabilities
+                        else "template does not declare computer_navigate"
+                    )
+                ),
+            ),
+            self._check(
+                "computer_navigation_worker_binding",
+                computer_navigation_worker_match,
+                (
+                    "configured Computer navigation worker satisfies the mutation requirement"
+                    if computer_navigation_worker_match
+                    else (
+                        "computer_navigate requires an enabled navigation worker"
+                        if computer_navigation_worker_match is False
+                        else "template does not declare computer_navigate"
                     )
                 ),
             ),
