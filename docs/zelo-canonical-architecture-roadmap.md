@@ -542,6 +542,12 @@ USTAR remains narrow; GNU/PAX stay unsupported. Media still needs native stream
 qualification, real member/runtime/import closure, resource/filter and image
 decoding, Core binding and release. UI #61 and v0.14.0 remain unchanged.
 
+Separate skill-learning status: draft PR #100 at `20c7782` implements the bounded
+Agent proposal task, immutable proposal persistence, operator review and inert
+acceptance. Exact-head CI passed (4,637 passed, 2 skipped). Record this as tested
+draft work only: it is unmerged, has no production migration, and does not promote
+or activate learned skills. It does not replace or advance the active Media gate.
+
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
 Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
