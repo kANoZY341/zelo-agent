@@ -99,10 +99,11 @@ INSTANCE_ID = "00000000-0000-4000-8000-000000000001"
 OTHER_INSTANCE_ID = "00000000-0000-4000-8000-000000000002"
 
 
-def instance(agent, *, status="active", agent_id=None, registry_version=None):
+def instance(agent, *, status="active", agent_id=None, agent_version=None, registry_version=None):
     return SkillLearningAgentSnapshot(
         agent_instance_id=INSTANCE_ID,
         agent_id=agent_id or agent.spec.agent_id,
+        agent_version=agent_version or agent.spec.version,
         agent_registry_version=registry_version or agent.registry_version,
         status=status,
     )
@@ -343,6 +344,7 @@ def test_instance_and_proposal_ids_are_canonical_uuids():
         SkillLearningAgentSnapshot(
             agent_instance_id="x",
             agent_id=agent.spec.agent_id,
+            agent_version=agent.spec.version,
             agent_registry_version=agents.version,
             status="active",
         )
@@ -353,14 +355,19 @@ def test_instance_and_proposal_ids_are_canonical_uuids():
     payload["proposal_id"] = OTHER_INSTANCE_ID
     with pytest.raises(ValidationError, match="proposal_identity_mismatch"):
         SkillLearningProposal.model_validate(payload)
+    payload = accepted.model_dump(mode="json")
+    payload["agent_version"] += 1
+    with pytest.raises(ValidationError, match="proposal_identity_mismatch"):
+        SkillLearningProposal.model_validate(payload)
 
 
-@pytest.mark.parametrize("change", ("status", "agent_id", "registry_version"))
+@pytest.mark.parametrize("change", ("status", "agent_id", "agent_version", "registry_version"))
 def test_agent_snapshot_must_match_active_trusted_binding(change):
     _, agent = binding()
     updates = {
         "status": "paused",
         "agent_id": "other_agent",
+        "agent_version": 999,
         "registry_version": "0" * 64,
     }
     values = {change: updates[change]}

@@ -101,6 +101,7 @@ class SkillLearningAgentSnapshot(SkillLearningContract):
 
     agent_instance_id: CanonicalUuid
     agent_id: Identifier
+    agent_version: int = Field(ge=1, le=1_000_000)
     agent_registry_version: Sha256
     status: Literal["active", "paused", "retired"]
 
@@ -187,6 +188,7 @@ class SkillLearningProposal(SkillLearningContract):
     proposal_id: CanonicalUuid
     agent_instance_id: CanonicalUuid
     agent_id: Identifier
+    agent_version: int = Field(ge=1, le=1_000_000)
     agent_registry_version: Sha256
     skill_registry_version: Sha256
     source_skill_id: SkillId
@@ -210,6 +212,7 @@ class SkillLearningProposal(SkillLearningContract):
             "schema": SKILL_PROPOSAL_SCHEMA,
             "agent_instance_id": self.agent_instance_id,
             "agent_id": self.agent_id,
+            "agent_version": self.agent_version,
             "agent_registry_version": self.agent_registry_version,
             "skill_registry_version": self.skill_registry_version,
             "source_skill_id": self.source_skill_id,
@@ -285,6 +288,7 @@ def propose_skill_revision(
     if (
         agent_instance.status != "active"
         or agent_instance.agent_id != agent.agent_id
+        or agent_instance.agent_version != agent.version
         or agent_instance.agent_registry_version != agent_binding.registry_version
     ):
         raise ValueError("skill_learning_agent_stale")
@@ -339,6 +343,7 @@ def propose_skill_revision(
         "schema": SKILL_PROPOSAL_SCHEMA,
         "agent_instance_id": agent_instance.agent_instance_id,
         "agent_id": agent.agent_id,
+        "agent_version": agent.version,
         "agent_registry_version": agent_binding.registry_version,
         "skill_registry_version": skill_registry.version,
         "source_skill_id": source.skill_id,
@@ -354,6 +359,7 @@ def propose_skill_revision(
         proposal_id=_proposal_uuid(fingerprint),
         agent_instance_id=agent_instance.agent_instance_id,
         agent_id=agent.agent_id,
+        agent_version=agent.version,
         agent_registry_version=agent_binding.registry_version,
         skill_registry_version=skill_registry.version,
         source_skill_id=source.skill_id,

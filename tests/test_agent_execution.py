@@ -74,8 +74,8 @@ def campaign(database, project_id: str):
     )
 
 
-def direct_services(database, settings, *, developer_runtime=None):
-    factory = AgentFactory(default_agent_registry())
+def direct_services(database, settings, *, developer_runtime=None, agent_factory=None):
+    factory = agent_factory or AgentFactory(default_agent_registry())
     instances = AgentInstanceService(database, factory, MemoryService(database))
     research_registry = WorkerRegistry[object](((descriptor_for_research_worker(), object()),))
     tasks = TaskService(

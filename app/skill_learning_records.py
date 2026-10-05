@@ -87,6 +87,7 @@ class CoreSkillLearningRecords:
             return SkillLearningAgentSnapshot(
                 agent_instance_id=row.id,
                 agent_id=row.agent_id,
+                agent_version=row.agent_version,
                 agent_registry_version=row.registry_version,
                 status=row.status,
             )

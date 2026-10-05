@@ -767,3 +767,52 @@ class ConversationTurn(Base):
     usage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     core_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningProposalRecord(Base):
+    """Frozen candidate. Status is projected from append-only events."""
+
+    __tablename__ = "skill_learning_proposals"
+    __table_args__ = (
+        CheckConstraint("length(proposal_json) <= 65536", name="ck_skill_proposal_size"),
+        CheckConstraint("length(proposal_fingerprint) = 64", name="ck_skill_proposal_fingerprint"),
+        CheckConstraint("length(revision_sha256) = 64", name="ck_skill_proposal_revision"),
+        CheckConstraint(
+            "length(agent_registry_version) = 64", name="ck_skill_proposal_agent_registry"
+        ),
+        CheckConstraint(
+            "length(skill_registry_version) = 64", name="ck_skill_proposal_skill_registry"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    agent_instance_id: Mapped[str] = mapped_column(ForeignKey("agent_instances.id"), index=True)
+    agent_id: Mapped[str] = mapped_column(String(64))
+    agent_version: Mapped[int] = mapped_column(Integer)
+    agent_registry_version: Mapped[str] = mapped_column(String(64))
+    skill_registry_version: Mapped[str] = mapped_column(String(64))
+    source_skill_id: Mapped[str] = mapped_column(String(64))
+    source_skill_version: Mapped[int] = mapped_column(Integer)
+    procedure_id: Mapped[str] = mapped_column(String(64))
+    revision_sha256: Mapped[str] = mapped_column(String(64))
+    prior_revision_sha256: Mapped[str | None] = mapped_column(String(64))
+    proposal_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningEvent(Base):
+    """Status history; only the proposed event has a writer in this slice."""
+
+    __tablename__ = "skill_learning_events"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "sequence", name="uq_skill_learning_event_sequence"),
+        CheckConstraint("sequence >= 1", name="ck_skill_learning_event_sequence"),
+        CheckConstraint("event = 'proposed'", name="ck_skill_learning_event_name"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    proposal_id: Mapped[str] = mapped_column(ForeignKey("skill_learning_proposals.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
