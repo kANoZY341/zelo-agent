@@ -573,6 +573,11 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "agent_computer_events_sequence_guard",
             "agent_computer_permissions_no_delete",
             "agent_computer_permissions_no_reassign",
+            "skill_learning_events_first_only",
+            "skill_learning_events_no_delete",
+            "skill_learning_events_no_update",
+            "skill_learning_proposals_no_delete",
+            "skill_learning_proposals_no_update",
         }
     finally:
         db.close()
