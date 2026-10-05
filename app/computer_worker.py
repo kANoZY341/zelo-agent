@@ -8,6 +8,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -16,10 +17,13 @@ from app.agent_computers import (
     OpenBotComputerBackend,
 )
 from app.agent_execution_contracts import AgentExecutionBinding
-from app.computer_contracts import ComputerExecutionSpec, ComputerReadAction
+from app.api_contracts import ApiEndpointRegistry
+from app.computer_contracts import ComputerAction, ComputerExecutionSpec
+from app.computer_egress import computer_egress_policy_version
 from app.developer_contracts import WorkerSelectionSnapshot
 from app.models import AgentComputerPermission
 from app.schemas import (
+    ComputerBrowserNavigateResult,
     ComputerBrowserReadResult,
     ComputerBrowserSnapshotResult,
     ComputerFileEntry,
@@ -58,6 +62,26 @@ def computer_read_policy_semantics() -> dict[str, object]:
     }
 
 
+def computer_navigate_policy_semantics() -> dict[str, object]:
+    """Fixed v1 policy: named HTTPS endpoint navigation only."""
+    return {
+        "schema": "zelo-computer-navigate-policy-v1",
+        "actions": ("browser_navigate",),
+        "target_authority": "trusted-endpoint-id-plus-bounded-path",
+        "egress": "core-authenticated-allowlist-proxy",
+        "direct_public_egress": False,
+        "click": False,
+        "type": False,
+        "key": False,
+        "scroll": False,
+        "filesystem_write": False,
+        "shell": False,
+        "host_fallback": False,
+        "credential_injection": False,
+        "human_takeover_barrier": True,
+    }
+
+
 def _canonical_digest(value: object) -> str:
     return hashlib.sha256(
         json.dumps(
@@ -77,9 +101,11 @@ class ComputerRuntime:
         self,
         database: SessionStore,
         backend: OpenBotComputerBackend,
+        endpoints: ApiEndpointRegistry | None = None,
     ) -> None:
         self.database = database
         self.backend = backend
+        self.endpoints = endpoints or ApiEndpointRegistry()
 
     @staticmethod
     def _permission_row(session: Session, instance_id: str) -> AgentComputerPermission:
@@ -103,33 +129,62 @@ class ComputerRuntime:
         )
 
     @staticmethod
-    def _required_permission(action: ComputerReadAction) -> str:
+    def _required_permission(action: ComputerAction) -> str:
         return "browser" if action.startswith("browser_") else "files"
 
     @classmethod
     def _permission_allows(
         cls,
         row: AgentComputerPermission,
-        action: ComputerReadAction,
+        action: ComputerAction,
     ) -> bool:
         return row.enabled and bool(getattr(row, cls._required_permission(action)))
+
+    @staticmethod
+    def _required_capability(action: ComputerAction) -> str:
+        return "computer_navigate" if action == "browser_navigate" else "computer_read"
 
     def bind(
         self,
         worker_selection: WorkerSelectionSnapshot,
         agent_execution: AgentExecutionBinding,
-        action: ComputerReadAction,
+        action: ComputerAction,
         path: str,
         timeout_seconds: float,
+        *,
+        endpoint_id: str | None = None,
     ) -> ComputerExecutionSpec:
         profile = agent_execution.spec.computer
         if profile is None:
             raise ComputerRuntimeError("computer_profile_unavailable")
-        required = self._required_permission(action)
-        if not getattr(profile, required):
+        required_permission = self._required_permission(action)
+        required_capability = self._required_capability(action)
+        if not getattr(profile, required_permission):
             raise ComputerRuntimeError("computer_action_exceeds_agent_spec")
+        if required_capability not in agent_execution.spec.capabilities:
+            raise ComputerRuntimeError("computer_capability_denied")
+        if tuple(worker_selection.requested_capabilities) != (required_capability,):
+            raise ComputerRuntimeError("computer_worker_capability_mismatch")
         if not self.backend.configured:
             raise ComputerRuntimeError("computer_backend_not_configured")
+
+        endpoint = None
+        egress_policy_version = None
+        if action == "browser_navigate":
+            if (
+                endpoint_id is None
+                or endpoint_id not in profile.browser_endpoint_ids
+                or self.backend.settings.computer_internal_network_cidr is None
+                or self.backend.settings.computer_egress_proxy_host is None
+            ):
+                raise ComputerRuntimeError("computer_navigation_authority_denied")
+            try:
+                endpoint = self.endpoints.bind(endpoint_id)
+            except ValueError:
+                raise ComputerRuntimeError("computer_navigation_endpoint_unavailable") from None
+            egress_policy_version = computer_egress_policy_version()
+        elif endpoint_id is not None:
+            raise ComputerRuntimeError("computer_read_endpoint_forbidden")
 
         with self.database.read() as session:
             row = self._permission_row(session, agent_execution.agent_instance_id)
@@ -143,6 +198,8 @@ class ComputerRuntime:
                 worker_selection=worker_selection,
                 action=action,
                 path=path,
+                endpoint=endpoint,
+                egress_policy_version=egress_policy_version,
                 permission_version=permission_version,
                 backend_identity=self.backend.identity,
                 timeout_seconds=timeout_seconds,
@@ -152,6 +209,20 @@ class ComputerRuntime:
 
     def matches(self, spec: ComputerExecutionSpec) -> bool:
         if not self.backend.configured or spec.backend_identity != self.backend.identity:
+            return False
+        required_capability = self._required_capability(spec.action)
+        if tuple(spec.worker_selection.requested_capabilities) != (required_capability,):
+            return False
+        if spec.action == "browser_navigate":
+            if (
+                spec.endpoint is None
+                or spec.egress_policy_version != computer_egress_policy_version()
+                or not self.endpoints.matches(spec.endpoint)
+                or self.backend.settings.computer_internal_network_cidr is None
+                or self.backend.settings.computer_egress_proxy_host is None
+            ):
+                return False
+        elif spec.endpoint is not None or spec.egress_policy_version is not None:
             return False
         try:
             with self.database.read() as session:
@@ -169,8 +240,12 @@ class ComputerRuntime:
         payload: dict[str, Any],
         timeout_seconds: float,
     ) -> bool:
+        endpoint_id = (
+            spec.endpoint.endpoint.endpoint_id if spec.endpoint is not None else None
+        )
         return (
             payload.get("action") == spec.action
+            and payload.get("endpoint_id") == endpoint_id
             and payload.get("path", "") == spec.path
             and timeout_seconds == spec.timeout_seconds
         )
@@ -285,6 +360,47 @@ class ComputerRuntime:
                     completed_at=datetime.now(UTC),
                 )
 
+            if action == "browser_navigate":
+                if spec.endpoint is None:
+                    raise ComputerRuntimeError("computer_response_invalid")
+                final_url, _ = cls._string(raw.get("url"), 2048, nonempty=True)
+                try:
+                    parsed = urlsplit(final_url)
+                    endpoint = spec.endpoint.endpoint
+                    final_port = parsed.port or 443
+                except ValueError:
+                    raise ComputerRuntimeError("computer_response_invalid") from None
+                if (
+                    parsed.scheme != "https"
+                    or parsed.hostname != endpoint.host
+                    or final_port != endpoint.port
+                    or parsed.username is not None
+                    or parsed.password is not None
+                ):
+                    raise ComputerRuntimeError("computer_navigation_final_origin_denied")
+                title, title_cut = cls._string(raw.get("title"), 512, truncate=True)
+                text, text_cut = cls._string(raw.get("text"), 6000, truncate=True)
+                elapsed_ms = cls._integer(raw.get("elapsedMs"))
+                if elapsed_ms < 0 or elapsed_ms > 300_000:
+                    raise ComputerRuntimeError("computer_response_invalid")
+                result = ComputerBrowserNavigateResult(
+                    endpoint_id=endpoint.endpoint_id,
+                    url=final_url,
+                    title=title,
+                    text=text,
+                    truncated=(
+                        cls._boolean(raw.get("truncated")) or title_cut or text_cut
+                    ),
+                    elapsed_ms=elapsed_ms,
+                    challenge_present=raw.get("challenge") is not None,
+                )
+                return ComputerRunResult(
+                    action=action,
+                    agent_instance_id=spec.agent_instance_id,
+                    browser_navigate=result,
+                    completed_at=datetime.now(UTC),
+                )
+
             if action == "files_list":
                 entries_raw = raw.get("entries")
                 if not isinstance(entries_raw, list) or len(entries_raw) > 500:
@@ -350,14 +466,15 @@ class ComputerRuntime:
         self,
         *,
         spec: ComputerExecutionSpec,
-        action: ComputerReadAction,
+        action: ComputerAction,
         path: str,
         timeout_seconds: float,
         emit: Emit,
+        endpoint_id: str | None = None,
     ) -> dict[str, Any]:
         if not self.request_matches(
             spec,
-            {"action": action, "path": path},
+            {"action": action, "endpoint_id": endpoint_id, "path": path},
             timeout_seconds,
         ) or not self.matches(spec):
             raise ComputerRuntimeError("computer_execution_spec_stale")
@@ -369,20 +486,32 @@ class ComputerRuntime:
         if control.holder == "human" or control.requested or control.transitioning:
             raise ComputerRuntimeError("computer_human_control_active")
 
+        event_prefix = (
+            "computer_navigation" if action == "browser_navigate" else "computer_read"
+        )
         emit(
-            "computer_read_started",
+            f"{event_prefix}_started",
             {
                 "agent_instance_id": spec.agent_instance_id,
                 "action": action,
+                **({"endpoint_id": endpoint_id} if endpoint_id is not None else {}),
             },
         )
         try:
             async with asyncio.timeout(timeout_seconds):
-                raw = await self.backend.read_action(
-                    spec.agent_instance_id,
-                    action,
-                    path=path,
-                )
+                if action == "browser_navigate":
+                    if spec.endpoint is None:
+                        raise ComputerRuntimeError("computer_execution_spec_stale")
+                    raw = await self.backend.navigate_action(
+                        spec.agent_instance_id,
+                        spec.endpoint.endpoint.origin + path,
+                    )
+                else:
+                    raw = await self.backend.read_action(
+                        spec.agent_instance_id,
+                        action,
+                        path=path,
+                    )
         except TimeoutError:
             raise ComputerRuntimeError("computer_timeout") from None
         except ComputerBackendError as error:
@@ -392,10 +521,11 @@ class ComputerRuntime:
             raise ComputerRuntimeError("computer_execution_spec_stale")
         result = self._normalize(spec, raw)
         emit(
-            "computer_read_completed",
+            f"{event_prefix}_completed",
             {
                 "agent_instance_id": spec.agent_instance_id,
                 "action": action,
+                **({"endpoint_id": endpoint_id} if endpoint_id is not None else {}),
             },
         )
         return result.model_dump(mode="json")
