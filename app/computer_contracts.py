@@ -60,6 +60,8 @@ class ComputerExecutionSpec(ComputerContract):
 
         if self.endpoint is not None or self.egress_policy_version is not None:
             raise ValueError("computer_read_egress_binding_forbidden")
+        if len(path) > 1024:
+            raise ValueError("computer_path_invalid")
         if (
             path.startswith("/")
             or "\\" in path
