@@ -118,16 +118,25 @@ blocks new and already-open traffic. `computer_navigate` is registered as a
 capability but no mutation action is exposed yet. Exact-head CI run #2009 passed.
 See `docs/v0.15-computer-browser-mutation-egress-gate.md`.
 
-The stacked internal-topology slice has now passed the live Zelo-host proof.
+PR #98 is the internal-topology gate and has passed the live Zelo-host proof.
 Agent computers join an internal-only Docker network, Core control uses the
 validated private computer IP, and public browser traffic can leave only through
-the Core proxy bound to the bridge gateway. In the disposable .252 proof the
-computer was 172.30.252.3:4100, direct public curl was blocked, real Chromium
-reached allowlisted https://example.com through the proxy with title
-Example Domain, then Browser permission revocation caused the next navigation
-to fail. The Agent container did not contain the master computer token. All
-.252 qualification resources were removed. See
-docs/v0.15-computer-internal-topology.md.
+the Core proxy bound to the bridge gateway. In the latest disposable proof the
+computer was `172.31.250.3:4100`, direct public curl was blocked, real Chromium
+reached allowlisted `https://example.com` through the proxy with title
+`Example Domain`, then Browser permission revocation caused the next navigation
+to fail. The Agent container did not contain either host-only master token. All
+qualification resources were removed. See
+`docs/v0.15-computer-internal-topology.md`.
+
+PR #99 is the stacked first browser-mutation slice. It adds only
+`browser_navigate` using `endpoint_id + bounded path`; arbitrary URL input is
+not part of the task contract. Navigation selects a separate
+`computer_navigate_core` Worker with `agent-computer-navigate-v1` authority,
+freezes the exact endpoint-registry and egress-policy identity, revalidates
+permission/backend/endpoint state before and after execution, remains blocked by
+human takeover, and rejects a final cross-origin page even if OpenBot reports
+success. Click/type/key/scroll remain later gates.
 
 Workspace writes, shell, credentials, screenshots in Agent results, host access,
 host fallback and the parked UI remain out of scope. See
