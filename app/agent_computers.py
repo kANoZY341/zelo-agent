@@ -315,11 +315,7 @@ class OpenBotComputerBackend:
                 raise ComputerBackendError("computer_endpoint_invalid")
             return f"http://{address}:4100"
 
-        if (
-            parsed.hostname != "127.0.0.1"
-            or state.port is None
-            or parsed.port != state.port
-        ):
+        if parsed.hostname != "127.0.0.1" or state.port is None or parsed.port != state.port:
             raise ComputerBackendError("computer_endpoint_invalid")
         return f"http://127.0.0.1:{state.port}"
 
