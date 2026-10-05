@@ -295,29 +295,33 @@ class OpenBotComputerBackend:
         ):
             raise ComputerBackendError("computer_endpoint_invalid")
 
-        if parsed.hostname == "127.0.0.1":
-            if state.port is None or parsed.port != state.port:
-                raise ComputerBackendError("computer_endpoint_invalid")
-            return f"http://127.0.0.1:{state.port}"
-
         cidr = self.settings.computer_internal_network_cidr
         proxy_host = self.settings.computer_egress_proxy_host
-        if cidr is None or proxy_host is None or parsed.port != 4100:
-            raise ComputerBackendError("computer_endpoint_invalid")
-        try:
-            address = ipaddress.ip_address(parsed.hostname)
-            network = ipaddress.ip_network(cidr, strict=True)
-        except ValueError:
-            raise ComputerBackendError("computer_endpoint_invalid") from None
+        if cidr is not None or proxy_host is not None:
+            if cidr is None or proxy_host is None or parsed.port != 4100:
+                raise ComputerBackendError("computer_endpoint_invalid")
+            try:
+                address = ipaddress.ip_address(parsed.hostname)
+                network = ipaddress.ip_network(cidr, strict=True)
+            except ValueError:
+                raise ComputerBackendError("computer_endpoint_invalid") from None
+            if (
+                address.version != 4
+                or str(address) != parsed.hostname
+                or address not in network
+                or address in {network.network_address, network.broadcast_address}
+                or str(address) == proxy_host
+            ):
+                raise ComputerBackendError("computer_endpoint_invalid")
+            return f"http://{address}:4100"
+
         if (
-            address.version != 4
-            or str(address) != parsed.hostname
-            or address not in network
-            or address in {network.network_address, network.broadcast_address}
-            or str(address) == proxy_host
+            parsed.hostname != "127.0.0.1"
+            or state.port is None
+            or parsed.port != state.port
         ):
             raise ComputerBackendError("computer_endpoint_invalid")
-        return f"http://{address}:4100"
+        return f"http://127.0.0.1:{state.port}"
 
     async def ensure(self, agent_instance_id: str) -> ComputerState:
         agent_instance_id = self._require_agent_id(agent_instance_id)
