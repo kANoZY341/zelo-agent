@@ -38,7 +38,7 @@ class AgentActivationEvaluation(ActivationContract):
 
 
 class AgentActivationReport(ActivationContract):
-    policy_version: Literal["zelo-agent-activation-policy-v3"] = AGENT_ACTIVATION_POLICY
+    policy_version: Literal["zelo-agent-activation-policy-v4"] = AGENT_ACTIVATION_POLICY
     registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     capability_registry_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     surface_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
