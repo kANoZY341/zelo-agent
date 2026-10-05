@@ -157,9 +157,7 @@ def create_app(
             )
             computer_registrations: list[tuple] = []
             if agent_computers.configured:
-                computer_registrations.append(
-                    (descriptor_for_computer_worker(), computer_runtime)
-                )
+                computer_registrations.append((descriptor_for_computer_worker(), computer_runtime))
                 if (
                     configuration.computer_internal_network_cidr is not None
                     and configuration.computer_egress_proxy_host is not None

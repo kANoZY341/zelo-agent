@@ -1064,9 +1064,7 @@ def test_agent_computer_navigation_authority_is_separate_and_narrow():
     assert policy["computer_navigate"]["target_authority"] == (
         "trusted-endpoint-id-plus-bounded-path"
     )
-    assert policy["computer_navigate"]["egress"] == (
-        "core-authenticated-allowlist-proxy"
-    )
+    assert policy["computer_navigate"]["egress"] == ("core-authenticated-allowlist-proxy")
     assert policy["computer_navigate"]["direct_public_egress"] is False
     assert policy["computer_navigate"]["click"] is False
     assert policy["computer_navigate"]["type"] is False

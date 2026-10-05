@@ -240,9 +240,7 @@ class ComputerRuntime:
         payload: dict[str, Any],
         timeout_seconds: float,
     ) -> bool:
-        endpoint_id = (
-            spec.endpoint.endpoint.endpoint_id if spec.endpoint is not None else None
-        )
+        endpoint_id = spec.endpoint.endpoint.endpoint_id if spec.endpoint is not None else None
         return (
             payload.get("action") == spec.action
             and payload.get("endpoint_id") == endpoint_id
@@ -388,9 +386,7 @@ class ComputerRuntime:
                     url=final_url,
                     title=title,
                     text=text,
-                    truncated=(
-                        cls._boolean(raw.get("truncated")) or title_cut or text_cut
-                    ),
+                    truncated=(cls._boolean(raw.get("truncated")) or title_cut or text_cut),
                     elapsed_ms=elapsed_ms,
                     challenge_present=raw.get("challenge") is not None,
                 )
@@ -486,9 +482,7 @@ class ComputerRuntime:
         if control.holder == "human" or control.requested or control.transitioning:
             raise ComputerRuntimeError("computer_human_control_active")
 
-        event_prefix = (
-            "computer_navigation" if action == "browser_navigate" else "computer_read"
-        )
+        event_prefix = "computer_navigation" if action == "browser_navigate" else "computer_read"
         emit(
             f"{event_prefix}_started",
             {

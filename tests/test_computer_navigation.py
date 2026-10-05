@@ -199,17 +199,13 @@ def test_submission_binds_navigation_worker_endpoint_and_egress_policy(database,
     assert task.computer_spec.backend_identity == backend.identity
     assert task.computer_spec.endpoint == endpoints.bind("public_site")
     assert task.computer_spec.egress_policy_version is not None
-    assert task.computer_spec.worker_selection.descriptor.worker_id == (
-        "computer_navigate_core"
-    )
-    assert task.computer_spec.worker_selection.requested_capabilities == (
-        "computer_navigate",
-    )
+    assert task.computer_spec.worker_selection.descriptor.worker_id == ("computer_navigate_core")
+    assert task.computer_spec.worker_selection.requested_capabilities == ("computer_navigate",)
 
 
 def test_navigation_permission_revocation_cancels_before_attempt(database, settings):
-    _backend, _endpoints, _runtime, _supervisor, tasks, execution, instance = (
-        setup_navigation(database, settings)
+    _backend, _endpoints, _runtime, _supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
     )
     task, _ = execution.submit(
         instance.id,
@@ -231,8 +227,8 @@ def test_navigation_permission_revocation_cancels_before_attempt(database, setti
 
 
 def test_endpoint_registry_drift_cancels_before_attempt(database, settings):
-    _backend, _endpoints, runtime, _supervisor, tasks, execution, instance = (
-        setup_navigation(database, settings)
+    _backend, _endpoints, runtime, _supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
     )
     task, _ = execution.submit(
         instance.id,
@@ -240,9 +236,7 @@ def test_endpoint_registry_drift_cancels_before_attempt(database, settings):
         "computer-nav:endpoint-drift",
     )
 
-    runtime.endpoints = ApiEndpointRegistry.from_entries(
-        ("public_site=https://example.org",)
-    )
+    runtime.endpoints = ApiEndpointRegistry.from_entries(("public_site=https://example.org",))
 
     assert tasks.claim() is None
     cancelled = tasks.get(task.id)
@@ -252,8 +246,8 @@ def test_endpoint_registry_drift_cancels_before_attempt(database, settings):
 
 
 def test_runner_executes_named_navigation_only(database, settings):
-    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = (
-        setup_navigation(database, settings)
+    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
     )
     task, _ = execution.submit(
         instance.id,
@@ -284,8 +278,8 @@ def test_runner_executes_named_navigation_only(database, settings):
 
 
 def test_runner_rejects_cross_origin_navigation_result(database, settings):
-    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = (
-        setup_navigation(database, settings)
+    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
     )
     backend.navigation_response = {
         "url": "https://evil.example/docs",
@@ -312,8 +306,8 @@ def test_runner_rejects_cross_origin_navigation_result(database, settings):
 
 
 def test_human_takeover_blocks_navigation_before_backend_action(database, settings):
-    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = (
-        setup_navigation(database, settings)
+    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
     )
     task, _ = execution.submit(
         instance.id,

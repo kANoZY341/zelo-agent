@@ -544,9 +544,7 @@ def _computer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
             "truncated": value.get("truncated"),
             "challenge_present": value.get("challenge_present"),
         }
-    elif action == "browser_navigate" and isinstance(
-        result.get("browser_navigate"), dict
-    ):
+    elif action == "browser_navigate" and isinstance(result.get("browser_navigate"), dict):
         value = result["browser_navigate"]
         text_value = value.get("text")
         projection["browser_navigate"] = {
@@ -3685,8 +3683,7 @@ class TaskService:
                         )
                         or computer_request.agent_instance_id != agent_execution.agent_instance_id
                         or required_capability not in agent_execution.spec.capabilities
-                        or tuple(selection.requested_capabilities)
-                        != (required_capability,)
+                        or tuple(selection.requested_capabilities) != (required_capability,)
                     ):
                         raise ValueError("computer_execution_spec_stale")
                 except ValueError:
@@ -4121,13 +4118,10 @@ class TaskService:
                         action=result["action"],
                         agent_instance_id=result["agent_instance_id"],
                     )
-                    if (
-                        result.get("action") == "browser_navigate"
-                        and isinstance(result.get("browser_navigate"), dict)
+                    if result.get("action") == "browser_navigate" and isinstance(
+                        result.get("browser_navigate"), dict
                     ):
-                        details["endpoint_id"] = result["browser_navigate"].get(
-                            "endpoint_id"
-                        )
+                        details["endpoint_id"] = result["browser_navigate"].get("endpoint_id")
                 audit(
                     session,
                     task,

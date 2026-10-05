@@ -11,7 +11,10 @@ from app.capabilities import (
     default_capability_registry,
 )
 from app.developer_contracts import WorkerDescriptor
-from app.worker_registry import (\n    descriptor_for_computer_navigate_worker,\n    descriptor_for_computer_worker,\n)
+from app.worker_registry import (
+    descriptor_for_computer_navigate_worker,
+    descriptor_for_computer_worker,
+)
 from tests.conftest import AUTH
 
 
