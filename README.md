@@ -344,16 +344,21 @@ OpenBot backend identity. Claim revalidates all of them before creating an
 attempt, so permission revocation can cancel queued work before execution.
 Human takeover blocks Agent reads.
 
-Browser navigation/click/type, workspace writes, screenshots in Agent/model
-results, shell, credentials, and host fallback remain disabled. The egress
-prerequisite is merged and the internal-topology slice now qualifies trusted
-HTTPS endpoint grants, a per-Agent authenticated Core egress proxy and an
-internal-only Docker topology in which Core reaches the computer by a validated
-private IP. Direct public egress from the Agent computer remains unavailable.
-See
-docs/v0.15-computer-worker-read.md,
-docs/v0.15-computer-browser-mutation-egress-gate.md, and
-docs/v0.15-computer-internal-topology.md.
+The next mutation slice is deliberately narrow: `browser_navigate` accepts
+only a trusted configured `endpoint_id` plus a bounded canonical path. It uses
+a separate `computer_navigate_core` Worker/authority from the read-only worker,
+freezes endpoint-registry + egress-policy identity into the task, remains blocked
+during human takeover, and rejects a final page outside the frozen HTTPS
+authority. Arbitrary URL input is not accepted.
+
+Click/type/key/scroll, workspace writes, screenshots in Agent/model results,
+shell, credentials, and host fallback remain disabled. The egress prerequisite
+and internal-topology gate ensure Agent computers have no direct public egress;
+public browser traffic must cross the per-Agent authenticated Core proxy. See
+`docs/v0.15-computer-worker-read.md`,
+`docs/v0.15-computer-browser-mutation-egress-gate.md`,
+`docs/v0.15-computer-internal-topology.md`, and
+`docs/v0.15-computer-browser-navigate.md`.
 
 ## Bounded API Worker (v0.15)
 
