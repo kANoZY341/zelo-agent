@@ -158,7 +158,7 @@ def test_default_agent_activation_binds_capability_registry_version():
         ),
     ).require()
 
-    assert report.policy_version == "zelo-agent-activation-policy-v3"
+    assert report.policy_version == "zelo-agent-activation-policy-v4"
     assert report.capability_registry_version == capabilities.version
     assert all(
         item.capability_registry_version == capabilities.version for item in report.evaluations
