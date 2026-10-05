@@ -1,5 +1,6 @@
 """Inert skill-learning persistence on migrated isolated SQLite databases."""
 
+import asyncio
 from copy import deepcopy
 
 import pytest
@@ -7,8 +8,12 @@ from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.agent_execution import AgentExecutionService
+from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec, default_agent_registry
+from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
+from app.memory import MemoryService
 from app.models import (
     AgentInstance,
     SkillLearningEvent,
@@ -18,8 +23,16 @@ from app.models import (
     TaskAttempt,
     utcnow,
 )
-from app.policy import State
-from app.schemas import AgentInstanceCreate, AgentTaskCreate, ResearchRunInput, ResearchRunResult
+from app.policy import DomainError, State
+from app.runner import Runner
+from app.schemas import (
+    AgentInstanceCreate,
+    AgentInstanceTransition,
+    AgentTaskCreate,
+    ResearchRunInput,
+    ResearchRunResult,
+    SkillLearningProposalRunInput,
+)
 from app.skill_learning import (
     SkillLearningEvidenceRef,
     SkillLearningReviewChecks,
@@ -28,6 +41,7 @@ from app.skill_learning import (
 from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_source_id
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
+from app.tasks import TaskService
 from tests.test_agent_execution import direct_services, project
 from tests.test_skill_learning import revision
 
@@ -341,3 +355,179 @@ def test_review_records_cannot_be_modified_or_removed(database, proposal_case):
         with database.transaction() as session:
             session.execute(text("UPDATE skill_learning_reviews SET id = id"))
     assert store.get(reviewed.proposal.proposal_id) == reviewed
+
+
+def proposal_task(revision_value, evidence_ref):
+    return SkillLearningProposalRunInput(
+        kind="skill_learning_proposal_run",
+        payload={
+            "revision": revision_value.model_dump(mode="json"),
+            "evidence_refs": [evidence_ref.model_dump(mode="json")],
+        },
+    )
+
+
+def learning_task_services(database, settings, store):
+    tasks = TaskService(
+        database,
+        settings,
+        agent_factory=store.agent_factory,
+        skill_learning_store=store,
+    )
+    return tasks, AgentExecutionService(database, store.agent_factory, tasks)
+
+
+def test_agent_task_api_runs_bounded_proposal_through_core_and_is_idempotent(
+    client, database, settings, proposal_case
+):
+    store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    tasks, execution = learning_task_services(database, settings, store)
+    client.app.state.agent_execution = execution
+    task_input = proposal_task(candidate, ref)
+    headers = {"Idempotency-Key": "skill-learning-proposal:synthetic-e2e"}
+    response = client.post(
+        f"/agents/{agent.id}/tasks",
+        json={"task": task_input.model_dump(mode="json")},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    submitted = response.json()
+    assert submitted["kind"] == "skill_learning_proposal_run"
+    assert submitted["status"] == "pending"
+    assert store.list() == ()
+
+    execution = tasks.claim()
+    assert execution is not None and execution.task_id == submitted["id"]
+    assert execution.agent_execution is not None
+    assert execution.agent_execution.agent_instance_id == agent.id
+    asyncio.run(Runner(tasks)._run(execution))
+
+    completed = tasks.get(submitted["id"])
+    assert completed.status == State.SUCCEEDED
+    assert completed.result == {
+        "proposal_id": completed.result["proposal_id"],
+        "proposal_fingerprint": completed.result["proposal_fingerprint"],
+        "status": "proposed",
+        "created": True,
+    }
+    assert "instructions" not in completed.result
+    stored = store.get(completed.result["proposal_id"])
+    assert stored is not None and stored.status == "proposed"
+    assert stored.proposal.proposed_revision == candidate
+
+    replay = client.post(
+        f"/agents/{agent.id}/tasks",
+        json={"task": task_input.model_dump(mode="json")},
+        headers=headers,
+    )
+    assert replay.status_code == 200
+    assert replay.json()["id"] == submitted["id"]
+    assert len(store.list()) == 1
+
+
+def test_learning_task_requires_proposal_policy_and_agent_binding(
+    database, settings, proposal_case
+):
+    _store, _agent, _task, _attempt, candidate, ref = proposal_case
+    request = proposal_task(candidate, ref)
+    unbound = TaskService(database, settings)
+    with pytest.raises(DomainError, match="requires Agent execution"):
+        unbound.submit(request, None)
+
+    factory, instances, _tasks, execution = direct_services(database, settings)
+    disabled_project = project(database, "Disabled skill learning")
+    disabled_agent = instances.create(
+        AgentInstanceCreate(agent_id="research", project_id=disabled_project.id)
+    )
+    with pytest.raises(DomainError, match="skill-learning policy"):
+        execution.submit(
+            disabled_agent.id,
+            AgentTaskCreate(task=request),
+            "skill-learning-disabled:denied",
+        )
+
+    store, proposing_agent, _task, _attempt, _candidate, _ref = proposal_case
+    proposing_execution = AgentExecutionService(
+        database,
+        store.agent_factory,
+        TaskService(database, settings, agent_factory=store.agent_factory),
+    )
+    with database.read() as session:
+        binding = proposing_execution._binding(
+            session,
+            proposing_agent.id,
+            AgentTaskCreate(task=request),
+        )
+    delegated_binding = {
+        **binding.model_dump(mode="json"),
+        "delegation": {
+            "delegation_id": "10000000-0000-0000-0000-000000000001",
+            "parent_instance_id": "10000000-0000-0000-0000-000000000002",
+            "child_instance_id": proposing_agent.id,
+            "campaign_id": "10000000-0000-0000-0000-000000000003",
+            "budget_reservation_id": "10000000-0000-0000-0000-000000000004",
+            "idempotency_key": "delegated-proposal",
+            "request_hash": "0" * 64,
+            "objective": "Create a proposal",
+            "allowed_task_kinds": ["skill_learning_proposal_run"],
+            "required_capabilities": ["research"],
+            "depth": 1,
+            "max_depth": 1,
+            "budget_resource": "mind_wakes",
+            "budget_units": 1,
+        },
+    }
+    with pytest.raises(ValidationError, match="skill_learning_agent_forbidden"):
+        AgentExecutionBinding.model_validate(delegated_binding)
+
+
+def test_paused_agent_revocation_after_claim_prevents_proposal_persistence(
+    database, settings, proposal_case
+):
+    store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    tasks, execution = learning_task_services(database, settings, store)
+    submitted, _ = execution.submit(
+        agent.id,
+        AgentTaskCreate(task=proposal_task(candidate, ref)),
+        "skill-learning-pause:revoked",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == submitted.id
+
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
+    instances.transition(agent.id, AgentInstanceTransition(action="pause"))
+    asyncio.run(Runner(tasks)._run(claimed))
+
+    failed = tasks.get(submitted.id)
+    assert failed.status == State.FAILED
+    assert failed.error == "skill_learning_agent_stale"
+    assert store.list() == ()
+
+
+def test_evidence_mutation_after_claim_prevents_learning_proposal(
+    database, settings, proposal_case
+):
+    store, agent, source_task, source_attempt, candidate, ref = proposal_case
+    tasks, execution = learning_task_services(database, settings, store)
+    submitted, _ = execution.submit(
+        agent.id,
+        AgentTaskCreate(task=proposal_task(candidate, ref)),
+        "skill-learning-evidence:revoked",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == submitted.id
+
+    with database.transaction() as session:
+        saved_task = session.get(Task, source_task.id)
+        saved_attempt = session.get(TaskAttempt, source_attempt.attempt_id)
+        changed = deepcopy(saved_attempt.result)
+        changed["answer"] = "Mutated before proposal persistence."
+        saved_attempt.result = changed
+        saved_task.result = changed
+    asyncio.run(Runner(tasks)._run(claimed))
+
+    failed = tasks.get(submitted.id)
+    assert failed.status == State.FAILED
+    assert failed.error == "skill_learning_evidence_stale"
+    assert store.list() == ()

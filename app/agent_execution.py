@@ -83,7 +83,10 @@ class AgentExecutionService:
 
         spec = self._current_spec(instance)
         task = body.task
-        if task.kind not in spec.allowed_task_kinds:
+        if task.kind == "skill_learning_proposal_run":
+            if spec.skill_learning != "propose":
+                raise DomainError("Agent skill-learning policy does not allow proposals", 409)
+        elif task.kind not in spec.allowed_task_kinds:
             raise DomainError("Agent is not authorized for this task kind", 409)
 
         delegated = None

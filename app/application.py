@@ -277,6 +277,7 @@ def create_app(
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
                 computer_supervisor=computer_supervisor,
+                skill_learning_store=skill_learning_store,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(

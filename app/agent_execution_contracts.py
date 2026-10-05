@@ -59,13 +59,17 @@ class AgentExecutionBinding(AgentExecutionContract):
         "developer_run",
         "python_run",
         "research_run",
+        "skill_learning_proposal_run",
         "shell_run",
     ]
     delegation: DelegationExecutionBinding | None = None
 
     @model_validator(mode="after")
     def _validate_shape(self):
-        if self.task_kind not in self.spec.allowed_task_kinds:
+        if self.task_kind == "skill_learning_proposal_run":
+            if self.spec.skill_learning != "propose" or self.delegation is not None:
+                raise ValueError("skill_learning_agent_forbidden")
+        elif self.task_kind not in self.spec.allowed_task_kinds:
             raise ValueError("agent_task_kind_not_allowed")
         if self.delegation is not None:
             if self.delegation.child_instance_id != self.agent_instance_id:

@@ -20,6 +20,7 @@ from app.developer_contracts import (
 from app.policy import State
 from app.promotion_contracts import MergeRequest, PromotionRequest, ReleaseRequest
 from app.shell_contracts import ShellExecutionSpec
+from app.skill_learning import SkillLearningEvidenceRef, SkillProcedureRevision
 
 
 class StrictModel(BaseModel):
@@ -84,6 +85,19 @@ class ResearchRunInput(TaskInput):
     kind: Literal["research_run"]
     payload: ResearchPayload
     timeout_seconds: float = Field(default=120.0, ge=0.01, le=600, allow_inf_nan=False)
+
+
+class SkillLearningProposalPayload(StrictModel):
+    revision: SkillProcedureRevision
+    evidence_refs: tuple[SkillLearningEvidenceRef, ...] = Field(min_length=1, max_length=16)
+
+
+class SkillLearningProposalRunInput(TaskInput):
+    """Ask Core to persist one bounded proposal for this bound Agent."""
+
+    kind: Literal["skill_learning_proposal_run"]
+    payload: SkillLearningProposalPayload
+    timeout_seconds: float = Field(default=10.0, ge=0.01, le=10, allow_inf_nan=False)
 
 
 class PythonPayload(StrictModel):
@@ -320,6 +334,7 @@ class DeveloperRunInput(TaskInput):
 
 AgentExecutableTask = Annotated[
     ResearchRunInput
+    | SkillLearningProposalRunInput
     | PythonRunInput
     | ShellRunInput
     | ApiRunInput
@@ -407,6 +422,7 @@ TaskCreate = Annotated[
     | ToolCallInput
     | AgentRunInput
     | ResearchRunInput
+    | SkillLearningProposalRunInput
     | PythonRunInput
     | ShellRunInput
     | ApiRunInput
@@ -474,6 +490,15 @@ class ResearchRunResult(StrictModel):
     tool_calls: int = Field(ge=1)
     usage: list[dict[str, int | None]]
     completed_at: datetime
+
+
+class SkillLearningProposalRunResult(StrictModel):
+    proposal_id: str = Field(
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    proposal_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["proposed", "accepted", "rejected"]
+    created: bool
 
 
 class PythonRunResult(StrictModel):
@@ -583,6 +608,7 @@ class TaskResponse(StrictModel):
         "promotion_run",
         "merge_run",
         "release_run",
+        "skill_learning_proposal_run",
     ]
     payload: (
         TextPayload
@@ -590,6 +616,7 @@ class TaskResponse(StrictModel):
         | ToolCallPayload
         | AgentRunPayload
         | ResearchPayload
+        | SkillLearningProposalPayload
         | PythonPayload
         | ShellPayload
         | ApiPayload
@@ -656,6 +683,7 @@ class TaskProjection(StrictModel):
         "promotion_run",
         "merge_run",
         "release_run",
+        "skill_learning_proposal_run",
     ]
     status: State
     created_at: datetime
