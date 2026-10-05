@@ -77,7 +77,13 @@ class SkillProcedureRevision(SkillLearningContract):
             if len(value) != len(set(value)):
                 raise ValueError(f"{field_name}_duplicate")
 
-        for value in (self.title, self.instructions, *self.preconditions, *self.verification_steps, *self.failure_conditions):
+        for value in (
+            self.title,
+            self.instructions,
+            *self.preconditions,
+            *self.verification_steps,
+            *self.failure_conditions,
+        ):
             if value != value.strip() or "\x00" in value:
                 raise ValueError("procedure_text_not_canonical")
         return self
@@ -166,10 +172,7 @@ def propose_skill_revision(
 
     if revision.procedure_id not in source.procedures:
         raise ValueError("skill_learning_procedure_unavailable")
-    if (
-        source.skill_id not in agent.skill_ids
-        and revision.procedure_id not in agent.procedures
-    ):
+    if source.skill_id not in agent.skill_ids and revision.procedure_id not in agent.procedures:
         raise ValueError("skill_learning_agent_unbound")
 
     if not set(revision.required_capabilities).issubset(source.required_capabilities):
@@ -189,11 +192,7 @@ def propose_skill_revision(
 
     evidence = tuple(sorted(evidence_refs, key=_evidence_key))
     evidence_keys = tuple(_evidence_key(item) for item in evidence)
-    if (
-        not evidence
-        or len(evidence) > 16
-        or len(evidence_keys) != len(set(evidence_keys))
-    ):
+    if not evidence or len(evidence) > 16 or len(evidence_keys) != len(set(evidence_keys)):
         raise ValueError("skill_learning_evidence_invalid")
 
     payload = {
