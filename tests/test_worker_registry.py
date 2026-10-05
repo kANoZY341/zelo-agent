@@ -24,6 +24,7 @@ from app.worker_registry import (
     RegisteredWorker,
     Supervisor,
     WorkerRegistry,
+    descriptor_for_computer_navigate_worker,
     descriptor_for_computer_worker,
     descriptor_for_python_worker,
     descriptor_for_reviewer,
@@ -1047,3 +1048,56 @@ def test_computer_policy_semantics_change_invalidates_worker_selection(monkeypat
     monkeypatch.setattr(computer_worker, "computer_read_policy_semantics", widened)
     assert authority_policy_version() != baseline
     assert not supervisor.matches(snapshot)
+
+
+def test_agent_computer_navigation_authority_is_separate_and_narrow():
+    profile = authority_profile(("agent-computer-navigate",))
+    assert profile.name == "agent-computer-navigate-v1"
+    assert profile.surface == "computer"
+    assert profile.workspace_read is False
+    assert profile.workspace_write is False
+    assert profile.network is False
+
+    policy = realized_authority_policy(profile)
+    assert policy["computer_read"] is None
+    assert policy["computer_navigate"]["actions"] == ("browser_navigate",)
+    assert policy["computer_navigate"]["target_authority"] == (
+        "trusted-endpoint-id-plus-bounded-path"
+    )
+    assert policy["computer_navigate"]["egress"] == (
+        "core-authenticated-allowlist-proxy"
+    )
+    assert policy["computer_navigate"]["direct_public_egress"] is False
+    assert policy["computer_navigate"]["click"] is False
+    assert policy["computer_navigate"]["type"] is False
+    assert policy["computer_navigate"]["key"] is False
+    assert policy["computer_navigate"]["scroll"] is False
+    assert policy["computer_navigate"]["filesystem_write"] is False
+    assert policy["computer_navigate"]["shell"] is False
+    assert policy["computer_navigate"]["credential_injection"] is False
+
+
+def test_navigation_worker_does_not_satisfy_read_worker_selection():
+    runtime = StubWorker("computer-navigate")
+    registry = WorkerRegistry(
+        [
+            (descriptor_for_computer_worker(), StubWorker("computer-read")),
+            (descriptor_for_computer_navigate_worker(), runtime),
+        ]
+    )
+    supervisor = Supervisor(registry)
+
+    selected, navigation = supervisor.select(
+        role="computer",
+        capabilities=("computer_navigate",),
+    )
+    assert selected.worker is runtime
+    assert navigation.descriptor.worker_id == "computer_navigate_core"
+    assert navigation.requested_capabilities == ("computer_navigate",)
+
+    selected, read = supervisor.select(
+        role="computer",
+        capabilities=("computer_read",),
+    )
+    assert selected.descriptor.worker_id == "computer_core"
+    assert read.requested_capabilities == ("computer_read",)
