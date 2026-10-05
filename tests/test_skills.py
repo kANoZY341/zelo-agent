@@ -139,6 +139,7 @@ def test_default_registry_validates_current_surfaces_and_agents():
 
     assert [item.skill_id for item in registry.list()] == [
         "api_read",
+        "computer_navigation",
         "computer_observation",
         "core_implementation",
         "core_review",
@@ -210,6 +211,7 @@ def test_application_exposes_operator_only_read_only_skill_snapshot(client):
     assert payload["registry_version"] == client.app.state.skill_registry.version
     assert [item["skill_id"] for item in payload["skills"]] == [
         "api_read",
+        "computer_navigation",
         "computer_observation",
         "core_implementation",
         "core_review",
