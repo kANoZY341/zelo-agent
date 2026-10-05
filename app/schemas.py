@@ -199,6 +199,8 @@ class ComputerPayload(StrictModel):
 
         if self.endpoint_id is not None:
             raise ValueError("computer_read_endpoint_forbidden")
+        if len(self.path) > 1024:
+            raise ValueError("computer_path_invalid")
         if (
             self.path.startswith("/")
             or chr(92) in self.path
