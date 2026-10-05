@@ -11,7 +11,7 @@ from app.capabilities import (
     default_capability_registry,
 )
 from app.developer_contracts import WorkerDescriptor
-from app.worker_registry import descriptor_for_computer_worker
+from app.worker_registry import (\n    descriptor_for_computer_navigate_worker,\n    descriptor_for_computer_worker,\n)
 from tests.conftest import AUTH
 
 
@@ -325,3 +325,63 @@ def test_computer_agent_activation_rejects_missing_profile_or_capability():
         capability_registry=capabilities,
     ).evaluate_spec(no_capability)
     assert "computer_capability" in evaluation.failure_codes
+
+
+def test_computer_navigation_activation_requires_endpoint_grant_and_navigation_worker():
+    spec = AgentSpec(
+        agent_id="computer_navigator",
+        role="computer_navigator",
+        objective="Navigate one persistent browser only to trusted endpoints.",
+        capabilities=("computer_navigate", "computer_read"),
+        allowed_task_kinds=("computer_run",),
+        memory_namespace="agent/computer_navigator",
+        computer=AgentComputerSpec(
+            browser=True,
+            browser_endpoint_ids=("public_site",),
+        ),
+        lifecycle="active",
+    )
+    registry = AgentRegistry((spec,))
+    capabilities = default_capability_registry()
+
+    read_only = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=(descriptor_for_computer_worker(),),
+        capability_registry=capabilities,
+    ).evaluate_spec(spec)
+    assert read_only.status == "rejected"
+    assert "computer_navigation_worker_binding" in read_only.failure_codes
+
+    accepted = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=(
+            descriptor_for_computer_worker(),
+            descriptor_for_computer_navigate_worker(),
+        ),
+        capability_registry=capabilities,
+    ).require_spec(spec)
+    assert accepted.status == "accepted"
+    checks = {item.code: item.status for item in accepted.checks}
+    assert checks["computer_navigation_profile"] == "pass"
+    assert checks["computer_navigation_worker_binding"] == "pass"
+
+    no_grant = spec.model_copy(
+        update={
+            "computer": AgentComputerSpec(browser=True),
+        }
+    )
+    rejected = AgentActivationEvaluator(
+        AgentRegistry((no_grant,)),
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=(
+            descriptor_for_computer_worker(),
+            descriptor_for_computer_navigate_worker(),
+        ),
+        capability_registry=capabilities,
+    ).evaluate_spec(no_grant)
+    assert "computer_navigation_profile" in rejected.failure_codes
