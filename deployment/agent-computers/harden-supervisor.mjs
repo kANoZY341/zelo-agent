@@ -44,7 +44,7 @@ export function hardenSupervisorEnvironment(source) {
   let egressProxyDefault;
   if (egressProxyHost) {
     if (
-      !/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(egressProxyHost) ||
+      !/^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$/.test(egressProxyHost) ||
       !/^[0-9]+$/.test(egressProxyPort)
     )
       throw new Error("Zelo egress proxy host/port are invalid.");
@@ -221,7 +221,7 @@ export function hardenSupervisorDocker(source) {
           : {}
         : settled?.port
           ? { url: \`http://127.0.0.1:\${settled.port}\` }
-          : {}),
+          : {}),`,
     'docker ensure URL',
   );
   return source;
