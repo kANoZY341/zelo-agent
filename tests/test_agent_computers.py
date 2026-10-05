@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import hmac
+from pathlib import Path
 
 import httpx
 import pytest
@@ -294,6 +295,12 @@ def test_internal_endpoint_is_accepted_only_inside_exact_configured_cidr():
     )
     assert backend.endpoint(agent_id, state) == "http://172.30.250.2:4100"
 
+    loopback = state.model_copy(
+        update={"url": "http://127.0.0.1:49152", "port": 49152}
+    )
+    with pytest.raises(ComputerBackendError, match="computer_endpoint_invalid"):
+        backend.endpoint(agent_id, loopback)
+
     for url in (
         "http://172.30.250.1:4100",
         "http://172.30.251.2:4100",
@@ -337,3 +344,11 @@ def test_backend_identity_binds_internal_topology():
 
     assert baseline != internal
     assert internal != changed
+
+
+def test_hardened_supervisor_network_mode_never_prefers_published_loopback():
+    source = Path("deployment/agent-computers/harden-supervisor.mjs").read_text()
+    assert "...(!network && port ? { port } : {})," in source
+    assert "...(network\n          ? address" in source
+    assert "...(options.network\n        ? settled?.address" in source
+    assert "...(settled?.port\n        ? { url:" not in source
