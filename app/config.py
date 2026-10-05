@@ -42,6 +42,24 @@ class Settings(BaseSettings):
     browser_worker_runtime: Path | None = None
     browser_worker_admission: Path | None = None
     api_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    computer_browser_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    computer_egress_proxy_host: str | None = None
+    computer_egress_proxy_port: int = Field(default=4390, ge=1024, le=65535)
+    computer_supervisor_url: str | None = None
+    computer_supervisor_token: SecretStr | None = None
+    computer_token: SecretStr | None = None
+    computer_namespace: str = Field(
+        default="zelo",
+        min_length=1,
+        max_length=32,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$",
+    )
+    computer_request_timeout_seconds: float = Field(
+        default=70.0,
+        ge=1.0,
+        le=120.0,
+        allow_inf_nan=False,
+    )
     ollama_general_model: str = "qwen3:4b-instruct"
     ollama_mind_model: str | None = None
     ollama_reasoning_model: str = "deepseek-r1:7b"
@@ -123,12 +141,93 @@ class Settings(BaseSettings):
             )
         return self
 
-    @field_validator("api_worker_endpoints", "browser_worker_endpoints")
+    @field_validator(
+        "api_worker_endpoints",
+        "browser_worker_endpoints",
+        "computer_browser_endpoints",
+    )
     @classmethod
     def validate_api_worker_endpoints(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         from app.api_contracts import ApiEndpointRegistry
 
         ApiEndpointRegistry.from_entries(value)
+        return value
+
+    @field_validator("computer_egress_proxy_host")
+    @classmethod
+    def validate_computer_egress_proxy_host(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        import ipaddress
+
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError:
+            raise ValueError("Computer egress proxy host must be an IPv4 address") from None
+        private_networks = (
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+        )
+        if (
+            address.version != 4
+            or str(address) != value
+            or not any(address in network for network in private_networks)
+        ):
+            raise ValueError("Computer egress proxy host must be a canonical RFC1918 IPv4 address")
+        return value
+
+    @model_validator(mode="after")
+    def validate_computer_backend(self) -> "Settings":
+        values = (
+            self.computer_supervisor_url,
+            self.computer_supervisor_token,
+            self.computer_token,
+        )
+        if any(item is not None for item in values) and not all(
+            item is not None for item in values
+        ):
+            raise ValueError("Computer backend configuration must be complete")
+        if self.computer_egress_proxy_host is not None and not all(
+            item is not None for item in values
+        ):
+            raise ValueError(
+                "Computer egress proxy requires the complete computer backend configuration"
+            )
+        return self
+
+    @field_validator("computer_supervisor_url")
+    @classmethod
+    def validate_computer_supervisor_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from urllib.parse import urlparse
+
+        parsed = urlparse(value)
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname not in {"127.0.0.1", "localhost"}
+            or parsed.username
+            or parsed.password
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Computer supervisor URL must be loopback HTTP")
+        return value.rstrip("/")
+
+    @field_validator("computer_supervisor_token", "computer_token")
+    @classmethod
+    def validate_computer_token(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
+        token = value.get_secret_value()
+        if (
+            not 24 <= len(token) <= 512
+            or not token.isascii()
+            or any(character.isspace() for character in token)
+        ):
+            raise ValueError("Computer tokens must contain 24-512 non-whitespace ASCII characters")
         return value
 
     @field_validator("ollama_url")

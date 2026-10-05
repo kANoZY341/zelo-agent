@@ -558,12 +558,21 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             if name == "tasks_agent_execution_spec_kind_guard":
                 sql = sql.replace(
                     "NEW.kind NOT IN ('developer_run','research_run')",
-                    "NEW.kind NOT IN ('developer_run','research_run','browser_run','shell_run')",
+                    "NEW.kind NOT IN "
+                    "('developer_run','research_run','browser_run','shell_run','computer_run')",
                 )
             assert after[name] == sql
         assert set(after) - set(before) == {
             "tasks_browser_spec_immutable",
             "tasks_shell_spec_immutable",
+            "tasks_computer_spec_immutable",
+            "tasks_computer_agent_required_insert",
+            "tasks_computer_agent_required_update",
+            "agent_computer_events_no_delete",
+            "agent_computer_events_no_update",
+            "agent_computer_events_sequence_guard",
+            "agent_computer_permissions_no_delete",
+            "agent_computer_permissions_no_reassign",
         }
     finally:
         db.close()

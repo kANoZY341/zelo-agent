@@ -12,6 +12,9 @@ from app.agent_activation import AgentActivationEvaluator
 from app.agent_activation_api import router as agent_activation_router
 from app.agent_child_creation import AgentChildCreationService
 from app.agent_child_creation_api import router as agent_child_creation_router
+from app.agent_computer_api import router as agent_computer_router
+from app.agent_computer_service import AgentComputerService
+from app.agent_computers import OpenBotComputerBackend
 from app.agent_delegation_api import router as agent_delegation_router
 from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
@@ -29,6 +32,9 @@ from app.campaign_control_api import router as campaign_control_router
 from app.campaigns import CampaignService
 from app.capabilities import default_capability_registry
 from app.capability_api import router as capability_router
+from app.computer_egress import ComputerEgressPolicy
+from app.computer_egress_proxy import ComputerEgressProxy
+from app.computer_worker import ComputerRuntime
 from app.config import ROOT, Settings
 from app.context import ContextResolver
 from app.developer import DeveloperRuntime
@@ -73,6 +79,7 @@ from app.worker_registry import (
     WorkerRegistry,
     descriptor_for_api_worker,
     descriptor_for_browser_worker,
+    descriptor_for_computer_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
     descriptor_for_shell_worker,
@@ -98,6 +105,7 @@ def create_app(
         database = build_storage(configuration)
         browser_runtime = None
         shell_runtime = None
+        computer_egress_proxy = None
         runner = None
         scheduler = None
         try:
@@ -113,6 +121,7 @@ def create_app(
                 mind_model=configuration.ollama_mind_model,
             )
             tool_gateway = ToolGateway(configuration)
+            agent_computers = OpenBotComputerBackend(configuration)
             developer_runtime = DeveloperRuntime(configuration, developer_worker)
             research_runtime = ResearchRuntime(configuration, gateway, tool_gateway)
             research_registry = WorkerRegistry[ResearchRuntime](
@@ -127,6 +136,9 @@ def create_app(
             api_endpoint_registry = ApiEndpointRegistry.from_entries(
                 configuration.api_worker_endpoints
             )
+            computer_browser_endpoint_registry = ApiEndpointRegistry.from_entries(
+                configuration.computer_browser_endpoints
+            )
             api_runtime = ApiRuntime(api_endpoint_registry)
             api_worker_registry = WorkerRegistry[ApiRuntime](
                 ((descriptor_for_api_worker(), api_runtime),)
@@ -137,8 +149,16 @@ def create_app(
                 ((descriptor_for_browser_worker(), browser_runtime),) if browser_runtime else ()
             )
             browser_supervisor = Supervisor[BrowserRuntime](browser_worker_registry)
+            computer_runtime = ComputerRuntime(database, agent_computers)
+            computer_worker_registry = WorkerRegistry[ComputerRuntime](
+                ((descriptor_for_computer_worker(), computer_runtime),)
+                if agent_computers.configured
+                else ()
+            )
+            computer_supervisor = Supervisor[ComputerRuntime](computer_worker_registry)
             capability_registry = default_capability_registry()
             capability_registry.validate_workers(browser_worker_registry.list())
+            capability_registry.validate_workers(computer_worker_registry.list())
             shell_runtime = configured_shell_runtime(configuration)
             shell_worker_registry = WorkerRegistry[ShellRuntime](
                 ((descriptor_for_shell_worker(), shell_runtime),) if shell_runtime else ()
@@ -172,14 +192,34 @@ def create_app(
                     *python_registry.list(),
                     *api_worker_registry.list(),
                     *browser_worker_registry.list(),
+                    *computer_worker_registry.list(),
                     *shell_worker_registry.list(),
                 ),
                 capability_registry=capability_registry,
             ).require()
             agent_factory = AgentFactory(agent_registry)
+            computer_egress_policy = ComputerEgressPolicy(
+                database,
+                agent_factory,
+                computer_browser_endpoint_registry,
+                configuration,
+            )
+            computer_egress_policy.validate_agents(agent_registry.list_agents())
+            if configuration.computer_egress_proxy_host is not None:
+                computer_egress_proxy = ComputerEgressProxy(
+                    computer_egress_policy,
+                    host=configuration.computer_egress_proxy_host,
+                    port=configuration.computer_egress_proxy_port,
+                )
+                await computer_egress_proxy.start()
             projects = ProjectService(database)
             memories = MemoryService(database)
             agent_instances = AgentInstanceService(database, agent_factory, memories)
+            agent_computer_service = AgentComputerService(
+                database,
+                agent_factory,
+                agent_computers,
+            )
             organization = OrganizationService(database, agent_factory)
             performance_evidence = PerformanceEvidenceService(database)
             campaigns = CampaignService(database)
@@ -231,6 +271,7 @@ def create_app(
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
+                computer_supervisor=computer_supervisor,
             )
             agent_execution = AgentExecutionService(database, agent_factory, tasks)
             mind = MindService(
@@ -266,18 +307,21 @@ def create_app(
                 api_supervisor=api_supervisor,
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
+                computer_supervisor=computer_supervisor,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
             application.state.agent_registry = agent_registry
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
+            application.state.agent_computers = agent_computers
             application.state.storage = database
             application.state.database = database
             application.state.tasks = tasks
             application.state.projects = projects
             application.state.memories = memories
             application.state.agent_instances = agent_instances
+            application.state.agent_computer_service = agent_computer_service
             application.state.organization = organization
             application.state.performance_evidence = performance_evidence
             application.state.campaigns = campaigns
@@ -294,12 +338,20 @@ def create_app(
             application.state.python_registry = python_registry
             application.state.python_supervisor = python_supervisor
             application.state.api_endpoint_registry = api_endpoint_registry
+            application.state.computer_browser_endpoint_registry = (
+                computer_browser_endpoint_registry
+            )
+            application.state.computer_egress_policy = computer_egress_policy
+            application.state.computer_egress_proxy = computer_egress_proxy
             application.state.api_runtime = api_runtime
             application.state.api_worker_registry = api_worker_registry
             application.state.api_supervisor = api_supervisor
             application.state.browser_runtime = browser_runtime
             application.state.browser_supervisor = browser_supervisor
             application.state.browser_worker_registry = browser_worker_registry
+            application.state.computer_runtime = computer_runtime
+            application.state.computer_worker_registry = computer_worker_registry
+            application.state.computer_supervisor = computer_supervisor
             application.state.shell_runtime = shell_runtime
             application.state.shell_supervisor = shell_supervisor
             application.state.shell_worker_registry = shell_worker_registry
@@ -323,7 +375,11 @@ def create_app(
                         if shell_runtime:
                             await shell_runtime.aclose()
                     finally:
-                        database.close()
+                        try:
+                            if computer_egress_proxy:
+                                await computer_egress_proxy.aclose()
+                        finally:
+                            database.close()
 
     application = FastAPI(title=configuration.app_name, version=__version__, lifespan=lifespan)
     application.state.settings = configuration
@@ -333,6 +389,7 @@ def create_app(
     application.include_router(skill_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
+    application.include_router(agent_computer_router)
     application.include_router(agent_child_creation_router)
     application.include_router(agent_delegation_router)
     application.include_router(agent_execution_router)

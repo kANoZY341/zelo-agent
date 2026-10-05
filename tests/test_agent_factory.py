@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.agent_factory import (
     BUILTIN_AGENT_TASK_KINDS,
+    AgentComputerSpec,
     AgentFactory,
     AgentRegistry,
     AgentSpec,
@@ -312,3 +313,44 @@ def test_application_exposes_validated_agent_factory(client):
     assert registry.get_agent("research") is not None
     assert factory.bind_agent("coding").registry_version == registry.version
     assert factory.bind_department("engineering").registry_version == registry.version
+
+
+def test_persistent_agent_profile_fields_are_trusted_and_fingerprint_material():
+    baseline = AgentRegistry((agent_spec(),))
+    computer = AgentComputerSpec(
+        browser=True,
+        files=True,
+        human_takeover=True,
+    )
+    enriched = agent_spec().model_copy(
+        update={
+            "instructions": "Keep implementation evidence concise.",
+            "skill_ids": ("core_implementation",),
+            "space_permissions": ("project_workspace",),
+            "skill_learning": "propose",
+            "computer": computer,
+        }
+    )
+    changed = AgentRegistry((enriched,))
+
+    assert changed.version != baseline.version
+    assert enriched.computer is not None
+    assert enriched.computer.persistent is True
+    assert enriched.computer.backend == "openbot"
+
+
+def test_computer_profile_fails_closed_without_capability_or_browser_takeover():
+    with pytest.raises(ValidationError, match="computer_capability_required"):
+        AgentComputerSpec()
+
+    with pytest.raises(ValidationError, match="computer_takeover_requires_browser"):
+        AgentComputerSpec(files=True, human_takeover=True)
+
+
+@pytest.mark.parametrize("field", ["skill_ids", "space_permissions"])
+def test_persistent_agent_profile_lists_are_canonical(field):
+    payload = agent_spec().model_dump(mode="json")
+    payload[field] = ("z", "a")
+
+    with pytest.raises(ValidationError, match=f"{field}_not_canonical"):
+        AgentSpec.model_validate(payload)

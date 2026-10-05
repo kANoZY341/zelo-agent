@@ -77,6 +77,7 @@ class Task(Base):
     python_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     api_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     browser_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    computer_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     shell_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     promotion_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     merge_spec: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -164,6 +165,59 @@ class AgentInstance(Base):
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentComputerPermission(Base):
+    __tablename__ = "agent_computer_permissions"
+    __table_args__ = (
+        CheckConstraint(
+            "enabled IN (0,1) AND browser IN (0,1) AND files IN (0,1) AND shell IN (0,1)",
+            name="ck_agent_computer_permission_booleans",
+        ),
+    )
+
+    agent_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        primary_key=True,
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    browser: Mapped[bool] = mapped_column(Boolean, default=False)
+    files: Mapped[bool] = mapped_column(Boolean, default=False)
+    shell: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentComputerEvent(Base):
+    __tablename__ = "agent_computer_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "agent_instance_id",
+            "sequence",
+            name="uq_agent_computer_event_sequence",
+        ),
+        CheckConstraint("sequence >= 1", name="ck_agent_computer_event_sequence"),
+        CheckConstraint(
+            "actor IN ('owner','system')",
+            name="ck_agent_computer_event_actor",
+        ),
+        CheckConstraint(
+            "outcome IN ('succeeded','failed')",
+            name="ck_agent_computer_event_outcome",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_instance_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_instances.id"),
+        index=True,
+    )
+    sequence: Mapped[int] = mapped_column(Integer)
+    event: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(16))
+    outcome: Mapped[str] = mapped_column(String(16))
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class AgentInstanceEvent(Base):

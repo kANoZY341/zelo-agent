@@ -9,34 +9,31 @@ in `docs/zelo-workspace-decision.md`.
 ## Active increment: v0.15 Media native-reader reconciliation
 
 Core v0.15 stays active; UI is parked. PR #92 merged at f05abe1. PR #93's
-corrected head c612766 passed **4,569 CI tests with two skips**. Its first
-synthetic native-reader attempt is permanently **1/2 consumed** and REFUSED at
-lease-preflight before image build or the package matrix. No runtime authority,
-acquired-package compatibility, cgroup success or decoder authority was produced.
+corrected source passed **4,569 CI tests with two skips**. Native-reader attempt
+**1/2 consumed** and REFUSED at lease-preflight before image build or package
+matrix. Its failure remains retained and is not a success receipt. The
+overlapping Aegis Docker build is a confounder, not proven causation.
 
-The exact failed policy/proof/marker are retained and independently audited.
-Admission remains deliberately fenced because cleanup/release was not proven at
-failure time. Later read-only discovery found zero exact-lease containers/images
-and the lock free; this never converts attempt 1 into success. A concurrent
-unrelated Aegis Docker build overlapped the refusal window: material confounder,
-**not proven causation**.
+One reconciliation run succeeded at PR93 head bcf6c1a. Independent post-run
+audit verified the pinned attempt-1 policy/proof unchanged, the admission marker
+cleared only after durable evidence, and zero exact-lease containers/images before
+and after the **global two-second Docker event silence window**. The retained
+evidence SHA-256 is
+04fc0c4607922f24c3aea63fa5bd72a27334ae652174d4b51f12e039d155dad1.
+Attempt 1 was not reset, deleted or rewritten. Reconciliation grants no native
+runtime authority.
 
-Recovery now uses a separately bounded reconciliation gate: exact evidence pins,
-exclusive admission lock, zero exact resources, a **global two-second Docker event
-silence window**, repeated proof/resource/marker checks, durable pending evidence
-with fsync **before** marker truncation, then lock release and a separate receipt.
-Attempt-1 evidence is never reset, deleted or rewritten.
+PR93 now integrates then-current main at b67d0d8; the merge had no conflicts.
+The integrated tree passes **57 focused reconciliation/operator tests** and
+**4,674 full tests**, plus Ruff lint/format and diff checks. The six reviewed
+reconciliation/operator source hashes remain unchanged. The prior offline
+recovery validation also passed **211 focused native-reader/reconciliation tests**
+and **2,790 combined Media/context tests**.
 
-The hardened final-attempt path also requires Docker Linux/amd64+runc readiness and
-the same global quiet window **before admission**. Recovery validation passes
-**211 focused native-reader/reconciliation tests** and **2,790 combined
-Media/context tests**, with static checks green.
-
-Next: freeze/review/CI this recovery revision -> one reconciliation -> independent
-audit. Then integrate the **then-current main** into Media, resolve conflicts while
-preserving attempt-1 evidence, rerun full CI and exact-source review, and only then
-consider the sole remaining attempt **2/2**. No acquired .deb, Pillow decode, Core
-binding, enabled flag or UI work is cleared.
+The final native attempt **2/2 has not run and is not cleared**. Next: exact-head
+CI and fresh source review on the integrated commit, then separately confirm every
+attempt-2 precondition and its required authority. No acquired package, Pillow
+decode, Core binding, enabled flag or UI work is cleared.
 
 ## Checkpoint history
 
@@ -78,6 +75,56 @@ Titles never widen tool or worker authority.
 
 Merged v0.14 implementation work is PRs #47 through #53.
 Release preparation is PR #54.
+
+## Parallel v0.15 preparation — persistent Agent computers (5 October 2026)
+
+The active Media native-reader slice remains unchanged. PR #94 is merged at
+`46da8794e6b6b4c9fd55fd449bc4e6439acaf710` and provides the persistent-computer
+foundation: pinned OpenBot/OpenDots-derived supervisor/computer deployment,
+Zelo-owned fail-closed backend adapter, and canonical
+AgentSpec/skill/Space/computer metadata.
+
+PR #95 is merged at `905560dbdf45e31fa148f0c0f30bbb00e90503f2`. It adds
+persisted per-AgentInstance computer grants, append-only computer activity and
+owner-only status/permission/start/stop/take/release routes. The first CI attempt
+exposed three stale migration expectations; follow-up commit `667ef18` corrected
+them and CI run #2001 passed before merge.
+
+PR #96 is merged at `825d25aed68be425176d706c61aa99ff6213a291` and adds
+the first Agent-executable Computer Worker, deliberately **read-only only**:
+`browser_snapshot`, `browser_read`, `files_list`, and `files_read`.
+`computer_run` is Agent-only and binds exact Agent identity, Supervisor
+selection, worker-authority policy, persisted computer permission digest and
+OpenBot backend identity. Claim revalidates all of them before an attempt is
+created.
+
+Live Zelo-host qualification succeeded against the real pinned OpenBot computer:
+an Agent read `qualification/proof.txt` through `computer_run`, then a second
+queued read was cancelled with `computer_execution_spec_invalid` and zero
+attempts after Files permission was revoked. A claimed browser read was also
+refused with `computer_human_control_active` while the owner held control; after
+handback, OpenBot reported `resume_snapshot_required=true`. The disposable
+container, profile, workspace and supervisor were removed after the proof.
+
+The active next phase is the **browser mutation egress prerequisite**, not
+navigation itself. It adds Agent-scoped canonical HTTPS endpoint grants, a
+derived per-Agent proxy credential, Core-owned public-address DNS resolution and
+a bounded CONNECT proxy. The proxy revalidates current Agent/permission/endpoint
+authority on connection establishment, after DNS and before forwarding tunnel
+chunks, so revocation blocks new and already-open traffic. `computer_navigate`
+is registered as a capability but no mutation action is exposed yet. See
+`docs/v0.15-computer-browser-mutation-egress-gate.md`.
+
+Workspace writes, shell, credentials, screenshots in Agent results, host access,
+host fallback and the parked UI remain out of scope. See
+`docs/v0.15-agent-computer-control.md` and
+`docs/v0.15-computer-worker-read.md`.
+
+Canonical revision 3.3 now records that persistent factory-managed Agents own
+explicit instructions, memory, skills, Space/tool grants and authority; Agents
+that need execution may later receive a persistent per-AgentInstance computer.
+The future Control Desk Computer Panel and governed skill-learning lifecycle are
+also canonical. See `docs/v0.15-agent-computer-openbot-foundation.md`.
 
 ## v0.15 merged foundations
 

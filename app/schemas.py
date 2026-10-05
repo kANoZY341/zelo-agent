@@ -7,9 +7,10 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_execution_contracts import AgentExecutionBinding
-from app.agent_factory import AgentSpec
+from app.agent_factory import AgentComputerSpec, AgentSpec
 from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
 from app.browser_contracts import BrowserExecutionSpec
+from app.computer_contracts import ComputerExecutionSpec, ComputerReadAction
 from app.developer_contracts import (
     DeveloperRequest,
     ReviewerReport,
@@ -178,6 +179,104 @@ class BrowserRunInput(TaskInput):
     timeout_seconds: float = Field(default=10.0, ge=0.1, le=30, allow_inf_nan=False)
 
 
+class ComputerPayload(StrictModel):
+    action: ComputerReadAction
+    path: str = Field(default="", max_length=1024)
+
+    @model_validator(mode="after")
+    def _validate_path(self):
+        if (
+            self.path.startswith("/")
+            or chr(92) in self.path
+            or chr(0) in self.path
+            or any(part == ".." for part in self.path.split("/"))
+        ):
+            raise ValueError("computer_path_invalid")
+        if self.action == "files_read" and not self.path:
+            raise ValueError("computer_file_path_required")
+        if self.action.startswith("browser_") and self.path:
+            raise ValueError("computer_browser_path_forbidden")
+        return self
+
+
+class ComputerRunInput(TaskInput):
+    kind: Literal["computer_run"]
+    payload: ComputerPayload
+    timeout_seconds: float = Field(default=30.0, ge=1.0, le=30.0, allow_inf_nan=False)
+
+
+class ComputerSnapshotElement(StrictModel):
+    ref: str = Field(min_length=1, max_length=100)
+    role: str = Field(min_length=1, max_length=100)
+    name: str = Field(max_length=500)
+    value: str | None = Field(default=None, max_length=500)
+    disabled: bool | None = None
+    checked: bool | None = None
+
+
+class ComputerBrowserSnapshotResult(StrictModel):
+    snapshot_id: int = Field(ge=0)
+    url: str = Field(max_length=2048)
+    title: str = Field(max_length=512)
+    elements: list[ComputerSnapshotElement] = Field(max_length=200)
+    truncated: bool
+    challenge_present: bool
+
+
+class ComputerBrowserReadResult(StrictModel):
+    url: str = Field(max_length=2048)
+    title: str = Field(max_length=512)
+    text: str = Field(max_length=6000)
+    truncated: bool
+    challenge_present: bool
+
+
+class ComputerFileEntry(StrictModel):
+    path: str = Field(min_length=1, max_length=1024)
+    kind: Literal["file", "folder"]
+    bytes: int | None = Field(default=None, ge=0, le=1_000_000_000_000)
+
+
+class ComputerFilesListResult(StrictModel):
+    path: str = Field(max_length=1024)
+    entries: list[ComputerFileEntry] = Field(max_length=500)
+    truncated: bool
+
+
+class ComputerFilesReadResult(StrictModel):
+    path: str = Field(min_length=1, max_length=1024)
+    text: str = Field(max_length=64000)
+    truncated: bool
+    bytes: int = Field(ge=0, le=1_000_000_000_000)
+
+
+class ComputerRunResult(StrictModel):
+    action: ComputerReadAction
+    agent_instance_id: TaskId
+    browser_snapshot: ComputerBrowserSnapshotResult | None = None
+    browser_read: ComputerBrowserReadResult | None = None
+    files_list: ComputerFilesListResult | None = None
+    files_read: ComputerFilesReadResult | None = None
+    completed_at: datetime
+
+    @model_validator(mode="after")
+    def _one_result(self):
+        expected = {
+            "browser_snapshot": "browser_snapshot",
+            "browser_read": "browser_read",
+            "files_list": "files_list",
+            "files_read": "files_read",
+        }[self.action]
+        populated = [
+            field
+            for field in ("browser_snapshot", "browser_read", "files_list", "files_read")
+            if getattr(self, field) is not None
+        ]
+        if populated != [expected]:
+            raise ValueError("computer_result_shape_invalid")
+        return self
+
+
 class BrowserRunResult(StrictModel):
     endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
     text: str = Field(max_length=65536)
@@ -225,6 +324,7 @@ AgentExecutableTask = Annotated[
     | ShellRunInput
     | ApiRunInput
     | BrowserRunInput
+    | ComputerRunInput
     | DeveloperRunInput,
     Field(discriminator="kind"),
 ]
@@ -311,6 +411,7 @@ TaskCreate = Annotated[
     | ShellRunInput
     | ApiRunInput
     | BrowserRunInput
+    | ComputerRunInput
     | SelfImprovementRunInput
     | DeveloperRunInput
     | PromotionRunInput
@@ -476,6 +577,7 @@ class TaskResponse(StrictModel):
         "shell_run",
         "api_run",
         "browser_run",
+        "computer_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -492,6 +594,7 @@ class TaskResponse(StrictModel):
         | ShellPayload
         | ApiPayload
         | BrowserPayload
+        | ComputerPayload
         | SelfImprovementPayload
         | DeveloperPayload
         | PromotionPayload
@@ -516,6 +619,7 @@ class TaskResponse(StrictModel):
     python_spec: WorkerSelectionSnapshot | None = None
     api_spec: ApiExecutionSpec | None = None
     browser_spec: BrowserExecutionSpec | None = None
+    computer_spec: ComputerExecutionSpec | None = None
     shell_spec: ShellExecutionSpec | None = None
     promotion_spec: PromotionRequest | None = None
     merge_spec: MergeRequest | None = None
@@ -546,6 +650,7 @@ class TaskProjection(StrictModel):
         "shell_run",
         "api_run",
         "browser_run",
+        "computer_run",
         "self_improvement_run",
         "developer_run",
         "promotion_run",
@@ -632,6 +737,64 @@ class AgentInstanceResponse(StrictModel):
 
 class AgentInstancePage(StrictModel):
     items: list[AgentInstanceResponse]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class AgentComputerPermissionPatch(StrictModel):
+    enabled: bool | None = None
+    browser: bool | None = None
+    files: bool | None = None
+    shell: bool | None = None
+
+    @model_validator(mode="after")
+    def _require_change(self):
+        if all(value is None for value in (self.enabled, self.browser, self.files, self.shell)):
+            raise ValueError("computer_permission_patch_empty")
+        return self
+
+
+class AgentComputerPermissionsResponse(StrictModel):
+    enabled: bool
+    browser: bool
+    files: bool
+    shell: bool
+    updated_at: datetime
+
+
+class AgentComputerControlResponse(StrictModel):
+    holder: Literal["bot", "human"]
+    requested: bool
+    transitioning: bool
+    resume_snapshot_required: bool
+    request_id: str | None = None
+    request_status: str | None = None
+
+
+class AgentComputerStatusResponse(StrictModel):
+    agent_instance_id: TaskId
+    configured: bool
+    state: Literal["not_configured", "stopped", "running", "unavailable"]
+    spec: AgentComputerSpec
+    permissions: AgentComputerPermissionsResponse
+    control: AgentComputerControlResponse | None = None
+    error: str | None = Field(default=None, max_length=256)
+
+
+class AgentComputerEventResponse(StrictModel):
+    id: TaskId
+    agent_instance_id: TaskId
+    sequence: int = Field(ge=1)
+    event: str = Field(min_length=1, max_length=64)
+    actor: Literal["owner", "system"]
+    outcome: Literal["succeeded", "failed"]
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AgentComputerEventPage(StrictModel):
+    items: list[AgentComputerEventResponse]
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)

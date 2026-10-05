@@ -284,6 +284,70 @@ operator-authenticated activation endpoint.
 v0.14 does not add the broad Browser/Computer/Python/API/Shell/Media capability
 ecosystem; that remains the v0.15 milestone.
 
+## Persistent Agent Computer foundation (v0.15 development)
+
+Zelo now has an **inert, default-unconfigured foundation** for per-AgentInstance
+persistent computers. It deliberately reuses the MIT-licensed OpenBot
+computer/supervisor infrastructure pattern reviewed in CopilotKit/OpenDots
+instead of rebuilding container and browser-profile lifecycle from zero.
+
+The imported deployment is pinned to OpenBot commit
+`b6932d31a8d6e7896c15139dfc27a6c6911deb27`. Zelo keeps its own Core authority
+boundary, derives a separate HMAC credential for each AgentInstance, requires a
+loopback-only supervisor in this first topology, preserves upstream license and
+provenance notices, and fails closed if the patched supervisor contract changes.
+
+`AgentSpec` can now describe optional persistent-computer intent plus explicit
+instructions, skill IDs, Space grants and skill-learning policy. Those fields are
+metadata and upper bounds only; they do not grant execution authority.
+
+This foundation currently exposes only trusted backend configuration and
+computer lifecycle identity/list/ensure/stop plumbing. It does **not** register a
+Computer Worker, add a task kind, expose browser/file/shell actions to Mind or
+Agents, or fall back to host execution. See
+`docs/v0.15-agent-computer-openbot-foundation.md`.
+
+Build validation uses:
+
+```bash
+ZELO_COMPUTER_SUPERVISOR_TOKEN=<random-24+-char-secret> ZELO_COMPUTER_TOKEN=<different-random-24+-char-secret> docker compose -f compose.agent-computers.yml build   agent-computer-image agent-computer-supervisor
+```
+
+The future Control Desk Computer Panel remains parked with the rest of the UI
+work until Core qualification reaches that gate.
+
+The stacked Core-control slice adds persisted per-AgentInstance computer grants
+and append-only computer activity plus owner-only Core routes:
+
+```text
+GET   /agents/{instance_id}/computer
+PATCH /agents/{instance_id}/computer/permissions
+POST  /agents/{instance_id}/computer/start
+POST  /agents/{instance_id}/computer/stop
+POST  /agents/{instance_id}/computer/take
+POST  /agents/{instance_id}/computer/release
+GET   /agents/{instance_id}/computer/events
+```
+
+All grants default off and may not exceed the trusted AgentSpec computer profile.
+Widening requires an active/current AgentInstance; revocation remains possible
+for stale/paused instances. Disabling a live grant asks the backend to stop the
+computer but cannot roll the Core revocation back if the backend is unavailable.
+Human handback preserves OpenBot's fresh-snapshot requirement. See
+`docs/v0.15-agent-computer-control.md`.
+
+The next stacked slice adds the first **Agent-executable read-only Computer
+Worker**. `computer_run` is Agent-only and is restricted to
+`browser_snapshot`, `browser_read`, `files_list`, and `files_read`.
+Submission binds the exact AgentInstance, Supervisor selection, worker-authority
+policy, persisted permission digest, and OpenBot backend identity. Claim
+revalidates all of them before creating an attempt, so permission revocation can
+cancel queued work before execution. Human takeover blocks Agent reads.
+
+Browser navigation/click/type, workspace writes, screenshots in Agent/model
+results, shell, credentials, and host fallback remain disabled. See
+`docs/v0.15-computer-worker-read.md`.
+
 ## Bounded API Worker (v0.15)
 
 `api_run` uses the trusted `api_core` worker with `api_read` capability and skill.

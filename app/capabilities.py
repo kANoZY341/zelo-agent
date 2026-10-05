@@ -146,6 +146,24 @@ def default_capability_registry() -> CapabilityRegistry:
                 lifecycle="active",
             ),
             CapabilitySpec(
+                capability_id="computer_read",
+                description=(
+                    "Read bounded browser and workspace evidence from one authorized "
+                    "persistent Agent computer."
+                ),
+                subjects=("agent", "worker"),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
+                capability_id="computer_navigate",
+                description=(
+                    "Authorize HTTPS navigation from one persistent Agent computer only "
+                    "through Agent-scoped trusted endpoints and the Zelo egress boundary."
+                ),
+                subjects=("agent",),
+                lifecycle="active",
+            ),
+            CapabilitySpec(
                 capability_id="evidence_synthesis",
                 description=(
                     "Synthesize bounded evidence gathered through approved research surfaces."

@@ -9,10 +9,19 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 AGENT_SPEC_SCHEMA = "zelo-agent-spec-v1"
+AGENT_COMPUTER_SPEC_SCHEMA = "zelo-agent-computer-spec-v1"
 DEPARTMENT_SPEC_SCHEMA = "zelo-department-spec-v1"
 AGENT_REGISTRY_SCHEMA = "zelo-agent-registry-v1"
 BUILTIN_AGENT_TASK_KINDS = frozenset(
-    {"browser_run", "api_run", "developer_run", "python_run", "research_run", "shell_run"}
+    {
+        "browser_run",
+        "api_run",
+        "computer_run",
+        "developer_run",
+        "python_run",
+        "research_run",
+        "shell_run",
+    }
 )
 
 Identifier = Annotated[
@@ -25,6 +34,7 @@ MemoryNamespace = Annotated[
 ]
 Lifecycle = Literal["draft", "active", "retired"]
 OrganizationalLevel = Literal["vp", "director", "manager", "specialist"]
+SkillLearningPolicy = Literal["disabled", "propose"]
 
 
 class AgentContract(BaseModel):
@@ -44,6 +54,31 @@ class WorkerRequirement(AgentContract):
         return self
 
 
+class AgentComputerSpec(AgentContract):
+    """Persistent per-agent computer intent; metadata only until Core binds a backend."""
+
+    schema_version: Literal["zelo-agent-computer-spec-v1"] = AGENT_COMPUTER_SPEC_SCHEMA
+    backend: Literal["openbot"] = "openbot"
+    persistent: Literal[True] = True
+    browser: bool = False
+    files: bool = False
+    shell: bool = False
+    human_takeover: bool = False
+    browser_endpoint_ids: tuple[Identifier, ...] = Field(default=(), max_length=32)
+
+    @model_validator(mode="after")
+    def _validate_computer_profile(self):
+        if not (self.browser or self.files or self.shell):
+            raise ValueError("computer_capability_required")
+        if self.human_takeover and not self.browser:
+            raise ValueError("computer_takeover_requires_browser")
+        if self.browser_endpoint_ids != tuple(sorted(set(self.browser_endpoint_ids))):
+            raise ValueError("computer_browser_endpoints_not_canonical")
+        if self.browser_endpoint_ids and not self.browser:
+            raise ValueError("computer_browser_endpoints_require_browser")
+        return self
+
+
 class AgentSpec(AgentContract):
     """Trusted versioned specialist template; never model-authored runtime input."""
 
@@ -53,12 +88,17 @@ class AgentSpec(AgentContract):
     role: Identifier
     organizational_level: OrganizationalLevel = "specialist"
     objective: str = Field(min_length=1, max_length=1024)
+    instructions: str = Field(default="", max_length=16384)
     capabilities: tuple[Identifier, ...] = Field(min_length=1, max_length=32)
     allowed_task_kinds: tuple[Identifier, ...] = Field(default=(), max_length=32)
     allowed_tools: tuple[Identifier, ...] = Field(default=(), max_length=64)
     permissions: tuple[Identifier, ...] = Field(default=(), max_length=32)
     procedures: tuple[Identifier, ...] = Field(default=(), max_length=32)
+    skill_ids: tuple[Identifier, ...] = Field(default=(), max_length=64)
+    space_permissions: tuple[Identifier, ...] = Field(default=(), max_length=64)
     memory_namespace: MemoryNamespace
+    skill_learning: SkillLearningPolicy = "disabled"
+    computer: AgentComputerSpec | None = None
     worker_requirement: WorkerRequirement | None = None
     review_required: bool = False
     lifecycle: Lifecycle = "draft"
@@ -74,6 +114,8 @@ class AgentSpec(AgentContract):
             "allowed_tools",
             "permissions",
             "procedures",
+            "skill_ids",
+            "space_permissions",
         ):
             value = getattr(self, field)
             if value != tuple(sorted(set(value))):
@@ -138,6 +180,22 @@ def _agent_registry_payload(spec: AgentSpec) -> dict:
     # Non-Specialist executive levels remain explicit and therefore fingerprinted.
     if spec.organizational_level == "specialist":
         payload.pop("organizational_level", None)
+    # Additive persistent-agent profile fields preserve legacy registry identity
+    # when unset. Material configured values remain fingerprinted.
+    if not spec.instructions:
+        payload.pop("instructions", None)
+    if not spec.skill_ids:
+        payload.pop("skill_ids", None)
+    if not spec.space_permissions:
+        payload.pop("space_permissions", None)
+    if spec.skill_learning == "disabled":
+        payload.pop("skill_learning", None)
+    if spec.computer is None:
+        payload.pop("computer", None)
+    elif not spec.computer.browser_endpoint_ids:
+        computer = payload.get("computer")
+        if isinstance(computer, dict):
+            computer.pop("browser_endpoint_ids", None)
     return payload
 
 

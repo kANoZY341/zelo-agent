@@ -4,13 +4,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.agent_activation import AgentActivationEvaluator
-from app.agent_factory import AgentRegistry, AgentSpec, default_agent_registry
+from app.agent_factory import AgentComputerSpec, AgentRegistry, AgentSpec, default_agent_registry
 from app.capabilities import (
     CapabilityRegistry,
     CapabilitySpec,
     default_capability_registry,
 )
 from app.developer_contracts import WorkerDescriptor
+from app.worker_registry import descriptor_for_computer_worker
 from tests.conftest import AUTH
 
 
@@ -119,6 +120,8 @@ def test_default_registry_extends_research_for_v015_worker_routing():
         "code_change",
         "code_planning",
         "code_review",
+        "computer_navigate",
+        "computer_read",
         "evidence_synthesis",
         "python_execution",
         "research",
@@ -155,7 +158,7 @@ def test_default_agent_activation_binds_capability_registry_version():
         ),
     ).require()
 
-    assert report.policy_version == "zelo-agent-activation-policy-v2"
+    assert report.policy_version == "zelo-agent-activation-policy-v3"
     assert report.capability_registry_version == capabilities.version
     assert all(
         item.capability_registry_version == capabilities.version for item in report.evaluations
@@ -220,6 +223,8 @@ def test_application_exposes_operator_only_capability_snapshot(client):
         "code_change",
         "code_planning",
         "code_review",
+        "computer_navigate",
+        "computer_read",
         "evidence_synthesis",
         "python_execution",
         "research",
@@ -240,3 +245,83 @@ def test_application_activation_evidence_uses_live_capability_registry(client):
 
     payload = report.json()
     assert payload["capability_registry_version"] == client.app.state.capability_registry.version
+
+
+def test_computer_agent_activation_requires_profile_capability_and_worker():
+    spec = AgentSpec(
+        agent_id="computer_specialist",
+        role="computer_specialist",
+        objective="Observe one persistent computer.",
+        capabilities=("computer_read",),
+        allowed_task_kinds=("computer_run",),
+        memory_namespace="agent/computer_specialist",
+        computer=AgentComputerSpec(browser=True),
+        lifecycle="active",
+    )
+    registry = AgentRegistry((spec,))
+    capabilities = default_capability_registry()
+
+    missing_worker = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=(),
+        capability_registry=capabilities,
+    ).evaluate_spec(spec)
+    assert missing_worker.status == "rejected"
+    assert "computer_worker_binding" in missing_worker.failure_codes
+
+    accepted = AgentActivationEvaluator(
+        registry,
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=(descriptor_for_computer_worker(),),
+        capability_registry=capabilities,
+    ).require_spec(spec)
+    assert accepted.status == "accepted"
+    checks = {item.code: item.status for item in accepted.checks}
+    assert checks["computer_profile"] == "pass"
+    assert checks["computer_capability"] == "pass"
+    assert checks["computer_worker_binding"] == "pass"
+
+
+def test_computer_agent_activation_rejects_missing_profile_or_capability():
+    worker = (descriptor_for_computer_worker(),)
+    capabilities = default_capability_registry()
+
+    no_profile = AgentSpec(
+        agent_id="no_profile",
+        role="no_profile",
+        objective="Invalid computer Agent without a computer profile.",
+        capabilities=("computer_read",),
+        allowed_task_kinds=("computer_run",),
+        memory_namespace="agent/no_profile",
+        lifecycle="active",
+    )
+    evaluation = AgentActivationEvaluator(
+        AgentRegistry((no_profile,)),
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=worker,
+        capability_registry=capabilities,
+    ).evaluate_spec(no_profile)
+    assert "computer_profile" in evaluation.failure_codes
+
+    no_capability = AgentSpec(
+        agent_id="no_capability",
+        role="no_capability",
+        objective="Invalid computer Agent without the read capability.",
+        capabilities=("research",),
+        allowed_task_kinds=("computer_run",),
+        memory_namespace="agent/no_capability",
+        computer=AgentComputerSpec(browser=True),
+        lifecycle="active",
+    )
+    evaluation = AgentActivationEvaluator(
+        AgentRegistry((no_capability,)),
+        available_task_kinds=("computer_run",),
+        available_tools=(),
+        worker_descriptors=worker,
+        capability_registry=capabilities,
+    ).evaluate_spec(no_capability)
+    assert "computer_capability" in evaluation.failure_codes

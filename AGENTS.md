@@ -58,6 +58,16 @@
   license/provenance/security, and prefer narrow adapters or focused vendoring.
   Borrowed code must never bypass Zelo-owned permissions, approvals, secrets,
   routing, audit, memory, validation, or promotion boundaries.
+- Persistent factory-managed Agents are durable scoped identities: instructions,
+  memory, skills, Space grants, tool grants and authority belong to the Agent
+  package. Execution-capable Agents may own a persistent per-AgentInstance
+  computer; computers never imply authority and must never fall back to the host.
+- CopilotKit/OpenDots and CopilotKit/OpenBot are approved reference/reuse sources
+  for the persistent-computer/Computer-Panel direction only. Pin reviewed
+  revisions, preserve MIT notices, fail closed on upstream contract drift, and
+  keep Zelo Core/Supervisor authoritative.
+- Skill learning may propose versioned procedures from evidence/outcomes, but it
+  may not silently widen capabilities, tools, Spaces, budgets or approvals.
 
 ## Latest priority — Core first; UI parked (2 October 2026)
 

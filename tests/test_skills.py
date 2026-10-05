@@ -34,6 +34,7 @@ def validate(registry: SkillRegistry, capabilities: CapabilityRegistry | None = 
         capabilities or default_capability_registry(),
         available_task_kinds=(
             "api_run",
+            "computer_run",
             "developer_run",
             "python_run",
             "research_run",
@@ -138,6 +139,7 @@ def test_default_registry_validates_current_surfaces_and_agents():
 
     assert [item.skill_id for item in registry.list()] == [
         "api_read",
+        "computer_observation",
         "core_implementation",
         "core_review",
         "evidence_retrieval",
@@ -208,6 +210,7 @@ def test_application_exposes_operator_only_read_only_skill_snapshot(client):
     assert payload["registry_version"] == client.app.state.skill_registry.version
     assert [item["skill_id"] for item in payload["skills"]] == [
         "api_read",
+        "computer_observation",
         "core_implementation",
         "core_review",
         "evidence_retrieval",
@@ -230,3 +233,28 @@ def test_skill_registry_has_no_execution_method():
 
     assert not hasattr(registry, "execute")
     assert not hasattr(registry, "run")
+
+
+def test_explicit_agent_skill_binding_must_be_active_and_compatible():
+    registry = SkillRegistry((skill("research"),))
+    agent = AgentSpec(
+        agent_id="custom",
+        role="custom",
+        objective="Use an explicitly installed research skill.",
+        capabilities=("research",),
+        allowed_task_kinds=("research_run",),
+        allowed_tools=("repo_status",),
+        procedures=("evidence_retrieval",),
+        skill_ids=("research",),
+        memory_namespace="agent/custom",
+        lifecycle="active",
+    )
+    registry.validate_agents((agent,))
+
+    unavailable = agent.model_copy(update={"skill_ids": ("missing",)})
+    with pytest.raises(ValueError, match="agent_skill_unavailable:custom:missing"):
+        registry.validate_agents((unavailable,))
+
+    incompatible = agent.model_copy(update={"allowed_tools": ()})
+    with pytest.raises(ValueError, match="agent_skill_incompatible:custom:research"):
+        registry.validate_agents((incompatible,))
