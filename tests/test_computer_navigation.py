@@ -226,6 +226,39 @@ def test_navigation_permission_revocation_cancels_before_attempt(database, setti
     assert cancelled.attempts == []
 
 
+def test_permission_revocation_after_navigation_blocks_the_next_task(database, settings):
+    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
+    )
+    first, _ = execution.submit(
+        instance.id,
+        navigation_task(),
+        "computer-nav:before-revoke",
+    )
+    first_claimed = tasks.claim()
+    assert first_claimed is not None
+    asyncio.run(Runner(tasks, computer_supervisor=supervisor)._run(first_claimed))
+    assert tasks.get(first.id).status == State.SUCCEEDED
+
+    second, _ = execution.submit(
+        instance.id,
+        navigation_task(),
+        "computer-nav:after-revoke",
+    )
+    with database.transaction() as session:
+        row = session.get(AgentComputerPermission, instance.id)
+        assert row is not None
+        row.browser = False
+        row.updated_at = utcnow()
+
+    assert tasks.claim() is None
+    cancelled = tasks.get(second.id)
+    assert cancelled.status == State.CANCELLED
+    assert cancelled.error == "computer_execution_spec_invalid"
+    assert cancelled.attempts == []
+    assert sum(call[0] == "browser_navigate" for call in backend.calls) == 1
+
+
 def test_endpoint_registry_drift_cancels_before_attempt(database, settings):
     _backend, _endpoints, runtime, _supervisor, tasks, execution, instance = setup_navigation(
         database, settings
