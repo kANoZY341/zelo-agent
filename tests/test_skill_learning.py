@@ -115,6 +115,7 @@ def evidence_resolver(*, changes=None):
             source_id=item.source_id,
             content_sha256=item.content_sha256,
             owner_agent_instance_id=INSTANCE_ID,
+            agent_registry_version=binding()[0].version,
             terminal=True,
             accepted=True,
         )
@@ -401,6 +402,7 @@ def test_conflicting_digests_for_one_evidence_source_are_refused():
     [
         (None, "skill_learning_evidence_unavailable"),
         ({"content_sha256": "a" * 64}, "skill_learning_evidence_stale"),
+        ({"agent_registry_version": "0" * 64}, "skill_learning_evidence_stale"),
         ({"terminal": False, "accepted": False}, "skill_learning_evidence_not_accepted"),
         ({"terminal": True, "accepted": False}, "skill_learning_evidence_not_accepted"),
         ({"owner_agent_instance_id": OTHER_INSTANCE_ID}, "skill_learning_evidence_out_of_scope"),
@@ -416,6 +418,7 @@ def test_trusted_evidence_resolver_fails_closed(record, code):
             source_id=item.source_id,
             content_sha256=item.content_sha256,
             owner_agent_instance_id=INSTANCE_ID,
+            agent_registry_version=binding()[0].version,
             terminal=True,
             accepted=True,
         ).model_copy(update=record)
@@ -431,6 +434,7 @@ def test_explicitly_visible_accepted_evidence_can_support_proposal():
         source_id=item.source_id,
         content_sha256=item.content_sha256,
         owner_agent_instance_id=OTHER_INSTANCE_ID,
+        agent_registry_version=binding()[0].version,
         visible_to_agent_instance_ids=(INSTANCE_ID,),
         terminal=True,
         accepted=True,

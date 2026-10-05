@@ -77,6 +77,7 @@ class SkillLearningEvidenceSnapshot(SkillLearningContract):
     source_id: EvidenceId
     content_sha256: Sha256
     owner_agent_instance_id: CanonicalUuid
+    agent_registry_version: Sha256
     visible_to_agent_instance_ids: tuple[CanonicalUuid, ...] = Field(default=(), max_length=16)
     terminal: bool
     accepted: bool
@@ -236,6 +237,7 @@ PriorRevisionResolver = Callable[[str, str], SkillProcedureRevision | None]
 def verify_skill_evidence_refs(
     *,
     agent_instance_id: str,
+    agent_registry_version: str,
     evidence_refs: tuple[SkillLearningEvidenceRef, ...],
     resolve: EvidenceResolver,
 ) -> tuple[SkillLearningEvidenceRef, ...]:
@@ -250,7 +252,10 @@ def verify_skill_evidence_refs(
         recorded = resolve(item.kind, item.source_id)
         if recorded is None or (recorded.kind, recorded.source_id) != _evidence_key(item):
             raise ValueError("skill_learning_evidence_unavailable")
-        if recorded.content_sha256 != item.content_sha256:
+        if (
+            recorded.content_sha256 != item.content_sha256
+            or recorded.agent_registry_version != agent_registry_version
+        ):
             raise ValueError("skill_learning_evidence_stale")
         if not recorded.terminal or not recorded.accepted:
             raise ValueError("skill_learning_evidence_not_accepted")
@@ -326,6 +331,7 @@ def propose_skill_revision(
 
     evidence = verify_skill_evidence_refs(
         agent_instance_id=agent_instance.agent_instance_id,
+        agent_registry_version=agent_binding.registry_version,
         evidence_refs=evidence_refs,
         resolve=evidence_resolver,
     )
