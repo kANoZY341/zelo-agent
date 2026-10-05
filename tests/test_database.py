@@ -49,6 +49,7 @@ def test_migration_from_empty_database(settings) -> None:
             "agent_computer_permissions",
             "agent_computer_events",
             "skill_learning_proposals",
+            "skill_learning_reviews",
             "skill_learning_events",
             "agent_delegations",
             "organization_units",

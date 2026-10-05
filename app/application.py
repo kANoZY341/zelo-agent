@@ -69,6 +69,8 @@ from app.self_improvement_planner import SelfImprovementPlanner
 from app.self_improvement_runtime import SelfImprovementRuntime
 from app.shell_worker import ShellRuntime, configured_shell_runtime
 from app.skill_api import router as skill_router
+from app.skill_learning_api import router as skill_learning_router
+from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
 from app.storage import build_storage
 from app.task_api import router as task_router
@@ -198,6 +200,9 @@ def create_app(
                 capability_registry=capability_registry,
             ).require()
             agent_factory = AgentFactory(agent_registry)
+            skill_learning_store = SkillLearningProposalStore(
+                database, agent_factory, skill_registry
+            )
             computer_egress_policy = ComputerEgressPolicy(
                 database,
                 agent_factory,
@@ -314,6 +319,7 @@ def create_app(
             application.state.agent_registry = agent_registry
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
+            application.state.skill_learning_store = skill_learning_store
             application.state.agent_computers = agent_computers
             application.state.storage = database
             application.state.database = database
@@ -387,6 +393,7 @@ def create_app(
     application.include_router(task_router)
     application.include_router(capability_router)
     application.include_router(skill_router)
+    application.include_router(skill_learning_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
     application.include_router(agent_computer_router)

@@ -1,0 +1,61 @@
+"""Operator-authenticated proposal reading and immutable review decisions."""
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.auth import OperatorPrincipal, require_operator
+from app.skill_learning import SkillLearningReviewRequest
+from app.skill_learning_store import StoredSkillLearningProposal
+
+router = APIRouter(prefix="/skill-learning")
+
+
+@router.get("/proposals")
+def list_proposals(
+    request: Request,
+    _principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> tuple[StoredSkillLearningProposal, ...]:
+    return request.app.state.skill_learning_store.list()
+
+
+@router.get("/proposals/{proposal_id}")
+def get_proposal(
+    proposal_id: str,
+    request: Request,
+    _principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> StoredSkillLearningProposal:
+    proposal = request.app.state.skill_learning_store.get(proposal_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="skill_learning_proposal_not_found")
+    return proposal
+
+
+@router.post("/proposals/{proposal_id}/review")
+def review_proposal(
+    proposal_id: str,
+    body: SkillLearningReviewRequest,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> StoredSkillLearningProposal:
+    try:
+        result, _created = request.app.state.skill_learning_store.record_review(
+            proposal_id, body, principal
+        )
+        return result
+    except LookupError:
+        raise HTTPException(status_code=404, detail="skill_learning_proposal_not_found") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="skill_learning_reviewer_forbidden") from None
+    except ValueError as error:
+        code = str(error)
+        status = (
+            409
+            if code
+            in {
+                "skill_learning_proposal_stale",
+                "skill_learning_proposal_already_reviewed",
+            }
+            else 422
+        )
+        raise HTTPException(status_code=status, detail=code) from None

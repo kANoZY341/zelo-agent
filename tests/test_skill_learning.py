@@ -62,7 +62,7 @@ def revision(**updates) -> SkillProcedureRevision:
         "source_skill_id": "evidence_retrieval",
         "source_skill_version": 1,
         "procedure_id": "evidence_retrieval",
-        "version": 2,
+        "version": 1,
         "title": "Verified evidence retrieval",
         "instructions": "Gather only authorized evidence and retain exact source identity.",
         "preconditions": ("Confirm the evidence scope is authorized.",),
@@ -475,6 +475,11 @@ def test_revision_digest_and_lineage_are_bound_before_proposal():
         proposal(
             candidate=revision(version=2, prior_revision_sha256="0" * 64), prior_revision=prior
         )
+
+
+def test_initial_revision_without_prior_record_must_start_at_one():
+    with pytest.raises(ValueError, match="skill_learning_prior_revision_stale"):
+        proposal(candidate=revision(version=2))
 
 
 def test_proposal_fingerprint_rejects_valid_shape_identity_tampering():

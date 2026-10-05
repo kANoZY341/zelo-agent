@@ -8,10 +8,11 @@ learned procedure.
 import hashlib
 import json
 from collections.abc import Callable
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from app.agent_factory import AgentBinding, Identifier
 from app.capabilities import CapabilityId
@@ -308,7 +309,7 @@ def propose_skill_revision(
 
     prior_revision = prior_revision_resolver(revision.source_skill_id, revision.procedure_id)
     if prior_revision is None:
-        if revision.prior_revision_sha256 is not None:
+        if revision.prior_revision_sha256 is not None or revision.version != 1:
             raise ValueError("skill_learning_prior_revision_stale")
     elif (
         prior_revision.content_sha256 != revision.prior_revision_sha256
@@ -368,3 +369,84 @@ def propose_skill_revision(
         evidence_refs=evidence,
         proposal_fingerprint=fingerprint,
     )
+
+
+class SkillLearningReviewChecks(SkillLearningContract):
+    """Human review attestations required before acceptance."""
+
+    evidence_supports_change: StrictBool
+    no_tool_escalation: StrictBool
+    authority_envelope_respected: StrictBool
+    verification_and_failure_steps_explicit: StrictBool
+    no_secrets_or_unrelated_private_data: StrictBool
+    procedure_bounded_and_deterministic: StrictBool
+
+    def all_passed(self) -> bool:
+        return all(self.model_dump().values())
+
+
+class SkillLearningReviewRequest(SkillLearningContract):
+    """Decision payload. Reviewer identity comes only from operator auth."""
+
+    decision: Literal["accepted", "rejected"]
+    checks: SkillLearningReviewChecks
+    rationale: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def _validate_rationale(self):
+        if self.rationale != self.rationale.strip() or "\x00" in self.rationale:
+            raise ValueError("skill_learning_review_rationale_invalid")
+        if self.decision == "accepted" and not self.checks.all_passed():
+            raise ValueError("skill_learning_review_checks_failed")
+        return self
+
+
+class SkillLearningReview(SkillLearningContract):
+    """Immutable review bound to the frozen candidate and live authority snapshot."""
+
+    schema_version: Literal["zelo-skill-learning-review-v1"] = "zelo-skill-learning-review-v1"
+    review_id: CanonicalUuid
+    proposal_id: CanonicalUuid
+    proposal_fingerprint: Sha256
+    reviewer_id: Literal["ahmad"]
+    decision: Literal["accepted", "rejected"]
+    agent_instance_id: CanonicalUuid
+    agent_id: Identifier
+    agent_version: int = Field(ge=1, le=1_000_000)
+    agent_registry_version: Sha256
+    skill_registry_version: Sha256
+    source_skill_id: SkillId
+    source_skill_version: int = Field(ge=1, le=1_000_000)
+    procedure_id: SkillName
+    revision_sha256: Sha256
+    evidence_refs: tuple[SkillLearningEvidenceRef, ...] = Field(min_length=1, max_length=16)
+    authority_envelope_sha256: Sha256
+    checks: SkillLearningReviewChecks
+    rationale: str = Field(min_length=1, max_length=2000)
+    reviewed_at: datetime
+    review_fingerprint: Sha256
+
+    @model_validator(mode="after")
+    def _validate_review(self):
+        _canonical_uuid(self.review_id)
+        _canonical_uuid(self.proposal_id)
+        _canonical_uuid(self.agent_instance_id)
+        evidence = tuple(sorted(self.evidence_refs, key=_evidence_key))
+        keys = tuple(_evidence_key(item) for item in self.evidence_refs)
+        if evidence != self.evidence_refs or len(keys) != len(set(keys)):
+            raise ValueError("skill_learning_review_evidence_not_canonical")
+        if self.reviewed_at.tzinfo is None:
+            raise ValueError("skill_learning_review_timestamp_invalid")
+        if self.rationale != self.rationale.strip() or "\x00" in self.rationale:
+            raise ValueError("skill_learning_review_rationale_invalid")
+        material = self.model_dump(
+            mode="json",
+            exclude={"review_id", "reviewed_at", "review_fingerprint"},
+        )
+        expected = _digest(material)
+        expected_id = str(uuid5(NAMESPACE_URL, f"zelo-skill-learning-review-v1:{expected}"))
+        if self.review_fingerprint != expected or self.review_id != expected_id:
+            raise ValueError("skill_learning_review_identity_mismatch")
+        if self.decision == "accepted" and not self.checks.all_passed():
+            raise ValueError("skill_learning_review_checks_failed")
+        return self

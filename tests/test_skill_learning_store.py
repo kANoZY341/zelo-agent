@@ -3,21 +3,28 @@
 from copy import deepcopy
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec, default_agent_registry
+from app.auth import OperatorPrincipal
 from app.models import (
     AgentInstance,
     SkillLearningEvent,
     SkillLearningProposalRecord,
+    SkillLearningReviewRecord,
     Task,
     TaskAttempt,
     utcnow,
 )
 from app.policy import State
 from app.schemas import AgentInstanceCreate, AgentTaskCreate, ResearchRunInput, ResearchRunResult
-from app.skill_learning import SkillLearningEvidenceRef
+from app.skill_learning import (
+    SkillLearningEvidenceRef,
+    SkillLearningReviewChecks,
+    SkillLearningReviewRequest,
+)
 from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_source_id
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
@@ -165,16 +172,172 @@ def test_forged_frozen_revision_cannot_be_submitted(database, proposal_case):
         assert session.scalars(select(SkillLearningProposalRecord)).all() == []
 
 
-def test_review_decision_cannot_be_written_by_this_slice(database, proposal_case):
+def checks(**overrides):
+    values = {
+        "evidence_supports_change": True,
+        "no_tool_escalation": True,
+        "authority_envelope_respected": True,
+        "verification_and_failure_steps_explicit": True,
+        "no_secrets_or_unrelated_private_data": True,
+        "procedure_bounded_and_deterministic": True,
+    }
+    values.update(overrides)
+    return SkillLearningReviewChecks(**values)
+
+
+def review_request(decision="accepted", *, review_checks=None):
+    return SkillLearningReviewRequest(
+        decision=decision,
+        checks=review_checks or checks(),
+        rationale="Reviewed against the proposal and current authority envelope.",
+    )
+
+
+def test_ahmad_can_accept_only_after_fresh_review_and_no_activation(database, proposal_case):
+    store, agent, _task, _claimed, candidate, ref = proposal_case
+    registry_version = store.skill_registry.version
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    decision = review_request()
+    reviewed, created = store.record_review(
+        stored.proposal.proposal_id, decision, OperatorPrincipal()
+    )
+    assert created is True
+    assert reviewed.status == "accepted"
+    assert reviewed.review is not None
+    assert reviewed.review.reviewer_id == "ahmad"
+    assert reviewed.review.proposal_fingerprint == stored.proposal.proposal_fingerprint
+    assert reviewed.review.evidence_refs == stored.proposal.evidence_refs
+    assert reviewed.review.authority_envelope_sha256
+    assert store.skill_registry.version == registry_version
+    assert store.get(stored.proposal.proposal_id) == reviewed
+    retried, created = store.record_review(
+        stored.proposal.proposal_id, decision, OperatorPrincipal()
+    )
+    assert created is False and retried == reviewed
+    with database.read() as session:
+        events = session.scalars(
+            select(SkillLearningEvent)
+            .where(SkillLearningEvent.proposal_id == stored.proposal.proposal_id)
+            .order_by(SkillLearningEvent.sequence)
+        ).all()
+        assert [event.event for event in events] == ["proposed", "reviewed", "accepted"]
+        assert [event.reviewer_id for event in events] == [None, "ahmad", "ahmad"]
+        assert session.scalar(select(SkillLearningReviewRecord)) is not None
+
+
+def test_rejection_is_recorded_and_conflicting_decision_is_denied(database, proposal_case):
     store, agent, _task, _claimed, candidate, ref = proposal_case
     stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
-    with pytest.raises(IntegrityError):
+    decision = review_request("rejected", review_checks=checks(no_tool_escalation=False))
+    rejected, created = store.record_review(
+        stored.proposal.proposal_id, decision, OperatorPrincipal()
+    )
+    assert created and rejected.status == "rejected"
+    with pytest.raises(ValueError, match="skill_learning_proposal_already_reviewed"):
+        store.record_review(stored.proposal.proposal_id, review_request(), OperatorPrincipal())
+
+
+def test_review_requires_trusted_operator_and_complete_acceptance_checks(proposal_case):
+    store, agent, _task, _claimed, candidate, ref = proposal_case
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    with pytest.raises(ValueError, match="skill_learning_review_checks_failed"):
+        review_request(review_checks=checks(no_secrets_or_unrelated_private_data=False))
+    with pytest.raises(PermissionError, match="skill_learning_reviewer_forbidden"):
+        store.record_review(
+            stored.proposal.proposal_id,
+            review_request(),
+            OperatorPrincipal(subject="untrusted"),
+        )
+    with pytest.raises(ValidationError):
+        SkillLearningReviewRequest.model_validate(
+            {
+                "decision": "accepted",
+                "checks": checks().model_dump(),
+                "rationale": "No caller may claim reviewer identity.",
+                "reviewer_id": "ahmad",
+            }
+        )
+
+
+def test_stale_evidence_cannot_be_accepted(database, proposal_case):
+    store, agent, task, claimed, candidate, ref = proposal_case
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    with database.transaction() as session:
+        saved_task = session.get(Task, task.id)
+        saved_attempt = session.get(TaskAttempt, claimed.attempt_id)
+        changed = deepcopy(saved_attempt.result)
+        changed["answer"] = "Changed after proposal creation."
+        saved_attempt.result = changed
+        saved_task.result = changed
+    with pytest.raises(ValueError, match="skill_learning_proposal_stale"):
+        store.record_review(stored.proposal.proposal_id, review_request(), OperatorPrincipal())
+    assert store.get(stored.proposal.proposal_id).status == "proposed"
+
+
+def test_operator_api_authenticates_ahmad_without_identity_claims(client, proposal_case):
+    store, agent, _task, _claimed, candidate, ref = proposal_case
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    client.app.state.skill_learning_store = store
+    proposal_id = stored.proposal.proposal_id
+    invalid = client.post(
+        f"/skill-learning/proposals/{proposal_id}/review",
+        headers={"Authorization": "Bearer invalid-operator-token"},
+        json={"decision": "accepted", "checks": checks().model_dump(), "rationale": "review"},
+    )
+    assert invalid.status_code == 401
+    identity_claim = client.post(
+        f"/skill-learning/proposals/{proposal_id}/review",
+        json={
+            "decision": "accepted",
+            "checks": checks().model_dump(),
+            "rationale": "review",
+            "reviewer_id": "ahmad",
+        },
+    )
+    assert identity_claim.status_code == 422
+    accepted = client.post(
+        f"/skill-learning/proposals/{proposal_id}/review",
+        json={"decision": "accepted", "checks": checks().model_dump(), "rationale": "review"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "accepted"
+    assert accepted.json()["review"]["reviewer_id"] == "ahmad"
+    assert client.get("/skill-learning/proposals").status_code == 200
+    assert client.get(f"/skill-learning/proposals/{proposal_id}").json()["status"] == "accepted"
+
+
+def test_database_rejects_accepted_review_with_missing_checks(database, proposal_case):
+    store, agent, _task, _claimed, candidate, ref = proposal_case
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    with pytest.raises(IntegrityError, match="not authorized or valid"):
         with database.transaction() as session:
-            session.add(
-                SkillLearningEvent(
-                    proposal_id=stored.proposal.proposal_id,
-                    sequence=2,
-                    event="accepted",
-                )
+            session.execute(
+                text(
+                    """INSERT INTO skill_learning_reviews
+                    (id, proposal_id, reviewer_id, decision, review_fingerprint,
+                     review_json, created_at)
+                    VALUES ('00000000-0000-4000-8000-000000000099', :proposal_id,
+                            'ahmad', 'accepted', :fingerprint, '{}', :created_at)"""
+                ),
+                {
+                    "proposal_id": stored.proposal.proposal_id,
+                    "fingerprint": "b" * 64,
+                    "created_at": utcnow(),
+                },
             )
-    assert store.get(stored.proposal.proposal_id) == stored
+    assert store.get(stored.proposal.proposal_id).status == "proposed"
+
+
+def test_review_records_cannot_be_modified_or_removed(database, proposal_case):
+    store, agent, _task, _claimed, candidate, ref = proposal_case
+    stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
+    reviewed, _ = store.record_review(
+        stored.proposal.proposal_id, review_request(), OperatorPrincipal()
+    )
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(text("DELETE FROM skill_learning_reviews"))
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(text("UPDATE skill_learning_reviews SET id = id"))
+    assert store.get(reviewed.proposal.proposal_id) == reviewed
