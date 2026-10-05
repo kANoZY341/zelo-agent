@@ -157,6 +157,17 @@ def default_skill_registry() -> SkillRegistry:
     return SkillRegistry(
         (
             SkillSpec(
+                skill_id="computer_navigation",
+                description=(
+                    "Navigate one authorized persistent Agent browser only to a trusted "
+                    "configured HTTPS endpoint and bounded path."
+                ),
+                required_capabilities=("computer_navigate",),
+                procedures=("computer_navigation",),
+                task_kinds=("computer_run",),
+                lifecycle="active",
+            ),
+            SkillSpec(
                 skill_id="computer_observation",
                 description=(
                     "Inspect bounded browser and workspace evidence from an authorized "
