@@ -9,7 +9,7 @@ from typing import Literal
 from app import developer_sandbox
 from app.developer_process import environment
 
-AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v6"
+AUTHORITY_POLICY_SCHEMA = "zelo-worker-authority-v7"
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +83,17 @@ _AGENT_COMPUTER_READ = WorkerAuthorityProfile(
     surface="computer",
 )
 
+_AGENT_COMPUTER_NAVIGATE = WorkerAuthorityProfile(
+    name="agent-computer-navigate-v1",
+    authority=("agent-computer-navigate",),
+    workspace_write=False,
+    network=False,
+    workspace_read=False,
+    surface="computer",
+)
+
 _PROFILES = {
+    _AGENT_COMPUTER_NAVIGATE.authority: _AGENT_COMPUTER_NAVIGATE,
     _AGENT_COMPUTER_READ.authority: _AGENT_COMPUTER_READ,
     _ISOLATED_SHELL.authority: _ISOLATED_SHELL,
     _PUBLIC_DOCUMENT_RENDER.authority: _PUBLIC_DOCUMENT_RENDER,
@@ -302,10 +312,15 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
     api_http = None
     shell_compute = None
     computer_read = None
-    if profile.surface == "computer":
+    computer_navigate = None
+    if profile.authority == _AGENT_COMPUTER_READ.authority:
         from app.computer_worker import computer_read_policy_semantics
 
         computer_read = computer_read_policy_semantics()
+    if profile.authority == _AGENT_COMPUTER_NAVIGATE.authority:
+        from app.computer_worker import computer_navigate_policy_semantics
+
+        computer_navigate = computer_navigate_policy_semantics()
     if profile.surface == "shell":
         from app.shell_worker import shell_policy_semantics
 
@@ -333,6 +348,7 @@ def realized_authority_policy(profile: WorkerAuthorityProfile) -> dict[str, obje
         "api_http": api_http,
         "shell_compute": shell_compute,
         "computer_read": computer_read,
+        "computer_navigate": computer_navigate,
     }
 
 
