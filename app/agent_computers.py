@@ -381,6 +381,21 @@ class OpenBotComputerBackend:
             or any(character in url for character in "\r\n\x00")
         ):
             raise ComputerBackendError("computer_navigation_url_invalid")
+        try:
+            parsed = urlparse(url)
+            port = parsed.port or 443
+        except ValueError:
+            raise ComputerBackendError("computer_navigation_url_invalid") from None
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or not parsed.hostname.isascii()
+            or parsed.hostname != parsed.hostname.lower()
+            or parsed.username is not None
+            or parsed.password is not None
+            or not 1 <= port <= 65535
+        ):
+            raise ComputerBackendError("computer_navigation_url_invalid")
         state = await self.existing(agent_instance_id)
         if state is None or state.status != "running":
             raise ComputerBackendError("computer_not_running")
