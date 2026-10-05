@@ -83,6 +83,17 @@ class SkillProcedureRevision(SkillLearningContract):
         return self
 
 
+def _digest(value: object) -> str:
+    raw = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(raw).hexdigest()
+
+
 class SkillLearningProposal(SkillLearningContract):
     schema_version: Literal["zelo-skill-learning-proposal-v1"] = SKILL_PROPOSAL_SCHEMA
     proposal_id: Sha256
@@ -101,28 +112,28 @@ class SkillLearningProposal(SkillLearningContract):
 
     @model_validator(mode="after")
     def _canonicalize(self):
-        ordered = tuple(
-            sorted(
-                self.evidence_refs,
-                key=lambda item: (item.kind, item.source_id, item.content_sha256),
-            )
-        )
-        if self.evidence_refs != ordered or len(ordered) != len(set(ordered)):
+        ordered = tuple(sorted(self.evidence_refs, key=_evidence_key))
+        keys = tuple(_evidence_key(item) for item in self.evidence_refs)
+        if self.evidence_refs != ordered or len(keys) != len(set(keys)):
             raise ValueError("evidence_refs_not_canonical")
-        if self.proposal_id != self.proposal_fingerprint:
+        material = {
+            "schema": SKILL_PROPOSAL_SCHEMA,
+            "agent_instance_id": self.agent_instance_id,
+            "agent_id": self.agent_id,
+            "agent_registry_version": self.agent_registry_version,
+            "skill_registry_version": self.skill_registry_version,
+            "source_skill_id": self.source_skill_id,
+            "source_skill_version": self.source_skill_version,
+            "proposed_revision": self.proposed_revision.model_dump(mode="json"),
+            "evidence_refs": [item.model_dump(mode="json") for item in self.evidence_refs],
+            "status": self.status,
+            "authority_widening": self.authority_widening,
+            "runtime_authority": self.runtime_authority,
+        }
+        expected = _digest(material)
+        if self.proposal_id != expected or self.proposal_fingerprint != expected:
             raise ValueError("proposal_identity_mismatch")
         return self
-
-
-def _digest(value: object) -> str:
-    raw = json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    ).encode("ascii")
-    return hashlib.sha256(raw).hexdigest()
 
 
 def _evidence_key(
@@ -177,7 +188,12 @@ def propose_skill_revision(
         raise ValueError("skill_learning_space_widening")
 
     evidence = tuple(sorted(evidence_refs, key=_evidence_key))
-    if not evidence or len(evidence) > 16 or len(evidence) != len(set(evidence)):
+    evidence_keys = tuple(_evidence_key(item) for item in evidence)
+    if (
+        not evidence
+        or len(evidence) > 16
+        or len(evidence_keys) != len(set(evidence_keys))
+    ):
         raise ValueError("skill_learning_evidence_invalid")
 
     payload = {
