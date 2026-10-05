@@ -126,6 +126,8 @@ export function hardenSupervisorDocker(source) {
           : port
             ? { url: \`http://127.0.0.1:\${port}\` }
             : {}),
+      };
+    });
   } catch (error) {
     throw new DockerUnavailableError(String(error));
   }
