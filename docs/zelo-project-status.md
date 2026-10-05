@@ -1,39 +1,42 @@
 # Zelo live project status
 
-Latest checkpoint verified: 4 October 2026
+Latest checkpoint verified: 5 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader qualification
+## Active increment: v0.15 Media native-reader reconciliation
 
-Core v0.15 stays active; UI is parked. PR #92 merged at `f05abe1` after
-**4,505 CI passes and two skips**, preserving PR #91's accepted ELF dependency
-proof at version attempt 3/4. No acquired package, decoder or Core runtime is enabled.
+Core v0.15 stays active; UI is parked. PR #92 merged at f05abe1. PR #93's
+corrected head c612766 passed **4,569 CI tests with two skips**. Its first
+synthetic native-reader attempt is permanently **1/2 consumed** and REFUSED at
+lease-preflight before image build or the package matrix. No runtime authority,
+acquired-package compatibility, cgroup success or decoder authority was produced.
 
-The new branch implements the one-shot **synthetic** native-reader operator only.
-Image ownership now carries the unpredictable 64-hex admission lease before
-`docker create`, so lost build acknowledgement can be recovered by exact label
-without guessing image IDs. Setup copies only the eight retained bootstrap
-binaries into a private scratch build context, builds with network disabled and
-pull=false, creates a stopped setup container, exports it, and reuses the bounded
-Browser image verifier to prove exact bytes/modes before any start.
+The exact failed policy/proof/marker are retained and independently audited.
+Admission remains deliberately fenced because cleanup/release was not proven at
+failure time. Later read-only discovery found zero exact-lease containers/images
+and the lock free; this never converts attempt 1 into success. A concurrent
+unrelated Aegis Docker build overlapped the refusal window: material confounder,
+**not proven causation**.
 
-The running reader is probed **before stdin**. Its real cgroup-v2 membership must
-show memory.max=512MiB, memory.swap.max=0, pids.max=8 and cpu.max=50000/100000.
-The matrix uses only the four fixed synthetic Debian fixtures plus stdout-limit,
-timeout, cancellation and repeated-cancellation controls. Success requires exact
-image/container labels, fixed seccomp/argv/env, complete container+image cleanup,
-single support release and a proof-bound receipt. No host PATH/helper fallback.
+Recovery now uses a separately bounded reconciliation gate: exact evidence pins,
+exclusive admission lock, zero exact resources, a **global two-second Docker event
+silence window**, repeated proof/resource/marker checks, durable pending evidence
+with fsync **before** marker truncation, then lock release and a separate receipt.
+Attempt-1 evidence is never reset, deleted or rewritten.
 
-Offline/fake validation currently passes **176 focused operator/owner tests** and
-**2,755 combined Media/context tests** with static checks green. No Docker/native
-run has occurred on this branch. Next: freeze/hash/source-review this exact tree,
-run its own full CI, then clear at most one bounded synthetic native attempt.
-Real authenticated-package compatibility, USTAR composition, runtime/import and
-image-decoder closure, Core binding and release remain later gates. GNU/PAX remain
-unsupported; all prior quotas/failures and v0.14.0 stay preserved.
+The hardened final-attempt path also requires Docker Linux/amd64+runc readiness and
+the same global quiet window **before admission**. Recovery validation passes
+**211 focused native-reader/reconciliation tests** and **2,790 combined
+Media/context tests**, with static checks green.
+
+Next: freeze/review/CI this recovery revision -> one reconciliation -> independent
+audit. Then integrate the **then-current main** into Media, resolve conflicts while
+preserving attempt-1 evidence, rerun full CI and exact-source review, and only then
+consider the sole remaining attempt **2/2**. No acquired .deb, Pillow decode, Core
+binding, enabled flag or UI work is cleared.
 
 ## Checkpoint history
 

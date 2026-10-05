@@ -68,54 +68,60 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 synthetic native Media reader qualification after
-PR92 merge f05abe11cd6b659a8339132028ca710e16393c48. Continue Core; UI needs fresh acceptance.
+The active work is v0.15 Media native-reader admission reconciliation after
+PR93 attempt1 refusal. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: synthetic native-reader operator; no actual run yet
+## Current scope: native-reader reconciliation; attempt 1/2 permanently refused
 
-PR92 merged at f05abe11cd6b659a8339132028ca710e16393c48 with the exact reviewed
-tree. CI37207303870 passed 4,505 tests and two skips. It added only the offline
-container/image/fixture/seccomp/owner boundary; no Docker/native process ran in
-that PR. PR91's dependency proof remains version attempt3/4 with proof
-cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5.
+PR92 merged at f05abe11cd6b659a8339132028ca710e16393c48. PR93 corrected
+head c6127669cda7923c851febe1b4f8530402f58ef8/tree
+d6eaa8a1fa029cd049384f66d27de5218ba7c8cd passed matching CI37231757784:
+4,569 tests/two skips. The one source-cleared synthetic native-reader run REFUSED
+at lease-preflight before image build, setup create, dpkg/loader execution, package
+matrix or cgroup evidence. Native-reader attempt1/2 is permanently consumed.
 
-Current tracked work may implement the separate one-shot synthetic operator only.
-Image build ownership MUST be bound to the unpredictable 64-hex admission lease
-before create/start, including the built image label, so lost build acknowledgement
-can be recovered by exact label. Zero or one resource per lease label is accepted;
-multiple images/containers refuse. Cleanup verifies exact labels before removal
-and never deletes unrelated resources.
+Retain attempt native-reader-proof-uvjet91z unchanged. Policy SHA
+a566a81238d144163e82ce91d728067c8afe36011fea404594f03f200ac868c3;
+refusal proof SHA027e7165fc21001eafb19cdb0a9c89bb0315012931c0a862ad742e5883655378;
+marker SHA f88573e617e66156815491696f8a51fed078e07df85658800cc1cb259bb34472;
+failed lease9dd76284f54fe91361c4646fafc97a78c98f5179437345d54f9c815b8ea8bd0f.
+Do not rerun, delete, rewrite, repair or reset that evidence. No success receipt exists.
 
-The setup copies only eight retained bootstrap binaries into a private0700 build
-context, uses FROM scratch, docker build --network=none --pull=false, and creates
-a stopped setup container for bounded export verification. Reuse the reviewed
-Browser image-export verifier; do not write another tar extractor. Verify exact
-image bytes/modes and re-read build-context inputs before any start.
+Admission marker is intentionally fenced. Later read-only exact-lease discovery
+found zero matching Docker containers/images and the admission lock free; these
+facts do NOT retroactively prove cleanup or success. An unrelated Aegis Docker
+build overlapped the failure window; record it only as a material confounder, not
+proven causation.
 
-Runtime uses the fixed loader/library path and dpkg-deb --threads-max=1
---fsys-tarfile -, stdin only. Before stdin, inspect the actual running container
-and read only its exact cgroup-v2 membership plus memory.max, memory.swap.max,
-pids.max, pids.current and cpu.max. Require512MiB, zero extra swap, pids8 and
-50000/100000 CPU. No recursive cgroup discovery.
+Current uncommitted recovery work is a separate reconciliation gate. It must:
+authenticate the exact failed fixtures/evidence; take the admission lock exclusively;
+require zero exact lease resources; observe a global two-second Docker event-silence
+window with NO label filter; repeat zero-discovery/proof/marker checks; write+fsync
+private pending reconciliation evidence; fsync its parent directory; only then
+truncate+fsync the exact marker while still holding the lock. Release/unlock precedes
+the in-memory reconciliation receipt. Any ambiguity refuses without retry/reset.
+Recovery/operator validation currently passes211 focused tests and2790 combined
+Media/context tests; Ruff/format/diff checks pass.
 
-The native synthetic matrix is four fixed Debian fixtures plus stdout saturation,
-timeout, cancellation and repeated-cancellation controls. Cancellation or output
-saturation is permanent refusal regardless of later exit status. Each case must
-settle its exact labelled container; final success also removes the exact labelled
-image, releases support once, and emits only a proof-bound post-cleanup receipt.
-No acquired .deb, Pillow, Core route, enabled flag or UI work is eligible.
+The final-attempt operator is hardened separately: historical attempt1 is recognized
+only by exact hashes; the two-attempt ceiling is order-independent; Docker server
+must be Linux/amd64 with an available valid runc component and the same global
+event-silence window BEFORE admission/proof creation. The container contract fixes
+runtime selection to runc; do not infer Docker's ambient default runtime. Do not
+run attempt2 yet.
 
-Offline/fake source currently passes176 focused operator/owner tests and2755
-combined Media/context checks. Real --run is NOT cleared until this new source is
-frozen, reviewed, passes its own full CI, and receives explicit one-attempt
-clearance. Any actual refusal consumes the new native-reader attempt and stops.
+After reconciliation passes its own frozen review/full CI and one audited
+reconciliation, integrate the THEN-CURRENT main into the Media branch before any
+attempt2. Preserve historical evidence, resolve status/test conflicts, rerun focused
+and full CI, freeze a new exact tree and review it. Only that integrated source may
+seek clearance for the sole remaining attempt2/2.
 
-Original scopes remain: origin4/4 and old-loader4/4 exhausted; index2/4;
+Original scopes remain preserved: origin4/4 and old-loader4/4 exhausted; index2/4;
 ELF-version3/4; acquisition1/4; dpkg identity1/1; source16/16; helpers8/8+directory;
-tarfile observations consumed; USTAR isolation1/2. New native-reader scope is0/2.
-No reset, proof rewrite, automatic retry, system/config/daemon/updater/user-data
-change or model/Codex job. Preserve one active status heading <=2200 chars,
+tarfile observations consumed; USTAR isolation1/2; native reader1/2 refused.
+No acquired .deb, Pillow, Core route, enabled flag, system/config/user-data change,
+proof reset or model/Codex job. Preserve one active status heading <=2200 chars,
 parked UI #61/worktrees and v0.14.0. Finish v0.15, then v0.16 -> v0.17 -> v0.18.
 
 ## Workspace decision

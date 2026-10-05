@@ -469,21 +469,25 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #92 merged at `f05abe1` after
-4,505 CI passes/two skips. PR #91's accepted dependency graph remains ELF-version
-attempt 3/4 and still proves declarations only, not actual load/ABI authority.
+Core-first checkpoint (5 October 2026): PR #92 is merged. PR #93 corrected
+source passed **4,569 CI tests/two skips**; native-reader attempt **1/2** then
+REFUSED at pre-build lease preflight and remains retained/fenced. No image build,
+package matrix, cgroup success or runtime authority was accepted.
 
-Current work is the one-shot **synthetic** native reader qualification. Lease-bound
-image ownership closes lost-build-ack cleanup. **176 focused operator/owner tests**
-and **2,755 combined Media/context checks** pass before native execution. A stopped
-exported scratch image must verify byte-for-byte before start, and the running
-reader must expose exact cgroup-v2 memory/swap/PID/CPU limits before stdin. Four
-fixed synthetic Debian fixtures plus stdout-limit, timeout and cancellation controls
-are the only eligible matrix. No Docker/native attempt has run on this branch yet:
-its own corrected-head source review and full CI must clear one bounded attempt.
-USTAR stays narrow; GNU/PAX remain unsupported. Real package/member/runtime/import
-closure, image decoding, Core binding and release still remain. UI #61 and v0.14.0
-are unchanged.
+Current work is reconciliation, not retry. Exact failed proof/marker pins,
+exclusive admission ownership, zero exact lease resources and a **global two-second
+Docker-daemon event silence window** precede durable pending evidence; that
+evidence is fsynced before the marker can be truncated. Attempt 1 is never reset,
+deleted or rewritten. Recovery passes **211 focused tests** and **2,790 combined
+Media/context checks**.
+
+An unrelated Aegis Docker build overlapped the refusal window; this is a material
+confounder, **not proven causation**. After reconciliation is independently audited,
+Media must first integrate the **then-current main**, rerun full CI and receive
+fresh exact-source review before the sole remaining attempt **2/2** can be
+considered. USTAR stays narrow; GNU/PAX remain unsupported. Real package/runtime/
+import and image-decoder closure, Core binding and release remain. UI #61 and
+v0.14.0 stay unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

@@ -6,12 +6,14 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import resource
 import shutil
 import stat
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -41,6 +43,7 @@ from qualification import media_reader_cgroup as cgroup  # noqa: E402
 from qualification import media_reader_container as container  # noqa: E402
 from qualification import media_reader_fixture as fixture  # noqa: E402
 from qualification import media_reader_image as image  # noqa: E402
+from qualification import media_reader_reconcile as reconcile  # noqa: E402
 from qualification import media_reader_seccomp as seccomp  # noqa: E402
 from qualification import media_reader_setup as setup  # noqa: E402
 from qualification.admission import AdmissionController  # noqa: E402
@@ -57,6 +60,7 @@ MAX_ATTEMPTS = 2
 WHOLE_SECONDS = 240
 CASE_SECONDS = 20
 BUILD_SECONDS = 90
+DOCKER_QUIET_SECONDS = 2
 EXPORT_BYTES = browser_setup.MAX_EXPORT_BYTES
 _RETAINED = []
 
@@ -92,6 +96,8 @@ def policy():
         "build_seconds": BUILD_SECONDS,
         "export_bytes": EXPORT_BYTES,
         "aggregate_cgroup_required": True,
+        "docker_server_readiness_required_before_admission": True,
+        "docker_quiet_seconds_before_admission": DOCKER_QUIET_SECONDS,
         "actual_package_provenance": False,
         "image_decoder_authority": False,
         "runtime_authority": False,
@@ -103,31 +109,58 @@ def _attempt_directory():
     base.mkdir(mode=0o700, exist_ok=True)
     shared._private_path(base, directory=True)
     with os.scandir(base) as attempts:
-        for count, entry in enumerate(attempts, 1):
-            if count >= MAX_ATTEMPTS:
-                raise ValueError("reader_native_attempt_limit")
-            path = base / entry.name
-            shared._private_path(path, directory=True)
-            if not entry.name.startswith(PREFIX) or stat.S_IMODE(path.lstat().st_mode) != 0o700:
-                raise ValueError("reader_native_old_attempt")
-            retained = 0
-            with os.scandir(path) as files:
-                for number, item in enumerate(files, 1):
-                    if number > 2 or item.name not in ("policy.json", "cases.json"):
-                        raise ValueError("reader_native_old_entry")
-                    info = item.stat(follow_symlinks=False)
-                    if (
-                        not stat.S_ISREG(info.st_mode)
-                        or info.st_uid != os.geteuid()
-                        or info.st_gid != os.getegid()
-                        or stat.S_IMODE(info.st_mode) != 0o600
-                        or info.st_nlink != 1
-                        or not 0 <= info.st_size <= 2097152
-                    ):
-                        raise ValueError("reader_native_old_entry")
-                    retained += info.st_size
-                    if retained > 4194304:
-                        raise ValueError("reader_native_old_bytes")
+        entries = list(attempts)
+    if len(entries) >= MAX_ATTEMPTS:
+        raise ValueError("reader_native_attempt_limit")
+    for entry in entries:
+        path = base / entry.name
+        shared._private_path(path, directory=True)
+        if not entry.name.startswith(PREFIX) or stat.S_IMODE(path.lstat().st_mode) != 0o700:
+            raise ValueError("reader_native_old_attempt")
+        entries = sorted(os.scandir(path), key=lambda item: item.name)
+        names = [item.name for item in entries]
+        historical = entry.name == reconcile.ATTEMPT_NAME
+        expected = (
+            ["cases.json", "docker-config", "policy.json"]
+            if historical
+            else ["cases.json", "policy.json"]
+        )
+        if names != expected:
+            raise ValueError("reader_native_old_entry")
+        retained = 0
+        for item in entries:
+            info = item.stat(follow_symlinks=False)
+            if item.name == "docker-config":
+                if (
+                    not historical
+                    or not stat.S_ISDIR(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or info.st_gid != os.getegid()
+                    or stat.S_IMODE(info.st_mode) != 0o700
+                    or list(os.scandir(item.path))
+                ):
+                    raise ValueError("reader_native_old_entry")
+                continue
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.geteuid()
+                or info.st_gid != os.getegid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+                or info.st_nlink != 1
+                or not 0 < info.st_size <= 2097152
+            ):
+                raise ValueError("reader_native_old_entry")
+            retained += info.st_size
+            if retained > 4194304:
+                raise ValueError("reader_native_old_bytes")
+        if historical:
+            if (
+                hashlib.sha256(_read_exact(path / "policy.json", 2097152)).hexdigest()
+                != reconcile.POLICY_SHA256
+                or hashlib.sha256(_read_exact(path / "cases.json", 2097152)).hexdigest()
+                != reconcile.CASES_SHA256
+            ):
+                raise ValueError("reader_native_old_entry")
     path = Path(tempfile.mkdtemp(prefix=PREFIX, dir=base))
     os.chmod(path, 0o700)
     return path
@@ -240,6 +273,95 @@ def _docker(argv, environment, timeout=20):
     return browser_setup._command(list(argv), timeout, environment).encode()
 
 
+def _docker_readiness():
+    runtime = ROOT / "runtime"
+    info = runtime.lstat()
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or info.st_uid != os.geteuid()
+        or info.st_gid != os.getegid()
+        or info.st_mode & 0o022
+    ):
+        raise ValueError("reader_native_readiness_runtime")
+    with tempfile.TemporaryDirectory(prefix="native-reader-readiness-", dir=runtime) as raw_dir:
+        config = Path(raw_dir)
+        os.chmod(config, 0o700)
+        environment = {
+            "DOCKER_CONFIG": str(config),
+            "HOME": "/nonexistent",
+            "LANG": "C.UTF-8",
+            "PATH": "/usr/bin:/bin",
+        }
+        raw = _docker(
+            (
+                setup.DOCKER,
+                "--host=unix:///var/run/docker.sock",
+                "version",
+                "--format",
+                "{{json .Server}}",
+            ),
+            environment,
+            10,
+        )
+        if len(raw) > 16384:
+            raise ValueError("reader_native_readiness_output")
+        try:
+            value = json.loads(raw)
+        except (ValueError, UnicodeError, RecursionError, TypeError):
+            raise ValueError("reader_native_readiness_json") from None
+        if (
+            type(value) is not dict
+            or value.get("Os") != "linux"
+            or value.get("Arch") != "amd64"
+            or type(value.get("Version")) is not str
+            or re.fullmatch(r"[0-9A-Za-z.+~_-]{1,128}", value["Version"]) is None
+        ):
+            raise ValueError("reader_native_readiness_identity")
+        components = value.get("Components")
+        if type(components) is not list or not 1 <= len(components) <= 16:
+            raise ValueError("reader_native_readiness_components")
+        runc = [item for item in components if type(item) is dict and item.get("Name") == "runc"]
+        if (
+            len(runc) != 1
+            or type(runc[0].get("Version")) is not str
+            or re.fullmatch(r"[0-9A-Za-z.+~_-]{1,128}", runc[0]["Version"]) is None
+        ):
+            raise ValueError("reader_native_readiness_runc")
+        start = datetime.now(UTC).replace(microsecond=0)
+        end = start + timedelta(seconds=DOCKER_QUIET_SECONDS)
+        fmt = "%Y-%m-%dT%H:%M:%SZ"
+        events = _docker(
+            (
+                setup.DOCKER,
+                "--host=unix:///var/run/docker.sock",
+                "events",
+                "--since",
+                start.strftime(fmt),
+                "--until",
+                end.strftime(fmt),
+                "--format",
+                "{{json .}}",
+            ),
+            environment,
+            DOCKER_QUIET_SECONDS + 4,
+        )
+        if events != b"":
+            raise ValueError("reader_native_daemon_busy")
+        if list(os.scandir(config)):
+            raise ValueError("reader_native_readiness_config")
+        return {
+            "schema": "zelo-media-reader-docker-readiness-v1",
+            "server_os": "linux",
+            "server_arch": "amd64",
+            "server_version": value["Version"],
+            "runc_version": runc[0]["Version"],
+            "quiet_window_seconds": DOCKER_QUIET_SECONDS,
+            "daemon_events_observed": 0,
+            "mutating_command": False,
+            "runtime_authority": False,
+        }
+
+
 def _inspect(kind, identity, environment):
     raw = _docker(
         (
@@ -263,8 +385,10 @@ def _discover(kind, identity, environment):
     )
 
 
-def _require_empty_lease(identity, environment):
-    if _discover("container", identity, environment) or _discover("image", identity, environment):
+def _require_empty_lease(kind, identity, environment):
+    if kind not in ("container", "image"):
+        raise ValueError("reader_native_lease_kind")
+    if _discover(kind, identity, environment):
         raise ValueError("reader_native_lease_collision")
 
 
@@ -497,6 +621,8 @@ async def _matrix(lease, contract_value, attempt):
 async def _qualify():
     started = time.monotonic()
     deadline = started + WHOLE_SECONDS
+    readiness = _docker_readiness()
+    _deadline(deadline)
     admission = ROOT / ADMISSION
     admission.mkdir(mode=0o700, exist_ok=True)
     shared._private_path(admission, directory=True)
@@ -516,8 +642,10 @@ async def _qualify():
         docker_config = attempt / "docker-config"
         docker_config.mkdir(mode=0o700)
         environment = {"DOCKER_CONFIG": str(docker_config)}
-        stage = "lease-preflight"
-        _require_empty_lease(lease.identity, environment)
+        stage = "lease-preflight-container"
+        _require_empty_lease("container", lease.identity, environment)
+        stage = "lease-preflight-image"
+        _require_empty_lease("image", lease.identity, environment)
         stage = "build"
         plan, manifest, contract_value, image_payload_digest = _build_and_attest(
             attempt, lease.identity, environment
@@ -537,6 +665,7 @@ async def _qualify():
             "schema": "zelo-media-native-reader-synthetic-proof-v1",
             "status": "cases-passed",
             "policy_digest": digest,
+            "docker_readiness": readiness,
             "lease_identity": lease.identity,
             "image_identity": contract_value.image_identity,
             "bundle_sha256": manifest.digest,

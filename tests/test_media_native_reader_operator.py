@@ -297,6 +297,33 @@ def test_old_attempts_are_bounded_and_never_repaired(tmp_path, monkeypatch, faul
     assert old.exists()
 
 
+def test_historical_attempt1_refusal_is_preserved_and_counted(tmp_path, monkeypatch):
+    real_root = Path(__file__).resolve().parents[1]
+    root = tmp_path / "repo"
+    base = root / q.PROOF_BASE
+    base.mkdir(parents=True, mode=0o700)
+    monkeypatch.setattr(q, "ROOT", root)
+    monkeypatch.setattr(q.shared, "ROOT", root)
+    old = base / q.reconcile.ATTEMPT_NAME
+    old.mkdir(mode=0o700)
+    config = old / "docker-config"
+    config.mkdir(mode=0o700)
+    for target, source in (
+        ("policy.json", "qualification/fixtures/media-native-reader-attempt1-policy.json"),
+        ("cases.json", "qualification/fixtures/media-native-reader-attempt1-cases.json"),
+    ):
+        path = old / target
+        path.write_bytes((real_root / source).read_bytes())
+        path.chmod(0o600)
+    created = q._attempt_directory()
+    assert created.parent == base
+    assert created.name.startswith(q.PREFIX)
+    assert created.name != old.name
+    assert old.exists()
+    assert (old / "docker-config").is_dir()
+    assert not list((old / "docker-config").iterdir())
+
+
 @pytest.mark.parametrize(
     "kind,family",
     [
@@ -370,22 +397,22 @@ def test_stdout_control_refuses_unrelated_exception(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("kind", ["container", "image"])
-def test_lease_preflight_refuses_any_existing_owned_resource(monkeypatch, kind):
+def test_lease_preflight_refuses_existing_owned_resource(monkeypatch, kind):
     calls = []
 
     def discover(which, identity, environment):
         calls.append(which)
-        if which == kind:
-            return ("d" * 64,) if which == "container" else ("sha256:" + "e" * 64,)
-        return ()
+        assert which == kind
+        return ("d" * 64,) if which == "container" else ("sha256:" + "e" * 64,)
 
     monkeypatch.setattr(q, "_discover", discover)
     with pytest.raises(ValueError, match="reader_native_lease_collision"):
-        q._require_empty_lease("c" * 64, {"DOCKER_CONFIG": "/private"})
-    assert calls[0] == "container"
+        q._require_empty_lease(kind, "c" * 64, {"DOCKER_CONFIG": "/private"})
+    assert calls == [kind]
 
 
-def test_lease_preflight_requires_both_namespaces_empty(monkeypatch):
+@pytest.mark.parametrize("kind", ["container", "image"])
+def test_lease_preflight_accepts_empty_namespace(monkeypatch, kind):
     calls = []
 
     def discover(which, identity, environment):
@@ -393,5 +420,148 @@ def test_lease_preflight_requires_both_namespaces_empty(monkeypatch):
         return ()
 
     monkeypatch.setattr(q, "_discover", discover)
-    q._require_empty_lease("c" * 64, {"DOCKER_CONFIG": "/private"})
-    assert calls == ["container", "image"]
+    q._require_empty_lease(kind, "c" * 64, {"DOCKER_CONFIG": "/private"})
+    assert calls == [kind]
+
+
+def test_docker_readiness_accepts_linux_amd64_runc(monkeypatch, tmp_path):
+    root = tmp_path / "repo"
+    runtime = root / "runtime"
+    runtime.mkdir(parents=True, mode=0o755)
+    monkeypatch.setattr(q, "ROOT", root)
+    seen = []
+
+    def docker(argv, environment, timeout=20):
+        seen.append((tuple(argv), dict(environment), timeout))
+        if "events" in argv:
+            return b""
+        return json.dumps(
+            {
+                "Os": "linux",
+                "Arch": "amd64",
+                "Version": "29.1.3",
+                "Components": [
+                    {"Name": "Engine", "Version": "29.1.3"},
+                    {"Name": "runc", "Version": "1.3.4-0ubuntu1~24.04.1"},
+                ],
+            }
+        ).encode()
+
+    monkeypatch.setattr(q, "_docker", docker)
+    value = q._docker_readiness()
+    assert value["server_os"] == "linux"
+    assert value["server_arch"] == "amd64"
+    assert value["server_version"] == "29.1.3"
+    assert value["runc_version"].startswith("1.3.4")
+    assert value["quiet_window_seconds"] == 2
+    assert value["daemon_events_observed"] == 0
+    assert value["mutating_command"] is False
+    assert value["runtime_authority"] is False
+    assert seen[0][0][-3:] == ("version", "--format", "{{json .Server}}")
+    assert seen[1][0][2] == "events"
+    assert "--filter" not in seen[1][0]
+    assert seen[0][1]["HOME"] == "/nonexistent"
+    assert not list(runtime.glob("native-reader-readiness-*"))
+
+
+@pytest.mark.parametrize(
+    "field,value,code",
+    [
+        ("Os", "windows", "reader_native_readiness_identity"),
+        ("Arch", "arm64", "reader_native_readiness_identity"),
+        ("Version", "", "reader_native_readiness_identity"),
+    ],
+)
+def test_docker_readiness_refuses_wrong_server(monkeypatch, tmp_path, field, value, code):
+    root = tmp_path / "repo"
+    (root / "runtime").mkdir(parents=True, mode=0o755)
+    monkeypatch.setattr(q, "ROOT", root)
+    server = {
+        "Os": "linux",
+        "Arch": "amd64",
+        "Version": "29.1.3",
+        "Components": [{"Name": "runc", "Version": "1.3.4"}],
+    }
+    server[field] = value
+    monkeypatch.setattr(q, "_docker", lambda *a, **k: json.dumps(server).encode())
+    with pytest.raises(ValueError, match=code):
+        q._docker_readiness()
+
+
+def test_docker_readiness_refuses_any_daemon_event_before_admission(monkeypatch, tmp_path):
+    root = tmp_path / "repo"
+    (root / "runtime").mkdir(parents=True, mode=0o755)
+    monkeypatch.setattr(q, "ROOT", root)
+
+    def docker(argv, environment, timeout=20):
+        if "events" in argv:
+            return b'{"Type":"image","Action":"tag","Actor":{"Attributes":{"project":"other"}}}\n'
+        return json.dumps(
+            {
+                "Os": "linux",
+                "Arch": "amd64",
+                "Version": "29.1.3",
+                "Components": [{"Name": "runc", "Version": "1.3.4"}],
+            }
+        ).encode()
+
+    class ForbiddenAdmission:
+        def __init__(self, *args, **kwargs):
+            pytest.fail("admission touched while Docker daemon was active")
+
+    monkeypatch.setattr(q, "_docker", docker)
+    monkeypatch.setattr(q, "AdmissionController", ForbiddenAdmission)
+    with pytest.raises(ValueError, match="reader_native_daemon_busy"):
+        run(q._qualify())
+    assert not (root / q.PROOF_BASE).exists()
+
+
+def test_docker_readiness_failure_precedes_admission(monkeypatch):
+    def refused():
+        raise ValueError("reader_native_readiness_identity")
+
+    class ForbiddenAdmission:
+        def __init__(self, *args, **kwargs):
+            pytest.fail("admission touched before readiness")
+
+    monkeypatch.setattr(q, "_docker_readiness", refused)
+    monkeypatch.setattr(q, "AdmissionController", ForbiddenAdmission)
+    with pytest.raises(ValueError, match="reader_native_readiness_identity"):
+        run(q._qualify())
+
+
+def test_attempt_directory_accepts_only_exact_retained_attempt1_and_allocates_second(
+    tmp_path, monkeypatch
+):
+    real_root = Path(__file__).resolve().parents[1]
+    root = tmp_path / "repo"
+    base = root / q.PROOF_BASE
+    base.mkdir(parents=True, mode=0o700)
+    monkeypatch.setattr(q, "ROOT", root)
+    monkeypatch.setattr(q.shared, "ROOT", root)
+
+    old = base / q.reconcile.ATTEMPT_NAME
+    old.mkdir(mode=0o700)
+    for source_name, target_name in (
+        (q.reconcile.FIXTURE_POLICY, "policy.json"),
+        (q.reconcile.FIXTURE_CASES, "cases.json"),
+    ):
+        path = old / target_name
+        path.write_bytes((real_root / source_name).read_bytes())
+        path.chmod(0o600)
+    config = old / "docker-config"
+    config.mkdir(mode=0o700)
+
+    created = q._attempt_directory()
+    assert created.parent == base
+    assert created.name.startswith(q.PREFIX)
+    assert created.name != q.reconcile.ATTEMPT_NAME
+    assert old.exists()
+    assert (old / "policy.json").read_bytes() == (
+        real_root / q.reconcile.FIXTURE_POLICY
+    ).read_bytes()
+    assert (old / "cases.json").read_bytes() == (real_root / q.reconcile.FIXTURE_CASES).read_bytes()
+    assert config.is_dir() and not list(config.iterdir())
+
+    with pytest.raises(ValueError, match="reader_native_attempt_limit"):
+        q._attempt_directory()
