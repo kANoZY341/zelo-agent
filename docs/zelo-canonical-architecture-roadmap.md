@@ -586,9 +586,15 @@ Computer Worker rollout is explicitly phased:
 4. Core-owned browser egress and internal-network topology: no direct public
    computer egress, per-Agent proxy credentials, trusted HTTPS endpoint grants,
    private-CIDR Core control and live revocation;
-5. separately qualified browser mutation actions;
-6. separately qualified workspace writes; and
-7. shell only through an explicit later authority decision.
+5. first browser mutation: **named-endpoint navigation only**, using a separate
+   `computer_navigate` Worker/authority, trusted HTTPS endpoint ID + bounded
+   path, exact endpoint/egress/permission/backend binding and claim/runtime
+   revalidation;
+6. separately qualified interactive browser mutation actions such as
+   click/type/key/scroll, each behind explicit policy rather than inherited from
+   navigation;
+7. separately qualified workspace writes; and
+8. shell only through an explicit later authority decision.
 
 Passing an earlier phase never implicitly grants a later phase. Screenshots may
 be owner-facing through the Computer Panel without automatically becoming
