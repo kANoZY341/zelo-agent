@@ -118,14 +118,14 @@ export function hardenSupervisorDocker(source) {
         ...(container.Created
           ? { startedAt: new Date(container.Created * 1000).toISOString() }
           : {}),
-        ...(port ? { port } : {}),
-        ...(port
-          ? { url: \`http://127.0.0.1:\${port}\` }
-          : address
+        ...(!network && port ? { port } : {}),
+        ...(network
+          ? address
             ? { url: \`http://\${address}:4100\` }
+            : {}
+          : port
+            ? { url: \`http://127.0.0.1:\${port}\` }
             : {}),
-      };
-    });
   } catch (error) {
     throw new DockerUnavailableError(String(error));
   }
@@ -213,11 +213,13 @@ export function hardenSupervisorDocker(source) {
           : {}),`,
     `      // Host-mode Zelo Core uses a published loopback port in legacy mode,
       // or the exact private address Docker assigned on the configured internal network.
-      ...(settled?.port
-        ? { url: \`http://127.0.0.1:\${settled.port}\` }
-        : settled?.address
+      ...(options.network
+        ? settled?.address
           ? { url: \`http://\${settled.address}:4100\` }
-          : {}),`,
+          : {}
+        : settled?.port
+          ? { url: \`http://127.0.0.1:\${settled.port}\` }
+          : {}),
     'docker ensure URL',
   );
   return source;
