@@ -295,9 +295,7 @@ def test_internal_endpoint_is_accepted_only_inside_exact_configured_cidr():
     )
     assert backend.endpoint(agent_id, state) == "http://172.30.250.2:4100"
 
-    loopback = state.model_copy(
-        update={"url": "http://127.0.0.1:49152", "port": 49152}
-    )
+    loopback = state.model_copy(update={"url": "http://127.0.0.1:49152", "port": 49152})
     with pytest.raises(ComputerBackendError, match="computer_endpoint_invalid"):
         backend.endpoint(agent_id, loopback)
 
