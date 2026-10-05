@@ -29,7 +29,10 @@ class ComputerContract(BaseModel):
 
 
 class ComputerExecutionSpec(ComputerContract):
-    schema_version: Literal["zelo-computer-execution-v1"] = "zelo-computer-execution-v1"
+    schema_version: Literal[
+        "zelo-computer-execution-v1",
+        "zelo-computer-execution-v2",
+    ] = "zelo-computer-execution-v2"
     agent_instance_id: str = Field(
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     )
@@ -46,6 +49,8 @@ class ComputerExecutionSpec(ComputerContract):
     def _validate_action_path(self):
         path = self.path
         if self.action == "browser_navigate":
+            if self.schema_version != "zelo-computer-execution-v2":
+                raise ValueError("computer_navigation_requires_v2")
             if (
                 self.endpoint is None
                 or self.egress_policy_version is None
