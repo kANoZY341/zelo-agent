@@ -79,6 +79,7 @@ from app.worker_registry import (
     WorkerRegistry,
     descriptor_for_api_worker,
     descriptor_for_browser_worker,
+    descriptor_for_computer_navigate_worker,
     descriptor_for_computer_worker,
     descriptor_for_python_worker,
     descriptor_for_research_worker,
@@ -149,11 +150,26 @@ def create_app(
                 ((descriptor_for_browser_worker(), browser_runtime),) if browser_runtime else ()
             )
             browser_supervisor = Supervisor[BrowserRuntime](browser_worker_registry)
-            computer_runtime = ComputerRuntime(database, agent_computers)
+            computer_runtime = ComputerRuntime(
+                database,
+                agent_computers,
+                computer_browser_endpoint_registry,
+            )
+            computer_registrations: list[tuple] = []
+            if agent_computers.configured:
+                computer_registrations.append(
+                    (descriptor_for_computer_worker(), computer_runtime)
+                )
+                if (
+                    configuration.computer_internal_network_cidr is not None
+                    and configuration.computer_egress_proxy_host is not None
+                    and computer_browser_endpoint_registry.list()
+                ):
+                    computer_registrations.append(
+                        (descriptor_for_computer_navigate_worker(), computer_runtime)
+                    )
             computer_worker_registry = WorkerRegistry[ComputerRuntime](
-                ((descriptor_for_computer_worker(), computer_runtime),)
-                if agent_computers.configured
-                else ()
+                tuple(computer_registrations)
             )
             computer_supervisor = Supervisor[ComputerRuntime](computer_worker_registry)
             capability_registry = default_capability_registry()
