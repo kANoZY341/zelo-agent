@@ -510,24 +510,28 @@ def test_docker_readiness_refuses_any_daemon_event_before_admission(monkeypatch,
             pytest.fail("admission touched while Docker daemon was active")
 
     monkeypatch.setattr(q, "_docker", docker)
+    monkeypatch.setattr(q.scope, "validate_runtime_scope", lambda runtime: {})
     monkeypatch.setattr(q, "AdmissionController", ForbiddenAdmission)
+    runtime_root = root / "runtime"
+    runtime_root.mkdir(mode=0o755, exist_ok=True)
     with pytest.raises(ValueError, match="reader_native_daemon_busy"):
-        run(q._qualify())
+        run(q._qualify(runtime_root))
     assert not (root / q.PROOF_BASE).exists()
 
 
 def test_docker_readiness_failure_precedes_admission(monkeypatch):
-    def refused():
+    def refused(runtime_root):
         raise ValueError("reader_native_readiness_identity")
 
     class ForbiddenAdmission:
         def __init__(self, *args, **kwargs):
             pytest.fail("admission touched before readiness")
 
+    monkeypatch.setattr(q, "scope", SimpleNamespace(validate_runtime_scope=lambda runtime: {}))
     monkeypatch.setattr(q, "_docker_readiness", refused)
     monkeypatch.setattr(q, "AdmissionController", ForbiddenAdmission)
     with pytest.raises(ValueError, match="reader_native_readiness_identity"):
-        run(q._qualify())
+        run(q._qualify(Path("/unused/runtime")))
 
 
 def test_attempt_directory_accepts_only_exact_retained_attempt1_and_allocates_second(

@@ -78,61 +78,44 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Media native-reader admission reconciliation after
-PR93 attempt1 refusal. Continue Core; UI needs fresh acceptance.
+The active work is PR93's native-reader runtime-scope binding gate after the
+authorized attempt-1 reconciliation. Attempt 1 remains refused and consumed;
+attempt 2/2 is not cleared. Continue Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: native-reader reconciliation; attempt 1/2 permanently refused
+## Current scope: PR93 native-reader runtime-scope gate
 
-PR92 merged at f05abe11cd6b659a8339132028ca710e16393c48. PR93 corrected
-head c6127669cda7923c851febe1b4f8530402f58ef8/tree
-d6eaa8a1fa029cd049384f66d27de5218ba7c8cd passed matching CI37231757784:
-4,569 tests/two skips. The one source-cleared synthetic native-reader run REFUSED
-at lease-preflight before image build, setup create, dpkg/loader execution, package
-matrix or cgroup evidence. Native-reader attempt1/2 is permanently consumed.
+PR93 is integrated at `f8468cc6eb8759bd25a83cdc400be4e1ad35beb1` (tree
+`14f4c237a7f98d73c5cd02d49a245560670bdad1`), parents PR93 `bcf6c1a` and current
+main `b67d0d8`. Exact-head CI `37387738045` passed 4,672 tests, with two skips
+and 11 warnings.
 
-Retain attempt native-reader-proof-uvjet91z unchanged. Policy SHA
-a566a81238d144163e82ce91d728067c8afe36011fea404594f03f200ac868c3;
-refusal proof SHA027e7165fc21001eafb19cdb0a9c89bb0315012931c0a862ad742e5883655378;
-marker SHA f88573e617e66156815491696f8a51fed078e07df85658800cc1cb259bb34472;
-failed lease9dd76284f54fe91361c4646fafc97a78c98f5179437345d54f9c815b8ea8bd0f.
-Do not rerun, delete, rewrite, repair or reset that evidence. No success receipt exists.
+Native-reader attempt 1/2 remains permanently refused and consumed. Its private
+policy and refusal proof hashes remain
+`a566a81238d144163e82ce91d728067c8afe36011fea404594f03f200ac868c3` and
+`027e7165fc21001eafb19cdb0a9c89bb0315012931c0a862ad742e5883655378`.
+Reconciliation completed at source head `bcf6c1a`; durable evidence SHA256 is
+`04fc0c4607922f24c3aea63fa5bd72a27334ae652174d4b51f12e039d155dad1`. It cleared
+the admission marker only after writing that evidence; attempt-1 proof was not
+changed, deleted or reset. No native attempt 2/2 has run.
 
-Admission marker is intentionally fenced. Later read-only exact-lease discovery
-found zero matching Docker containers/images and the admission lock free; these
-facts do NOT retroactively prove cleanup or success. An unrelated Aegis Docker
-build overlapped the failure window; record it only as a material confounder, not
-proven causation.
+The retained runtime evidence and reconciliation record currently live under the
+old checkout `/home/zelo/zelo/core-v015-browser-renderer/runtime`, outside this
+repository root. The integrated PR93 worktree does not contain that runtime
+history. The operator must receive the same explicit persistent `--runtime-root`
+from every checkout and validate its one-time path-bound scope record, exact
+attempt-1 evidence, and reconciliation record before readiness or attempt
+creation. A missing, copied-to-another-path, replayed or mismatched scope refuses.
+Do not copy, repair, delete or reset consumed evidence.
 
-Current uncommitted recovery work is a separate reconciliation gate. It must:
-authenticate the exact failed fixtures/evidence; take the admission lock exclusively;
-require zero exact lease resources; observe a global two-second Docker event-silence
-window with NO label filter; repeat zero-discovery/proof/marker checks; write+fsync
-private pending reconciliation evidence; fsync its parent directory; only then
-truncate+fsync the exact marker while still holding the lock. Release/unlock precedes
-the in-memory reconciliation receipt. Any ambiguity refuses without retry/reset.
-Recovery/operator validation currently passes211 focused tests and2790 combined
-Media/context tests; Ruff/format/diff checks pass.
-
-The final-attempt operator is hardened separately: historical attempt1 is recognized
-only by exact hashes; the two-attempt ceiling is order-independent; Docker server
-must be Linux/amd64 with an available valid runc component and the same global
-event-silence window BEFORE admission/proof creation. The container contract fixes
-runtime selection to runc; do not infer Docker's ambient default runtime. Do not
-run attempt2 yet.
-
-After reconciliation passes its own frozen review/full CI and one audited
-reconciliation, integrate the THEN-CURRENT main into the Media branch before any
-attempt2. Preserve historical evidence, resolve status/test conflicts, rerun focused
-and full CI, freeze a new exact tree and review it. Only that integrated source may
-seek clearance for the sole remaining attempt2/2.
-
-Original scopes remain preserved: origin4/4 and old-loader4/4 exhausted; index2/4;
-ELF-version3/4; acquisition1/4; dpkg identity1/1; source16/16; helpers8/8+directory;
-tarfile observations consumed; USTAR isolation1/2; native reader1/2 refused.
-No acquired .deb, Pillow, Core route, enabled flag, system/config/user-data change,
-proof reset or model/Codex job. Preserve one active status heading <=2200 chars,
-parked UI #61/worktrees and v0.14.0. Finish v0.15, then v0.16 -> v0.17 -> v0.18.
+The one-time binding command writes only a new private
+`media-native-reader-scope.json` beside the retained runtime state. Because the
+current runtime path is outside `~/zelo/core`, do not run that binding command
+without the user’s approval required by this file. Native attempt 2/2 also needs
+fresh exact-head CI/source review and separate explicit user authority. Any
+failure after the final attempt directory is created consumes 2/2 and stops.
+No Docker/native qualification, package acquisition, Core activation, merge or
+deployment is cleared.
 
 ## Workspace decision
 
@@ -146,3 +129,5 @@ parked UI #61/worktrees and v0.14.0. Finish v0.15, then v0.16 -> v0.17 -> v0.18.
   or materially adapted code.
 - UI code must remain a projection/adapter over canonical Core state. It must not
   create a parallel task, approval, scheduler, memory, or authority system.
+
+[executed on device: Zelo (e9a33897-63c0-4476-b309-eacb1dd2b7db)]

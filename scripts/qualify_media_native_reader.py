@@ -44,6 +44,7 @@ from qualification import media_reader_container as container  # noqa: E402
 from qualification import media_reader_fixture as fixture  # noqa: E402
 from qualification import media_reader_image as image  # noqa: E402
 from qualification import media_reader_reconcile as reconcile  # noqa: E402
+from qualification import media_reader_scope as scope  # noqa: E402
 from qualification import media_reader_seccomp as seccomp  # noqa: E402
 from qualification import media_reader_setup as setup  # noqa: E402
 from qualification.admission import AdmissionController  # noqa: E402
@@ -53,8 +54,9 @@ from scripts import qualify_browser_renderer as browser_setup  # noqa: E402
 from scripts import qualify_media_publisher as shared  # noqa: E402
 from scripts.qualify_media_elf_version_metadata import _release, _State, _Store  # noqa: E402
 
-ADMISSION = "runtime/media-elf-metadata-admission"
 PROOF_BASE = "runtime/media-native-reader"
+RUNTIME_PROOF_BASE = "media-native-reader"
+RUNTIME_ADMISSION = "media-elf-metadata-admission"
 PREFIX = "native-reader-proof-"
 MAX_ATTEMPTS = 2
 WHOLE_SECONDS = 240
@@ -104,17 +106,61 @@ def policy():
     }
 
 
-def _attempt_directory():
-    base = ROOT / PROOF_BASE
-    base.mkdir(mode=0o700, exist_ok=True)
-    shared._private_path(base, directory=True)
+def _private_runtime_path(path, runtime_root):
+    path = Path(path)
+    runtime = Path(runtime_root)
+    if not path.is_absolute() or any(part in (".", "..") for part in path.parts):
+        raise ValueError("reader_native_scope_path")
+    try:
+        relative = path.relative_to(runtime)
+    except ValueError:
+        raise ValueError("reader_native_scope_path") from None
+    try:
+        root_info = runtime.lstat()
+    except OSError:
+        raise ValueError("reader_native_scope_runtime") from None
+    if (
+        not stat.S_ISDIR(root_info.st_mode)
+        or root_info.st_uid != os.geteuid()
+        or root_info.st_gid != os.getegid()
+        or root_info.st_mode & 0o022
+    ):
+        raise ValueError("reader_native_scope_runtime")
+    current = runtime
+    for part in relative.parts:
+        current /= part
+        try:
+            info = current.lstat()
+        except OSError:
+            raise ValueError("reader_native_scope_path") from None
+        if (
+            info.st_uid != os.geteuid()
+            or info.st_gid != os.getegid()
+            or info.st_mode & 0o022
+            or stat.S_ISLNK(info.st_mode)
+            or (current != path and not stat.S_ISDIR(info.st_mode))
+        ):
+            raise ValueError("reader_native_scope_path")
+    try:
+        info = path.lstat()
+    except OSError:
+        raise ValueError("reader_native_scope_path") from None
+    if not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError("reader_native_scope_path")
+    return path
+
+
+def _attempt_directory(runtime_root=None):
+    runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
+    base = runtime / RUNTIME_PROOF_BASE
+    _private_runtime_path(base, runtime)
     with os.scandir(base) as attempts:
         entries = list(attempts)
     if len(entries) >= MAX_ATTEMPTS:
         raise ValueError("reader_native_attempt_limit")
     for entry in entries:
         path = base / entry.name
-        shared._private_path(path, directory=True)
+        _private_runtime_path(path, runtime)
         if not entry.name.startswith(PREFIX) or stat.S_IMODE(path.lstat().st_mode) != 0o700:
             raise ValueError("reader_native_old_attempt")
         entries = sorted(os.scandir(path), key=lambda item: item.name)
@@ -223,7 +269,8 @@ def _read_exact(path, bound, *, digest=None, modes=(0o600,)):
         os.close(fd)
 
 
-def _copy_context(attempt, lease_identity):
+def _copy_context(attempt, lease_identity, runtime_root=None):
+    runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     lock_raw = _read_exact(
         ROOT / "qualification/fixtures/media-reader-elf-target-lock.json",
         16384,
@@ -237,7 +284,7 @@ def _copy_context(attempt, lease_identity):
     value = setup.plan(attempt.resolve(), lease_identity, manifest)
     if value.context != build:
         raise ValueError("reader_native_build_path")
-    sources = ROOT / "runtime/media-package-reader-bootstrap-20261004"
+    sources = runtime / "media-package-reader-bootstrap-20261004"
     total = 0
     for row in manifest.files:
         raw = _read_exact(sources / row.source, 4194304, digest=row.sha256)
@@ -273,8 +320,8 @@ def _docker(argv, environment, timeout=20):
     return browser_setup._command(list(argv), timeout, environment).encode()
 
 
-def _docker_readiness():
-    runtime = ROOT / "runtime"
+def _docker_readiness(runtime_root=None):
+    runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     info = runtime.lstat()
     if (
         not stat.S_ISDIR(info.st_mode)
@@ -455,8 +502,8 @@ def _cleanup_owned(identity, environment):
     return confirmed
 
 
-def _build_and_attest(attempt, lease_identity, environment):
-    value, manifest = _copy_context(attempt, lease_identity)
+def _build_and_attest(attempt, lease_identity, environment, runtime_root=None):
+    value, manifest = _copy_context(attempt, lease_identity, runtime_root)
     _docker(setup.build_arguments(value), environment, BUILD_SECONDS)
     raw_id = _read_exact(value.iidfile, 256, modes=(0o600, 0o644))
     try:
@@ -618,14 +665,17 @@ async def _matrix(lease, contract_value, attempt):
     return results, cgroup_evidence
 
 
-async def _qualify():
+async def _qualify(runtime_root=None):
+    if runtime_root is None:
+        raise ValueError("reader_native_scope_required")
+    runtime = Path(runtime_root)
+    scope.validate_runtime_scope(runtime)
     started = time.monotonic()
     deadline = started + WHOLE_SECONDS
-    readiness = _docker_readiness()
+    readiness = _docker_readiness(runtime)
     _deadline(deadline)
-    admission = ROOT / ADMISSION
-    admission.mkdir(mode=0o700, exist_ok=True)
-    shared._private_path(admission, directory=True)
+    admission = runtime / RUNTIME_ADMISSION
+    _private_runtime_path(admission, runtime)
     spec = policy()
     digest = shared._digest(spec)
     lease = AdmissionController(admission).acquire(digest)
@@ -636,7 +686,7 @@ async def _qualify():
     report_attempted = False
     stage = "attempt"
     try:
-        attempt = _attempt_directory()
+        attempt = _attempt_directory(runtime)
         store = _Store(attempt, state)
         store.json("policy.json", spec)
         docker_config = attempt / "docker-config"
@@ -648,7 +698,7 @@ async def _qualify():
         _require_empty_lease("image", lease.identity, environment)
         stage = "build"
         plan, manifest, contract_value, image_payload_digest = _build_and_attest(
-            attempt, lease.identity, environment
+            attempt, lease.identity, environment, runtime
         )
         _deadline(deadline)
         stage = "matrix"
@@ -743,9 +793,10 @@ async def _qualify():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true", required=True)
-    parser.parse_args()
+    parser.add_argument("--runtime-root", type=Path, required=True)
+    args = parser.parse_args()
     try:
-        receipt, deadline = asyncio.run(_qualify())
+        receipt, deadline = asyncio.run(_qualify(args.runtime_root))
         rendered = json.dumps(receipt, sort_keys=True)
         _deadline(deadline)
     except Exception:
