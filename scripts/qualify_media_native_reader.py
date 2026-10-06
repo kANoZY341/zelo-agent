@@ -72,6 +72,33 @@ def _deadline(value):
         raise ValueError("reader_native_deadline")
 
 
+class _PreconditionRefused(ValueError):
+    "Safe phase/code diagnostic for refusals before attempt allocation."
+
+
+def _precondition_refusal(stage, error):
+    if stage not in {"scope", "docker_readiness", "admission"}:
+        stage = "unknown"
+    if isinstance(error, FileNotFoundError):
+        reason = "os_file_not_found"
+    elif isinstance(error, PermissionError):
+        reason = "os_permission_denied"
+    elif isinstance(error, TimeoutError):
+        reason = "os_timeout"
+    elif isinstance(error, (ValueError, RuntimeError)):
+        message = str(error)
+        if re.fullmatch(
+            r"(?:reader|setup|runtime)_[A-Za-z0-9_]+|unsafe_runtime_state",
+            message,
+        ):
+            reason = message
+        else:
+            reason = "unclassified"
+    else:
+        reason = "unclassified"
+    return _PreconditionRefused(f"reader_native_precondition_{stage}_{reason}")
+
+
 def policy():
     return {
         "schema": "zelo-media-native-reader-synthetic-policy-v1",
@@ -669,16 +696,25 @@ async def _qualify(runtime_root=None):
     if runtime_root is None:
         raise ValueError("reader_native_scope_required")
     runtime = Path(runtime_root)
-    scope.validate_runtime_scope(runtime)
+    try:
+        scope.validate_runtime_scope(runtime)
+    except Exception as exc:
+        raise _precondition_refusal("scope", exc) from None
     started = time.monotonic()
     deadline = started + WHOLE_SECONDS
-    readiness = _docker_readiness(runtime)
-    _deadline(deadline)
-    admission = runtime / RUNTIME_ADMISSION
-    _private_runtime_path(admission, runtime)
-    spec = policy()
-    digest = shared._digest(spec)
-    lease = AdmissionController(admission).acquire(digest)
+    try:
+        readiness = _docker_readiness(runtime)
+        _deadline(deadline)
+    except Exception as exc:
+        raise _precondition_refusal("docker_readiness", exc) from None
+    try:
+        admission = runtime / RUNTIME_ADMISSION
+        _private_runtime_path(admission, runtime)
+        spec = policy()
+        digest = shared._digest(spec)
+        lease = AdmissionController(admission).acquire(digest)
+    except Exception as exc:
+        raise _precondition_refusal("admission", exc) from None
     state = _State()
     store = None
     environment = None
@@ -799,6 +835,9 @@ def main():
         receipt, deadline = asyncio.run(_qualify(args.runtime_root))
         rendered = json.dumps(receipt, sort_keys=True)
         _deadline(deadline)
+    except _PreconditionRefused as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     except Exception:
         print("reader_native_refused", file=sys.stderr)
         return 1

@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -569,3 +570,37 @@ def test_attempt_directory_accepts_only_exact_retained_attempt1_and_allocates_se
 
     with pytest.raises(ValueError, match="reader_native_attempt_limit"):
         q._attempt_directory()
+
+
+def test_main_reports_safe_precondition_stage_and_code(tmp_path, monkeypatch, capsys):
+    async def refused(runtime_root):
+        raise q._precondition_refusal("docker_readiness", ValueError("reader_native_daemon_busy"))
+
+    monkeypatch.setattr(q, "_qualify", refused)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "qualify_media_native_reader.py",
+            "--run",
+            "--runtime-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert q.main() == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "reader_native_precondition_docker_readiness_reader_native_daemon_busy\n"
+    )
+
+
+def test_precondition_diagnostic_does_not_echo_untrusted_exception_text():
+    error = RuntimeError("failed at /private/runtime token=secret")
+
+    result = q._precondition_refusal("docker_readiness", error)
+
+    assert str(result) == "reader_native_precondition_docker_readiness_unclassified"
+    assert "/private/runtime" not in str(result)
+    assert "secret" not in str(result)
