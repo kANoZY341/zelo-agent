@@ -341,10 +341,12 @@ def _copy_context(attempt, lease_identity, runtime_root=None):
     return value, manifest
 
 
-def _docker(argv, environment, timeout=20):
+def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     if type(argv) not in (tuple, list) or not argv or argv[0] != setup.DOCKER:
         raise ValueError("reader_native_docker_command")
-    return browser_setup._command(list(argv), timeout, environment).encode()
+    return browser_setup._command(
+        list(argv), timeout, environment, stdout_limit=stdout_limit
+    ).encode()
 
 
 def _docker_readiness(runtime_root=None):
@@ -404,21 +406,28 @@ def _docker_readiness(runtime_root=None):
         start = datetime.now(UTC).replace(microsecond=0)
         end = start + timedelta(seconds=DOCKER_QUIET_SECONDS)
         fmt = "%Y-%m-%dT%H:%M:%SZ"
-        events = _docker(
-            (
-                setup.DOCKER,
-                "--host=unix:///var/run/docker.sock",
-                "events",
-                "--since",
-                start.strftime(fmt),
-                "--until",
-                end.strftime(fmt),
-                "--format",
-                "{{json .}}",
-            ),
-            environment,
-            DOCKER_QUIET_SECONDS + 4,
-        )
+        # Any global event fails the quiet gate; do not buffer event payloads.
+        try:
+            events = _docker(
+                (
+                    setup.DOCKER,
+                    "--host=unix:///var/run/docker.sock",
+                    "events",
+                    "--since",
+                    start.strftime(fmt),
+                    "--until",
+                    end.strftime(fmt),
+                    "--format",
+                    "{{json .}}",
+                ),
+                environment,
+                DOCKER_QUIET_SECONDS + 4,
+                stdout_limit=0,
+            )
+        except browser_setup._CommandOutputLimit as exc:
+            if exc.stream != "out":
+                raise
+            raise ValueError("reader_native_daemon_busy") from None
         if events != b"":
             raise ValueError("reader_native_daemon_busy")
         if list(os.scandir(config)):

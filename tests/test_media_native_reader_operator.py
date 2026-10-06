@@ -432,8 +432,8 @@ def test_docker_readiness_accepts_linux_amd64_runc(monkeypatch, tmp_path):
     monkeypatch.setattr(q, "ROOT", root)
     seen = []
 
-    def docker(argv, environment, timeout=20):
-        seen.append((tuple(argv), dict(environment), timeout))
+    def docker(argv, environment, timeout=20, *, stdout_limit=131072):
+        seen.append((tuple(argv), dict(environment), timeout, stdout_limit))
         if "events" in argv:
             return b""
         return json.dumps(
@@ -461,6 +461,7 @@ def test_docker_readiness_accepts_linux_amd64_runc(monkeypatch, tmp_path):
     assert seen[0][0][-3:] == ("version", "--format", "{{json .Server}}")
     assert seen[1][0][2] == "events"
     assert "--filter" not in seen[1][0]
+    assert seen[1][3] == 0
     assert seen[0][1]["HOME"] == "/nonexistent"
     assert not list(runtime.glob("native-reader-readiness-*"))
 
@@ -494,8 +495,9 @@ def test_docker_readiness_refuses_any_daemon_event_before_admission(monkeypatch,
     (root / "runtime").mkdir(parents=True, mode=0o755)
     monkeypatch.setattr(q, "ROOT", root)
 
-    def docker(argv, environment, timeout=20):
+    def docker(argv, environment, timeout=20, *, stdout_limit=131072):
         if "events" in argv:
+            assert stdout_limit == 0
             return b'{"Type":"image","Action":"tag","Actor":{"Attributes":{"project":"other"}}}\n'
         return json.dumps(
             {
@@ -517,6 +519,50 @@ def test_docker_readiness_refuses_any_daemon_event_before_admission(monkeypatch,
     runtime_root.mkdir(mode=0o755, exist_ok=True)
     with pytest.raises(ValueError, match="reader_native_daemon_busy"):
         run(q._qualify(runtime_root))
+    assert not (root / q.PROOF_BASE).exists()
+
+
+@pytest.mark.parametrize(
+    "stream,expected",
+    [
+        ("out", "reader_native_precondition_docker_readiness_reader_native_daemon_busy"),
+        ("err", "reader_native_precondition_docker_readiness_setup_command_output_limit"),
+    ],
+)
+def test_docker_readiness_event_flood_refuses_before_admission(
+    monkeypatch, tmp_path, stream, expected
+):
+    root = tmp_path / "repo"
+    runtime = root / "runtime"
+    runtime.mkdir(parents=True, mode=0o755)
+    server = {
+        "Os": "linux",
+        "Arch": "amd64",
+        "Version": "29.1.3",
+        "Components": [{"Name": "runc", "Version": "1.3.4"}],
+    }
+    fake_docker = tmp_path / "fake-docker"
+    fd = 1 if stream == "out" else 2
+    fake_docker.write_text(
+        "#!/usr/bin/python3\n"
+        "import os, sys\n"
+        "if 'version' in sys.argv:\n"
+        f"    os.write(1, {json.dumps(server).encode()!r})\n"
+        "elif 'events' in sys.argv:\n"
+        f"    os.write({fd}, b'x' * 262144)\n"
+    )
+    fake_docker.chmod(0o700)
+
+    class ForbiddenAdmission:
+        def __init__(self, *args, **kwargs):
+            pytest.fail("admission touched while Docker readiness was unproven")
+
+    monkeypatch.setattr(q.setup, "DOCKER", str(fake_docker))
+    monkeypatch.setattr(q.scope, "validate_runtime_scope", lambda path: {})
+    monkeypatch.setattr(q, "AdmissionController", ForbiddenAdmission)
+    with pytest.raises(ValueError, match=f"^{expected}$"):
+        run(q._qualify(runtime))
+    assert not list(runtime.glob("native-reader-readiness-*"))
     assert not (root / q.PROOF_BASE).exists()
 
 

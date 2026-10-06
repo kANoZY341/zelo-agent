@@ -28,6 +28,12 @@ MAX_EXPORT_ENTRIES = 8192
 MAX_COMMAND_LOG = 16384
 
 
+class _CommandOutputLimit(ValueError):
+    def __init__(self, stream: str):
+        self.stream = stream
+        super().__init__("setup_command_output_limit")
+
+
 @contextmanager
 def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str]]]:
     """No inherited credentials, config, contexts, daemon selectors or loader hooks.
@@ -56,13 +62,22 @@ def command(args: list[str], timeout: float = 20) -> str:
         return _command(argv, timeout, environment)
 
 
-def _command(args: list[str], timeout: float, environment: dict[str, str]) -> str:
+def _command(
+    args: list[str],
+    timeout: float,
+    environment: dict[str, str],
+    *,
+    stdout_limit: int = 131072,
+) -> str:
     """Bounded trusted operator command; no shell, input, or unbounded capture.
 
     The fixed local compiler/Docker CLI remain trusted. An isolated process group
     lets overflow/deadline cleanup cover their helper children without selecting
     any unrelated process. Stderr is never echoed as an exception payload.
     """
+    if type(stdout_limit) is not int or not 0 <= stdout_limit <= 131072:
+        raise ValueError("setup_command_stdout_limit")
+
     import signal
 
     process = subprocess.Popen(
@@ -75,7 +90,7 @@ def _command(args: list[str], timeout: float, environment: dict[str, str]) -> st
     )
     assert process.stdout is not None and process.stderr is not None
     buffers = {"out": bytearray(), "err": bytearray()}
-    limits = {"out": 131072, "err": MAX_COMMAND_LOG}
+    limits = {"out": stdout_limit, "err": MAX_COMMAND_LOG}
     deadline = time.monotonic() + timeout
     try:
         with selectors.DefaultSelector() as ready:
@@ -92,7 +107,7 @@ def _command(args: list[str], timeout: float, environment: dict[str, str]) -> st
                     else:
                         target = buffers[key.data]
                         if len(target) + len(chunk) > limits[key.data]:
-                            raise ValueError("setup_command_output_limit")
+                            raise _CommandOutputLimit(key.data)
                         target.extend(chunk)
         if process.wait(timeout=max(0.01, deadline - time.monotonic())) != 0:
             raise RuntimeError("setup_command_failed")
