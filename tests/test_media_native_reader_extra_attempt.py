@@ -240,5 +240,6 @@ def test_consumed_build_attempt_retains_sanitized_failure(tmp_path, monkeypatch)
         "stdout_sha256": hashlib.sha256(b"").hexdigest(),
         "stderr_bytes": len(b"token=private-value\nunknown flag: chmod"),
         "stderr_sha256": hashlib.sha256(b"token=private-value\nunknown flag: chmod").hexdigest(),
+        "overflowed_streams": [],
     }
     assert "private-value" not in json.dumps(proof)

@@ -351,6 +351,14 @@ def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
         raise ValueError("reader_native_docker_command")
     # Keep the trusted Go CLI inside the operator's fixed address-space cap.
     docker_environment = {**environment, "GOMAXPROCS": "2"}
+    if len(argv) > 2 and argv[2] == "build":
+        return browser_setup._command(
+            list(argv),
+            timeout,
+            docker_environment,
+            stdout_limit=stdout_limit,
+            drain_output_overflow=True,
+        ).encode()
     return browser_setup._command(
         list(argv), timeout, docker_environment, stdout_limit=stdout_limit
     ).encode()
@@ -372,13 +380,20 @@ _BUILD_OUTPUT_CLASSES = (
 )
 
 
-def _build_failure_evidence(error: Exception) -> dict[str, str | int]:
+def _build_failure_evidence(error: Exception) -> dict[str, str | int | list[str]]:
     """Retain only bounded, credential-free facts from an attempted build."""
     if isinstance(error, browser_setup._CommandFailure):
         stdout = error.stdout[:131072]
+        stdout_tail = error.stdout_tail[: browser_setup.MAX_COMMAND_LOG]
         stderr = error.stderr[: browser_setup.MAX_COMMAND_LOG]
+        stderr_tail = error.stderr_tail[: browser_setup.MAX_COMMAND_LOG]
         # Docker may place the final build error on either stream.
-        lower = stderr.lower() + b"\n" + stdout[-browser_setup.MAX_COMMAND_LOG :].lower()
+        lower = b"\n".join(
+            (
+                stderr.lower() + stderr_tail.lower(),
+                stdout[-browser_setup.MAX_COMMAND_LOG :].lower() + stdout_tail.lower(),
+            )
+        )
         category = next(
             (name for phrase, name in _BUILD_OUTPUT_CLASSES if phrase in lower),
             "unclassified",
@@ -391,10 +406,11 @@ def _build_failure_evidence(error: Exception) -> dict[str, str | int]:
             "operation": operation,
             "exit_code": error.returncode,
             "output_category": category,
-            "stdout_bytes": len(stdout),
-            "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
-            "stderr_bytes": len(stderr),
-            "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+            "stdout_bytes": error.stdout_bytes_total,
+            "stdout_sha256": error.stdout_sha256,
+            "stderr_bytes": error.stderr_bytes_total,
+            "stderr_sha256": error.stderr_sha256,
+            "overflowed_streams": list(error.overflowed),
         }
     if isinstance(error, browser_setup._CommandOutputLimit):
         stream = error.stream if error.stream in {"out", "err"} else "unknown"

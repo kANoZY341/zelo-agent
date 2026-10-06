@@ -431,17 +431,21 @@ def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
     original = {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "999"}
     seen = []
 
-    def command(argv, timeout, environment, *, stdout_limit):
-        seen.append((argv, timeout, environment, stdout_limit))
+    def command(argv, timeout, environment, *, stdout_limit, drain_output_overflow=False):
+        seen.append((argv, timeout, environment, stdout_limit, drain_output_overflow))
         return "ok"
 
     monkeypatch.setattr(q.browser_setup, "_command", command)
     argv = (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "version")
     assert q._docker(argv, original, stdout_limit=0) == b"ok"
+    build_argv = (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build")
+    assert q._docker(build_argv, original) == b"ok"
     assert original["GOMAXPROCS"] == "999"
     assert seen[0][0] == list(argv)
     assert seen[0][2] == {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "2"}
-    assert seen[0][3] == 0
+    assert seen[0][3:] == (0, False)
+    assert seen[1][0] == list(build_argv)
+    assert seen[1][4] is True
 
 
 @pytest.mark.parametrize(
@@ -470,6 +474,7 @@ def test_build_failure_evidence_is_bounded_and_sanitized(stdout, stderr, categor
         "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
         "stderr_bytes": len(stderr),
         "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+        "overflowed_streams": [],
     }
     for stream in (stdout, stderr):
         if stream:
@@ -479,17 +484,27 @@ def test_build_failure_evidence_is_bounded_and_sanitized(stdout, stderr, categor
 def test_build_failure_evidence_caps_both_streams():
     stdout = b"x" * 131072
     stderr = b"y" * q.browser_setup.MAX_COMMAND_LOG
+    stdout_tail = b"private-stdout"
+    stderr_tail = b"private-stderr"
     error = q.browser_setup._CommandFailure(
         9,
-        stdout + b"private-stdout",
-        stderr + b"private-stderr",
+        stdout,
+        stderr,
         (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
+        stdout_tail=stdout_tail,
+        stderr_tail=stderr_tail,
+        stdout_bytes_total=len(stdout) + len(stdout_tail),
+        stderr_bytes_total=len(stderr) + len(stderr_tail),
+        stdout_sha256=hashlib.sha256(stdout + stdout_tail).hexdigest(),
+        stderr_sha256=hashlib.sha256(stderr + stderr_tail).hexdigest(),
+        overflowed=("err", "out"),
     )
     evidence = q._build_failure_evidence(error)
-    assert evidence["stdout_bytes"] == len(stdout)
-    assert evidence["stdout_sha256"] == hashlib.sha256(stdout).hexdigest()
-    assert evidence["stderr_bytes"] == len(stderr)
-    assert evidence["stderr_sha256"] == hashlib.sha256(stderr).hexdigest()
+    assert evidence["stdout_bytes"] == len(stdout) + len(stdout_tail)
+    assert evidence["stdout_sha256"] == hashlib.sha256(stdout + stdout_tail).hexdigest()
+    assert evidence["stderr_bytes"] == len(stderr) + len(stderr_tail)
+    assert evidence["stderr_sha256"] == hashlib.sha256(stderr + stderr_tail).hexdigest()
+    assert evidence["overflowed_streams"] == ["err", "out"]
     assert "private-stdout" not in json.dumps(evidence)
     assert "private-stderr" not in json.dumps(evidence)
 
