@@ -46,6 +46,7 @@ def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str
     if not args or args[0] != "/usr/bin/docker":
         yield args, environment
         return
+    environment["GOMAXPROCS"] = "2"
     if any(
         arg.startswith(("--host", "--context", "--config", "-H")) or arg == "-c" for arg in args[1:]
     ):

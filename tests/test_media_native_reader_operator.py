@@ -425,6 +425,23 @@ def test_lease_preflight_accepts_empty_namespace(monkeypatch, kind):
     assert calls == [kind]
 
 
+def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
+    original = {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "999"}
+    seen = []
+
+    def command(argv, timeout, environment, *, stdout_limit):
+        seen.append((argv, timeout, environment, stdout_limit))
+        return "ok"
+
+    monkeypatch.setattr(q.browser_setup, "_command", command)
+    argv = (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "version")
+    assert q._docker(argv, original, stdout_limit=0) == b"ok"
+    assert original["GOMAXPROCS"] == "999"
+    assert seen[0][0] == list(argv)
+    assert seen[0][2] == {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "2"}
+    assert seen[0][3] == 0
+
+
 def test_docker_readiness_accepts_linux_amd64_runc(monkeypatch, tmp_path):
     root = tmp_path / "repo"
     runtime = root / "runtime"

@@ -204,6 +204,7 @@ def test_operator_docker_process_ignores_live_daemon_and_credentials(monkeypatch
         "HOME",
         "LD_PRELOAD",
         "ZELO_OPERATOR_TOKEN",
+        "GOMAXPROCS",
     ):
         monkeypatch.setenv(name, "live-sentinel")
     with operator_process(["/usr/bin/docker", "image", "inspect", "sha256:" + "a" * 64]) as (
@@ -212,6 +213,7 @@ def test_operator_docker_process_ignores_live_daemon_and_credentials(monkeypatch
     ):
         assert args[:2] == ["/usr/bin/docker", "--host=unix:///var/run/docker.sock"]
         assert "live-sentinel" not in env.values()
+        assert env["GOMAXPROCS"] == "2"
         assert "DOCKER_HOST" not in env and "DOCKER_CONTEXT" not in env and "LD_PRELOAD" not in env
         directory = Path(env["DOCKER_CONFIG"])
         assert directory.exists() and list(directory.iterdir()) == []

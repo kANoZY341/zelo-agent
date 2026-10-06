@@ -344,8 +344,10 @@ def _copy_context(attempt, lease_identity, runtime_root=None):
 def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     if type(argv) not in (tuple, list) or not argv or argv[0] != setup.DOCKER:
         raise ValueError("reader_native_docker_command")
+    # Keep the trusted Go CLI inside the operator's fixed address-space cap.
+    docker_environment = {**environment, "GOMAXPROCS": "2"}
     return browser_setup._command(
-        list(argv), timeout, environment, stdout_limit=stdout_limit
+        list(argv), timeout, docker_environment, stdout_limit=stdout_limit
     ).encode()
 
 

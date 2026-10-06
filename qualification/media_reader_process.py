@@ -88,7 +88,7 @@ class DockerReaderHandle:
         return self._case
 
     def _environment(self) -> dict[str, str]:
-        return {"DOCKER_CONFIG": str(self._case_directory())}
+        return {"DOCKER_CONFIG": str(self._case_directory()), "GOMAXPROCS": "2"}
 
     def _profile(self) -> Path:
         case = self._case_directory()
