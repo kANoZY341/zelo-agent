@@ -1224,4 +1224,16 @@ real-package, image-decoder or Core runtime authority.
   tests/test_media_reader_process.py
 ```
 
+The native proof ledger retains two refused synthetic attempts. A separately
+authorized, one-use additional-attempt grant is implemented by
+`scripts/grant_media_native_reader_extra_attempt.py --grant-once --runtime-root
+<the-original-bound-runtime-root>`. It checks the path-bound scope, both unchanged
+proofs, the first reconciliation, clean reviewed source, empty admission marker,
+and zero Media-reader-labelled Docker resources around a quiet daemon window.
+It appends a private grant record without editing the old proofs. The qualifier
+accepts exactly one additional attempt only when that record validates; creating
+that attempt consumes the new budget even if the run refuses. The operator and
+grant require separate explicit approval and current-head validation. Neither
+action grants real-package, decoder, or Core runtime authority.
+
 See [the offline contract and next gates](docs/v0.15-media-native-reader-container.md).
