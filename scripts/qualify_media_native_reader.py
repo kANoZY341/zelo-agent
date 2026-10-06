@@ -356,6 +356,62 @@ def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     ).encode()
 
 
+_BUILD_OUTPUT_CLASSES = (
+    (b"unknown flag: chmod", "copy_chmod_unsupported"),
+    (b"unknown flag: chown", "copy_chown_unsupported"),
+    (b"dockerfile parse error", "dockerfile_parse"),
+    (b"failed to read dockerfile", "dockerfile_unavailable"),
+    (b"failed to prepare context", "context_unavailable"),
+    (b"failed to compute cache key", "copy_source_unavailable"),
+    (b"copy failed", "copy_failed"),
+    (b"unexpected eof", "build_stream_unexpected_eof"),
+    (b"no space left on device", "storage_exhausted"),
+    (b"permission denied", "permission_denied"),
+    (b"cannot connect to the docker daemon", "daemon_unavailable"),
+    (b"context canceled", "command_cancelled"),
+)
+
+
+def _build_failure_evidence(error: Exception) -> dict[str, str | int]:
+    """Retain only bounded, credential-free facts from an attempted build."""
+    if isinstance(error, browser_setup._CommandFailure):
+        stdout = error.stdout[:131072]
+        stderr = error.stderr[: browser_setup.MAX_COMMAND_LOG]
+        # Docker may place the final build error on either stream.
+        lower = stderr.lower() + b"\n" + stdout[-browser_setup.MAX_COMMAND_LOG :].lower()
+        category = next(
+            (name for phrase, name in _BUILD_OUTPUT_CLASSES if phrase in lower),
+            "unclassified",
+        )
+        operation = error.argv[2] if len(error.argv) > 2 else "unknown"
+        if operation not in {"build", "create", "container", "image"}:
+            operation = "unknown"
+        return {
+            "kind": "docker_command_exit",
+            "operation": operation,
+            "exit_code": error.returncode,
+            "output_category": category,
+            "stdout_bytes": len(stdout),
+            "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+            "stderr_bytes": len(stderr),
+            "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+        }
+    if isinstance(error, browser_setup._CommandOutputLimit):
+        stream = error.stream if error.stream in {"out", "err"} else "unknown"
+        return {"kind": "command_output_limit", "stream": stream}
+    if isinstance(error, TimeoutError):
+        return {"kind": "timeout"}
+    if isinstance(error, FileNotFoundError):
+        return {"kind": "file_not_found"}
+    if isinstance(error, PermissionError):
+        return {"kind": "permission_denied"}
+    if isinstance(error, ValueError):
+        code = str(error)
+        if re.fullmatch(r"(?:reader|setup|runtime)_[A-Za-z0-9_]+", code):
+            return {"kind": "validation", "code": code}
+    return {"kind": "unclassified"}
+
+
 def _docker_readiness(runtime_root=None):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     info = runtime.lstat()
@@ -793,17 +849,17 @@ async def _qualify(runtime_root=None):
         raw = store.json("cases.json", report)
         proof_path = str(attempt / "cases.json")
         proof_sha = hashlib.sha256(raw).hexdigest()
-    except Exception:
+    except Exception as error:
         if store is not None and not report_attempted and not (store.path / "cases.json").exists():
-            store.json(
-                "cases.json",
-                {
-                    "status": "refused",
-                    "stage": stage,
-                    "support_release_confirmed": False,
-                    "runtime_authority": False,
-                },
-            )
+            refusal = {
+                "status": "refused",
+                "stage": stage,
+                "support_release_confirmed": False,
+                "runtime_authority": False,
+            }
+            if stage == "build":
+                refusal["build_failure"] = _build_failure_evidence(error)
+            store.json("cases.json", refusal)
         raise
     finally:
         error_type = sys.exc_info()[0]

@@ -444,6 +444,68 @@ def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
     assert seen[0][3] == 0
 
 
+@pytest.mark.parametrize(
+    "stdout,stderr,category",
+    [
+        (b"unknown flag: chown", b"", "copy_chown_unsupported"),
+        (b"", b"no space left on device", "storage_exhausted"),
+        (b"Error response from daemon: unexpected EOF", b"", "build_stream_unexpected_eof"),
+        (b"private-token=abcdef", b"", "unclassified"),
+    ],
+)
+def test_build_failure_evidence_is_bounded_and_sanitized(stdout, stderr, category):
+    error = q.browser_setup._CommandFailure(
+        17,
+        stdout,
+        stderr,
+        (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
+    )
+    evidence = q._build_failure_evidence(error)
+    assert evidence == {
+        "kind": "docker_command_exit",
+        "operation": "build",
+        "exit_code": 17,
+        "output_category": category,
+        "stdout_bytes": len(stdout),
+        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+        "stderr_bytes": len(stderr),
+        "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+    }
+    for stream in (stdout, stderr):
+        if stream:
+            assert stream.decode() not in json.dumps(evidence)
+
+
+def test_build_failure_evidence_caps_both_streams():
+    stdout = b"x" * 131072
+    stderr = b"y" * q.browser_setup.MAX_COMMAND_LOG
+    error = q.browser_setup._CommandFailure(
+        9,
+        stdout + b"private-stdout",
+        stderr + b"private-stderr",
+        (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
+    )
+    evidence = q._build_failure_evidence(error)
+    assert evidence["stdout_bytes"] == len(stdout)
+    assert evidence["stdout_sha256"] == hashlib.sha256(stdout).hexdigest()
+    assert evidence["stderr_bytes"] == len(stderr)
+    assert evidence["stderr_sha256"] == hashlib.sha256(stderr).hexdigest()
+    assert "private-stdout" not in json.dumps(evidence)
+    assert "private-stderr" not in json.dumps(evidence)
+
+
+def test_build_failure_evidence_retains_timeout_and_output_limit():
+    assert q._build_failure_evidence(TimeoutError("private path")) == {"kind": "timeout"}
+    assert q._build_failure_evidence(q.browser_setup._CommandOutputLimit("err")) == {
+        "kind": "command_output_limit",
+        "stream": "err",
+    }
+    assert q._build_failure_evidence(ValueError("reader_native_input_hash")) == {
+        "kind": "validation",
+        "code": "reader_native_input_hash",
+    }
+
+
 def test_docker_readiness_accepts_linux_amd64_runc(monkeypatch, tmp_path):
     root = tmp_path / "repo"
     runtime = root / "runtime"

@@ -34,6 +34,17 @@ class _CommandOutputLimit(ValueError):
         super().__init__("setup_command_output_limit")
 
 
+class _CommandFailure(RuntimeError):
+    """Bounded output for local classification; never include it in the message."""
+
+    def __init__(self, returncode: int, stdout: bytes, stderr: bytes, argv: tuple[str, ...]):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.argv = argv
+        super().__init__("setup_command_failed")
+
+
 @contextmanager
 def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str]]]:
     """No inherited credentials, config, contexts, daemon selectors or loader hooks.
@@ -110,8 +121,11 @@ def _command(
                         if len(target) + len(chunk) > limits[key.data]:
                             raise _CommandOutputLimit(key.data)
                         target.extend(chunk)
-        if process.wait(timeout=max(0.01, deadline - time.monotonic())) != 0:
-            raise RuntimeError("setup_command_failed")
+        returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+        if returncode != 0:
+            raise _CommandFailure(
+                returncode, bytes(buffers["out"]), bytes(buffers["err"]), tuple(args)
+            )
         return buffers["out"].decode("utf-8")
     finally:
         # Until wait()/poll() reaps the leader its PID cannot be reused. Do not

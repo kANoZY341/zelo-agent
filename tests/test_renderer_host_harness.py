@@ -138,7 +138,7 @@ def test_integration_diagnostic_requires_explicit_container_opt_in(monkeypatch):
 def test_setup_command_captures_both_streams_and_sanitizes_failure():
     import sys
 
-    from scripts.qualify_browser_renderer import command
+    from scripts.qualify_browser_renderer import _CommandFailure, command
 
     assert (
         command(
@@ -146,16 +146,21 @@ def test_setup_command_captures_both_streams_and_sanitizes_failure():
         )
         == "ok\n"
     )
-    with pytest.raises(RuntimeError, match="^setup_command_failed$"):
+    with pytest.raises(_CommandFailure, match="^setup_command_failed$") as failure:
         command(
             [
                 sys.executable,
                 "-I",
                 "-S",
                 "-c",
-                "import sys; sys.stderr.write('do-not-echo'); sys.exit(2)",
+                "import sys; print('stdout-secret'); sys.stderr.write('do-not-echo'); sys.exit(2)",
             ]
         )
+    assert failure.value.returncode == 2
+    assert failure.value.stdout == b"stdout-secret\n"
+    assert failure.value.stderr == b"do-not-echo"
+    assert "stdout-secret" not in str(failure.value)
+    assert "do-not-echo" not in str(failure.value)
 
 
 @pytest.mark.parametrize("target", [1, 2])

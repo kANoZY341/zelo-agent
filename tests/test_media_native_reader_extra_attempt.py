@@ -203,3 +203,42 @@ def test_observer_refuses_any_existing_labeled_resource(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="reader_native_extra_resources"):
         grant_cli._observe(runtime)
     assert not list(runtime.iterdir())
+
+
+def test_consumed_build_attempt_retains_sanitized_failure(tmp_path, monkeypatch):
+    runtime = two_attempt_runtime(tmp_path, monkeypatch)
+    extra.grant_once(runtime, lambda root: None)
+    old = set((runtime / scope.PROOF_BASE).iterdir())
+    monkeypatch.setattr(reader, "_docker_readiness", lambda root: {"synthetic": True})
+    monkeypatch.setattr(reader, "_require_empty_lease", lambda *args: None)
+    monkeypatch.setattr(reader, "_cleanup_owned", lambda *args: True)
+
+    def failed_build(*args):
+        raise reader.browser_setup._CommandFailure(
+            1,
+            b"",
+            b"token=private-value\nunknown flag: chmod",
+            (reader.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
+        )
+
+    monkeypatch.setattr(reader, "_build_and_attest", failed_build)
+    with pytest.raises(reader.browser_setup._CommandFailure, match="setup_command_failed"):
+        asyncio.run(reader._qualify(runtime))
+
+    new = set((runtime / scope.PROOF_BASE).iterdir()) - old
+    assert len(new) == 1
+    proof = json.loads((new.pop() / "cases.json").read_text())
+    assert proof["status"] == "refused"
+    assert proof["stage"] == "build"
+    assert proof["runtime_authority"] is False
+    assert proof["build_failure"] == {
+        "kind": "docker_command_exit",
+        "operation": "build",
+        "exit_code": 1,
+        "output_category": "copy_chmod_unsupported",
+        "stdout_bytes": 0,
+        "stdout_sha256": hashlib.sha256(b"").hexdigest(),
+        "stderr_bytes": len(b"token=private-value\nunknown flag: chmod"),
+        "stderr_sha256": hashlib.sha256(b"token=private-value\nunknown flag: chmod").hexdigest(),
+    }
+    assert "private-value" not in json.dumps(proof)
