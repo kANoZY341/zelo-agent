@@ -262,3 +262,45 @@ def test_operator_requires_explicit_runtime_root_before_readiness(monkeypatch):
     )
     with pytest.raises(ValueError, match="reader_native_scope_required"):
         asyncio.run(operator._qualify())
+
+
+def test_scope_binding_rejects_symlink_runtime_root(tmp_path):
+    runtime_root = tmp_path / "real-runtime"
+    make_runtime(runtime_root)
+    alias = tmp_path / "runtime-alias"
+    alias.symlink_to(runtime_root, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="reader_native_scope_path"):
+        scope.bind_runtime_scope(alias)
+    assert not (runtime_root / scope.SCOPE_FILENAME).exists()
+
+
+def test_scope_rejects_symlinked_original_proof(tmp_path):
+    runtime_root = tmp_path / "runtime"
+    make_runtime(runtime_root)
+    scope.bind_runtime_scope(runtime_root)
+
+    attempt = runtime_root / scope.PROOF_BASE / reconcile.ATTEMPT_NAME
+    proof = attempt / "cases.json"
+    external = tmp_path / "external-proof.json"
+    proof.rename(external)
+    proof.symlink_to(external)
+
+    with pytest.raises(ValueError, match="reader_native_scope_file"):
+        scope.validate_runtime_scope(runtime_root)
+
+
+def test_scope_rejects_symlinked_binding_manifest(tmp_path):
+    runtime_root = tmp_path / "runtime"
+    make_runtime(runtime_root)
+    scope.bind_runtime_scope(runtime_root)
+
+    manifest = runtime_root / scope.SCOPE_FILENAME
+    external = tmp_path / "external-scope.json"
+    external.write_bytes(manifest.read_bytes())
+    external.chmod(0o600)
+    manifest.unlink()
+    manifest.symlink_to(external)
+
+    with pytest.raises(ValueError, match="reader_native_scope_file"):
+        scope.validate_runtime_scope(runtime_root)

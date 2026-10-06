@@ -85,10 +85,13 @@ Do not polish, deploy or acceptance-test UI in this phase.
 
 ## Current scope: PR93 native-reader runtime-scope gate
 
-PR93 is integrated at `f8468cc6eb8759bd25a83cdc400be4e1ad35beb1` (tree
-`14f4c237a7f98d73c5cd02d49a245560670bdad1`), parents PR93 `bcf6c1a` and current
-main `b67d0d8`. Exact-head CI `37387738045` passed 4,672 tests, with two skips
-and 11 warnings.
+PR93 remains an open draft against main. The runtime-scope implementation
+baseline is commit `1f312c90a7d39c21d1b4bace9317352b899da313` (tree
+`02af4737c230ea440f03e2efcb4f0183b2096570`), based on the integration of PR93
+`bcf6c1a` with main `b67d0d8`. Exact-head CI run
+`37395345867` passed 4,688 tests (two skipped, 11 warnings) on that baseline.
+Later PR updates must be checked against their actual branch head and matching CI;
+this historical run is not evidence for a newer head.
 
 Native-reader attempt 1/2 remains permanently refused and consumed. Its private
 policy and refusal proof hashes remain
