@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import stat
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,6 +76,7 @@ def test_copy_context_uses_only_fixed_retained_inputs(tmp_path, monkeypatch):
         assert raw == expected[row.source]
         assert len(raw) == row.bytes
         assert hashlib.sha256(raw).hexdigest() == row.sha256
+        assert stat.S_IMODE((value.context / row.source).stat().st_mode) == row.mode
 
 
 def test_discovery_and_cleanup_remove_only_exact_owned_resources(monkeypatch):

@@ -329,10 +329,12 @@ def _copy_context(attempt, lease_identity, runtime_root=None):
                 if count <= 0:
                     raise ValueError("reader_native_context_write")
                 view = view[count:]
+            # Legacy Docker COPY retains this source mode in the scratch image.
+            os.fchmod(fd, row.mode)
             os.fsync(fd)
         finally:
             os.close(fd)
-        _read_exact(target, 4194304, digest=row.sha256)
+        _read_exact(target, 4194304, digest=row.sha256, modes=(row.mode,))
     if total != sum(row.bytes for row in manifest.files):
         raise ValueError("reader_native_context_bytes")
     dockerfile = image.dockerfile(manifest)
@@ -580,7 +582,7 @@ def _build_and_attest(attempt, lease_identity, environment, runtime_root=None):
     if _discover("container", lease_identity, environment):
         raise ValueError("reader_native_setup_remaining")
     for row in manifest.files:
-        _read_exact(value.context / row.source, 4194304, digest=row.sha256)
+        _read_exact(value.context / row.source, 4194304, digest=row.sha256, modes=(row.mode,))
     setup.verify_owned_image(
         _inspect("image", image_identity, environment), contract, lease_identity
     )
