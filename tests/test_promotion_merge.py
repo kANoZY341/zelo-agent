@@ -195,6 +195,8 @@ def merged_pr(request, merge_sha):
     "path",
     [
         "skills/procedures/skill/proc/v1-content.json",
+        "skills",
+        "skills/.",
         "skills//procedures/skill/proc/v1-content.json",
         "skills\\procedures\\skill\\proc\\v1-content.json",
         "skills/unrelated/../procedures/skill/proc/v1-content.json",
@@ -216,6 +218,31 @@ def test_generic_merge_refuses_unqualified_learned_skill_artifacts_before_put(tm
 
     assert transport.calls == [("GET", endpoint, None)]
     assert verifier.calls == []
+
+
+def test_generic_merge_can_modify_unrelated_skills_sibling(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    other_file = request.promotion.review.candidate_manifest[0].model_copy(
+        update={"path": "skills/registry.py"}
+    )
+    review = request.promotion.review.model_copy(update={"candidate_manifest": [other_file]})
+    allowed = request.model_copy(
+        update={"promotion": request.promotion.model_copy(update={"review": review})}
+    )
+    repo = allowed.promotion.repository
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", open_pr(allowed)),
+            ("PUT", f"/repos/{repo}/pulls/7/merge", {"merged": True, "sha": "8" * 40}),
+            ("GET", f"/repos/{repo}/pulls/7", merged_pr(allowed, "8" * 40)),
+        ]
+    )
+    verifier = FakeCIVerifier(ci)
+    result = asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(allowed))
+
+    assert not result.reused
+    assert verifier.calls == [(allowed.promotion, allowed.publication)]
+    assert [call[0] for call in transport.calls] == ["GET", "PUT", "GET"]
 
 
 def test_exact_historical_learned_skill_merge_recovery_remains_read_only(tmp_path):

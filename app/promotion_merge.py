@@ -40,9 +40,18 @@ def _publishes_unqualified_learned_skill(request: MergeRequest) -> bool:
     """
 
     root = SKILL_PROCEDURE_ARTIFACT_ROOT
+    parts = root.split("/")
+    # A file/symlink replacing an ancestor directory would also remove or
+    # shadow the protected subtree. Git review entries are file/symlink
+    # operations, never safe recursive directory-only metadata changes.
+    reserved_ancestors = {"/".join(parts[:depth]) for depth in range(1, len(parts))}
     for entry in request.promotion.review.candidate_manifest:
         normalized = posixpath.normpath(entry.path.replace("\\", "/")).lstrip("/")
-        if normalized == root or normalized.startswith(root + "/"):
+        if (
+            normalized in reserved_ancestors
+            or normalized == root
+            or normalized.startswith(root + "/")
+        ):
             return True
     return False
 
