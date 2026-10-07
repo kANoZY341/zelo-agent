@@ -388,6 +388,8 @@ def test_agent_task_api_runs_bounded_proposal_through_core_and_is_idempotent(
 ):
     store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
     tasks, execution = learning_task_services(database, settings, store)
+    assert client.portal is not None
+    client.portal.call(client.app.state.runner.stop)
     client.app.state.agent_execution = execution
     task_input = proposal_task(candidate, ref)
     headers = {"Idempotency-Key": "skill-learning-proposal:synthetic-e2e"}

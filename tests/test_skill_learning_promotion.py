@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 from pydantic import ValidationError
@@ -27,6 +28,7 @@ from app.promotion_contracts import (
 )
 from app.schemas import AgentLearnedSkillItem
 from app.skill_learning import (
+    SkillLearningPromotionLink,
     skill_procedure_artifact_bytes,
     skill_procedure_artifact_path,
     skill_procedure_artifact_sha256,
@@ -467,6 +469,145 @@ def test_promotion_link_accepts_exact_reused_merge_result(database, proposal_cas
     assert link.merge_task_id == merge_task_id
     assert link.merge_commit_sha == "8" * 40
     assert link.runtime_authority is False
+
+
+def forged_link(
+    database,
+    reviewed,
+    revision,
+    merge_task_id,
+    **overrides,
+):
+    with database.read() as session:
+        merge_task = session.get(Task, merge_task_id)
+        merge = MergeRequest.model_validate(merge_task.merge_spec)
+        merge_result = MergeRunResult.model_validate(merge_task.result)
+        promotion_task = session.get(Task, merge.promotion_task_id)
+        promotion = PromotionRequest.model_validate(promotion_task.promotion_spec)
+        promotion_result = PromotionRunResult.model_validate(promotion_task.result)
+
+    artifact = skill_procedure_artifact_bytes(revision)
+    material = {
+        "schema_version": "zelo-skill-learning-promotion-link-v1",
+        "proposal_id": reviewed.proposal.proposal_id,
+        "proposal_fingerprint": reviewed.proposal.proposal_fingerprint,
+        "review_fingerprint": reviewed.review.review_fingerprint,
+        "reviewer_id": "ahmad",
+        "revision_sha256": revision.content_sha256,
+        "artifact_path": skill_procedure_artifact_path(revision),
+        "artifact_sha256": skill_procedure_artifact_sha256(revision),
+        "artifact_bytes": len(artifact),
+        "repository": promotion.repository,
+        "promotion_task_id": promotion_task.id,
+        "promotion_action_version": promotion_task.action_version,
+        "promotion_action_hash": promotion_task.action_hash,
+        "promotion_review_fingerprint": promotion.review.review_fingerprint,
+        "pr_number": promotion_result.publication.pr_number,
+        "pr_head_sha": promotion_result.publication.pr_head_sha,
+        "merge_task_id": merge_task.id,
+        "merge_action_version": merge_task.action_version,
+        "merge_action_hash": merge_task.action_hash,
+        "merge_commit_sha": merge_result.merge_commit_sha,
+        "runtime_authority": False,
+    }
+    material.update(overrides)
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            material,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("ascii")
+    ).hexdigest()
+    link_id = str(uuid5(NAMESPACE_URL, f"zelo-skill-learning-promotion-link-v1:{fingerprint}"))
+    return SkillLearningPromotionLink(
+        **material,
+        link_id=link_id,
+        link_fingerprint=fingerprint,
+        linked_at=datetime.now(UTC),
+    )
+
+
+def insert_link_directly(database, link):
+    with database.transaction() as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO skill_learning_promotion_links (
+                    id, proposal_id, reviewer_id, review_fingerprint,
+                    revision_sha256, artifact_path, artifact_sha256,
+                    artifact_bytes, repository, promotion_task_id,
+                    promotion_action_version, promotion_action_hash,
+                    promotion_review_fingerprint, pr_number, pr_head_sha,
+                    merge_task_id, merge_action_version, merge_action_hash,
+                    merge_commit_sha, link_fingerprint, link_json,
+                    runtime_authority, created_at
+                ) VALUES (
+                    :id, :proposal_id, :reviewer_id, :review_fingerprint,
+                    :revision_sha256, :artifact_path, :artifact_sha256,
+                    :artifact_bytes, :repository, :promotion_task_id,
+                    :promotion_action_version, :promotion_action_hash,
+                    :promotion_review_fingerprint, :pr_number, :pr_head_sha,
+                    :merge_task_id, :merge_action_version, :merge_action_hash,
+                    :merge_commit_sha, :link_fingerprint, :link_json,
+                    0, :created_at
+                )
+                """
+            ),
+            {
+                "id": link.link_id,
+                "proposal_id": link.proposal_id,
+                "reviewer_id": link.reviewer_id,
+                "review_fingerprint": link.review_fingerprint,
+                "revision_sha256": link.revision_sha256,
+                "artifact_path": link.artifact_path,
+                "artifact_sha256": link.artifact_sha256,
+                "artifact_bytes": link.artifact_bytes,
+                "repository": link.repository,
+                "promotion_task_id": link.promotion_task_id,
+                "promotion_action_version": link.promotion_action_version,
+                "promotion_action_hash": link.promotion_action_hash,
+                "promotion_review_fingerprint": link.promotion_review_fingerprint,
+                "pr_number": link.pr_number,
+                "pr_head_sha": link.pr_head_sha,
+                "merge_task_id": link.merge_task_id,
+                "merge_action_version": link.merge_action_version,
+                "merge_action_hash": link.merge_action_hash,
+                "merge_commit_sha": link.merge_commit_sha,
+                "link_fingerprint": link.link_fingerprint,
+                "link_json": link.model_dump_json(),
+                "created_at": link.linked_at,
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "override",
+    (
+        {"promotion_action_version": 2},
+        {"promotion_action_hash": "f" * 64},
+        {"merge_action_version": 2},
+        {"merge_action_hash": "e" * 64},
+        {"repository": "other/repo"},
+        {"pr_number": 999},
+        {"pr_head_sha": "9" * 40},
+        {"artifact_sha256": "0" * 64},
+        {"artifact_bytes": 1},
+        {"promotion_review_fingerprint": "d" * 64},
+        {"merge_commit_sha": "c" * 40},
+    ),
+)
+def test_database_rejects_self_consistent_forged_promotion_lineage(
+    database, proposal_case, override
+):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    merge_task_id = successful_lineage(database, revision)
+    link = forged_link(database, reviewed, revision, merge_task_id, **override)
+
+    with pytest.raises(IntegrityError, match="not authorized"):
+        insert_link_directly(database, link)
 
 
 def test_database_rejects_forged_promotion_link_review_fingerprint(database, proposal_case):
