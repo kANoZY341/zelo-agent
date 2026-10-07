@@ -536,16 +536,30 @@ revision at or below the latest promoted version for the same
 AgentInstance, source Skill and procedure. Stored proposal retries remain
 idempotent, and historical reviews/proof links remain valid.
 
-A limitation remains: candidates created before either promotion can still
-produce an ambiguous history. The read-only resolver refuses such heads;
-a separate promotion-time exclusivity guard is required to prevent competing
-publications. No new task, worker, tool, computer, AgentSpec or active registry
-authority has been granted. Learned procedures are not automatically loaded.
+PR #107 is the merged **promoted-head admission** gate at b3e665ab:
+Core refuses a brand-new learned skill proposal at or below the latest
+promoted version for the same AgentInstance/Skill/procedure. Historical
+identical proposal retries stay idempotent and accepted reviews survive.
 
-PR #108 begins non-authoritative v0.16 channel contracts; it does not close
-v0.15 Media native-reader qualification or the remaining Core gates. The
-four previously consumed native-reader qualification attempts remain
-preserved as refusals. UI PR #61 remains parked.
+PR #110 is the unmerged **local promotion-link recording exclusivity** gate.
+It serializes verified head checks before storing new promotion proof;
+previously accepted competing heads cannot both acquire local links.
+Historical divergent heads still cause the resolver to refuse ambiguity.
+This does NOT implement an external GitHub pre-merge publication lock:
+a separate trusted learned-skill identity and promotion-time exclusivity
+gate are required before merging a competing external PR.
+
+Merged PR #108 starts non-authoritative v0.16 channel contracts; merged PR #109
+(bd586aa7) adds operator-selected opaque bindings and unverified replay metadata.
+These are not runtime skill activation, provider authentication or new
+AgentSpec/worker/tool authority. The four previously consumed native-reader
+qualification attempts remain preserved as refusals. UI PR #61 stays parked.
+
+Earlier PR #107 admission/ambiguity tests passed 3 focused and 177
+integrated cases. PR #110 local validation passed 108 skill-learning
+regressions, an HTTP conflict test, a concurrent writer test and five
+context tests before the new main integration. Exact-head CI remains
+required for the updated PR #110.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -606,8 +620,9 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
-PR #108 is the contract-only v0.16 foundation: transport-neutral,
-**non-authoritative** channel text envelopes,
+Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
+contract-only v0.16 foundation: transport-neutral, **non-authoritative**
+channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn
 idempotency keys. This foundation has no provider credentials or connected
 transports. A separately qualified adapter must authenticate provider origin,
@@ -616,6 +631,16 @@ replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
+
+PR #109 is the separate draft Core binding/observation ledger, based on
+merged PR #108: an Ahmad-selected opaque thread may map to an existing
+Mind conversation, but that
+mapping is not provider authentication. Only message ID, text digest and UTC
+metadata are retained with append-only replay checks; no external webhook,
+message-to-Mind admission, delivery receipt or send authority is granted.
+Integrated migration/channel/Mind/scheduler tests passed 266 cases locally
+before the current concurrent-replay regression. Full exact-head CI remains
+required. Provider verification and outbound approval are later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
