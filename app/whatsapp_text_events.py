@@ -17,7 +17,7 @@ _MIN_TIMESTAMP = 946684800  # 2000-01-01 UTC, not a replay-window policy
 _MAX_TIMESTAMP = 4102444800  # 2100-01-01 UTC, not a freshness assertion
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class UntrustedWhatsAppTextEvent:
     """Signed provider *claims*; explicit Core account binding still required.
 

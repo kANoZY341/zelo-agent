@@ -72,6 +72,19 @@ def test_valid_signed_text_event_is_untrusted_fact_only():
     assert not event.delivery_authority
 
 
+def test_accidental_event_repr_does_not_expose_private_identifiers_or_text():
+    event = signed(payload())
+    description = repr(event)
+    for private_value in (
+        event.waba_id,
+        event.phone_number_id,
+        event.sender_wa_id,
+        event.message_id,
+        event.text,
+    ):
+        assert private_value not in description
+
+
 def test_contacts_optional_not_a_source_of_authority():
     item = payload()
     del item["entry"][0]["changes"][0]["value"]["contacts"]
