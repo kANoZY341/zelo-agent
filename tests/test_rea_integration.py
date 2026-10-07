@@ -61,12 +61,7 @@ def test_rea_capability_and_skill_remain_inert():
 
 
 def test_rea_manifest_never_admits_execution():
-    path = (
-        Path(__file__).resolve().parents[1]
-        / "integrations"
-        / "rea"
-        / "integration.json"
-    )
+    path = Path(__file__).resolve().parents[1] / "integrations" / "rea" / "integration.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
     assert manifest["lifecycle"] == "draft"
     assert manifest["source_repository"] == "https://github.com/morluto/rea"

@@ -217,9 +217,7 @@ def test_specialist_organizational_level_preserves_legacy_registry_identity():
     legacy = AgentRegistry(
         (coding_agent_spec(), research_agent_spec()), registry.list_departments()
     )
-    assert legacy.version == (
-        "ea9738d7ca520c07ae467b4cc7f3d6d8b56ab7e83cd6475dac38e662b0db8fe6"
-    )
+    assert legacy.version == ("ea9738d7ca520c07ae467b4cc7f3d6d8b56ab7e83cd6475dac38e662b0db8fe6")
     assert registry.version != legacy.version
     assert registry.get_agent("reverse_engineering") == reverse_engineering_agent_spec()
     assert registry.get_agent("reverse_engineering").lifecycle == "draft"
