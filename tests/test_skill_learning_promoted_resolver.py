@@ -1,9 +1,11 @@
 """Read-only historical promoted-revision resolution with no activation authority."""
 
 import pytest
+from pydantic import ValidationError
 
 from app.auth import OperatorPrincipal
 from app.models import AgentInstance
+from app.skill_learning import SkillLearningPromotedRevisionSnapshot
 from app.skill_learning_store import SkillLearningProposalStore
 from tests import test_skill_learning_promotion as promotion_tests
 from tests import test_skill_learning_store as skill_learning_store_tests
@@ -187,3 +189,27 @@ def test_resolver_is_not_wired_into_new_proposal_lineage(database, proposal_case
             revision=second_revision,
             evidence_refs=(ref,),
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("revision_sha256", "0" * 64),
+        ("artifact_sha256", "1" * 64),
+        ("artifact_bytes", 1),
+        ("source_skill_id", "other_skill"),
+        ("procedure_id", "other_procedure"),
+        ("runtime_authority", True),
+    ),
+)
+def test_promoted_revision_snapshot_rejects_identity_or_authority_drift(
+    database, proposal_case, field, value
+):
+    store, reviewed, _link, _revision, _agent = promoted_case(database, proposal_case)
+    resolved = store.resolve_promoted_revision(reviewed.proposal.proposal_id)
+    assert resolved is not None
+    payload = resolved.model_dump(mode="json")
+    payload[field] = value
+
+    with pytest.raises(ValidationError):
+        SkillLearningPromotedRevisionSnapshot.model_validate(payload)
