@@ -388,6 +388,8 @@ def test_agent_task_api_runs_bounded_proposal_through_core_and_is_idempotent(
 ):
     store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
     tasks, execution = learning_task_services(database, settings, store)
+    assert client.portal is not None
+    client.portal.call(client.app.state.runner.stop)
     client.app.state.agent_execution = execution
     task_input = proposal_task(candidate, ref)
     headers = {"Idempotency-Key": "skill-learning-proposal:synthetic-e2e"}
@@ -834,6 +836,8 @@ def test_agent_learned_skill_projection_is_bounded_metadata_only(client, proposa
         "review_id": None,
         "review_fingerprint": None,
         "promoted": False,
+        "promoted_revision_sha256": None,
+        "promotion_merge_commit_sha": None,
         "active_revision_sha256": None,
         "runtime_authority": False,
         "created_at": item["created_at"],

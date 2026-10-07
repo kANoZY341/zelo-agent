@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth import OperatorPrincipal, require_operator
 from app.schemas import SkillLearningCandidateResponse
-from app.skill_learning import SkillLearningReviewRequest
+from app.skill_learning import (
+    SkillLearningPromotionLink,
+    SkillLearningPromotionLinkRequest,
+    SkillLearningReviewRequest,
+)
 from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import StoredSkillLearningProposal
 
@@ -97,3 +101,53 @@ def materialize_candidate(
         artifact_sha256=artifact.artifact_sha256,
         created=artifact.created,
     )
+
+
+@router.get(
+    "/proposals/{proposal_id}/promotion-link",
+    response_model=SkillLearningPromotionLink,
+)
+def get_promotion_link(
+    proposal_id: str,
+    request: Request,
+    _principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillLearningPromotionLink:
+    link = request.app.state.skill_learning_store.get_promotion_link(proposal_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="skill_learning_promotion_link_not_found")
+    return link
+
+
+@router.post(
+    "/proposals/{proposal_id}/promotion-link",
+    response_model=SkillLearningPromotionLink,
+)
+def record_promotion_link(
+    proposal_id: str,
+    body: SkillLearningPromotionLinkRequest,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillLearningPromotionLink:
+    try:
+        link, _created = request.app.state.skill_learning_store.record_promotion_link(
+            proposal_id,
+            body.merge_task_id,
+            principal,
+        )
+        return link
+    except LookupError:
+        raise HTTPException(status_code=404, detail="skill_learning_proposal_not_found") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="skill_learning_reviewer_forbidden") from None
+    except ValueError as error:
+        code = str(error)
+        if not code.startswith("skill_learning_") or not code.replace("_", "").isalnum():
+            code = "skill_learning_promotion_link_refused"
+        conflict = {
+            "skill_learning_candidate_not_accepted_or_stale",
+            "skill_learning_proposal_stale",
+            "skill_learning_promotion_already_linked",
+            "skill_learning_promotion_merge_reused",
+            "skill_learning_promotion_repository_unavailable",
+        }
+        raise HTTPException(status_code=409 if code in conflict else 422, detail=code) from None

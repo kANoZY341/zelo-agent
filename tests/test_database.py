@@ -51,6 +51,7 @@ def test_migration_from_empty_database(settings) -> None:
             "skill_learning_proposals",
             "skill_learning_reviews",
             "skill_learning_events",
+            "skill_learning_promotion_links",
             "agent_delegations",
             "organization_units",
             "organization_assignments",
@@ -197,7 +198,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0034_skill_learning_task"
+                == "0035_skill_learning_promotion_links"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -424,7 +425,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0034_skill_learning_task"
+                "0035_skill_learning_promotion_links"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1

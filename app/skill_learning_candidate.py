@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from app.auth import OperatorPrincipal
-from app.skill_learning import SkillProcedureRevision
+from app.skill_learning import (
+    MAX_SKILL_PROCEDURE_ARTIFACT_BYTES,
+    SKILL_PROCEDURE_ARTIFACT_ROOT,
+    skill_procedure_artifact_bytes,
+    skill_procedure_artifact_path,
+    skill_procedure_artifact_sha256,
+)
 from app.skill_learning_store import SkillLearningProposalStore
 
-MAX_ARTIFACT_BYTES = 65_536
-_ARTIFACT_ROOT = "skills/procedures"
+MAX_ARTIFACT_BYTES = MAX_SKILL_PROCEDURE_ARTIFACT_BYTES
+_ARTIFACT_ROOT = SKILL_PROCEDURE_ARTIFACT_ROOT
 
 
 @dataclass(frozen=True)
@@ -26,19 +30,6 @@ class SkillLearningCandidateArtifact:
     artifact_sha256: str
     content: bytes
     created: bool
-
-
-def _canonical_bytes(revision: SkillProcedureRevision) -> bytes:
-    # The semantic digest is verified by the Pydantic contract; this raw digest
-    # binds the exact bytes consumed by the existing promotion manifest.
-    revision = SkillProcedureRevision.model_validate(revision.model_dump(mode="json"))
-    return json.dumps(
-        revision.model_dump(mode="json"),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    ).encode("ascii")
 
 
 def _require_trusted_directory(fd: int) -> None:
@@ -192,16 +183,9 @@ class SkillLearningCandidateAdapter:
         if stored is None or stored.review is None:
             raise ValueError("skill_learning_candidate_not_accepted_or_stale")
         revision = stored.proposal.proposed_revision
-        content = _canonical_bytes(revision)
-        content_sha = hashlib.sha256(content).hexdigest()
-        if len(content) > MAX_ARTIFACT_BYTES:
-            raise ValueError("skill_learning_candidate_too_large")
-        relative = PurePosixPath(
-            _ARTIFACT_ROOT,
-            revision.source_skill_id,
-            revision.procedure_id,
-            f"v{revision.version}-{revision.content_sha256}.json",
-        )
+        content = skill_procedure_artifact_bytes(revision)
+        content_sha = skill_procedure_artifact_sha256(revision)
+        relative = PurePosixPath(skill_procedure_artifact_path(revision))
         parts = relative.parts
         if (
             relative.is_absolute()

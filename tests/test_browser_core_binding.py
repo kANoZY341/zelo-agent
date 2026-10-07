@@ -581,6 +581,9 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "skill_learning_events_no_update",
             "skill_learning_proposals_no_delete",
             "skill_learning_proposals_no_update",
+            "skill_learning_promotion_link_insert_guard",
+            "skill_learning_promotion_links_no_delete",
+            "skill_learning_promotion_links_no_update",
         }
     finally:
         db.close()

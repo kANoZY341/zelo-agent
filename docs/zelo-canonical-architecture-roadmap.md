@@ -529,26 +529,32 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100
-and PR #102 are merged. PR #102 adds a read-only per-Agent learned-skill status
-projection with no runtime authority.
+Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100,
+PR #102 and PR #103 are merged. Candidate materialization is operator-only and
+still grants no runtime authority.
 
-PR #103 is the active gate for **operator candidate materialization**. PR #100's hardened
-serializer is exposed only through an Ahmad-authenticated endpoint and an
-operator-configured staging root strictly inside `runtime_dir`. The request
-supplies no path. Only a freshly revalidated accepted proposal may materialize a
-content-addressed candidate. Directory trust, symlink/hardlink, exact read-only
-mode, byte identity and stale-evidence checks remain fail-closed.
+PR #104 is the active gate for **learned-skill promotion proof linkage**. Ahmad may bind an
+accepted learned proposal only to an already-successful existing Merge task. Core
+requires the exact canonical learned artifact as the sole Promotion review manifest
+entry and revalidates Promotion -> CI -> Merge identity, configured repository,
+successful attempts, action versions/hashes, review fingerprint, PR publication
+and final merge commit. Promotion/merge action hashes are recomputed from retained
+task payload/spec identity before a link can be recorded.
 
-The endpoint returns metadata only and explicitly reports
-`runtime_authority=false` and `promotion_started=false`. It does not invoke
-Developer, Review, Promotion, CI, registry loading or activation. Active registries
-still do not read candidate staging. Promotion linkage and promoted-revision
-resolution remain separate later gates.
+The link is immutable, content-addressed and append-only. Migration 0035 adds
+NULL-safe SQLite guards binding proposal/review identity, exact candidate artifact,
+source action metadata, repository/PR lineage and merge result. First creation
+emits one fixed `skill_learning_promoted` audit event; idempotent retries do not
+duplicate it.
 
-Combined integrated validation passes **159 cases** with one known Git-worktree
-DeveloperRuntime test deselected; Ruff/format/diff checks pass. Require exact-head
-CI and source review before merge. UI #61 remains parked.
+The Agent learned-skill projection may expose historical promotion proof, but
+`active_revision_sha256` remains null and `runtime_authority=false`. This slice
+does not load learned content into the Skill Registry, mutate AgentSpec, or widen
+task/tool/worker/computer authority. Runtime activation is a separate later gate.
+
+Focused promotion-link hardening passes **41 cases** and the broader integrated
+learning/Agent/database/context gate passes **194 cases**. Require exact-head CI
+and source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
