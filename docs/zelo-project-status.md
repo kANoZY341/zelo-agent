@@ -36,8 +36,8 @@ SHA-256 and merge commit SHA. This remains **historical promotion proof only**:
 `active_revision_sha256=null` and `runtime_authority=false`. Active Skill
 Registry/AgentSpec/task/tool/worker/computer authority is unchanged.
 
-Focused promotion-link hardening passes **28 tests** and the broader integrated
-learning/Agent/database/context gate passes **170 tests**. Next: exact-head CI and
+Focused promotion-link hardening passes **30 tests** and the broader integrated
+learning/Agent/database/context gate passes **172 tests**. Next: exact-head CI and
 source review. Runtime loading remains a later gate.
 
 ## Checkpoint history

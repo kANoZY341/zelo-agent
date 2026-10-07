@@ -552,8 +552,8 @@ The Agent learned-skill projection may expose historical promotion proof, but
 does not load learned content into the Skill Registry, mutate AgentSpec, or widen
 task/tool/worker/computer authority. Runtime activation is a separate later gate.
 
-Focused promotion-link hardening passes **28 cases** and the broader integrated
-learning/Agent/database/context gate passes **170 cases**. Require exact-head CI
+Focused promotion-link hardening passes **30 cases** and the broader integrated
+learning/Agent/database/context gate passes **172 cases**. Require exact-head CI
 and source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that

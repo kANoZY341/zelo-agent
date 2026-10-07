@@ -111,8 +111,8 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "promoted=true" in active_status
     assert "active_revision_sha256=null" in active_status
     assert "runtime_authority=false" in active_status
-    assert "28 tests" in active_status
-    assert "170 tests" in active_status
+    assert "30 tests" in active_status
+    assert "172 tests" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
@@ -126,8 +126,8 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "skill_learning_promoted" in roadmap_content
     assert "active_revision_sha256" in roadmap_content
     assert "runtime_authority=false" in roadmap_content
-    assert "28 cases" in roadmap_compact
-    assert "170 cases" in roadmap_compact
+    assert "30 cases" in roadmap_compact
+    assert "172 cases" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
