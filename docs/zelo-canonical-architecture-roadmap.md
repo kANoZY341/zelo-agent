@@ -529,32 +529,27 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100,
-PR #102 and PR #103 are merged. Candidate materialization is operator-only and
-still grants no runtime authority.
+Core-first checkpoint (7 October 2026): merged PRs #93, #98, #99, #100,
+including #102, #103 and #104. PR #104 records immutable proof of accepted learned
+procedures promoted through the existing Promotion -> CI -> Merge pipeline,
+without activating them.
 
-PR #104 is the active gate for **learned-skill promotion proof linkage**. Ahmad may bind an
-accepted learned proposal only to an already-successful existing Merge task. Core
-requires the exact canonical learned artifact as the sole Promotion review manifest
-entry and revalidates Promotion -> CI -> Merge identity, configured repository,
-successful attempts, action versions/hashes, review fingerprint, PR publication
-and final merge commit. Promotion/merge action hashes are recomputed from retained
-task payload/spec identity before a link can be recorded.
+The active gate is read-only **promoted-revision resolution**. Core resolves
+one reviewed proposal/revision only if its canonical bytes, content-addressed
+artifact path, append-only promotion link and configured repository identity
+match. For an exact AgentInstance/Skill/procedure it may return the unique
+latest proven revision, refusing ambiguous heads, missing or mismatched prior
+hashes, version gaps and histories exceeding 64 revisions.
 
-The link is immutable, content-addressed and append-only. Migration 0035 adds
-NULL-safe SQLite guards binding proposal/review identity, exact candidate artifact,
-source action metadata, repository/PR lineage and merge result. First creation
-emits one fixed `skill_learning_promoted` audit event; idempotent retries do not
-duplicate it.
+This resolver is historical proof, not deployment authority. No API or task
+route calls it; no active Skill Registry reads its result; no candidate is
+automatically loaded or shared; runtime_authority=false. Promoted version 2+
+proposal generation remains fail-closed until a separate trusted prior-revision
+binding is reviewed. Do not create an activation path in this slice.
 
-The Agent learned-skill projection may expose historical promotion proof, but
-`active_revision_sha256` remains null and `runtime_authority=false`. This slice
-does not load learned content into the Skill Registry, mutate AgentSpec, or widen
-task/tool/worker/computer authority. Runtime activation is a separate later gate.
-
-Focused promotion-link hardening passes **41 cases** and the broader integrated
-learning/Agent/database/context gate passes **194 cases**. Require exact-head CI
-and source review before merge. UI #61 remains parked.
+Focused resolver tests: 14 passed. Integrated learning/promotion/Agent/database/
+context tests: 197 passed. Require exact-head CI and final source review before
+merge. UI PR #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

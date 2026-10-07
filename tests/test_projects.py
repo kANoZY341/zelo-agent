@@ -91,45 +91,26 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith(
-        "## Active increment: v0.15 learned-skill promotion proof linkage"
-    )
+    assert active_status.startswith("## Active increment: v0.15 promoted-revision resolver")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #93" in active_status
-    assert "PR #98" in active_status
-    assert "PR #99" in active_status
-    assert "PR #100" in active_status
-    assert "PR #102" in active_status
-    assert "PR #103" in active_status
-    assert "PR #104" in active_status
-    assert "f9a739e" in active_status
-    assert "4,850 tests with two skips" in active_compact
-    assert "merge_task_id" in active_status
-    assert "exactly that one added regular file" in active_compact
-    assert "independently recomputed action hashes" in active_compact
-    assert "NULL or missing JSON identities fail closed" in active_compact
-    assert "skill_learning_promoted" in active_status
-    assert "promoted=true" in active_status
-    assert "active_revision_sha256=null" in active_status
+    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104"):
+        assert f"PR {pr}" in active_status or pr in active_status
+    assert "03fa12f" in active_status
+    assert "4,891 tests, 2 skipped" in active_compact
+    assert "append-only" in active_status
+    assert "read-only promoted-revision resolution" in active_compact
+    assert "unique latest proven lineage" in active_compact
     assert "runtime_authority=false" in active_status
-    assert "41 tests" in active_status
-    assert "194 tests" in active_status
+    assert "14 focused resolver tests" in active_compact
+    assert "197 integrated" in active_compact
     assert "Historical increment:" not in active_status
-    assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
-    assert "PR #103" in roadmap_compact
-    assert "PR #104" in roadmap_compact
-    assert "learned-skill promotion proof linkage" in roadmap_compact
-    assert "already-successful existing Merge task" in roadmap_compact
-    assert "sole Promotion review manifest entry" in roadmap_compact
-    assert "action hashes are recomputed" in roadmap_compact
-    assert "Migration 0035" in roadmap_compact
-    assert "skill_learning_promoted" in roadmap_content
-    assert "active_revision_sha256" in roadmap_content
+    assert "PR #104" in roadmap_content
+    assert "promoted-revision resolution" in roadmap_compact
     assert "runtime_authority=false" in roadmap_content
-    assert "41 cases" in roadmap_compact
-    assert "194 cases" in roadmap_compact
+    assert "version gaps" in roadmap_content
+    assert "197 passed" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

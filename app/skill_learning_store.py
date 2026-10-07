@@ -32,6 +32,7 @@ from app.promotion_contracts import (
 )
 from app.skill_learning import (
     SkillLearningEvidenceRef,
+    SkillLearningPromotedRevisionSnapshot,
     SkillLearningPromotionLink,
     SkillLearningProposal,
     SkillLearningReview,
@@ -538,6 +539,129 @@ class SkillLearningProposalStore:
                 )
             )
             return self._stored_promotion_link(row) if row is not None else None
+
+    def resolve_promoted_revision(
+        self, proposal_id: str
+    ) -> SkillLearningPromotedRevisionSnapshot | None:
+        """Resolve immutable historical promoted content without runtime authority."""
+
+        with self.database.read() as session:
+            proposal_row = session.get(SkillLearningProposalRecord, proposal_id)
+            if proposal_row is None:
+                return None
+            link_row = session.scalar(
+                select(SkillLearningPromotionLinkRecord).where(
+                    SkillLearningPromotionLinkRecord.proposal_id == proposal_id
+                )
+            )
+            if link_row is None:
+                return None
+            stored = self._stored(session, proposal_row)
+            link = self._stored_promotion_link(link_row)
+
+        if (
+            stored.status != "accepted"
+            or stored.review is None
+            or stored.review.decision != "accepted"
+            or not stored.review.checks.all_passed()
+            or link.proposal_id != stored.proposal.proposal_id
+            or link.proposal_fingerprint != stored.proposal.proposal_fingerprint
+            or link.review_fingerprint != stored.review.review_fingerprint
+            or link.reviewer_id != "ahmad"
+            or link.revision_sha256 != stored.proposal.proposed_revision.content_sha256
+        ):
+            raise ValueError("skill_learning_promoted_revision_invalid")
+        if self.promotion_repository is None or link.repository != self.promotion_repository:
+            raise ValueError("skill_learning_promoted_revision_repository_stale")
+
+        revision = stored.proposal.proposed_revision
+        artifact = skill_procedure_artifact_bytes(revision)
+        if (
+            link.artifact_path != skill_procedure_artifact_path(revision)
+            or link.artifact_sha256 != skill_procedure_artifact_sha256(revision)
+            or link.artifact_bytes != len(artifact)
+        ):
+            raise ValueError("skill_learning_promoted_revision_invalid")
+
+        return SkillLearningPromotedRevisionSnapshot(
+            proposal_id=stored.proposal.proposal_id,
+            proposal_fingerprint=stored.proposal.proposal_fingerprint,
+            review_fingerprint=stored.review.review_fingerprint,
+            promotion_link_id=link.link_id,
+            promotion_link_fingerprint=link.link_fingerprint,
+            agent_instance_id=stored.proposal.agent_instance_id,
+            source_skill_id=revision.source_skill_id,
+            source_skill_version=revision.source_skill_version,
+            procedure_id=revision.procedure_id,
+            revision_sha256=revision.content_sha256,
+            revision=revision,
+            repository=link.repository,
+            artifact_path=link.artifact_path,
+            artifact_sha256=link.artifact_sha256,
+            artifact_bytes=link.artifact_bytes,
+            merge_commit_sha=link.merge_commit_sha,
+            promoted_at=link.linked_at,
+        )
+
+    def resolve_promoted_procedure(
+        self,
+        agent_instance_id: str,
+        source_skill_id: str,
+        procedure_id: str,
+    ) -> SkillLearningPromotedRevisionSnapshot | None:
+        """Resolve the unique latest promoted lineage for one Agent procedure."""
+
+        with self.database.read() as session:
+            proposal_ids = tuple(
+                session.scalars(
+                    select(SkillLearningProposalRecord.id)
+                    .join(
+                        SkillLearningPromotionLinkRecord,
+                        SkillLearningPromotionLinkRecord.proposal_id
+                        == SkillLearningProposalRecord.id,
+                    )
+                    .where(
+                        SkillLearningProposalRecord.agent_instance_id == agent_instance_id,
+                        SkillLearningProposalRecord.source_skill_id == source_skill_id,
+                        SkillLearningProposalRecord.procedure_id == procedure_id,
+                    )
+                    .order_by(
+                        SkillLearningProposalRecord.created_at, SkillLearningProposalRecord.id
+                    )
+                    .limit(65)
+                ).all()
+            )
+        if not proposal_ids:
+            return None
+        if len(proposal_ids) > 64:
+            raise ValueError("skill_learning_promoted_revision_history_limit")
+
+        snapshots = []
+        for proposal_id in proposal_ids:
+            snapshot = self.resolve_promoted_revision(proposal_id)
+            if snapshot is None:
+                raise ValueError("skill_learning_promoted_revision_invalid")
+            snapshots.append(snapshot)
+        snapshots.sort(key=lambda item: (item.revision.version, item.proposal_id))
+
+        versions: dict[int, SkillLearningPromotedRevisionSnapshot] = {}
+        for snapshot in snapshots:
+            version = snapshot.revision.version
+            if version in versions:
+                raise ValueError("skill_learning_promoted_revision_ambiguous")
+            versions[version] = snapshot
+
+        ordered = [versions[version] for version in sorted(versions)]
+        first = ordered[0].revision
+        if first.version != 1 or first.prior_revision_sha256 is not None:
+            raise ValueError("skill_learning_promoted_revision_lineage_invalid")
+        for previous, current in zip(ordered, ordered[1:], strict=False):
+            if (
+                current.revision.version != previous.revision.version + 1
+                or current.revision.prior_revision_sha256 != previous.revision.content_sha256
+            ):
+                raise ValueError("skill_learning_promoted_revision_lineage_invalid")
+        return ordered[-1]
 
     def record_promotion_link(
         self,

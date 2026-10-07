@@ -6,39 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 learned-skill promotion proof linkage
+## Active increment: v0.15 promoted-revision resolver
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98, PR #99,
-PR #100, PR #102 and PR #103 are merged. PR #103 merge commit
-`f9a739e0b08941b85531e6974162ea42f8cb7a76` adds Ahmad-only candidate
-materialization; its exact reviewed head passed **4,850 tests with two skips**.
+Core v0.15 remains active and UI PR #61 stays parked.
+PRs #93, #98, #99, #100, #102, #103 and #104 are merged. PR #104 merge commit
+03fa12f57fcd9817e9a77695694f5e5dce2e5f11 preserves an append-only,
+operator-authenticated link proving an accepted learned procedure went through
+the existing Promotion -> CI -> Merge pipeline. Its exact-head CI passed
+4,891 tests, 2 skipped; the merged tree matched reviewed source exactly.
 
-PR #104 is the active slice and adds an immutable **promotion proof link** for an accepted learned
-revision after the normal Zelo Promotion -> CI -> Merge pipeline has already
-succeeded. Ahmad supplies only an existing successful `merge_task_id`; this API
-does not initiate Developer, Promotion, CI, merge or release work.
+The active slice adds read-only promoted-revision resolution. Given an exact
+proposal ID, Core requires the accepted Ahmad review, immutable promotion link,
+configured repository identity, matching canonical content-addressed artifact
+path/bytes/hash and revision identity. Historical records stay readable after
+an Agent is paused, but wrong repository, missing proof or contradictory
+identity fails closed.
 
-Core recomputes the canonical learned procedure artifact path/bytes/hash and
-requires the promotion review manifest to contain exactly that one added regular
-file. It revalidates accepted proposal/review/evidence identity, configured
-promotion repository, source promotion/merge task kinds and successful attempts,
-action versions and independently recomputed action hashes, review fingerprint,
-publication/CI/PR identities and final merge result.
+For a specific AgentInstance, Skill and procedure, Core can resolve the unique
+latest proven lineage. It refuses duplicate heads at the same version, version
+gaps, an invalid first revision, wrong prior-revision hashes, or more than
+64 historical promoted links. There is no cross-Agent inference.
 
-The resulting promotion link is content-addressed, append-only and database
-guarded. SQLite independently binds proposal/review identity, action metadata,
-repository, PR identity, exact candidate-manifest metadata and merge commit; NULL
-or missing JSON identities fail closed. First creation emits one append-only
-`skill_learning_promoted` audit event; retries are idempotent.
+The resolved snapshot returns a historical revision and proof identities only.
+It is not exposed as a new API/task, is not wired into proposal lineage or an
+active Skill Registry, and retains runtime_authority=false. No AgentSpec,
+permissions, worker, tool, computer or task-routing changes result.
 
-The learned-skill projection may now report `promoted=true`, promoted revision
-SHA-256 and merge commit SHA. This remains **historical promotion proof only**:
-`active_revision_sha256=null` and `runtime_authority=false`. Active Skill
-Registry/AgentSpec/task/tool/worker/computer authority is unchanged.
-
-Focused promotion-link hardening passes **41 tests** and the broader integrated
-learning/Agent/database/context gate passes **194 tests**. Next: exact-head CI and
-source review. Runtime loading remains a later gate.
+Local validation passes 14 focused resolver tests and 197 integrated
+learning/promotion/Agent/database/context tests, with Ruff/format checks green.
+Next: freeze the exact head, full CI and direct source review before merge.
 
 ## Checkpoint history
 
