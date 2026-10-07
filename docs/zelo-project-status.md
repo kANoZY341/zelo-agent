@@ -6,36 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: Core v0.15 and inert v0.16 channel foundation
+## Active increment: v0.16 channel binding and v0.15 skill governance
 
-Core-first development continues. Merged PRs #93, #98, #99, #100,
-including #102, #103, #104, #105, #106 and #107. PR #107 merge
-b3e665ab76768d6a14d16cdf1d799f8783c8f6c4 passed exact-head CI
-with 4,913 tests and 2 skips; its merged tree matches the reviewed source.
+Core-first development continues; v0.15 is the current Core version.
+Merged PR #107 established skill proposal promoted-head admission.
+PR #108 is merged at bc6f50c94b7d42c25a32462a8657606534dff457:
+its reviewed tree matched merged main, with 4,965 tests passed, 2 skipped.
+It adds inert, transport-neutral text contracts for WhatsApp/email/browser,
+HMAC pseudonymous identity, a reserved channel: idempotency namespace,
+and prepared-only outbound intent. No sending or Mind admission was enabled.
 
-Governed learned-procedure proposals now refuse newly competing versions at
-or below the latest promoted revision. An existing exact proposal can replay
-idempotently; the trusted historical resolver refuses ambiguous promoted
-heads. Historical proof is NOT activation. A separate promotion-time
-exclusivity gate remains necessary for competing proposals created before
-either was promoted.
+PR #109 is the active, unmerged v0.16 binding-ledger slice on top of
+merged #108: append-only SQLite operator-selected opaque thread bindings
+and unverified inbound message replay observations. Original message body,
+provider account credentials, sending, calls, voice, provider authentication,
+execution authority and automatic delivery remain disabled. An operator
+binding is not proof of provider ownership. Full exact-head CI/review is
+required before merge.
 
-PR #108 is the active contract-only v0.16 channel foundation on current
-main. It defines bounded inbound text envelopes, channel/thread/message
-fingerprints, keyed HMAC pseudonyms and prepared-only delivery intents.
-The operator-facing Mind turn route reserves the channel: namespace
-against caller-supplied idempotency keys. Execution_authority and
-transport_authority remain false.
+PR #110 is a separate draft for local promoted-link exclusivity of competing
+preaccepted learned revisions. It does not activate learned skills, lock
+GitHub pre-merge publication, or grant new worker/tool privileges.
 
-There is no webhook, provider authentication, WhatsApp/email/call/voice
-transport, account binding, message delivery, new task/worker/tool grant or
-runtime learned-skill loader. Local integration on merged PR #106 passed
-113 channel/Mind/scheduler/context tests after Unicode hardening.
-Fresh exact-head CI/review on the merged PR #107 baseline is required.
-
-Media native-reader proof remains refused after four authorized attempts;
-do not reset its ledger or perform an unauthorized fifth qualification.
-The redesigned UI PR #61 remains parked. Continue Core-first work.
+Media native-reader qualification remains refused after four authorized
+attempts; no fifth attempt is allowed without renewed authorization.
+UI PR #61 remains parked until the Core-first milestones are finished.
 
 ## Checkpoint history
 

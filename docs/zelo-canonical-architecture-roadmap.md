@@ -606,8 +606,9 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
-PR #108 is the contract-only v0.16 foundation: transport-neutral,
-**non-authoritative** channel text envelopes,
+Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
+contract-only v0.16 foundation: transport-neutral, **non-authoritative**
+channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn
 idempotency keys. This foundation has no provider credentials or connected
 transports. A separately qualified adapter must authenticate provider origin,
@@ -616,6 +617,16 @@ replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
+
+PR #109 is the separate draft Core binding/observation ledger, based on
+merged PR #108: an Ahmad-selected opaque thread may map to an existing
+Mind conversation, but that
+mapping is not provider authentication. Only message ID, text digest and UTC
+metadata are retained with append-only replay checks; no external webhook,
+message-to-Mind admission, delivery receipt or send authority is granted.
+Integrated migration/channel/Mind/scheduler tests passed 266 cases locally
+before the current concurrent-replay regression. Full exact-head CI remains
+required. Provider verification and outbound approval are later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
