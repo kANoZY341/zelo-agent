@@ -234,6 +234,19 @@ class SkillLearningProposalStore:
                 if row.proposal_json != encoded or stored.proposal != proposal:
                     raise ValueError("skill_learning_proposal_identity_conflict")
                 return stored, False
+
+            # Once a revision version has already been promoted, do not admit
+            # an alternative proposal at that version or any earlier version.
+            # Existing proposals above are still replayable/reviewable, since
+            # their historical identity must not be invalidated by promotion.
+            latest = self.resolve_promoted_procedure(
+                agent_instance_id,
+                revision.source_skill_id,
+                revision.procedure_id,
+            )
+            if latest is not None and revision.version <= latest.revision.version:
+                raise ValueError("skill_learning_promoted_head_advanced")
+
             row = SkillLearningProposalRecord(
                 id=proposal.proposal_id,
                 proposal_fingerprint=proposal.proposal_fingerprint,
