@@ -6,37 +6,33 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader qualification
+## Active increment: v0.15 Agent computer internal topology
 
-Core v0.15 stays active; UI is parked. PR #93 remains draft at integration head
-`337435398356dd84f57b38d77a43c6549d3c506b`, tree
-`402ce08912876f8e3d33507ac9fb1b284ca6b1a2`. Exact-head CI
-`37601387861` passed **4,734 tests with two skips** plus Ruff/diff checks.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93 is merged at
+`8325c1b14b1fd2214898361e31eba0a45de8f25f` as a preserved failed Media
+qualification record; its four native-reader refusals remain immutable and grant
+no runtime authority.
 
-All **four** authorized native-reader attempts are permanently consumed and
-REFUSED; none is a success receipt. Attempt 1 stopped at lease-preflight.
-Attempts 2, 3 and 4 stopped during Docker build. Attempt 4 is
-`native-reader-proof-kvhyvgri`: policy SHA-256
-`51a8532bf63d2f603d6e671815850aa86e7984b7040918e0e86fe04569a364b6`,
-proof SHA-256
-`2c3bd1f7b130d3ce57bf317b5119971cdb30b68820b2e4f19503c1c0d14e1251`.
-Its build exited 2 after stderr reached 20,851 bytes and overflowed the bounded
-capture. Cleanup found zero labelled images/containers; admission marker/lock are
-empty. No attempt is reset, retried, deleted or reclassified.
+PR #98 is now the active Core gate. Current main was integrated at code-bearing
+commit `0aac2b7`, then the corrected internal-topology source passed **56 focused
+computer/egress/worker tests** plus Ruff/format/diff checks. A fresh matching-head
+live proof rebuilt the exact pinned OpenBot supervisor
+`b6932d31a8d6e7896c15139dfc27a6c6911deb27` and used a disposable
+`172.30.253.0/24` internal network.
 
-The separate build-only diagnostic succeeded on the exact same retained bundle
-(`0f53fb…`) and Dockerfile (`a097907d…`) without touching the proof ledger.
-Comparison found a concrete execution-context mismatch: the successful diagnostic
-used exact PATH/HOME/LANG/DOCKER_CONFIG while the qualifier build supplied only
-DOCKER_CONFIG before fixed GOMAXPROCS=2 was added. The code now shares one
-fail-closed Docker environment across readiness, diagnostics and qualification.
-This is a plausible cause, **not proven causation**. Native-reader tests pass
-412 cases and the broader Media/context regression passes 2,855 cases after the change; no fifth proof attempt is authorized.
+Observed on the real Zelo host: Supervisor returned
+`http://172.30.253.3:4100` with no published port; Core accepted that private
+endpoint and explicitly refused a loopback substitute; neither master token was
+present in the Agent container; direct public curl was blocked; Chromium reached
+the allowlisted `https://example.com` only through the per-Agent Core proxy
+(HTTP 200, title `Example Domain`); Browser permission revocation made the next
+navigation fail with HTTP 502. The proof added no Agent-visible navigation action.
 
-Next: full regression/CI and final review of this environment correction, then
-close PR #93 as a preserved failed qualification record unless a separately
-reviewed future proof budget is explicitly authorized. No acquired package,
-Pillow decode, Core binding, enabled flag or UI work is cleared.
+All disposable proof containers, volumes, networks and listeners were removed.
+Sanitized local proof receipt SHA-256:
+`53b4174eb55b22d5e43365d01c8f621817ae0c014835214ba1965113a8444139`.
+Next: fresh exact-head CI/review and merge PR #98, then continue **#99 -> #100**.
+No click/type/write/shell, arbitrary URL, host fallback or UI authority is enabled.
 
 ## Checkpoint history
 

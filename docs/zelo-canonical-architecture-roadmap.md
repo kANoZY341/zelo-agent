@@ -529,25 +529,25 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93 remains draft at integration
-head `3374353`; exact-head CI passed **4,734 tests/two skips**. Four authorized
-synthetic native-reader attempts are retained and REFUSED: attempt 1 at
-lease-preflight, attempts 2–4 at Docker build. Attempt 4 retained a bounded
-exit-2 build failure with 20,851 stderr bytes; cleanup proved zero labelled
-containers/images and an empty admission marker/lock. No success receipt or
-runtime authority exists and no fifth attempt is authorized.
+Core-first checkpoint (7 October 2026): PR #93 is merged as a preserved
+failed Media qualification record; four native-reader refusals remain immutable
+and do not grant runtime authority. PR #98 is the active Core gate.
 
-A separate build-only diagnostic succeeded using the same bundle/Dockerfile bytes
-without touching the proof ledger. Investigation isolated a deterministic
-environment mismatch: diagnostic Docker calls carried fixed PATH/HOME/LANG plus
-DOCKER_CONFIG, while qualification supplied only DOCKER_CONFIG before
-GOMAXPROCS=2. The implementation now shares one fail-closed Docker environment;
-this is a plausible explanation, **not proven causation**. Native-reader/recovery
-tests pass 412 cases and the broader Media/context regression passes 2,855 cases after the correction. Require full regression, exact-head CI
-and final review before merging PR #93 as the preserved qualification record.
-Media still needs a separately authorized future native proof before real package
-streaming, then runtime/import/image-decoder closure and Core binding. USTAR
-remains narrow; GNU/PAX remain unsupported. UI #61 and v0.14.0 stay unchanged.
+PR #98 integrates current main at code-bearing commit `0aac2b7`. The corrected
+internal topology passes **56 focused computer/egress/worker tests** and a fresh
+matching-source live proof on the Zelo host. The exact pinned OpenBot supervisor
+was rebuilt, the Agent computer joined an internal-only `172.30.253.0/24`
+network, Supervisor reported private control at `172.30.253.3:4100`, and Core
+refused a loopback substitute. Direct public egress was blocked; allowlisted
+Chromium navigation succeeded only through the per-Agent Core proxy; Browser
+revocation blocked the next navigation. Neither master token entered the Agent
+container and all disposable resources were removed. No Agent-visible mutation
+action is introduced by PR #98.
+
+Require fresh exact-head CI and final review, then merge PR #98 before PR #99
+(named-endpoint navigation) and PR #100 (governed per-Agent skill learning).
+Click/type/write/shell and arbitrary URLs remain separate later gates. UI #61
+stays parked and v0.14.0 remains unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
