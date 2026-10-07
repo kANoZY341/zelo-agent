@@ -91,7 +91,9 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 operator candidate materialization")
+    assert active_status.startswith(
+        "## Active increment: v0.15 learned-skill promotion proof linkage"
+    )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     assert "PR #93" in active_status
     assert "PR #98" in active_status
@@ -99,28 +101,33 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #100" in active_status
     assert "PR #102" in active_status
     assert "PR #103" in active_status
-    assert "37281dd" in active_status
-    assert "4,843 tests with two skips" in active_compact
-    assert "inside `runtime_dir`" in active_status
-    assert "POST /skill-learning/proposals/{proposal_id}/candidate" in active_status
-    assert "cannot choose a filesystem path" in active_compact
+    assert "f9a739e" in active_status
+    assert "4,850 tests with two skips" in active_compact
+    assert "merge_task_id" in active_status
+    assert "exactly that one added regular file" in active_compact
+    assert "independently recomputed action hashes" in active_compact
+    assert "NULL or missing JSON identities fail closed" in active_compact
+    assert "skill_learning_promoted" in active_status
+    assert "promoted=true" in active_status
+    assert "active_revision_sha256=null" in active_status
     assert "runtime_authority=false" in active_status
-    assert "promotion_started=false" in active_status
-    assert "Candidate bytes are never returned" in active_compact
-    assert "159 tests" in active_status
+    assert "28 tests" in active_status
+    assert "170 tests" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
-    assert "PR #102" in roadmap_compact
     assert "PR #103" in roadmap_compact
-    assert "operator candidate materialization" in roadmap_compact
-    assert "inside `runtime_dir`" in roadmap_content
-    assert "request supplies no path" in roadmap_compact
+    assert "learned-skill promotion proof linkage" in roadmap_compact
+    assert "already-successful existing Merge task" in roadmap_compact
+    assert "sole Promotion review manifest entry" in roadmap_compact
+    assert "action hashes are recomputed" in roadmap_compact
+    assert "Migration 0035" in roadmap_compact
+    assert "skill_learning_promoted" in roadmap_content
+    assert "active_revision_sha256" in roadmap_content
     assert "runtime_authority=false" in roadmap_content
-    assert "promotion_started=false" in roadmap_content
-    assert "Promotion linkage" in roadmap_content
-    assert "159 cases" in roadmap_compact
+    assert "28 cases" in roadmap_compact
+    assert "170 cases" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

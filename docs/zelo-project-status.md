@@ -6,35 +6,39 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 operator candidate materialization
+## Active increment: v0.15 learned-skill promotion proof linkage
 
 Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98, PR #99,
-PR #100 and PR #102 are merged. PR #102 merge commit
-`37281dd8f6a7e1d04db1b36908f99d2b56e8228d` adds the read-only per-Agent
-learned-skill projection; its reviewed head passed **4,843 tests with two skips**.
+PR #100, PR #102 and PR #103 are merged. PR #103 merge commit
+`f9a739e0b08941b85531e6974162ea42f8cb7a76` adds Ahmad-only candidate
+materialization; its exact reviewed head passed **4,850 tests with two skips**.
 
-PR #103 is the active slice and makes PR #100's hardened candidate serializer explicitly usable
-by Ahmad without granting promotion or runtime authority. Candidate staging is
-disabled by default and requires operator configuration of an absolute directory
-strictly inside `runtime_dir`. The request supplies only a proposal ID; it cannot
-choose a filesystem path.
+The active slice adds an immutable **promotion proof link** for an accepted learned
+revision after the normal Zelo Promotion -> CI -> Merge pipeline has already
+succeeded. Ahmad supplies only an existing successful `merge_task_id`; this API
+does not initiate Developer, Promotion, CI, merge or release work.
 
-Authenticated `POST /skill-learning/proposals/{proposal_id}/candidate` requires
-a freshly revalidated accepted proposal and the Ahmad operator principal. It
-creates or idempotently verifies one content-addressed, read-only candidate under
-the configured staging root. Writable/untrusted directories, symlink escapes,
-hard-linked/writable existing files, stale evidence, unaccepted proposals and
-conflicting bytes fail closed.
+Core recomputes the canonical learned procedure artifact path/bytes/hash and
+requires the promotion review manifest to contain exactly that one added regular
+file. It revalidates accepted proposal/review/evidence identity, configured
+promotion repository, source promotion/merge task kinds and successful attempts,
+action versions and independently recomputed action hashes, review fingerprint,
+publication/CI/PR identities and final merge result.
 
-The API returns metadata only: proposal/review identity, relative candidate path,
-semantic/artifact SHA-256 and created/reused status. Candidate bytes are never
-returned; filesystem errors are normalized. Responses explicitly keep
-`runtime_authority=false` and `promotion_started=false`. The adapter still does
-not invoke Developer, Review, Promotion, CI, registry loading or activation.
+The resulting promotion link is content-addressed, append-only and database
+guarded. SQLite independently binds proposal/review identity, action metadata,
+repository, PR identity, exact candidate-manifest metadata and merge commit; NULL
+or missing JSON identities fail closed. First creation emits one append-only
+`skill_learning_promoted` audit event; retries are idempotent.
 
-Combined post-integration validation passes **159 tests** with one known
-worktree-only DeveloperRuntime test deselected; Ruff/format/diff checks pass.
-Next: exact-head CI/source review. Promotion linkage remains a separate later gate.
+The learned-skill projection may now report `promoted=true`, promoted revision
+SHA-256 and merge commit SHA. This remains **historical promotion proof only**:
+`active_revision_sha256=null` and `runtime_authority=false`. Active Skill
+Registry/AgentSpec/task/tool/worker/computer authority is unchanged.
+
+Focused promotion-link hardening passes **28 tests** and the broader integrated
+learning/Agent/database/context gate passes **170 tests**. Next: exact-head CI and
+source review. Runtime loading remains a later gate.
 
 ## Checkpoint history
 
