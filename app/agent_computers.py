@@ -369,6 +369,44 @@ class OpenBotComputerBackend:
             )
         raise ComputerBackendError("computer_action_unsupported")
 
+    async def navigate_action(
+        self,
+        agent_instance_id: str,
+        url: str,
+    ) -> object:
+        if (
+            not isinstance(url, str)
+            or not 1 <= len(url) <= 2048
+            or url.strip() != url
+            or not url.startswith("https://")
+            or any(character in url for character in "\r\n\x00")
+        ):
+            raise ComputerBackendError("computer_navigation_url_invalid")
+        try:
+            parsed = urlparse(url)
+            port = parsed.port or 443
+        except ValueError:
+            raise ComputerBackendError("computer_navigation_url_invalid") from None
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or not parsed.hostname.isascii()
+            or parsed.netloc != parsed.netloc.lower()
+            or parsed.username is not None
+            or parsed.password is not None
+            or not 1 <= port <= 65535
+        ):
+            raise ComputerBackendError("computer_navigation_url_invalid")
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        return await self._computer_request(
+            agent_instance_id,
+            state,
+            "/navigate",
+            body={"url": url},
+        )
+
     async def control(self, agent_instance_id: str) -> ComputerControlState:
         state = await self.existing(agent_instance_id)
         if state is None or state.status != "running":

@@ -6,33 +6,38 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Agent computer internal topology
+## Active increment: v0.15 named-endpoint Agent computer navigation
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93 is merged at
-`8325c1b14b1fd2214898361e31eba0a45de8f25f` as a preserved failed Media
-qualification record; its four native-reader refusals remain immutable and grant
-no runtime authority.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93 and PR #98 are merged;
+PR #98's internal-only Agent-computer topology remains the execution boundary.
+PR #99 is the active gate at qualified code head
+`4d4112cde4a58b782ed92757b7bccdcfde8d8d98`, tree
+`97afc43ce3e3530e8fccfd1db3e5a42dec3b1ddf`. Matching CI run
+`37618948869` passed **4,768 tests with two skips** plus Ruff/diff checks.
 
-PR #98 is now the active Core gate. Current main was integrated at code-bearing
-commit `0aac2b7`, then the corrected internal-topology source passed **56 focused
-computer/egress/worker tests** plus Ruff/format/diff checks. A fresh matching-head
-live proof rebuilt the exact pinned OpenBot supervisor
-`b6932d31a8d6e7896c15139dfc27a6c6911deb27` and used a disposable
-`172.30.253.0/24` internal network.
+PR #99 grants only `browser_navigate` through a separate
+`computer_navigate_core` Worker: trusted Agent-granted HTTPS `endpoint_id` plus
+bounded canonical path, never arbitrary URL/query/fragment input. Frozen execution
+identity binds Agent, Worker, endpoint registry, egress policy, browser permission
+and backend/topology. Human control is checked before navigation and again after
+OpenBot returns. Normal projection excludes page text and removes final-URL
+query/fragment data.
 
-Observed on the real Zelo host: Supervisor returned
-`http://172.30.253.3:4100` with no published port; Core accepted that private
-endpoint and explicitly refused a loopback substitute; neither master token was
-present in the Agent container; direct public curl was blocked; Chromium reached
-the allowlisted `https://example.com` only through the per-Agent Core proxy
-(HTTP 200, title `Example Domain`); Browser permission revocation made the next
-navigation fail with HTTP 502. The proof added no Agent-visible navigation action.
+The matching-source live proof passed on real pinned OpenBot. Named
+`example.com` navigation succeeded through Core egress; direct public curl was
+blocked; final HTTPS authority/result bounds passed; a real takeover after the
+browser response caused `computer_human_control_active` with no accepted result;
+handback succeeded; browser-permission revocation cancelled the next queued task
+with **zero attempts**; both host master tokens were absent; all disposable
+containers/networks/listeners were removed. Sanitized receipt SHA-256:
+`6a62863505da2dbd162f59894e52b3ea4f8db8f525fc0c705491a7fb4cc0761e`.
+Independent audit SHA-256:
+`636234e9aaff76571e68b6b6cb51494951a12a6adc09ae89b10510fa04e55a5f`.
 
-All disposable proof containers, volumes, networks and listeners were removed.
-Sanitized local proof receipt SHA-256:
-`53b4174eb55b22d5e43365d01c8f621817ae0c014835214ba1965113a8444139`.
-Next: fresh exact-head CI/review and merge PR #98, then continue **#99 -> #100**.
-No click/type/write/shell, arbitrary URL, host fallback or UI authority is enabled.
+Next: exact-head docs CI/final review and merge PR #99, then continue PR #100
+governed per-Agent skill learning. Click/type/key/scroll, arbitrary URLs,
+workspace writes, shell, credentials, screenshot context, host fallback and UI
+authority remain disabled.
 
 ## Checkpoint history
 
@@ -115,16 +120,25 @@ blocks new and already-open traffic. `computer_navigate` is registered as a
 capability but no mutation action is exposed yet. Exact-head CI run #2009 passed.
 See `docs/v0.15-computer-browser-mutation-egress-gate.md`.
 
-The stacked internal-topology slice has now passed the live Zelo-host proof.
+PR #98 is the internal-topology gate and has passed the live Zelo-host proof.
 Agent computers join an internal-only Docker network, Core control uses the
 validated private computer IP, and public browser traffic can leave only through
-the Core proxy bound to the bridge gateway. In the disposable .252 proof the
-computer was 172.30.252.3:4100, direct public curl was blocked, real Chromium
-reached allowlisted https://example.com through the proxy with title
-Example Domain, then Browser permission revocation caused the next navigation
-to fail. The Agent container did not contain the master computer token. All
-.252 qualification resources were removed. See
-docs/v0.15-computer-internal-topology.md.
+the Core proxy bound to the bridge gateway. In the latest disposable proof the
+computer was `172.31.250.3:4100`, direct public curl was blocked, real Chromium
+reached allowlisted `https://example.com` through the proxy with title
+`Example Domain`, then Browser permission revocation caused the next navigation
+to fail. The Agent container did not contain either host-only master token. All
+qualification resources were removed. See
+`docs/v0.15-computer-internal-topology.md`.
+
+PR #99 is the stacked first browser-mutation slice. It adds only
+`browser_navigate` using `endpoint_id + bounded path`; arbitrary URL input is
+not part of the task contract. Navigation selects a separate
+`computer_navigate_core` Worker with `agent-computer-navigate-v1` authority,
+freezes the exact endpoint-registry and egress-policy identity, revalidates
+permission/backend/endpoint state before and after execution, remains blocked by
+human takeover, and rejects a final cross-origin page even if OpenBot reports
+success. Click/type/key/scroll remain later gates.
 
 Workspace writes, shell, credentials, screenshots in Agent results, host access,
 host fallback and the parked UI remain out of scope. See

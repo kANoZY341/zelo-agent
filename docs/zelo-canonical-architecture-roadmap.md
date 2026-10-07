@@ -529,25 +529,26 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93 is merged as a preserved
-failed Media qualification record; four native-reader refusals remain immutable
-and do not grant runtime authority. PR #98 is the active Core gate.
+Core-first checkpoint (7 October 2026): PR #93 and PR #98 are merged.
+PR #99 named-endpoint navigation is qualified at code head `4d4112c`, tree
+`97afc43c`. Matching full CI passed **4,768 tests/two skips**. Authority remains
+limited to trusted Agent-granted HTTPS endpoint ID + bounded canonical path through
+the separate `computer_navigate_core` Worker; arbitrary URL/query/fragment task
+input, click/type/key/scroll/write/shell and host fallback remain disabled.
 
-PR #98 integrates current main at code-bearing commit `0aac2b7`. The corrected
-internal topology passes **56 focused computer/egress/worker tests** and a fresh
-matching-source live proof on the Zelo host. The exact pinned OpenBot supervisor
-was rebuilt, the Agent computer joined an internal-only `172.30.253.0/24`
-network, Supervisor reported private control at `172.30.253.3:4100`, and Core
-refused a loopback substitute. Direct public egress was blocked; allowlisted
-Chromium navigation succeeded only through the per-Agent Core proxy; Browser
-revocation blocked the next navigation. Neither master token entered the Agent
-container and all disposable resources were removed. No Agent-visible mutation
-action is introduced by PR #98.
+The matching-source real OpenBot proof passed: `example.com` navigation succeeded
+only through Core egress while direct public curl was blocked; final HTTPS
+authority/result bounds passed; human takeover after the browser response caused
+the returned result to be refused before completion; handback succeeded; browser
+permission revocation cancelled the next queued navigation with zero attempts;
+both host master tokens were absent; cleanup left zero disposable proof resources.
+Receipt SHA-256 is `6a62863505da…0761e`; independent stdlib-only audit SHA-256
+is `636234e9aaff…55a5f`. Normal task/conversation projection excludes page text
+and strips final-URL query/fragment data.
 
-Require fresh exact-head CI and final review, then merge PR #98 before PR #99
-(named-endpoint navigation) and PR #100 (governed per-Agent skill learning).
-Click/type/write/shell and arbitrary URLs remain separate later gates. UI #61
-stays parked and v0.14.0 remains unchanged.
+Require docs-only exact-head CI/final review, then merge PR #99 and continue
+PR #100 governed per-Agent skill learning. UI #61 stays parked and v0.14.0
+remains unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -589,9 +590,15 @@ Computer Worker rollout is explicitly phased:
 4. Core-owned browser egress and internal-network topology: no direct public
    computer egress, per-Agent proxy credentials, trusted HTTPS endpoint grants,
    private-CIDR Core control and live revocation;
-5. separately qualified browser mutation actions;
-6. separately qualified workspace writes; and
-7. shell only through an explicit later authority decision.
+5. first browser mutation: **named-endpoint navigation only**, using a separate
+   `computer_navigate` Worker/authority, trusted HTTPS endpoint ID + bounded
+   path, exact endpoint/egress/permission/backend binding and claim/runtime
+   revalidation;
+6. separately qualified interactive browser mutation actions such as
+   click/type/key/scroll, each behind explicit policy rather than inherited from
+   navigation;
+7. separately qualified workspace writes; and
+8. shell only through an explicit later authority decision.
 
 Passing an earlier phase never implicitly grants a later phase. Screenshots may
 be owner-facing through the Computer Panel without automatically becoming

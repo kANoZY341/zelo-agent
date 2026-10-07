@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -221,6 +222,25 @@ def _bounded_projection_text(value: Any, limit: int) -> str | None:
         return value
     marker = "...[truncated]"
     return value[: limit - len(marker)] + marker
+
+
+def _navigation_projection_url(value: Any) -> str | None:
+    """Project a navigation URL without query or fragment data."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return None
+    safe = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return _bounded_projection_json_text(safe, TASK_PROJECTION_PATH_CHARS)
 
 
 def _bounded_projection_exit_code(value: Any) -> int | None:
@@ -542,6 +562,18 @@ def _computer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
             "title": _bounded_projection_json_text(value.get("title"), TASK_PROJECTION_FIELD_CHARS),
             "text_chars": len(text_value) if isinstance(text_value, str) else 0,
             "truncated": value.get("truncated"),
+            "challenge_present": value.get("challenge_present"),
+        }
+    elif action == "browser_navigate" and isinstance(result.get("browser_navigate"), dict):
+        value = result["browser_navigate"]
+        text_value = value.get("text")
+        projection["browser_navigate"] = {
+            "endpoint_id": _bounded_projection_text(value.get("endpoint_id"), 64),
+            "url": _navigation_projection_url(value.get("url")),
+            "title": _bounded_projection_json_text(value.get("title"), TASK_PROJECTION_FIELD_CHARS),
+            "text_chars": len(text_value) if isinstance(text_value, str) else 0,
+            "truncated": value.get("truncated"),
+            "elapsed_ms": value.get("elapsed_ms"),
             "challenge_present": value.get("challenge_present"),
         }
     elif action == "files_list" and isinstance(result.get("files_list"), dict):
@@ -1941,12 +1973,17 @@ class TaskService:
             if request.kind == "computer_run":
                 if self.computer_supervisor is None or agent_execution is None:
                     raise DomainError("Computer worker unavailable", 503)
-                if "computer_read" not in agent_execution.spec.capabilities:
+                required_capability = (
+                    "computer_navigate"
+                    if payload["action"] == "browser_navigate"
+                    else "computer_read"
+                )
+                if required_capability not in agent_execution.spec.capabilities:
                     raise DomainError("Agent computer capability is invalid", 409)
                 try:
                     selected, computer_selection = self.computer_supervisor.select(
                         role="computer",
-                        capabilities=("computer_read",),
+                        capabilities=(required_capability,),
                     )
                     computer_request = selected.worker.bind(
                         computer_selection,
@@ -1954,6 +1991,7 @@ class TaskService:
                         payload["action"],
                         payload.get("path", ""),
                         request.timeout_seconds,
+                        endpoint_id=payload.get("endpoint_id"),
                     )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
@@ -2211,6 +2249,17 @@ class TaskService:
                     action=computer_request.action,
                     permission_version=computer_request.permission_version,
                     backend_identity=computer_request.backend_identity,
+                    endpoint_id=(
+                        computer_request.endpoint.endpoint.endpoint_id
+                        if computer_request.endpoint is not None
+                        else None
+                    ),
+                    endpoint_registry_version=(
+                        computer_request.endpoint.registry_version
+                        if computer_request.endpoint is not None
+                        else None
+                    ),
+                    egress_policy_version=computer_request.egress_policy_version,
                 )
 
             if task.kind == "shell_run":
@@ -3106,12 +3155,17 @@ class TaskService:
                     raise DomainError("Computer worker unavailable", 503)
                 if agent_execution is None:
                     raise DomainError("Computer worker requires Agent execution", 409)
-                if "computer_read" not in agent_execution.spec.capabilities:
+                required_capability = (
+                    "computer_navigate"
+                    if task.payload["action"] == "browser_navigate"
+                    else "computer_read"
+                )
+                if required_capability not in agent_execution.spec.capabilities:
                     raise DomainError("Agent computer capability is invalid", 409)
                 try:
                     selected, selection = self.computer_supervisor.select(
                         role="computer",
-                        capabilities=("computer_read",),
+                        capabilities=(required_capability,),
                     )
                     refreshed_computer = selected.worker.bind(
                         selection,
@@ -3119,6 +3173,7 @@ class TaskService:
                         task.payload["action"],
                         task.payload.get("path", ""),
                         task.timeout_seconds,
+                        endpoint_id=task.payload.get("endpoint_id"),
                     )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
@@ -3150,6 +3205,17 @@ class TaskService:
                     action=refreshed_computer.action,
                     permission_version=refreshed_computer.permission_version,
                     backend_identity=refreshed_computer.backend_identity,
+                    endpoint_id=(
+                        refreshed_computer.endpoint.endpoint.endpoint_id
+                        if refreshed_computer.endpoint is not None
+                        else None
+                    ),
+                    endpoint_registry_version=(
+                        refreshed_computer.endpoint.registry_version
+                        if refreshed_computer.endpoint is not None
+                        else None
+                    ),
+                    egress_policy_version=refreshed_computer.egress_policy_version,
                 )
 
             if task.kind == "shell_run":
@@ -3623,6 +3689,11 @@ class TaskService:
                     computer_request = ComputerExecutionSpec.model_validate(task.computer_spec)
                     selection = computer_request.worker_selection
                     selected = self.computer_supervisor.registry.get(selection.descriptor.worker_id)
+                    required_capability = (
+                        "computer_navigate"
+                        if task.payload["action"] == "browser_navigate"
+                        else "computer_read"
+                    )
                     if (
                         selected is None
                         or not self.computer_supervisor.matches(selection)
@@ -3631,7 +3702,8 @@ class TaskService:
                             computer_request, task.payload, task.timeout_seconds
                         )
                         or computer_request.agent_instance_id != agent_execution.agent_instance_id
-                        or "computer_read" not in agent_execution.spec.capabilities
+                        or required_capability not in agent_execution.spec.capabilities
+                        or tuple(selection.requested_capabilities) != (required_capability,)
                     ):
                         raise ValueError("computer_execution_spec_stale")
                 except ValueError:
@@ -3655,6 +3727,17 @@ class TaskService:
                     action=computer_request.action,
                     permission_version=computer_request.permission_version,
                     backend_identity=computer_request.backend_identity,
+                    endpoint_id=(
+                        computer_request.endpoint.endpoint.endpoint_id
+                        if computer_request.endpoint is not None
+                        else None
+                    ),
+                    endpoint_registry_version=(
+                        computer_request.endpoint.registry_version
+                        if computer_request.endpoint is not None
+                        else None
+                    ),
+                    egress_policy_version=computer_request.egress_policy_version,
                 )
 
             shell_request = None
@@ -4055,6 +4138,10 @@ class TaskService:
                         action=result["action"],
                         agent_instance_id=result["agent_instance_id"],
                     )
+                    if result.get("action") == "browser_navigate" and isinstance(
+                        result.get("browser_navigate"), dict
+                    ):
+                        details["endpoint_id"] = result["browser_navigate"].get("endpoint_id")
                 audit(
                     session,
                     task,

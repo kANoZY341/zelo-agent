@@ -344,6 +344,70 @@ def test_backend_identity_binds_internal_topology():
     assert internal != changed
 
 
+def test_navigation_adapter_is_https_only_and_uses_derived_agent_token():
+    agent_id = "agent-1"
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/computers":
+            return httpx.Response(
+                200,
+                json={
+                    "computers": [
+                        {
+                            "botId": agent_id,
+                            "container": "zelo-computer-agent-1",
+                            "status": "running",
+                            "port": 49152,
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/navigate":
+            assert request.method == "POST"
+            return httpx.Response(
+                200,
+                json={
+                    "url": "https://example.com/docs",
+                    "title": "Example",
+                    "text": "ok",
+                    "truncated": False,
+                    "elapsedMs": 1,
+                    "challenge": None,
+                },
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    backend = OpenBotComputerBackend(
+        settings(),
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(backend.navigate_action(agent_id, "https://example.com/docs"))
+    assert result["title"] == "Example"
+
+    derived = backend.derive_agent_token(agent_id)
+    computer_request = calls[-1]
+    assert computer_request.headers["authorization"] == f"Bearer {derived}"
+    assert computer_request.headers["x-openbot-bot-id"] == agent_id
+    assert ("c" * 24) not in str(dict(computer_request.headers))
+
+    for bad in (
+        "http://example.com/",
+        "https://user:pass@example.com/",
+        " https://example.com/",
+        "https://EXAMPLE.com/",
+        "HTTPS://example.com/",
+        "https://example.com/\nnext",
+    ):
+        with pytest.raises(
+            ComputerBackendError,
+            match="computer_navigation_url_invalid",
+        ):
+            asyncio.run(backend.navigate_action(agent_id, bad))
+
+
 def test_hardened_supervisor_network_mode_never_prefers_published_loopback():
     source = Path("deployment/agent-computers/harden-supervisor.mjs").read_text()
     assert "...(!network && port ? { port } : {})," in source

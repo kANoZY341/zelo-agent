@@ -10,7 +10,7 @@ from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentComputerSpec, AgentSpec
 from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
 from app.browser_contracts import BrowserExecutionSpec
-from app.computer_contracts import ComputerExecutionSpec, ComputerReadAction
+from app.computer_contracts import ComputerAction, ComputerExecutionSpec
 from app.developer_contracts import (
     DeveloperRequest,
     ReviewerReport,
@@ -180,11 +180,27 @@ class BrowserRunInput(TaskInput):
 
 
 class ComputerPayload(StrictModel):
-    action: ComputerReadAction
-    path: str = Field(default="", max_length=1024)
+    action: ComputerAction
+    endpoint_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+    )
+    path: str = Field(default="", max_length=API_PATH_LIMIT)
 
     @model_validator(mode="after")
     def _validate_path(self):
+        if self.action == "browser_navigate":
+            if self.endpoint_id is None:
+                raise ValueError("computer_navigation_endpoint_required")
+            ApiPayload(endpoint_id=self.endpoint_id, path=self.path)
+            return self
+
+        if self.endpoint_id is not None:
+            raise ValueError("computer_read_endpoint_forbidden")
+        if len(self.path) > 1024:
+            raise ValueError("computer_path_invalid")
         if (
             self.path.startswith("/")
             or chr(92) in self.path
@@ -231,6 +247,16 @@ class ComputerBrowserReadResult(StrictModel):
     challenge_present: bool
 
 
+class ComputerBrowserNavigateResult(StrictModel):
+    endpoint_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    url: str = Field(max_length=2048)
+    title: str = Field(max_length=512)
+    text: str = Field(max_length=6000)
+    truncated: bool
+    elapsed_ms: int = Field(ge=0, le=300_000)
+    challenge_present: bool
+
+
 class ComputerFileEntry(StrictModel):
     path: str = Field(min_length=1, max_length=1024)
     kind: Literal["file", "folder"]
@@ -251,10 +277,11 @@ class ComputerFilesReadResult(StrictModel):
 
 
 class ComputerRunResult(StrictModel):
-    action: ComputerReadAction
+    action: ComputerAction
     agent_instance_id: TaskId
     browser_snapshot: ComputerBrowserSnapshotResult | None = None
     browser_read: ComputerBrowserReadResult | None = None
+    browser_navigate: ComputerBrowserNavigateResult | None = None
     files_list: ComputerFilesListResult | None = None
     files_read: ComputerFilesReadResult | None = None
     completed_at: datetime
@@ -264,12 +291,19 @@ class ComputerRunResult(StrictModel):
         expected = {
             "browser_snapshot": "browser_snapshot",
             "browser_read": "browser_read",
+            "browser_navigate": "browser_navigate",
             "files_list": "files_list",
             "files_read": "files_read",
         }[self.action]
         populated = [
             field
-            for field in ("browser_snapshot", "browser_read", "files_list", "files_read")
+            for field in (
+                "browser_snapshot",
+                "browser_read",
+                "browser_navigate",
+                "files_list",
+                "files_read",
+            )
             if getattr(self, field) is not None
         ]
         if populated != [expected]:
