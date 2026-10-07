@@ -606,6 +606,14 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
+The WhatsApp provider-integrity follow-up remains an independent,
+unmerged gate: Meta `X-Hub-Signature-256` is verified over the exact
+raw webhook bytes using the trusted server's App Secret. Signature validity
+alone is **not** provider-account ownership, event freshness, replay
+protection, Mind admission or authority to reply. See
+`docs/v0.16-whatsapp-signature-foundation.md`. This offline verifier is
+not connected to HTTP or messaging APIs.
+
 PR #108 is the contract-only v0.16 foundation: transport-neutral,
 **non-authoritative** channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn
