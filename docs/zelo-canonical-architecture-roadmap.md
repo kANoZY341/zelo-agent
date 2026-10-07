@@ -525,30 +525,25 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (5 October 2026): PR #92 is merged. PR #93 corrected
-source passed **4,569 CI tests/two skips**; native-reader attempt **1/2** was
-REFUSED at lease preflight before image build and remains retained/fenced. No
-package matrix, cgroup success or runtime authority was accepted.
+Core-first checkpoint (7 October 2026): PR #93 remains draft at integration
+head `3374353`; exact-head CI passed **4,734 tests/two skips**. Four authorized
+synthetic native-reader attempts are retained and REFUSED: attempt 1 at
+lease-preflight, attempts 2–4 at Docker build. Attempt 4 retained a bounded
+exit-2 build failure with 20,851 stderr bytes; cleanup proved zero labelled
+containers/images and an empty admission marker/lock. No success receipt or
+runtime authority exists and no fifth attempt is authorized.
 
-One separate reconciliation run succeeded at PR93 head bcf6c1a. The independent
-evidence audit verified the failed policy/proof pins remained unchanged, durable
-reconciliation evidence was retained, and the marker was cleared after evidence
-fsync. It records zero exact lease resources before and after the **global
-two-second Docker-daemon event silence window**. Attempt 1 was not reset, deleted
-or rewritten; reconciliation does not convert refusal into success. The Aegis
-build overlapping the refusal remains a confounder, **not proven causation**.
-
-PR93 integrates then-current main b67d0d8 with no conflicts. The integrated tree
-passes **57 focused reconciliation/operator tests**, **4,674 full tests**, Ruff
-lint/format and diff checks. The prior recovery validation passed **211 focused
-tests** and **2,790 combined Media/context checks**. Reconciliation/operator
-sources retain the reviewed hashes. USTAR stays narrow; GNU/PAX remain unsupported.
-
-The sole remaining native attempt **2/2 has not run and is not cleared**. Require
-exact-head CI, fresh exact-source review, all runtime preconditions and separate
-specific authority before considering it. Real package/runtime/import and
-image-decoder closure, Core binding and release remain. UI #61 and v0.14.0 stay
-unchanged.
+A separate build-only diagnostic succeeded using the same bundle/Dockerfile bytes
+without touching the proof ledger. Investigation isolated a deterministic
+environment mismatch: diagnostic Docker calls carried fixed PATH/HOME/LANG plus
+DOCKER_CONFIG, while qualification supplied only DOCKER_CONFIG before
+GOMAXPROCS=2. The implementation now shares one fail-closed Docker environment;
+this is a plausible explanation, **not proven causation**. Native-reader/recovery
+tests pass 412 cases and the broader Media/context regression passes 2,855 cases after the correction. Require full regression, exact-head CI
+and final review before merging PR #93 as the preserved qualification record.
+Media still needs a separately authorized future native proof before real package
+streaming, then runtime/import/image-decoder closure and Core binding. USTAR
+remains narrow; GNU/PAX remain unsupported. UI #61 and v0.14.0 stay unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

@@ -352,9 +352,25 @@ def _copy_context(attempt, lease_identity, runtime_root=None):
     return value, manifest
 
 
+def _docker_environment(config):
+    """Return the exact fail-closed environment for trusted Docker CLI calls."""
+    config = Path(config)
+    if not config.is_absolute():
+        raise ValueError("reader_native_docker_config")
+    return {
+        "DOCKER_CONFIG": str(config),
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+    }
+
+
 def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     if type(argv) not in (tuple, list) or not argv or argv[0] != setup.DOCKER:
         raise ValueError("reader_native_docker_command")
+    expected_keys = {"DOCKER_CONFIG", "HOME", "LANG", "PATH"}
+    if type(environment) is not dict or set(environment) != expected_keys:
+        raise ValueError("reader_native_docker_environment")
     # Keep the trusted Go CLI inside the operator's fixed address-space cap.
     docker_environment = {**environment, "GOMAXPROCS": "2"}
     if len(argv) > 2 and argv[2] == "build":
@@ -533,12 +549,7 @@ def _docker_readiness(runtime_root=None):
     with tempfile.TemporaryDirectory(prefix="native-reader-readiness-", dir=runtime) as raw_dir:
         config = Path(raw_dir)
         os.chmod(config, 0o700)
-        environment = {
-            "DOCKER_CONFIG": str(config),
-            "HOME": "/nonexistent",
-            "LANG": "C.UTF-8",
-            "PATH": "/usr/bin:/bin",
-        }
+        environment = _docker_environment(config)
         raw = _docker(
             (
                 setup.DOCKER,
@@ -933,7 +944,7 @@ async def _qualify(runtime_root=None):
         store.json("policy.json", spec)
         docker_config = attempt / "docker-config"
         docker_config.mkdir(mode=0o700)
-        environment = {"DOCKER_CONFIG": str(docker_config)}
+        environment = _docker_environment(docker_config)
         stage = "lease-preflight-container"
         _require_empty_lease("container", lease.identity, environment)
         stage = "lease-preflight-image"

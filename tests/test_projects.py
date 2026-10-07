@@ -93,28 +93,30 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     active_compact = " ".join(active_status.split())
     assert active_status.startswith("## Active increment: v0.15 Media native-reader")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #92" in active_status
     assert "PR #93" in active_status
-    assert "4,569 CI" in active_status
-    assert "1/2 consumed" in active_status
-    assert "lease-preflight" in active_status
-    assert "global two-second Docker event silence window" in active_compact
+    assert "4,734 tests" in active_status
+    assert "four" in active_status.lower()
+    assert "native-reader-proof-kvhyvgri" in active_status
+    assert "20,851 bytes" in active_status
+    assert "zero labelled images/containers" in active_status
+    assert "fail-closed Docker environment" in active_compact
     assert "not proven causation" in active_status
-    assert "211 focused native-reader/reconciliation tests" in active_compact
-    assert "2,790 combined" in active_compact
-    assert "then-current main" in active_compact
+    assert "412 cases" in active_status
+    assert "2,855 cases" in active_status
+    assert "no fifth proof attempt" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #93" in roadmap_compact
-    assert "4,569 CI" in roadmap_compact
-    assert "attempt **1/2**" in roadmap_compact
-    assert "global two-second Docker-daemon event silence window" in roadmap_compact
+    assert "4,734 tests/two skips" in roadmap_compact
+    assert "Four authorized" in roadmap_compact
+    assert "20,851 stderr bytes" in roadmap_compact
+    assert "fail-closed Docker environment" in roadmap_compact
     assert "not proven causation" in roadmap_compact
-    assert "211 focused tests" in roadmap_compact
-    assert "2,790 combined Media/context checks" in roadmap_compact
-    assert "then-current main" in roadmap_compact
+    assert "412 cases" in roadmap_compact
+    assert "2,855 cases" in roadmap_compact
+    assert "no fifth attempt" in roadmap_compact
     assert "GNU/PAX" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")

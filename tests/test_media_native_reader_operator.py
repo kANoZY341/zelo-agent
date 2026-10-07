@@ -427,8 +427,29 @@ def test_lease_preflight_accepts_empty_namespace(monkeypatch, kind):
     assert calls == [kind]
 
 
+def test_docker_environment_is_exact_and_does_not_inherit_host(tmp_path):
+    config = (tmp_path / "docker-config").resolve()
+    value = q._docker_environment(config)
+    assert value == {
+        "DOCKER_CONFIG": str(config),
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+    }
+
+
+def test_docker_environment_requires_absolute_config():
+    with pytest.raises(ValueError, match="reader_native_docker_config"):
+        q._docker_environment(Path("relative"))
+
+
 def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
-    original = {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "999"}
+    original = {
+        "DOCKER_CONFIG": "/private",
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+    }
     seen = []
 
     def command(argv, timeout, environment, *, stdout_limit, drain_output_overflow=False):
@@ -440,12 +461,25 @@ def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
     assert q._docker(argv, original, stdout_limit=0) == b"ok"
     build_argv = (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build")
     assert q._docker(build_argv, original) == b"ok"
-    assert original["GOMAXPROCS"] == "999"
+    assert "GOMAXPROCS" not in original
     assert seen[0][0] == list(argv)
-    assert seen[0][2] == {"DOCKER_CONFIG": "/private", "GOMAXPROCS": "2"}
+    assert seen[0][2] == {
+        "DOCKER_CONFIG": "/private",
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "GOMAXPROCS": "2",
+    }
     assert seen[0][3:] == (0, False)
     assert seen[1][0] == list(build_argv)
     assert seen[1][4] is True
+
+
+def test_docker_refuses_partial_environment(monkeypatch):
+    monkeypatch.setattr(q.browser_setup, "_command", lambda *a, **k: pytest.fail("spawned"))
+    argv = (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "version")
+    with pytest.raises(ValueError, match="reader_native_docker_environment"):
+        q._docker(argv, {"DOCKER_CONFIG": "/private"})
 
 
 @pytest.mark.parametrize(

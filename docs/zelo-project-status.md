@@ -6,34 +6,37 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader reconciliation
+## Active increment: v0.15 Media native-reader qualification
 
-Core v0.15 stays active; UI is parked. PR #92 merged at f05abe1. PR #93's
-corrected source passed **4,569 CI tests with two skips**. Native-reader attempt
-**1/2 consumed** and REFUSED at lease-preflight before image build or package
-matrix. Its failure remains retained and is not a success receipt. The
-overlapping Aegis Docker build is a confounder, not proven causation.
+Core v0.15 stays active; UI is parked. PR #93 remains draft at integration head
+`337435398356dd84f57b38d77a43c6549d3c506b`, tree
+`402ce08912876f8e3d33507ac9fb1b284ca6b1a2`. Exact-head CI
+`37601387861` passed **4,734 tests with two skips** plus Ruff/diff checks.
 
-One reconciliation run succeeded at PR93 head bcf6c1a. Independent post-run
-audit verified the pinned attempt-1 policy/proof unchanged, the admission marker
-cleared only after durable evidence, and zero exact-lease containers/images before
-and after the **global two-second Docker event silence window**. The retained
-evidence SHA-256 is
-04fc0c4607922f24c3aea63fa5bd72a27334ae652174d4b51f12e039d155dad1.
-Attempt 1 was not reset, deleted or rewritten. Reconciliation grants no native
-runtime authority.
+All **four** authorized native-reader attempts are permanently consumed and
+REFUSED; none is a success receipt. Attempt 1 stopped at lease-preflight.
+Attempts 2, 3 and 4 stopped during Docker build. Attempt 4 is
+`native-reader-proof-kvhyvgri`: policy SHA-256
+`51a8532bf63d2f603d6e671815850aa86e7984b7040918e0e86fe04569a364b6`,
+proof SHA-256
+`2c3bd1f7b130d3ce57bf317b5119971cdb30b68820b2e4f19503c1c0d14e1251`.
+Its build exited 2 after stderr reached 20,851 bytes and overflowed the bounded
+capture. Cleanup found zero labelled images/containers; admission marker/lock are
+empty. No attempt is reset, retried, deleted or reclassified.
 
-PR93 now integrates then-current main at b67d0d8; the merge had no conflicts.
-The integrated tree passes **57 focused reconciliation/operator tests** and
-**4,674 full tests**, plus Ruff lint/format and diff checks. The six reviewed
-reconciliation/operator source hashes remain unchanged. The prior offline
-recovery validation also passed **211 focused native-reader/reconciliation tests**
-and **2,790 combined Media/context tests**.
+The separate build-only diagnostic succeeded on the exact same retained bundle
+(`0f53fb…`) and Dockerfile (`a097907d…`) without touching the proof ledger.
+Comparison found a concrete execution-context mismatch: the successful diagnostic
+used exact PATH/HOME/LANG/DOCKER_CONFIG while the qualifier build supplied only
+DOCKER_CONFIG before fixed GOMAXPROCS=2 was added. The code now shares one
+fail-closed Docker environment across readiness, diagnostics and qualification.
+This is a plausible cause, **not proven causation**. Native-reader tests pass
+412 cases and the broader Media/context regression passes 2,855 cases after the change; no fifth proof attempt is authorized.
 
-The final native attempt **2/2 has not run and is not cleared**. Next: exact-head
-CI and fresh source review on the integrated commit, then separately confirm every
-attempt-2 precondition and its required authority. No acquired package, Pillow
-decode, Core binding, enabled flag or UI work is cleared.
+Next: full regression/CI and final review of this environment correction, then
+close PR #93 as a preserved failed qualification record unless a separately
+reviewed future proof budget is explicitly authorized. No acquired package,
+Pillow decode, Core binding, enabled flag or UI work is cleared.
 
 ## Checkpoint history
 

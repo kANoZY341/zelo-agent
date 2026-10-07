@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import stat
+from pathlib import Path
 
 from qualification import media_reader_image as image
 from qualification import media_reader_setup as setup
@@ -193,3 +194,37 @@ def test_timeout_and_cleanup_failure_keep_partial_redacted_output(tmp_path, monk
     assert receipt["cleanup_confirmed"] is False
     assert receipt["cleanup_errors"] == ["owned_resource_cleanup_unconfirmed"]
     assert receipt["temporary_context_removed"] is True
+
+
+def test_diagnostic_uses_shared_exact_docker_environment(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    runtime.mkdir(mode=0o700)
+    observed = []
+
+    def fake_copy_context(attempt, lease_identity, runtime_root):
+        manifest = image.ImageManifest((), "c" * 64)
+        plan = setup.plan(attempt.resolve(), lease_identity, manifest)
+        plan.context.mkdir(mode=0o700)
+        plan.dockerfile.write_bytes(b"FROM scratch\n")
+        plan.dockerfile.chmod(0o600)
+        return plan, manifest
+
+    def fake_docker(argv, environment, timeout=20, *, stdout_limit=131072):
+        observed.append(dict(environment))
+        return b""
+
+    monkeypatch.setattr(reader, "_copy_context", fake_copy_context)
+    monkeypatch.setattr(reader, "_docker", fake_docker)
+    monkeypatch.setattr(reader, "_cleanup_owned", lambda identity, environment: True)
+
+    _, receipt = diagnostic.run_build_diagnostic(runtime)
+    assert receipt["build_status"] == "succeeded"
+    assert len(observed) == 1
+    config = Path(observed[0]["DOCKER_CONFIG"])
+    assert config.name == "docker-config"
+    assert observed[0] == {
+        "DOCKER_CONFIG": str(config),
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+    }

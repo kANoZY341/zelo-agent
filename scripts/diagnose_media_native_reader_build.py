@@ -133,12 +133,7 @@ def run_build_diagnostic(runtime_root: Path, receipt_dir: Path | None = None) ->
             raise ValueError("diagnostic_receipt_inside_context")
         docker_config = temp_context / "docker-config"
         docker_config.mkdir(mode=0o700)
-        environment = {
-            "PATH": "/usr/bin:/bin",
-            "HOME": "/nonexistent",
-            "LANG": "C.UTF-8",
-            "DOCKER_CONFIG": str(docker_config),
-        }
+        environment = reader._docker_environment(docker_config)
         try:
             build_plan, manifest = reader._copy_context(temp_context, lease_identity, runtime_root)
             bundle_sha256 = manifest.digest
