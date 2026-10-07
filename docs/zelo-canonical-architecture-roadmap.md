@@ -618,15 +618,23 @@ any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
 
-PR #109 is the separate draft Core binding/observation ledger, based on
-merged PR #108: an Ahmad-selected opaque thread may map to an existing
-Mind conversation, but that
-mapping is not provider authentication. Only message ID, text digest and UTC
-metadata are retained with append-only replay checks; no external webhook,
-message-to-Mind admission, delivery receipt or send authority is granted.
-Integrated migration/channel/Mind/scheduler tests passed 266 cases locally
-before the current concurrent-replay regression. Full exact-head CI remains
-required. Provider verification and outbound approval are later gates.
+Merged PR #109 (bd586aa, 4,985 passed and 2 skipped) provides the
+separate Core binding/observation ledger: an Ahmad-selected opaque thread
+may map to an existing Mind conversation, but that mapping is not provider
+authentication. Only message ID, text digest and UTC metadata are retained
+with append-only replay checks; no external webhook, message-to-Mind admission,
+delivery receipt or send authority is granted.
+
+The distinct operator-selected WhatsApp account ledger is a later, **inert**
+Core gate. It records a chosen opaque WABA+receiving-phone identity bound to
+an opaque trusted Meta App Secret identity, supports exact idempotent selection
+and append-only irreversible revocation, but permanently denies claiming
+provider authenticity, Mind admission or delivery authority. No secrets,
+plaintext account IDs, ingress adapter, worker or API route are connected.
+See `docs/v0.16-channel-operator-account-selection.md`. A future separately
+qualified provider adapter must compare the signed, parsed provider facts
+against a still-current operator choice and live trusted secret/registry
+binding before any replay or Mind admission. Outbound approval is later.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
