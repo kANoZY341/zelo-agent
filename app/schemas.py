@@ -804,6 +804,32 @@ class AgentInstancePage(StrictModel):
     total: int = Field(ge=0)
 
 
+class AgentLearnedSkillItem(StrictModel):
+    proposal_id: TaskId
+    source_skill_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    source_skill_version: int = Field(ge=1)
+    procedure_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    proposed_version: int = Field(ge=1)
+    revision_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    prior_revision_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    status: Literal["proposed", "accepted", "rejected"]
+    evidence_count: int = Field(ge=1, le=16)
+    review_id: TaskId | None = None
+    review_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    promoted: Literal[False] = False
+    active_revision_sha256: Literal[None] = None
+    runtime_authority: Literal[False] = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentLearnedSkillPage(StrictModel):
+    items: list[AgentLearnedSkillItem]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
 class AgentComputerPermissionPatch(StrictModel):
     enabled: bool | None = None
     browser: bool | None = None

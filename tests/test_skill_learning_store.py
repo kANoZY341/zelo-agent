@@ -45,6 +45,7 @@ from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_so
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
 from app.tasks import TaskService
+from tests.conftest import AUTH
 from tests.test_agent_execution import direct_services, project
 from tests.test_skill_learning import revision
 
@@ -709,3 +710,72 @@ def test_stale_evidence_after_acceptance_blocks_candidate(tmp_path, proposal_cas
             principal=OperatorPrincipal(),
         )
     assert not list(tmp_path.rglob("*.json"))
+
+
+def test_agent_learned_skill_projection_is_bounded_metadata_only(client, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    client.app.state.skill_learning_store = store
+    proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
+
+    response = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH)
+    assert response.status_code == 200, response.text
+    page = response.json()
+    assert page["total"] == 1
+    assert page["limit"] == 20
+    item = page["items"][0]
+    assert item == {
+        "proposal_id": proposed.proposal.proposal_id,
+        "source_skill_id": proposed.proposal.source_skill_id,
+        "source_skill_version": proposed.proposal.source_skill_version,
+        "procedure_id": revision.procedure_id,
+        "proposed_version": revision.version,
+        "revision_sha256": revision.content_sha256,
+        "prior_revision_sha256": None,
+        "status": "proposed",
+        "evidence_count": 1,
+        "review_id": None,
+        "review_fingerprint": None,
+        "promoted": False,
+        "active_revision_sha256": None,
+        "runtime_authority": False,
+        "created_at": item["created_at"],
+        "updated_at": item["updated_at"],
+    }
+    serialized = json.dumps(page, sort_keys=True)
+    assert revision.instructions not in serialized
+    assert ref.source_id not in serialized
+    assert ref.content_sha256 not in serialized
+
+
+def test_agent_learned_skill_projection_shows_review_identity_without_content(
+    client, proposal_case
+):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    client.app.state.skill_learning_store = store
+    proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
+    reviewed, _ = store.record_review(
+        proposed.proposal.proposal_id, review_request(), OperatorPrincipal()
+    )
+
+    response = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH)
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["status"] == "accepted"
+    assert item["review_id"] == reviewed.review.review_id
+    assert item["review_fingerprint"] == reviewed.review.review_fingerprint
+    assert item["promoted"] is False
+    assert item["active_revision_sha256"] is None
+    assert item["runtime_authority"] is False
+
+
+def test_agent_learned_skill_projection_requires_existing_agent_and_operator(client, proposal_case):
+    store, agent, _task, _attempt, _revision, _ref = proposal_case
+    client.app.state.skill_learning_store = store
+    unauthenticated = client.get(
+        f"/agents/{agent.id}/learned-skills", headers={"Authorization": ""}
+    )
+    assert unauthenticated.status_code == 401
+
+    missing = "00000000-0000-4000-8000-000000000001"
+    response = client.get(f"/agents/{missing}/learned-skills", headers=AUTH)
+    assert response.status_code == 404
