@@ -82,8 +82,44 @@ def _validate_text(text: str, digest: str) -> None:
         raise ValueError("channel_text_digest_mismatch")
 
 
+def channel_message_fingerprint(thread_fingerprint: str, message_key: str) -> str:
+    for value in (thread_fingerprint, message_key):
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value)
+        ):
+            raise ValueError("channel_message_identity_invalid")
+    return _fingerprint(
+        "channel-message-v1",
+        {"conversation": thread_fingerprint, "message": message_key},
+    )
+
+
 class ChannelContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+
+class ChannelThreadBindingSpec(ChannelContract):
+    """Operator-selected opaque channel/thread identity; not provider authentication."""
+
+    channel: ChannelName
+    account_key: OpaqueKey
+    sender_key: OpaqueKey
+    thread_key: OpaqueKey
+    provider_authenticated: Literal[False] = False
+    transport_authority: Literal[False] = False
+
+    def fingerprint(self) -> str:
+        return _fingerprint(
+            "channel-conversation-v1",
+            {
+                "channel": self.channel,
+                "account": self.account_key,
+                "sender": self.sender_key,
+                "thread": self.thread_key,
+            },
+        )
 
 
 class ChannelTextIngress(ChannelContract):
@@ -114,26 +150,17 @@ class ChannelTextIngress(ChannelContract):
     def conversation_fingerprint(self) -> str:
         """Scoped provider-thread identity, not a Zelo conversation binding."""
 
-        return _fingerprint(
-            "channel-conversation-v1",
-            {
-                "channel": self.channel,
-                "account": self.account_key,
-                "sender": self.sender_key,
-                "thread": self.thread_key,
-            },
-        )
+        return ChannelThreadBindingSpec(
+            channel=self.channel,
+            account_key=self.account_key,
+            sender_key=self.sender_key,
+            thread_key=self.thread_key,
+        ).fingerprint()
 
     def message_fingerprint(self) -> str:
         """Stable across exact provider retries; independent of mutable text."""
 
-        return _fingerprint(
-            "channel-message-v1",
-            {
-                "conversation": self.conversation_fingerprint(),
-                "message": self.message_key,
-            },
-        )
+        return channel_message_fingerprint(self.conversation_fingerprint(), self.message_key)
 
     def idempotency_key(self) -> str:
         """Reserved for a future Core-verified ingress adapter, never public HTTP."""

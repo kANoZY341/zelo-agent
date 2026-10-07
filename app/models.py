@@ -769,6 +769,96 @@ class ConversationTurn(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class ChannelThreadBindingRecord(Base):
+    """Operator-approved opaque thread-to-conversation binding; never delivery authority."""
+
+    __tablename__ = "channel_thread_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "channel",
+            "account_key",
+            "sender_key",
+            "thread_key",
+            name="uq_channel_bound_thread_identity",
+        ),
+        CheckConstraint(
+            "length(thread_fingerprint) = 64 AND thread_fingerprint NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_thread_fingerprint",
+        ),
+        CheckConstraint(
+            "channel IN ('browser_text','whatsapp','email')", name="ck_channel_thread_kind"
+        ),
+        CheckConstraint(
+            "length(account_key) = 64 AND account_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_account_key",
+        ),
+        CheckConstraint(
+            "length(sender_key) = 64 AND sender_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_sender_key",
+        ),
+        CheckConstraint(
+            "length(thread_key) = 64 AND thread_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_thread_key",
+        ),
+        CheckConstraint("operator_id = 'ahmad'", name="ck_channel_thread_operator"),
+        CheckConstraint("provider_authenticated = 0", name="ck_channel_thread_unverified"),
+        CheckConstraint("transport_authority = 0", name="ck_channel_thread_transport"),
+    )
+
+    thread_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    channel: Mapped[str] = mapped_column(String(32))
+    account_key: Mapped[str] = mapped_column(String(64))
+    sender_key: Mapped[str] = mapped_column(String(64))
+    thread_key: Mapped[str] = mapped_column(String(64))
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), index=True)
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    provider_authenticated: Mapped[bool] = mapped_column(Boolean, default=False)
+    transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class ChannelIngressObservationRecord(Base):
+    """Bounded unverified message-id metadata; never an admitted Mind turn."""
+
+    __tablename__ = "channel_ingress_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "thread_fingerprint",
+            "message_key",
+            name="uq_channel_ingress_message_identity",
+        ),
+        CheckConstraint(
+            "length(message_fingerprint) = 64 AND message_fingerprint NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_message_fingerprint",
+        ),
+        CheckConstraint(
+            "length(message_key) = 64 AND message_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_message_key",
+        ),
+        CheckConstraint(
+            "length(text_sha256) = 64 AND text_sha256 NOT GLOB '*[^0-9a-f]*'",
+            name="ck_channel_hex_text_sha256",
+        ),
+        CheckConstraint("operator_id = 'ahmad'", name="ck_channel_observation_operator"),
+        CheckConstraint("state = 'unverified'", name="ck_channel_observation_state"),
+        CheckConstraint("mind_executed = 0", name="ck_channel_observation_mind"),
+        CheckConstraint("delivery_authority = 0", name="ck_channel_observation_delivery"),
+    )
+
+    message_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    thread_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("channel_thread_bindings.thread_fingerprint"), index=True
+    )
+    message_key: Mapped[str] = mapped_column(String(64))
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    provider_received_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    state: Mapped[str] = mapped_column(String(16), default="unverified")
+    mind_executed: Mapped[bool] = mapped_column(Boolean, default=False)
+    delivery_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 
