@@ -750,6 +750,9 @@ def test_agent_learned_skill_projection_is_metadata_only(client, proposal_case):
     assert item["promotion_status"] == "not_eligible"
     assert item["active_revision_sha256"] is None
     assert item["runtime_authority"] is False
+    other = store.list_for_agent("00000000-0000-4000-8000-000000000002")
+    assert other.total == 0
+    assert other.items == ()
     serialized = json.dumps(page, sort_keys=True)
     assert revision_value.instructions not in serialized
     assert "verification_steps" not in serialized
