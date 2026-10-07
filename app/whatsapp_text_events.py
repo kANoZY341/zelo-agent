@@ -142,7 +142,24 @@ def extract_signed_whatsapp_text_event(
     if statuses is not None or value.get("errors"):
         raise ValueError("whatsapp_text_payload_unsupported")
     message = _object(_only_item(messages))
-    if message.get("type") != "text" or "errors" in message:
+    # A type=text claim with any simultaneously populated non-text payload
+    # must not be silently downgraded into an apparently ordinary text turn.
+    other_message_kinds = {
+        "audio",
+        "video",
+        "image",
+        "document",
+        "sticker",
+        "interactive",
+        "location",
+        "contacts",
+        "order",
+        "reaction",
+        "button",
+        "system",
+        "errors",
+    }
+    if message.get("type") != "text" or any(kind in message for kind in other_message_kinds):
         raise ValueError("whatsapp_text_payload_unsupported")
     sender = _provider_id(message.get("from"), _SENDER_ID)
     message_id = _provider_id(message.get("id"), _MESSAGE_ID)

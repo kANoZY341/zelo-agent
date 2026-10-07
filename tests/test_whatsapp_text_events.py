@@ -133,6 +133,12 @@ def test_same_json_data_requires_signature_on_actual_raw_bytes():
         lambda x: x["entry"][0]["changes"][0]["value"]["messages"][0].update(
             errors=[{"code": 123}]
         ),
+        lambda x: x["entry"][0]["changes"][0]["value"]["messages"][0].update(
+            image={"id": "fake-media"}
+        ),
+        lambda x: x["entry"][0]["changes"][0]["value"]["messages"][0].update(
+            interactive={"type": "button_reply"}
+        ),
         lambda x: x["entry"][0]["changes"][0]["value"].update(errors=[{"code": 123}]),
     ],
 )
