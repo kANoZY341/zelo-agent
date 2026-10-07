@@ -529,28 +529,28 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): merged PRs #93, #98, #99, #100,
-including #102, #103, #104 and #105. PR #105 adds a read-only trusted historical
-promoted-revision resolver and extends CI job headroom to 30 minutes. It does
-not activate learned content.
+Core-first checkpoint (8 October 2026): merged PRs #93, #98, #99, #100,
+including #102, #103, #104, #105 and #106. PR #106 adds trusted exact
+promoted-predecessor binding for version 2+ learned proposals. This still
+does not activate learned content.
 
-PR #106 is the active v0.15 gate for **trusted prior-revision binding**. For version N>=2,
-Core resolves the exact promoted version N-1 for the same AgentInstance, source
-Skill and procedure. The proposal must have an exact prior SHA-256 and pass the
-existing capability/task/tool/Space envelope; version 1 remains backward
-compatible. Historical v2 reviews remain valid even after v3 is proposed.
-Duplicate promoted heads, version gaps, wrong prior hash, missing promotion,
-repository drift and histories exceeding 64 entries fail closed. Cross-Agent
-promoted revisions cannot be borrowed.
+The active v0.15 follow-up is **promoted-head admission**: Core refuses a
+brand-new proposal at or below the latest promoted version for the same
+AgentInstance/Skill/procedure. Exact stored-proposal retries remain
+idempotent, and historical accepted reviews/proof links remain
+revalidatable. Proposed future versions still require the exact promoted
+N-1 and all trusted authority-envelope restrictions.
 
-The binding is only a Core proposal-construction/revalidation prerequisite.
-It does not add a new API/task, runtime Skill Registry consumer, activation
-grant, automatic review or Promotion action. runtime_authority=false remains
-in force. Runtime learned-skill loading requires a separate future gate.
+A critical limitation remains: historical competing candidates created
+before promotion could still result in an ambiguous promotion history.
+The read-only resolver refuses such heads; preventing the second
+publication needs a separate promotion-time exclusivity gate. No worker,
+task, tool, computer, AgentSpec or active registry authority changes.
+No automatic promotion or runtime skill activation is included.
 
-Focused prior-resolution suite: 20 passed. Refreshed integrated learning/promotion/Agent/database/context suite:
-203 passed, including the cross-Agent isolation regression. Require refreshed integrated validation, exact-head CI and
-final source review. UI PR #61 remains parked.
+Local focused admission/ambiguity checks: 3 passed; integrated
+resolver/promotion/learning/Agent/context gate: 177 passed. Require
+fresh exact-head full CI and source review. UI PR #61 stays parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
