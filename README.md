@@ -1224,16 +1224,24 @@ real-package, image-decoder or Core runtime authority.
   tests/test_media_reader_process.py
 ```
 
-The native proof ledger retains two refused synthetic attempts. A separately
-authorized, one-use additional-attempt grant is implemented by
-`scripts/grant_media_native_reader_extra_attempt.py --grant-once --runtime-root
-<the-original-bound-runtime-root>`. It checks the path-bound scope, both unchanged
-proofs, the first reconciliation, clean reviewed source, empty admission marker,
-and zero Media-reader-labelled Docker resources around a quiet daemon window.
-It appends a private grant record without editing the old proofs. The qualifier
-accepts exactly one additional attempt only when that record validates; creating
-that attempt consumes the new budget even if the run refuses. The operator and
-grant require separate explicit approval and current-head validation. Neither
-action grants real-package, decoder, or Core runtime authority.
+The native proof ledger now retains **four refused synthetic attempts**. All
+four authorized attempts are consumed; none produced a native success receipt.
+Attempt 1 refused at lease-preflight and attempts 2–4 refused during Docker build.
+Do not retry, reset, delete or reclassify those records. The v2 append-only grant
+authorized only attempt 4 and is consumed; no fifth proof attempt is authorized.
+
+A separate build-only diagnostic succeeded without touching the proof ledger.
+The successful diagnostic and qualifier were confirmed to use the same retained
+bundle/Dockerfile bytes and network-none/pull-false build flags. Investigation
+found that the diagnostic supplied a fixed PATH/HOME/LANG/DOCKER_CONFIG while
+qualification supplied only DOCKER_CONFIG before GOMAXPROCS=2. The current code
+uses one exact fail-closed Docker environment for readiness, diagnostic and
+qualification. This is a plausible cause of the build discrepancy, not proven
+causation, and it does not create a new proof budget.
+
+Current correction validation passes 52 focused environment/diagnostic tests,
+412 native-reader/recovery tests and 2,855 Media/context tests. PR #93 still needs
+matching full CI and final review and remains a failed qualification record until
+then. Real-package, decoder and Core runtime authority remain disabled.
 
 See [the offline contract and next gates](docs/v0.15-media-native-reader-container.md).

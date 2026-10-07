@@ -78,47 +78,61 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is PR93's native-reader runtime-scope binding gate after the
-authorized attempt-1 reconciliation. Attempt 1 remains refused and consumed;
-attempt 2/2 is not cleared. Continue Core; UI needs fresh acceptance.
+The active work is PR #93 finalization after four preserved synthetic
+native-reader refusals. **All four authorized attempts are consumed. Do not create,
+retry, reset, delete or reclassify another native-reader proof attempt.** Continue
+Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: PR93 native-reader runtime-scope gate
+## Current scope: PR93 failed native-reader qualification record
 
-PR93 remains an open draft against main. The runtime-scope implementation
-baseline is commit `1f312c90a7d39c21d1b4bace9317352b899da313` (tree
-`02af4737c230ea440f03e2efcb4f0183b2096570`), based on the integration of PR93
-`bcf6c1a` with main `b67d0d8`. Exact-head CI run
-`37395345867` passed 4,688 tests (two skipped, 11 warnings) on that baseline.
-Later PR updates must be checked against their actual branch head and matching CI;
-this historical run is not evidence for a newer head.
+PR #93 remains an open draft. Current correction work aligns Docker CLI execution
+between the successful build-only diagnostic and the full qualifier. The retained
+runtime evidence lives under
+`/home/zelo/zelo/core-v015-browser-renderer/runtime`; do not copy, repair, move,
+delete or reset that evidence.
 
-Native-reader attempt 1/2 remains permanently refused and consumed. Its private
-policy and refusal proof hashes remain
-`a566a81238d144163e82ce91d728067c8afe36011fea404594f03f200ac868c3` and
-`027e7165fc21001eafb19cdb0a9c89bb0315012931c0a862ad742e5883655378`.
-Reconciliation completed at source head `bcf6c1a`; durable evidence SHA256 is
-`04fc0c4607922f24c3aea63fa5bd72a27334ae652174d4b51f12e039d155dad1`. It cleared
-the admission marker only after writing that evidence; attempt-1 proof was not
-changed, deleted or reset. No native attempt 2/2 has run.
+The four refused attempts are immutable:
+- attempt 1 `native-reader-proof-uvjet91z`: lease-preflight refusal;
+- attempt 2 `native-reader-proof-672ubxw7`: build refusal;
+- attempt 3 `native-reader-proof-x7s79c20`: build refusal;
+- attempt 4 `native-reader-proof-kvhyvgri`: build refusal.
 
-The retained runtime evidence and reconciliation record currently live under the
-old checkout `/home/zelo/zelo/core-v015-browser-renderer/runtime`, outside this
-repository root. The integrated PR93 worktree does not contain that runtime
-history. The operator must receive the same explicit persistent `--runtime-root`
-from every checkout and validate its one-time path-bound scope record, exact
-attempt-1 evidence, and reconciliation record before readiness or attempt
-creation. A missing, copied-to-another-path, replayed or mismatched scope refuses.
-Do not copy, repair, delete or reset consumed evidence.
+Attempt-4 policy SHA256 is
+`51a8532bf63d2f603d6e671815850aa86e7984b7040918e0e86fe04569a364b6`;
+proof SHA256 is
+`2c3bd1f7b130d3ce57bf317b5119971cdb30b68820b2e4f19503c1c0d14e1251`.
+Its build exited2 after stderr reached20,851bytes and overflowed the bounded
+capture. Cleanup found zero exact labelled containers/images and admission
+marker/lock empty. No native success receipt or runtime authority exists.
 
-The one-time binding command writes only a new private
-`media-native-reader-scope.json` beside the retained runtime state. Because the
-current runtime path is outside `~/zelo/core`, do not run that binding command
-without the user’s approval required by this file. Native attempt 2/2 also needs
-fresh exact-head CI/source review and separate explicit user authority. Any
-failure after the final attempt directory is created consumes 2/2 and stops.
-No Docker/native qualification, package acquisition, Core activation, merge or
-deployment is cleared.
+The v2 append-only grant SHA256 is
+`4c3dbda2ae77db193c296dbffb105b18f14d306541c6793675e04f0e600d1271`.
+It authorized only attempt4 and is consumed. **No fifth attempt is authorized.**
+Any future proof requires a new, separately reviewed explicit user budget decision.
+
+The build-only diagnostic receipt SHA256 is
+`ee68674ecd2ba41feab06676ca60fa4de619f8a6ee0cc09d2f1d59f4897a3411`.
+It succeeded without touching the proof ledger. Fresh comparison proves the
+diagnostic and qualifier use the same retained bundle
+`0f53fb8375237850a0f3aacb850159ae9453e346f31c936ce85bbd6de2031e04`,
+the same Dockerfile
+`a097907d925d3c2ac2efe9984fc91fa83cbf7c9def98e973b5fb742e5a1b4df9`,
+and the same network-none/pull-false build flags.
+
+A concrete mismatch was found in the old execution environment: the diagnostic
+supplied fixed PATH/HOME/LANG/DOCKER_CONFIG, while qualification supplied only
+DOCKER_CONFIG before fixed GOMAXPROCS=2. The implementation now uses one exact
+fail-closed Docker environment across readiness, diagnostic and qualification.
+Treat this as a plausible cause, **not proven causation**. Do not run a new native
+proof merely because the environment is corrected.
+
+Current correction validation:52 focused environment/diagnostic tests,412
+native-reader/recovery tests and2,855 Media/context tests passed; Ruff/diff checks
+passed. Require fresh full CI and exact-head review before merging PR #93 as a
+preserved failed qualification record. After #93, continue the agreed queue
+#98 -> #99 -> #100. UI #61 remains parked. No acquired package, Pillow decode,
+Core activation, release or deployment is cleared.
 
 ## Workspace decision
 
