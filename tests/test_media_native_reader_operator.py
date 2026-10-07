@@ -465,6 +465,13 @@ def test_build_failure_evidence_is_bounded_and_sanitized(stdout, stderr, categor
         (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
     )
     evidence = q._build_failure_evidence(error)
+    excerpt = evidence.pop("error_excerpt", None)
+    if category == "build_stream_unexpected_eof":
+        assert excerpt == "Error response from daemon: unexpected EOF"
+    elif category == "unclassified":
+        assert excerpt == "private-token=<redacted>"
+    else:
+        assert excerpt is not None
     assert evidence == {
         "kind": "docker_command_exit",
         "operation": "build",
@@ -507,6 +514,51 @@ def test_build_failure_evidence_caps_both_streams():
     assert evidence["overflowed_streams"] == ["err", "out"]
     assert "private-stdout" not in json.dumps(evidence)
     assert "private-stderr" not in json.dumps(evidence)
+
+
+def test_build_failure_evidence_retains_redacted_unclassified_tail():
+    stderr = (
+        b"ERROR: failed to solve: reading /home/zelo/secret/config.json: "
+        b"token=private-token-value\n"
+        b"ERROR: failure Authorization: Bearer private-auth-value"
+    )
+    error = q.browser_setup._CommandFailure(
+        2,
+        b"",
+        stderr,
+        (q.setup.DOCKER, "--host=unix:///var/run/docker.sock", "build"),
+    )
+
+    evidence = q._build_failure_evidence(error)
+
+    assert evidence["output_category"] == "unclassified"
+    excerpt = evidence["error_excerpt"]
+    assert "ERROR: failed to solve" in excerpt
+    assert "<path>" in excerpt
+    assert "token=<redacted>" in excerpt
+    assert "private-token-value" not in excerpt
+    assert "private-auth-value" not in excerpt
+    assert "Authorization: <redacted>" in excerpt
+    assert "/home/zelo/secret/config.json" not in excerpt
+
+
+def test_build_error_excerpt_keeps_both_streams_bounded():
+    stdout = b"ERROR: failed to solve: stdout failure"
+    stderr = b"progress: " + b"x" * 20_000
+
+    excerpt = q._safe_build_error_excerpt(stdout, stderr)
+
+    assert excerpt == "ERROR: failed to solve: stdout failure"
+
+
+def test_build_error_excerpt_falls_back_to_sanitized_unclassified_lines():
+    raw = b"daemon status=2 /home/zelo/private/file.json " + b"a" * 48
+
+    excerpt = q._safe_build_error_excerpt(b"", raw)
+
+    assert excerpt == "daemon status=2 <path> <redacted>"
+    assert "/home/zelo/private/file.json" not in excerpt
+    assert "a" * 48 not in excerpt
 
 
 def test_build_failure_evidence_retains_timeout_and_output_limit():

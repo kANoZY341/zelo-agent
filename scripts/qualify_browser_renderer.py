@@ -192,6 +192,18 @@ def _command(
         return buffers["out"].decode(
             "utf-8", errors="replace" if drain_output_overflow else "strict"
         )
+    except (TimeoutError, _CommandOutputLimit) as error:
+        # Preserve bounded captures on failed commands without exposing them in messages.
+        error.stdout = bytes(buffers["out"])
+        error.stderr = bytes(buffers["err"])
+        error.stdout_tail = bytes(tails["out"])
+        error.stderr_tail = bytes(tails["err"])
+        error.stdout_bytes_total = totals["out"]
+        error.stderr_bytes_total = totals["err"]
+        error.stdout_sha256 = digests["out"].hexdigest()
+        error.stderr_sha256 = digests["err"].hexdigest()
+        error.overflowed = tuple(sorted(overflowed))
+        raise
     finally:
         # Until wait()/poll() reaps the leader its PID cannot be reused. Do not
         # signal a group after a successful wait returned and released that PID.

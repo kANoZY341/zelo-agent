@@ -380,8 +380,86 @@ _BUILD_OUTPUT_CLASSES = (
 )
 
 
+def _safe_build_error_excerpt(stdout: bytes, stderr: bytes) -> str | None:
+    """Return bounded redacted samples from the head, middle and tail of build output."""
+    safe_lines = []
+    fallback_lines = []
+    stream_limit = 2 * browser_setup.MAX_COMMAND_LOG
+    for raw in (stdout[-stream_limit:], stderr[-stream_limit:]):
+        text = raw.decode("utf-8", "replace")
+        text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+        text = re.sub(r"(?i)(https?://)[^/\s:@]+:[^/\s@]+@", r"\1<redacted>@", text)
+        text = re.sub(
+            r"(?im)(\b(?:authorization|proxy-authorization|cookie|set-cookie)\b\s*[:=]\s*)[^\r\n]+",
+            r"\1<redacted>",
+            text,
+        )
+        text = re.sub(
+            r"(?i)(\b(?:token|password|secret|credential|access[_ -]?key|"
+            r"api[_ -]?key|signature)\b\s*[:=]\s*)"
+            r"(?:\"[^\"]*\"|'[^']*'|[^,\s;]+)",
+            r"\1<redacted>",
+            text,
+        )
+        text = re.sub(r"(?i)\bBearer\s+[^\s,;]+", "Bearer <redacted>", text)
+        text = re.sub(r"(?i)\b[A-Z]:\\[^\s]+", "<path>", text)
+        text = re.sub(r"(?<![A-Za-z0-9])/(?:[^ \t\r\n\"'<>]+)", "<path>", text)
+        text = re.sub(r"(?i)\b[0-9a-f]{32,}\b", "<redacted>", text)
+        text = re.sub(r"\b[A-Za-z0-9_+/=-]{40,}\b", "<redacted>", text)
+        text = "".join(
+            character if character in "\n\t" or 32 <= ord(character) < 127 else "?"
+            for character in text
+        )
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        fallback_lines.extend(lines)
+        safe_lines.extend(
+            line
+            for line in lines
+            if re.search(
+                r"(?i)\b(?:error|failed|failure|denied|unavailable|timeout|unsupported|"
+                r"refused|fatal|eof|unknown|invalid|cannot|unable|missing|deprecated)\b|"
+                r"no space left|not found",
+                line,
+            )
+        )
+
+    candidates = safe_lines or fallback_lines
+    if not candidates:
+        return None
+    indexes = sorted({0, len(candidates) // 2, len(candidates) - 1})
+    selected = [candidates[index] for index in indexes]
+    clipped = [line if len(line) <= 160 else line[:80] + " ... " + line[-77:] for line in selected]
+    return "\n".join(clipped)[-512:]
+
+
+def _attach_partial_command_evidence(
+    evidence: dict[str, str | int | list[str]], error: Exception
+) -> dict[str, str | int | list[str]]:
+    captured = {}
+    for stream in ("stdout", "stderr"):
+        head = getattr(error, stream, b"")
+        tail = getattr(error, stream + "_tail", b"")
+        if type(head) is not bytes or type(tail) is not bytes:
+            continue
+        combined = head[-browser_setup.MAX_COMMAND_LOG :] + tail[: browser_setup.MAX_COMMAND_LOG]
+        captured[stream] = combined
+        total = getattr(error, stream + "_bytes_total", None)
+        digest = getattr(error, stream + "_sha256", None)
+        if type(total) is int and total >= 0:
+            evidence[stream + "_bytes"] = total
+        if type(digest) is str and re.fullmatch(r"[0-9a-f]{64}", digest):
+            evidence[stream + "_sha256"] = digest
+    overflowed = getattr(error, "overflowed", None)
+    if type(overflowed) is tuple and all(item in {"out", "err"} for item in overflowed):
+        evidence["overflowed_streams"] = list(overflowed)
+    excerpt = _safe_build_error_excerpt(captured.get("stdout", b""), captured.get("stderr", b""))
+    if excerpt is not None:
+        evidence["error_excerpt"] = excerpt
+    return evidence
+
+
 def _build_failure_evidence(error: Exception) -> dict[str, str | int | list[str]]:
-    """Retain only bounded, credential-free facts from an attempted build."""
+    """Retain bounded facts and a redacted terminal error from an attempted build."""
     if isinstance(error, browser_setup._CommandFailure):
         stdout = error.stdout[:131072]
         stdout_tail = error.stdout_tail[: browser_setup.MAX_COMMAND_LOG]
@@ -401,7 +479,7 @@ def _build_failure_evidence(error: Exception) -> dict[str, str | int | list[str]
         operation = error.argv[2] if len(error.argv) > 2 else "unknown"
         if operation not in {"build", "create", "container", "image"}:
             operation = "unknown"
-        return {
+        evidence = {
             "kind": "docker_command_exit",
             "operation": operation,
             "exit_code": error.returncode,
@@ -412,11 +490,19 @@ def _build_failure_evidence(error: Exception) -> dict[str, str | int | list[str]
             "stderr_sha256": error.stderr_sha256,
             "overflowed_streams": list(error.overflowed),
         }
+        excerpt = _safe_build_error_excerpt(
+            stdout[-browser_setup.MAX_COMMAND_LOG :] + stdout_tail,
+            stderr[-browser_setup.MAX_COMMAND_LOG :] + stderr_tail,
+        )
+        if excerpt is not None:
+            evidence["error_excerpt"] = excerpt
+        return evidence
     if isinstance(error, browser_setup._CommandOutputLimit):
         stream = error.stream if error.stream in {"out", "err"} else "unknown"
-        return {"kind": "command_output_limit", "stream": stream}
+        evidence = {"kind": "command_output_limit", "stream": stream}
+        return _attach_partial_command_evidence(evidence, error)
     if isinstance(error, TimeoutError):
-        return {"kind": "timeout"}
+        return _attach_partial_command_evidence({"kind": "timeout"}, error)
     if isinstance(error, FileNotFoundError):
         return {"kind": "file_not_found"}
     if isinstance(error, PermissionError):
