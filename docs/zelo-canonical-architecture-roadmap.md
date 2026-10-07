@@ -529,26 +529,26 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99 and
-PR #100 are merged. PR #100 establishes governed skill-learning proposals and
-immutable Ahmad review/candidate staging without runtime activation.
+Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100
+and PR #102 are merged. PR #102 adds a read-only per-Agent learned-skill status
+projection with no runtime authority.
 
-The active slice is the OpenDots-inspired **read-only per-Agent learned-skill
-projection**. It exposes only governed proposal/review metadata through the
-operator-authenticated Agent API: source skill/procedure/version identity,
-proposal/revision/review hashes, status, evidence count and timestamps. Learned
-instructions and evidence identifiers/content are excluded. The response
-explicitly reports no promoted or active revision and no runtime authority.
+PR #103 is the active gate for **operator candidate materialization**. PR #100's hardened
+serializer is exposed only through an Ahmad-authenticated endpoint and an
+operator-configured staging root strictly inside `runtime_dir`. The request
+supplies no path. Only a freshly revalidated accepted proposal may materialize a
+content-addressed candidate. Directory trust, symlink/hardlink, exact read-only
+mode, byte identity and stale-evidence checks remain fail-closed.
 
-This projection is read-only over existing append-only records; it does not add
-proposal, review, promotion, registry-loading, tool, worker, computer or UI
-authority. A trusted promoted-revision resolver and explicit
-Developer/Review/Promotion handoff remain separate later gates.
+The endpoint returns metadata only and explicitly reports
+`runtime_authority=false` and `promotion_started=false`. It does not invoke
+Developer, Review, Promotion, CI, registry loading or activation. Active registries
+still do not read candidate staging. Promotion linkage and promoted-revision
+resolution remain separate later gates.
 
-Focused projection/store tests pass **28 cases** and the broader integrated
-Agent/skill-learning/context gate passes **109 cases**. Require exact-head CI and
-source review before merge. UI #61
-remains parked.
+Combined integrated validation passes **159 cases** with one known Git-worktree
+DeveloperRuntime test deselected; Ruff/format/diff checks pass. Require exact-head
+CI and source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -1034,7 +1034,7 @@ remain before decoder qualification. Core first; UI stays parked.
 
 ### Media inert ELF tool-source checkpoint — 3 October 2026
 
-PR79 merged ata8157ec3 with matching tree,2,800CI passes and all focused/standalone/
+PR79 merged ata8159ec3 with matching tree,2,800CI passes and all focused/standalone/
 fault gates. The exact55file tool-source copy retains both required notices and grants
 no parser execution or platform authority. See [final gates](reviews/media-elf-tool-final-gates.md).
 Continue [isolated ELF dependency metadata](v0.15-media-elf-dependency-metadata.md)

@@ -535,6 +535,17 @@ class SkillLearningProposalRunResult(StrictModel):
     created: bool
 
 
+class SkillLearningCandidateResponse(StrictModel):
+    proposal_id: TaskId
+    review_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relative_path: str = Field(min_length=1, max_length=512)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    artifact_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created: bool
+    runtime_authority: Literal[False] = False
+    promotion_started: Literal[False] = False
+
+
 class PythonRunResult(StrictModel):
     stdout: str = Field(max_length=65536)
     stderr: str = Field(max_length=16384)

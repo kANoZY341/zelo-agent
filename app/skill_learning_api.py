@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth import OperatorPrincipal, require_operator
+from app.schemas import SkillLearningCandidateResponse
 from app.skill_learning import SkillLearningReviewRequest
+from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import StoredSkillLearningProposal
 
 router = APIRouter(prefix="/skill-learning")
@@ -59,3 +61,39 @@ def review_proposal(
             else 422
         )
         raise HTTPException(status_code=status, detail=code) from None
+
+
+@router.post(
+    "/proposals/{proposal_id}/candidate",
+    response_model=SkillLearningCandidateResponse,
+)
+def materialize_candidate(
+    proposal_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillLearningCandidateResponse:
+    root = request.app.state.settings.skill_learning_candidate_root
+    adapter = getattr(request.app.state, "skill_learning_candidate_adapter", None)
+    if root is None or not isinstance(adapter, SkillLearningCandidateAdapter):
+        raise HTTPException(status_code=409, detail="skill_learning_candidate_staging_unconfigured")
+    try:
+        artifact = adapter.materialize(
+            proposal_id,
+            staging_root=root,
+            principal=principal,
+        )
+    except OSError:
+        raise HTTPException(status_code=409, detail="skill_learning_candidate_io_refused") from None
+    except ValueError as error:
+        code = str(error)
+        if not code.startswith("skill_learning_candidate_"):
+            code = "skill_learning_candidate_refused"
+        raise HTTPException(status_code=409, detail=code) from None
+    return SkillLearningCandidateResponse(
+        proposal_id=artifact.proposal_id,
+        review_fingerprint=artifact.review_fingerprint,
+        relative_path=artifact.relative_path,
+        content_sha256=artifact.content_sha256,
+        artifact_sha256=artifact.artifact_sha256,
+        created=artifact.created,
+    )

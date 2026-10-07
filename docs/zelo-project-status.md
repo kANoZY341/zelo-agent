@@ -6,31 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 read-only learned-skill projection
+## Active increment: v0.15 operator candidate materialization
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98, PR #99 and
-PR #100 are merged. PR #100 merge commit
-`7fb82b8bbc20e2024538cc60670164acd2b56888` preserves governed per-Agent
-skill-learning proposals as inert, append-only records; exact-head CI passed
-**4,840 tests with two skips** and post-merge main CI is green.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98, PR #99,
+PR #100 and PR #102 are merged. PR #102 merge commit
+`37281dd8f6a7e1d04db1b36908f99d2b56e8228d` adds the read-only per-Agent
+learned-skill projection; its reviewed head passed **4,843 tests with two skips**.
 
-The active slice adds a **read-only per-Agent learned-skill/status projection**.
-Operator-authenticated `GET /agents/{instance_id}/learned-skills` returns only
-bounded metadata: proposal/source skill/procedure/version identities, revision
-hashes, status, evidence count, optional immutable review identity, timestamps,
-and explicit `promoted=false`, `active_revision_sha256=null`,
-`runtime_authority=false`.
+PR #103 is the active slice and makes PR #100's hardened candidate serializer explicitly usable
+by Ahmad without granting promotion or runtime authority. Candidate staging is
+disabled by default and requires operator configuration of an absolute directory
+strictly inside `runtime_dir`. The request supplies only a proposal ID; it cannot
+choose a filesystem path.
 
-The projection does not return learned instructions, evidence source IDs, evidence
-digests, review rationale, hidden reasoning or mutable authority state. It reads
-only existing governed proposal/review records and cannot propose, review,
-materialize, promote, activate or mutate anything. The active Skill Registry still
-has no candidate-artifact reader and no promoted-revision resolver exists.
+Authenticated `POST /skill-learning/proposals/{proposal_id}/candidate` requires
+a freshly revalidated accepted proposal and the Ahmad operator principal. It
+creates or idempotently verifies one content-addressed, read-only candidate under
+the configured staging root. Writable/untrusted directories, symlink escapes,
+hard-linked/writable existing files, stale evidence, unaccepted proposals and
+conflicting bytes fail closed.
 
-Focused projection/store validation passes **28 tests** and the broader
-Agent/skill-learning/context regression passes **109 tests**. Next: exact source
-review and fresh CI on the new slice. Promotion/activation remains a separate later gate;
-click/type/write/shell and UI authority remain unchanged.
+The API returns metadata only: proposal/review identity, relative candidate path,
+semantic/artifact SHA-256 and created/reused status. Candidate bytes are never
+returned; filesystem errors are normalized. Responses explicitly keep
+`runtime_authority=false` and `promotion_started=false`. The adapter still does
+not invoke Developer, Review, Promotion, CI, registry loading or activation.
+
+Combined post-integration validation passes **159 tests** with one known
+worktree-only DeveloperRuntime test deselected; Ruff/format/diff checks pass.
+Next: exact-head CI/source review. Promotion linkage remains a separate later gate.
 
 ## Checkpoint history
 
