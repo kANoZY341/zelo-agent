@@ -93,6 +93,20 @@ class SkillLearningProposalStore:
         if snapshot is None:
             raise ValueError("skill_learning_agent_unavailable")
         binding = self.agent_factory.bind_agent(snapshot.agent_id)
+
+        def trusted_prior(skill_id: str, procedure_id: str) -> SkillProcedureRevision | None:
+            # A historical v1 proposal must remain revalidatable after its own
+            # promotion. Only later proposals depend on promoted lineage.
+            if revision.version == 1:
+                return None
+            promoted = self.resolve_promoted_procedure(
+                agent_instance_id,
+                skill_id,
+                procedure_id,
+                target_version=revision.version - 1,
+            )
+            return promoted.revision if promoted is not None else None
+
         return propose_skill_revision(
             agent_instance=snapshot,
             agent_binding=binding,
@@ -100,7 +114,7 @@ class SkillLearningProposalStore:
             revision=revision,
             evidence_refs=evidence_refs,
             evidence_resolver=self.records.evidence_snapshot,
-            prior_revision_resolver=lambda _skill, _procedure: None,
+            prior_revision_resolver=trusted_prior,
         )
 
     @staticmethod
@@ -608,8 +622,15 @@ class SkillLearningProposalStore:
         agent_instance_id: str,
         source_skill_id: str,
         procedure_id: str,
+        *,
+        target_version: int | None = None,
     ) -> SkillLearningPromotedRevisionSnapshot | None:
-        """Resolve the unique latest promoted lineage for one Agent procedure."""
+        """Resolve the unique promoted lineage; optionally select an exact historical version."""
+
+        if target_version is not None and (
+            type(target_version) is not int or not 1 <= target_version <= 1_000_000
+        ):
+            raise ValueError("skill_learning_promoted_revision_version_invalid")
 
         with self.database.read() as session:
             proposal_ids = tuple(
@@ -661,6 +682,8 @@ class SkillLearningProposalStore:
                 or current.revision.prior_revision_sha256 != previous.revision.content_sha256
             ):
                 raise ValueError("skill_learning_promoted_revision_lineage_invalid")
+        if target_version is not None:
+            return versions.get(target_version)
         return ordered[-1]
 
     def record_promotion_link(

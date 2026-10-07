@@ -161,8 +161,8 @@ def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database,
         )
 
 
-def test_resolver_is_not_wired_into_new_proposal_lineage(database, proposal_case):
-    store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+def test_version_two_proposal_uses_exact_promoted_prior_without_activation(database, proposal_case):
+    store, reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
     ref = proposal_case[5]
     second_revision = make_revision(
         version=2,
@@ -175,19 +175,153 @@ def test_resolver_is_not_wired_into_new_proposal_lineage(database, proposal_case
         space_permissions=(),
     )
 
+    proposed, created = store.submit(
+        agent_instance_id=agent.id,
+        revision=second_revision,
+        evidence_refs=(ref,),
+    )
+    assert created
+    assert proposed.status == "proposed"
+    assert proposed.proposal.agent_instance_id == agent.id
+    assert proposed.proposal.proposed_revision.version == 2
+    assert (
+        proposed.proposal.proposed_revision.prior_revision_sha256 == first_revision.content_sha256
+    )
+    assert proposed.proposal.runtime_authority is False
+    assert proposed.proposal.authority_widening is False
+    # A historical v1 proposal and its accepted review remain revalidatable.
+    assert store.accepted_candidate_basis(reviewed.proposal.proposal_id, OperatorPrincipal())
+    assert store.resolve_promoted_revision(proposed.proposal.proposal_id) is None
+
+
+def test_version_two_proposal_rejects_wrong_prior_digest(database, proposal_case):
+    store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+    second = make_revision(
+        version=2,
+        prior_revision_sha256="0" * 64,
+        title="Wrong previous digest",
+        space_permissions=(),
+    )
+    assert second.prior_revision_sha256 != first_revision.content_sha256
+    with pytest.raises(ValueError, match="skill_learning_prior_revision_stale"):
+        store.submit(
+            agent_instance_id=agent.id,
+            revision=second,
+            evidence_refs=(proposal_case[5],),
+        )
+
+
+def test_version_two_proposal_refuses_unpromoted_prior(database, proposal_case):
+    base, agent, _task, _attempt, first_revision, ref = proposal_case
+    accepted(base, agent, first_revision, ref)
+    store = promotion_tests.promotion_store(database, base)
+    second = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Prior not promoted",
+        space_permissions=(),
+    )
+    with pytest.raises(ValueError, match="skill_learning_prior_revision_stale"):
+        store.submit(agent_instance_id=agent.id, revision=second, evidence_refs=(ref,))
+
+
+def test_promoted_version_two_keeps_exact_predecessor_and_allows_version_three(
+    database, proposal_case
+):
+    store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+    ref = proposal_case[5]
+    second = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Second evidence revision",
+        space_permissions=(),
+    )
+    proposed, created = store.submit(
+        agent_instance_id=agent.id, revision=second, evidence_refs=(ref,)
+    )
+    assert created
+    reviewed, created = store.record_review(
+        proposed.proposal.proposal_id,
+        promotion_tests.skill_learning_store_tests.review_request(),
+        OperatorPrincipal(),
+    )
+    assert created and reviewed.status == "accepted"
+    merge_task_id = promotion_tests.successful_lineage(database, second)
+    second_link, created = store.record_promotion_link(
+        proposed.proposal.proposal_id, merge_task_id, OperatorPrincipal()
+    )
+    assert created
+    assert second_link.revision_sha256 == second.content_sha256
+
+    historical = store.accepted_candidate_basis(proposed.proposal.proposal_id, OperatorPrincipal())
+    assert historical is not None and historical.proposal == proposed.proposal
+    retried, created = store.record_promotion_link(
+        proposed.proposal.proposal_id, merge_task_id, OperatorPrincipal()
+    )
+    assert not created and retried == second_link
+    previous = store.resolve_promoted_procedure(
+        agent.id, second.source_skill_id, second.procedure_id, target_version=1
+    )
+    latest = store.resolve_promoted_procedure(agent.id, second.source_skill_id, second.procedure_id)
+    assert (
+        previous is not None and previous.revision.content_sha256 == first_revision.content_sha256
+    )
+    assert latest is not None and latest.revision.content_sha256 == second.content_sha256
+
+    third = make_revision(
+        version=3,
+        prior_revision_sha256=second.content_sha256,
+        title="Third evidence revision",
+        space_permissions=(),
+    )
+    third_proposal, created = store.submit(
+        agent_instance_id=agent.id, revision=third, evidence_refs=(ref,)
+    )
+    assert created
+    assert third_proposal.proposal.proposed_revision.version == 3
+    assert third_proposal.proposal.runtime_authority is False
+
+
+def test_version_two_proposal_refuses_nonexistent_target_version(database, proposal_case):
+    store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
     assert (
         store.resolve_promoted_procedure(
             agent.id,
             first_revision.source_skill_id,
             first_revision.procedure_id,
+            target_version=2,
         )
-        is not None
+        is None
     )
-    with pytest.raises(ValueError, match="skill_learning_prior_revision_stale"):
-        store.submit(
+    with pytest.raises(ValueError, match="skill_learning_promoted_revision_version_invalid"):
+        store.resolve_promoted_procedure(
+            agent.id,
+            first_revision.source_skill_id,
+            first_revision.procedure_id,
+            target_version=True,
+        )
+
+
+def test_version_two_proposal_refuses_repository_drift(database, proposal_case):
+    _store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+    base = proposal_case[0]
+    drifted = SkillLearningProposalStore(
+        database,
+        base.agent_factory,
+        base.skill_registry,
+        promotion_repository="other/repo",
+    )
+    second = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Wrong promotion repository",
+        space_permissions=(),
+    )
+    with pytest.raises(ValueError, match="skill_learning_promoted_revision_repository_stale"):
+        drifted.submit(
             agent_instance_id=agent.id,
-            revision=second_revision,
-            evidence_refs=(ref,),
+            revision=second,
+            evidence_refs=(proposal_case[5],),
         )
 
 
