@@ -211,6 +211,15 @@ def default_capability_registry() -> CapabilityRegistry:
                 lifecycle="active",
             ),
             CapabilitySpec(
+                capability_id="reverse_engineering",
+                description=(
+                    "Investigate approved shipped artifacts through a separately qualified "
+                    "REA analysis worker; catalog intent only."
+                ),
+                subjects=("agent",),
+                lifecycle="draft",
+            ),
+            CapabilitySpec(
                 capability_id="zelo_core_development",
                 description="Implement bounded Zelo Core changes through the Developer Runtime.",
                 subjects=("worker",),

@@ -32,6 +32,12 @@ runtime activation or expansion of Agent/Worker/Tool permissions.
 Media native-reader qualification remains refused after four authorized
 attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
+The separately proposed v0.15 REA catalog is a **draft-only** reverse-engineering
+Specialist/Capability/Skill definition plus pinned disabled external-tool
+manifest. It does not authorize REA execution, install external packages,
+change the active v0.15 merge queue, or unblock any worker/sandbox gate.
+
+
 ## Checkpoint history
 
 The sections below preserve prior releases and implementation checkpoints. Their

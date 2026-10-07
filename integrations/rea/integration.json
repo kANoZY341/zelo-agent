@@ -1,0 +1,24 @@
+{
+  "schema": "zelo-external-integration-candidate-v1",
+  "integration_id": "rea",
+  "source_repository": "https://github.com/morluto/rea",
+  "license": "MIT",
+  "package": {
+    "name": "rea-agents",
+    "version": "5.0.0",
+    "mcp_name": "io.github.morluto/rea",
+    "transport": "stdio",
+    "command_hint": "rea mcp"
+  },
+  "lifecycle": "draft",
+  "execution_enabled": false,
+  "managed_install_enabled": false,
+  "workspace_access_enabled": false,
+  "target_execution_enabled": false,
+  "runtime_capture_enabled": false,
+  "network_access_enabled": false,
+  "credential_access_enabled": false,
+  "core_task_kind": null,
+  "worker_authority_profile": null,
+  "source_integrity_qualified": false
+}

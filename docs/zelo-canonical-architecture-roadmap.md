@@ -618,6 +618,17 @@ Agent/model context.
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
+REA is a selected **candidate** MCP/CLI integration for this v0.15
+ecosystem, not an authorized execution backend. Its first Core slice registers a
+draft `reverse_engineering` Specialist Agent, matching draft capability and
+`rea_investigation` skill, and a version-pinned, disabled package manifest.
+It has no Worker, task, execution tool, persistent computer, external setup,
+target/process access, network/credential grant, or skill activation. The
+dedicated security/qualification sequence is in
+[REA integration](v0.15-rea-integration.md). The v0.15 promotion/publication
+gates and prior Core priorities still precede REA runtime activation; neither
+v0.16 channels nor v0.17/0.18 milestones are reordered.
+
 ### v0.16 — Channels and presence
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
