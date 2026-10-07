@@ -91,29 +91,32 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 promoted-head admission guard")
+    assert active_status.startswith(
+        "## Active increment: Core v0.15 and inert v0.16 channel foundation"
+    )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106"):
+    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106", "#107"):
         assert pr in active_status
-    assert "PR #107" in active_status
-    assert "2e6ae8f" in active_status
-    assert "4,911 tests with 2 skipped" in active_compact
-    assert "new-proposal admission guard" in active_compact
-    assert "skill_learning_promoted_head_advanced" in active_status
-    assert "idempotent" in active_status
+    assert "b3e665a" in active_status
+    assert "4,913 tests and 2 skips" in active_compact
+    assert "idempotently" in active_status
     assert "ambiguous promoted heads" in active_compact
-    assert "runtime learned-skill loading" in active_compact
-    assert "177 tests" in active_status
+    assert "PR #108" in active_status
+    assert "channel:" in active_status
+    assert "transport_authority remain false" in active_compact
+    assert "113 channel/Mind/scheduler/context tests" in active_compact
+    assert "four authorized attempts" in active_compact
+    assert "UI PR #61 remains parked" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #107" in roadmap_content
-    assert "PR #106" in roadmap_content
-    assert "promoted-head admission" in roadmap_compact
-    assert "promotion-time exclusivity" in roadmap_compact
-    assert "No automatic promotion" in roadmap_compact
-    assert "177 passed" in roadmap_compact
+    assert "PR #108" in roadmap_content
+    assert "new-proposal admission guard" in roadmap_compact
+    assert "promotion-time exclusivity guard" in roadmap_compact
+    assert "Learned procedures are not automatically loaded" in roadmap_compact
+    assert "four previously consumed" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
