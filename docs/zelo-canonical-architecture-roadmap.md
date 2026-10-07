@@ -611,7 +611,8 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
-Start with transport-neutral, **non-authoritative** channel text envelopes,
+PR #108 is the contract-only v0.16 foundation: transport-neutral,
+**non-authoritative** channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn
 idempotency keys. This foundation has no provider credentials or connected
 transports. A separately qualified adapter must authenticate provider origin,
