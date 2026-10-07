@@ -115,6 +115,7 @@ class Settings(BaseSettings):
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
     promotion_repository: str | None = None
+    skill_learning_candidate_root: Path | None = None
     promotion_git_author_name: str = Field(default="Zelo Agent", min_length=1, max_length=128)
     promotion_git_author_email: str = Field(
         default="zelo@localhost.invalid", min_length=3, max_length=254
@@ -379,6 +380,24 @@ class Settings(BaseSettings):
         if not resolved.is_relative_to(ROOT / "runtime"):
             raise ValueError("Runtime directory must be inside the repository's runtime/ directory")
         return resolved
+
+    @field_validator("skill_learning_candidate_root")
+    @classmethod
+    def validate_skill_learning_candidate_root(cls, value: Path | None) -> Path | None:
+        if value is None:
+            return None
+        if not value.is_absolute():
+            raise ValueError("Skill-learning candidate root must be absolute")
+        return value.resolve()
+
+    @model_validator(mode="after")
+    def validate_skill_learning_candidate_location(self) -> "Settings":
+        root = self.skill_learning_candidate_root
+        if root is not None and (
+            root == self.runtime_dir or not root.is_relative_to(self.runtime_dir)
+        ):
+            raise ValueError("Skill-learning candidate root must be inside runtime_dir")
+        return self
 
     @field_validator("workspace_root")
     @classmethod

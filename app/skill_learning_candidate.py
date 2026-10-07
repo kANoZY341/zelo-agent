@@ -162,8 +162,9 @@ def _write_immutable(root: Path, parts: tuple[str, ...], content: bytes) -> bool
 class SkillLearningCandidateAdapter:
     """Materialize accepted content under an explicit operator-selected staging root.
 
-    This adapter has no task/API wiring and never updates skill registries or
-    invokes Developer, Review, Promotion, CI, or runtime activation.
+    This adapter never updates skill registries and never invokes Developer,
+    Review, Promotion, CI, or runtime activation. API callers may only request
+    materialization into an operator-configured staging root.
     """
 
     def __init__(self, store: SkillLearningProposalStore) -> None:

@@ -200,3 +200,20 @@ def test_openapi_contract(client: TestClient) -> None:
     assert spec["paths"]["/tasks"]["post"]["security"]
     assert "security" not in spec["paths"]["/health"]["get"]
     assert client.get("/tasks", headers=AUTH).status_code == 200
+
+
+def test_skill_learning_candidate_staging_is_opt_in_and_startup_bounded(settings, database):
+    assert settings.skill_learning_candidate_root is None
+    root = settings.runtime_dir / "skill-learning-candidates"
+    configured = Settings(
+        _env_file=None,
+        operator_token=settings.operator_token,
+        runtime_dir=settings.runtime_dir,
+        skill_learning_candidate_root=root,
+        scheduler_enabled=False,
+    )
+    with TestClient(create_app(configured), headers=AUTH) as configured_client:
+        assert configured_client.app.state.settings.skill_learning_candidate_root == root.resolve()
+        assert configured_client.app.state.skill_learning_candidate_adapter is not None
+        assert root.is_dir()
+        assert root.stat().st_mode & 0o022 == 0

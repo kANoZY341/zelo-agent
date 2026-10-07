@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -15,6 +16,7 @@ from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentFactory, AgentRegistry, AgentSpec, default_agent_registry
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
+from app.config import Settings
 from app.memory import MemoryService
 from app.models import (
     AgentInstance,
@@ -45,6 +47,7 @@ from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_so
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
 from app.tasks import TaskService
+from tests.conftest import AUTH
 from tests.test_agent_execution import direct_services, project
 from tests.test_skill_learning import revision
 
@@ -709,3 +712,99 @@ def test_stale_evidence_after_acceptance_blocks_candidate(tmp_path, proposal_cas
             principal=OperatorPrincipal(),
         )
     assert not list(tmp_path.rglob("*.json"))
+
+
+def test_candidate_api_is_disabled_without_configured_staging(client, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    client.app.state.skill_learning_store = store
+    client.app.state.skill_learning_candidate_adapter = SkillLearningCandidateAdapter(store)
+    assert client.app.state.settings.skill_learning_candidate_root is None
+
+    response = client.post(
+        f"/skill-learning/proposals/{reviewed.proposal.proposal_id}/candidate",
+        headers=AUTH,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "skill_learning_candidate_staging_unconfigured"
+
+
+def test_candidate_api_materializes_metadata_only_and_is_idempotent(
+    client, proposal_case, tmp_path
+):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    root = tmp_path / "candidates"
+    root.mkdir(mode=0o700)
+    client.app.state.skill_learning_store = store
+    client.app.state.skill_learning_candidate_adapter = SkillLearningCandidateAdapter(store)
+    client.app.state.settings.skill_learning_candidate_root = root
+
+    first = client.post(
+        f"/skill-learning/proposals/{reviewed.proposal.proposal_id}/candidate",
+        headers=AUTH,
+    )
+    assert first.status_code == 200, first.text
+    payload = first.json()
+    assert payload["proposal_id"] == reviewed.proposal.proposal_id
+    assert payload["review_fingerprint"] == reviewed.review.review_fingerprint
+    assert payload["content_sha256"] == revision.content_sha256
+    assert payload["created"] is True
+    assert payload["runtime_authority"] is False
+    assert payload["promotion_started"] is False
+    assert "content" not in payload
+    target = root / payload["relative_path"]
+    assert target.is_file()
+    assert target.stat().st_mode & 0o777 == 0o444
+
+    second = client.post(
+        f"/skill-learning/proposals/{reviewed.proposal.proposal_id}/candidate",
+        headers=AUTH,
+    )
+    assert second.status_code == 200
+    assert second.json() == {**payload, "created": False}
+
+
+def test_candidate_api_refuses_unaccepted_proposal_without_file(client, proposal_case, tmp_path):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
+    root = tmp_path / "candidates"
+    root.mkdir(mode=0o700)
+    client.app.state.skill_learning_store = store
+    client.app.state.skill_learning_candidate_adapter = SkillLearningCandidateAdapter(store)
+    client.app.state.settings.skill_learning_candidate_root = root
+
+    response = client.post(
+        f"/skill-learning/proposals/{proposed.proposal.proposal_id}/candidate",
+        headers=AUTH,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "skill_learning_candidate_not_accepted_or_stale"
+    assert not list(root.rglob("*.json"))
+
+
+def test_skill_learning_candidate_root_must_be_absolute_and_inside_runtime(settings):
+    with pytest.raises(ValueError, match="absolute"):
+        Settings(
+            _env_file=None,
+            operator_token=settings.operator_token,
+            runtime_dir=settings.runtime_dir,
+            skill_learning_candidate_root=Path("relative"),
+        )
+    with pytest.raises(ValueError, match="inside runtime_dir"):
+        Settings(
+            _env_file=None,
+            operator_token=settings.operator_token,
+            runtime_dir=settings.runtime_dir,
+            skill_learning_candidate_root=settings.runtime_dir.parent / "outside-candidates",
+        )
+    configured = Settings(
+        _env_file=None,
+        operator_token=settings.operator_token,
+        runtime_dir=settings.runtime_dir,
+        skill_learning_candidate_root=settings.runtime_dir / "skill-learning-candidates",
+    )
+    assert (
+        configured.skill_learning_candidate_root
+        == (settings.runtime_dir / "skill-learning-candidates").resolve()
+    )

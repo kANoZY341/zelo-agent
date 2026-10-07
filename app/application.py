@@ -70,6 +70,7 @@ from app.self_improvement_runtime import SelfImprovementRuntime
 from app.shell_worker import ShellRuntime, configured_shell_runtime
 from app.skill_api import router as skill_router
 from app.skill_learning_api import router as skill_learning_router
+from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
 from app.storage import build_storage
@@ -217,6 +218,16 @@ def create_app(
             skill_learning_store = SkillLearningProposalStore(
                 database, agent_factory, skill_registry
             )
+            skill_learning_candidate_adapter = None
+            if configuration.skill_learning_candidate_root is not None:
+                configuration.skill_learning_candidate_root.mkdir(
+                    mode=0o700,
+                    parents=True,
+                    exist_ok=True,
+                )
+                skill_learning_candidate_adapter = SkillLearningCandidateAdapter(
+                    skill_learning_store
+                )
             computer_egress_policy = ComputerEgressPolicy(
                 database,
                 agent_factory,
@@ -335,6 +346,7 @@ def create_app(
             application.state.agent_activation_report = agent_activation_report
             application.state.agent_factory = agent_factory
             application.state.skill_learning_store = skill_learning_store
+            application.state.skill_learning_candidate_adapter = skill_learning_candidate_adapter
             application.state.agent_computers = agent_computers
             application.state.storage = database
             application.state.database = database
