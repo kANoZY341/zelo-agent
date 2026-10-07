@@ -3,12 +3,16 @@
 import pytest
 from pydantic import ValidationError
 
+from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
+from app.memory import MemoryService
 from app.models import AgentInstance
+from app.schemas import AgentInstanceCreate
 from app.skill_learning import SkillLearningPromotedRevisionSnapshot
 from app.skill_learning_store import SkillLearningProposalStore
 from tests import test_skill_learning_promotion as promotion_tests
 from tests import test_skill_learning_store as skill_learning_store_tests
+from tests.test_agent_execution import project
 from tests.test_skill_learning import revision as make_revision
 from tests.test_skill_learning_store import accepted
 
@@ -299,6 +303,38 @@ def test_version_two_proposal_refuses_nonexistent_target_version(database, propo
             first_revision.source_skill_id,
             first_revision.procedure_id,
             target_version=True,
+        )
+
+
+def test_promoted_prior_is_not_shared_between_agent_instances(database, proposal_case):
+    store, _reviewed, _link, first_revision, owner = promoted_case(database, proposal_case)
+    other_project = project(database, "Other promoted learning project")
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
+    other = instances.create(
+        AgentInstanceCreate(agent_id=owner.agent_id, project_id=other_project.id)
+    )
+    assert other.id != owner.id
+    assert (
+        store.resolve_promoted_procedure(
+            other.id,
+            first_revision.source_skill_id,
+            first_revision.procedure_id,
+            target_version=1,
+        )
+        is None
+    )
+
+    second = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Another Agent cannot inherit promotion",
+        space_permissions=(),
+    )
+    with pytest.raises(ValueError, match="skill_learning_prior_revision_stale"):
+        store.submit(
+            agent_instance_id=other.id,
+            revision=second,
+            evidence_refs=(proposal_case[5],),
         )
 
 
