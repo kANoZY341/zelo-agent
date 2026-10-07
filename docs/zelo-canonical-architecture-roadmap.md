@@ -621,6 +621,13 @@ notifications produce no text turn. Parsing remains non-authoritative; no
 account binding, replay admission, provider connection, sending or Mind execution
 exists. See `docs/v0.16-whatsapp-signed-text-shape.md`.
 
+A subsequent inert projection can translate one signed WhatsApp text event to
+the existing `ChannelTextIngress` using HMAC-pseudonymous WABA/phone/sender/
+message identities under a *separate* Core key, without persisting raw provider
+IDs or granting account approval, replay admission, message delivery or runtime
+authority. See `docs/v0.16-whatsapp-opaque-ingress.md`. This is distinct from
+verified provider registry and revocation, which are still required.
+
 PR #108 is the contract-only v0.16 foundation: transport-neutral,
 **non-authoritative** channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn

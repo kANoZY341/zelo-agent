@@ -106,7 +106,7 @@ class ChannelTextIngress(ChannelContract):
     sender_key: OpaqueKey
     thread_key: OpaqueKey
     message_key: OpaqueKey
-    text: str = Field(min_length=1, max_length=CHANNEL_TEXT_BYTES)
+    text: str = Field(min_length=1, max_length=CHANNEL_TEXT_BYTES, repr=False)
     text_sha256: OpaqueKey
     provider_received_at: datetime
     payload_kind: Literal["text"] = "text"
@@ -161,7 +161,7 @@ class ChannelDeliveryIntent(ChannelContract):
     recipient_key: OpaqueKey
     thread_key: OpaqueKey
     conversation_turn_id: TurnId
-    text: str = Field(min_length=1, max_length=CHANNEL_TEXT_BYTES)
+    text: str = Field(min_length=1, max_length=CHANNEL_TEXT_BYTES, repr=False)
     text_sha256: OpaqueKey
     state: Literal["prepared"] = "prepared"
     transport_authority: Literal[False] = False
