@@ -1012,3 +1012,17 @@ def test_conversation_routes_require_operator_auth(settings, database):
             ).status_code
             == 401
         )
+
+
+@pytest.mark.parametrize("key", ["schedule:reserved", "channel:reserved"])
+def test_public_conversation_turn_cannot_claim_internal_idempotency_namespace(
+    settings, database, key
+):
+    provider = MindProvider(reply("should not be generated"))
+    with TestClient(create_app(settings, provider=provider), headers=AUTH) as client:
+        conversation = new_conversation(client)
+        denied = send_turn(client, conversation["id"], "test reserved origin", key)
+        assert denied.status_code == 422
+        assert denied.json()["detail"] == "Reserved conversation idempotency namespace"
+        assert provider.requests == []
+        assert client.get(f"/conversations/{conversation['id']}").json()["turn_total"] == 0

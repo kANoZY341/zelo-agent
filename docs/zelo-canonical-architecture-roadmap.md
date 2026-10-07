@@ -610,6 +610,16 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
+Start with transport-neutral, **non-authoritative** channel text envelopes,
+keyed opaque provider/thread/message identities, and reserved channel turn
+idempotency keys. This foundation has no provider credentials or connected
+transports. A separately qualified adapter must authenticate provider origin,
+bind Ahmad-approved accounts to existing Mind conversations, persist inbound
+replay/edits and outbound delivery receipts, and enforce send approval before
+any WhatsApp/email/voice action is enabled. Provider text is always untrusted
+data, never permission to execute a Core task. Live calling remains a separate
+authority and transport qualification.
+
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
 
