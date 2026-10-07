@@ -614,6 +614,13 @@ protection, Mind admission or authority to reply. See
 `docs/v0.16-whatsapp-signature-foundation.md`. This offline verifier is
 not connected to HTTP or messaging APIs.
 
+The separately staged signed-text-shape parser also remains offline. After
+valid HMAC proof it extracts only one strictly bounded WhatsApp Business Account
+text event; unsupported, mixed or batched events fail closed, and status-only
+notifications produce no text turn. Parsing remains non-authoritative; no
+account binding, replay admission, provider connection, sending or Mind execution
+exists. See `docs/v0.16-whatsapp-signed-text-shape.md`.
+
 PR #108 is the contract-only v0.16 foundation: transport-neutral,
 **non-authoritative** channel text envelopes,
 keyed opaque provider/thread/message identities, and reserved channel turn
