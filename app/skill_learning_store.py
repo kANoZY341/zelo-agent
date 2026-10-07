@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agent_factory import AgentFactory
@@ -361,6 +361,35 @@ class SkillLearningProposalStore:
                 .limit(limit)
             ).all()
             return tuple(self._stored(session, row) for row in rows)
+
+    def list_for_agent(
+        self,
+        agent_instance_id: str,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[tuple[StoredSkillLearningProposal, ...], int]:
+        """Read-only bounded history for one AgentInstance; does not reclassify authority."""
+
+        if not 1 <= limit <= 100 or not 0 <= offset <= 1_000_000:
+            raise ValueError("skill_learning_list_limit_invalid")
+        with self.database.read() as session:
+            total = session.scalar(
+                select(func.count())
+                .select_from(SkillLearningProposalRecord)
+                .where(SkillLearningProposalRecord.agent_instance_id == agent_instance_id)
+            )
+            rows = session.scalars(
+                select(SkillLearningProposalRecord)
+                .where(SkillLearningProposalRecord.agent_instance_id == agent_instance_id)
+                .order_by(
+                    SkillLearningProposalRecord.created_at.desc(),
+                    SkillLearningProposalRecord.id,
+                )
+                .limit(limit)
+                .offset(offset)
+            ).all()
+            return tuple(self._stored(session, row) for row in rows), int(total or 0)
 
     def review_basis(self, proposal_id: str) -> StoredSkillLearningProposal | None:
         """Recheck current identity/evidence for a reviewer; grants no decision authority."""
