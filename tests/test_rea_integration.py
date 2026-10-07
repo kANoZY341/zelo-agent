@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from app.agent_factory import AgentFactory, default_agent_registry, reverse_engineering_agent_spec
+from app.agent_factory import (
+    AgentFactory,
+    default_agent_registry,
+    reverse_engineering_agent_spec,
+)
 from app.capabilities import default_capability_registry
 from app.skills import default_skill_registry
 from tests.conftest import AUTH
@@ -57,7 +61,12 @@ def test_rea_capability_and_skill_remain_inert():
 
 
 def test_rea_manifest_never_admits_execution():
-    path = Path(__file__).resolve().parents[1] / "integrations" / "rea" / "integration.json"
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "integrations"
+        / "rea"
+        / "integration.json"
+    )
     manifest = json.loads(path.read_text(encoding="utf-8"))
     assert manifest["lifecycle"] == "draft"
     assert manifest["source_repository"] == "https://github.com/morluto/rea"

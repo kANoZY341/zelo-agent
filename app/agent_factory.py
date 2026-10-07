@@ -399,7 +399,11 @@ def reverse_engineering_agent_spec() -> AgentSpec:
 
 
 def default_agent_registry() -> AgentRegistry:
-    agents = (coding_agent_spec(), research_agent_spec(), reverse_engineering_agent_spec())
+    agents = (
+        coding_agent_spec(),
+        research_agent_spec(),
+        reverse_engineering_agent_spec(),
+    )
     departments = (
         DepartmentSpec(
             department_id="engineering",
