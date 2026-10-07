@@ -6,31 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.16 channel binding and v0.15 skill governance
+## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger
 
-Core-first development continues; v0.15 is the current Core version.
-Merged PR #107 established skill proposal promoted-head admission.
-PR #108 is merged at bc6f50c94b7d42c25a32462a8657606534dff457:
-its reviewed tree matched merged main, with 4,965 tests passed, 2 skipped.
-It adds inert, transport-neutral text contracts for WhatsApp/email/browser,
-HMAC pseudonymous identity, a reserved channel: idempotency namespace,
-and prepared-only outbound intent. No sending or Mind admission was enabled.
+Core-first work remains on Core v0.15. Merged PR #107 established the
+governed learned-skill proposal admission guard. Merged PR #108 at
+bc6f50c94b7d42c25a32462a8657606534dff457 added bounded inert channel:
+text envelopes, HMAC pseudonymous identities and prepared-only replies;
+4,965 tests passed, 2 skipped.
 
-PR #109 is the active, unmerged v0.16 binding-ledger slice on top of
-merged #108: append-only SQLite operator-selected opaque thread bindings
-and unverified inbound message replay observations. Original message body,
-provider account credentials, sending, calls, voice, provider authentication,
-execution authority and automatic delivery remain disabled. An operator
-binding is not proof of provider ownership. Full exact-head CI/review is
-required before merge.
+PR #109 merged at bd586aa702d2b8b414db8bd22ac2676575c194f4 with
+4,985 tests passed, 2 skipped; its merged tree exactly matches the
+reviewed source. It adds operator-selected opaque thread bindings and
+append-only unverified inbound replay observations. These records store no
+original message body and cannot claim provider authentication, account
+ownership, Mind admission, execution, delivery, voice or calling authority.
 
-PR #110 is a separate draft for local promoted-link exclusivity of competing
-preaccepted learned revisions. It does not activate learned skills, lock
-GitHub pre-merge publication, or grant new worker/tool privileges.
+PR #110 is the active unmerged v0.15 local promotion-link exclusivity
+gate. Competing previously accepted skill revisions cannot both receive
+new local promotion links. Historical reviewed decisions remain valid.
+The separate PR #111 still provides the proposed generic GitHub
+pre-merge publication refusal; a future identity-bound publication
+reservation remains necessary. There is no automatic learned skill
+runtime activation or expansion of Agent/Worker/Tool permissions.
 
 Media native-reader qualification remains refused after four authorized
-attempts; no fifth attempt is allowed without renewed authorization.
-UI PR #61 remains parked until the Core-first milestones are finished.
+attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
 ## Checkpoint history
 

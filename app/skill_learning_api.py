@@ -148,6 +148,8 @@ def record_promotion_link(
             "skill_learning_proposal_stale",
             "skill_learning_promotion_already_linked",
             "skill_learning_promotion_merge_reused",
+            "skill_learning_promoted_head_advanced",
+            "skill_learning_promotion_predecessor_missing",
             "skill_learning_promotion_repository_unavailable",
         }
         raise HTTPException(status_code=409 if code in conflict else 422, detail=code) from None
