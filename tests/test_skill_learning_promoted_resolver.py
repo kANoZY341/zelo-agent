@@ -1,12 +1,16 @@
 """Read-only historical promoted-revision resolution with no activation authority."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
 from app.memory import MemoryService
-from app.models import AgentInstance
+from app.models import AgentInstance, SkillLearningPromotionLinkRecord
 from app.schemas import AgentInstanceCreate
 from app.skill_learning import SkillLearningPromotedRevisionSnapshot
 from app.skill_learning_store import SkillLearningProposalStore
@@ -212,6 +216,54 @@ def test_two_preaccepted_competing_heads_cannot_both_gain_promotion_proof(databa
         first_reviewed.proposal.proposal_id, first_merge, OperatorPrincipal()
     )
     assert not created and replay == first_link
+
+
+def test_concurrent_competing_head_writers_record_only_one_link(database, proposal_case):
+    base, agent, _task, _attempt, first_revision, ref = proposal_case
+    first_reviewed = accepted(base, agent, first_revision, ref)
+    competing_revision = make_revision(
+        title="Concurrent alternate first revision",
+        instructions=(
+            "Gather authorized evidence and preserve the alternate reviewed instruction sequence."
+        ),
+        space_permissions=(),
+    )
+    second_reviewed = accepted(base, agent, competing_revision, ref)
+    store = promotion_tests.promotion_store(database, base)
+    first_merge = promotion_tests.successful_lineage(database, first_revision)
+    second_merge = promotion_tests.successful_lineage(database, competing_revision)
+    start = Barrier(2)
+
+    def record(candidate_id, merge_id):
+        start.wait(timeout=10)
+        try:
+            link, created = store.record_promotion_link(candidate_id, merge_id, OperatorPrincipal())
+            return ("linked", link.proposal_id, created)
+        except ValueError as exc:
+            return ("refused", str(exc), False)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        left = pool.submit(record, first_reviewed.proposal.proposal_id, first_merge)
+        right = pool.submit(record, second_reviewed.proposal.proposal_id, second_merge)
+        results = [left.result(timeout=30), right.result(timeout=30)]
+
+    assert sorted(result[0] for result in results) == ["linked", "refused"]
+    assert next(result[1] for result in results if result[0] == "refused") == (
+        "skill_learning_promoted_head_advanced"
+    )
+    assert next(result[2] for result in results if result[0] == "linked")
+    with database.read() as session:
+        assert (
+            session.scalar(select(func.count()).select_from(SkillLearningPromotionLinkRecord)) == 1
+        )
+    promoted = store.resolve_promoted_procedure(
+        agent.id, first_revision.source_skill_id, first_revision.procedure_id
+    )
+    assert promoted is not None
+    assert promoted.proposal_id in {
+        first_reviewed.proposal.proposal_id,
+        second_reviewed.proposal.proposal_id,
+    }
 
 
 def test_version_two_proposal_uses_exact_promoted_prior_without_activation(database, proposal_case):
