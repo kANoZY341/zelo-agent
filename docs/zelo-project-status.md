@@ -13,7 +13,7 @@ PR #100 and PR #102 are merged. PR #102 merge commit
 `37281dd8f6a7e1d04db1b36908f99d2b56e8228d` adds the read-only per-Agent
 learned-skill projection; its reviewed head passed **4,843 tests with two skips**.
 
-The active slice makes PR #100's hardened candidate serializer explicitly usable
+PR #103 is the active slice and makes PR #100's hardened candidate serializer explicitly usable
 by Ahmad without granting promotion or runtime authority. Candidate staging is
 disabled by default and requires operator configuration of an absolute directory
 strictly inside `runtime_dir`. The request supplies only a proposal ID; it cannot

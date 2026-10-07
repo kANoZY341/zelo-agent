@@ -533,7 +533,7 @@ Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100
 and PR #102 are merged. PR #102 adds a read-only per-Agent learned-skill status
 projection with no runtime authority.
 
-The active gate is **operator candidate materialization**. PR #100's hardened
+PR #103 is the active gate for **operator candidate materialization**. PR #100's hardened
 serializer is exposed only through an Ahmad-authenticated endpoint and an
 operator-configured staging root strictly inside `runtime_dir`. The request
 supplies no path. Only a freshly revalidated accepted proposal may materialize a

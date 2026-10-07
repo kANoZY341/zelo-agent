@@ -98,6 +98,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #99" in active_status
     assert "PR #100" in active_status
     assert "PR #102" in active_status
+    assert "PR #103" in active_status
     assert "37281dd" in active_status
     assert "4,843 tests with two skips" in active_compact
     assert "inside `runtime_dir`" in active_status
@@ -112,6 +113,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #102" in roadmap_compact
+    assert "PR #103" in roadmap_compact
     assert "operator candidate materialization" in roadmap_compact
     assert "inside `runtime_dir`" in roadmap_content
     assert "request supplies no path" in roadmap_compact
