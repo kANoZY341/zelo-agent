@@ -6,35 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 governed per-Agent skill learning
+## Active increment: v0.15 operator candidate materialization
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98 and PR #99 are
-merged. PR #99 merge commit `72cf0d709f4cfd929ff5c0b0cc69701100437a3a`
-preserves named-endpoint navigation as the first browser mutation: trusted HTTPS
-endpoint ID + bounded canonical path only, with separate Worker authority,
-pre/post human-control checks, final-origin enforcement, Core egress and no
-arbitrary URL/click/type/write/shell authority.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98, PR #99,
+PR #100 and PR #102 are merged. PR #102 merge commit
+`37281dd8f6a7e1d04db1b36908f99d2b56e8228d` adds the read-only per-Agent
+learned-skill projection; its reviewed head passed **4,843 tests with two skips**.
 
-PR #100 is now the active gate. It implements governed Agent skill-learning
-**proposals**, not self-activation. An Agent with `skill_learning="propose"` may
-submit one bounded procedure revision backed only by retained, successful,
-Agent-bound `research_run` evidence. Core revalidates Agent/project/registry,
-source skill, evidence ownership, capability/task/tool/Space bounds and version
-identity before persistence; delegated proposal execution is refused.
+The active slice makes PR #100's hardened candidate serializer explicitly usable
+by Ahmad without granting promotion or runtime authority. Candidate staging is
+disabled by default and requires operator configuration of an absolute directory
+strictly inside `runtime_dir`. The request supplies only a proposal ID; it cannot
+choose a filesystem path.
 
-Proposals and reviews are append-only. Operator auth maps only to Ahmad; an
-accepted review requires all six explicit review checks. Acceptance does not
-change AgentSpec, SkillSpec, task routing, tool/worker authority or runtime
-permissions. The candidate adapter can serialize only a freshly revalidated,
-accepted proposal into a content-addressed `skills/procedures/...` artifact
-under an operator-selected staging root. That path is not read by the active Skill
-Registry and has no task/API/promotion wiring.
+Authenticated `POST /skill-learning/proposals/{proposal_id}/candidate` requires
+a freshly revalidated accepted proposal and the Ahmad operator principal. It
+creates or idempotently verifies one content-addressed, read-only candidate under
+the configured staging root. Writable/untrusted directories, symlink escapes,
+hard-linked/writable existing files, stale evidence, unaccepted proposals and
+conflicting bytes fail closed.
 
-Integrated validation currently passes **128 focused skill-learning/database/
-Agent-factory/context tests** plus Ruff/format/diff checks. Next: finish merged
-main validation, freeze exact source, fresh full CI/review, then merge PR #100 if
-unchanged. Later revision promotion remains fail-closed until a trusted promoted-
-revision resolver and explicit Developer/Review/Promotion handoff are designed.
+The API returns metadata only: proposal/review identity, relative candidate path,
+semantic/artifact SHA-256 and created/reused status. Candidate bytes are never
+returned; filesystem errors are normalized. Responses explicitly keep
+`runtime_authority=false` and `promotion_started=false`. The adapter still does
+not invoke Developer, Review, Promotion, CI, registry loading or activation.
+
+Combined post-integration validation passes **157 tests** with one known
+worktree-only DeveloperRuntime test deselected; Ruff/format/diff checks pass.
+Next: exact-head CI/source review. Promotion linkage remains a separate later gate.
 
 ## Checkpoint history
 

@@ -529,27 +529,26 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93, PR #98 and PR #99 are merged.
-PR #99 establishes only named-endpoint browser navigation behind the merged
-internal-only computer topology; click/type/write/shell/arbitrary URLs remain
-separate later gates.
+Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100
+and PR #102 are merged. PR #102 adds a read-only per-Agent learned-skill status
+projection with no runtime authority.
 
-PR #100 is the active v0.15 gate for **governed per-Agent skill learning**. Agents
-may propose bounded procedure revisions only when their trusted AgentSpec permits
-`skill_learning="propose"`. Core binds current Agent/project/registry identity,
-source Skill identity, retained successful Agent-bound research evidence and the
-existing authority envelope. Capability/task/tool/Space widening is refused.
+The active gate is **operator candidate materialization**. PR #100's hardened
+serializer is exposed only through an Ahmad-authenticated endpoint and an
+operator-configured staging root strictly inside `runtime_dir`. The request
+supplies no path. Only a freshly revalidated accepted proposal may materialize a
+content-addressed candidate. Directory trust, symlink/hardlink, exact read-only
+mode, byte identity and stale-evidence checks remain fail-closed.
 
-Proposal and review records are append-only. Ahmad is the only reviewer principal;
-acceptance requires all six review checks and remains inert. A separate
-operator-requested candidate adapter may serialize a freshly revalidated accepted
-revision into a content-addressed staging artifact, but active registries never
-read that path and no Developer/Review/Promotion handoff is automatic. Later
-revision promotion fails closed until a trusted promoted-revision resolver exists.
+The endpoint returns metadata only and explicitly reports
+`runtime_authority=false` and `promotion_started=false`. It does not invoke
+Developer, Review, Promotion, CI, registry loading or activation. Active registries
+still do not read candidate staging. Promotion linkage and promoted-revision
+resolution remain separate later gates.
 
-Current integrated validation passes **128 focused skill-learning/database/
-Agent-factory/context tests** plus Ruff/format/diff checks. Require fresh exact-head
-full CI and final source review before merge. UI #61 remains parked.
+Combined integrated validation passes **157 cases** with one known Git-worktree
+DeveloperRuntime test deselected; Ruff/format/diff checks pass. Require exact-head
+CI and source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

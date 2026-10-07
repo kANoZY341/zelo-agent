@@ -91,35 +91,34 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 governed per-Agent skill learning")
+    assert active_status.startswith("## Active increment: v0.15 operator candidate materialization")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     assert "PR #93" in active_status
     assert "PR #98" in active_status
     assert "PR #99" in active_status
-    assert "72cf0d7" in active_status
     assert "PR #100" in active_status
-    assert 'skill_learning="propose"' in active_status
-    assert "research_run" in active_status
-    assert "delegated proposal execution is refused" in active_compact
-    assert "append-only" in active_status
-    assert "all six explicit review checks" in active_compact
-    assert "skills/procedures/" in active_status
-    assert "not read by the active Skill Registry" in active_compact
-    assert "128 focused skill-learning/database/" in active_compact
+    assert "PR #102" in active_status
+    assert "37281dd" in active_status
+    assert "4,843 tests with two skips" in active_compact
+    assert "inside `runtime_dir`" in active_status
+    assert "POST /skill-learning/proposals/{proposal_id}/candidate" in active_status
+    assert "cannot choose a filesystem path" in active_compact
+    assert "runtime_authority=false" in active_status
+    assert "promotion_started=false" in active_status
+    assert "Candidate bytes are never returned" in active_compact
+    assert "157 tests" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
-    assert "PR #93" in roadmap_compact
-    assert "PR #98" in roadmap_compact
-    assert "PR #99" in roadmap_compact
-    assert "PR #100" in roadmap_compact
-    assert "governed per-Agent skill learning" in roadmap_compact
-    assert 'skill_learning="propose"' in roadmap_compact
-    assert "Capability/task/tool/Space widening is refused" in roadmap_compact
-    assert "Ahmad is the only reviewer principal" in roadmap_compact
-    assert "active registries never read that path" in roadmap_compact
-    assert "128 focused skill-learning/database/" in roadmap_compact
+    assert "PR #102" in roadmap_compact
+    assert "operator candidate materialization" in roadmap_compact
+    assert "inside `runtime_dir`" in roadmap_content
+    assert "request supplies no path" in roadmap_compact
+    assert "runtime_authority=false" in roadmap_content
+    assert "promotion_started=false" in roadmap_content
+    assert "Promotion linkage" in roadmap_content
+    assert "157 cases" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
