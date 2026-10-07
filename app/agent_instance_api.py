@@ -84,11 +84,14 @@ def list_agent_learned_skills(
 ) -> AgentLearnedSkillPage:
     agents.get(instance_id)
     rows, total = store.list_for_agent(instance_id, limit=limit, offset=offset)
+    proposal_ids = tuple(stored.proposal.proposal_id for stored in rows)
+    links = store.promotion_links_for(proposal_ids)
     items = []
     for stored in rows:
         proposal = stored.proposal
         revision = proposal.proposed_revision
         review = stored.review
+        promotion = links.get(proposal.proposal_id)
         items.append(
             AgentLearnedSkillItem(
                 proposal_id=proposal.proposal_id,
@@ -102,6 +105,13 @@ def list_agent_learned_skills(
                 evidence_count=len(proposal.evidence_refs),
                 review_id=review.review_id if review is not None else None,
                 review_fingerprint=review.review_fingerprint if review is not None else None,
+                promoted=promotion is not None,
+                promoted_revision_sha256=(
+                    promotion.revision_sha256 if promotion is not None else None
+                ),
+                promotion_merge_commit_sha=(
+                    promotion.merge_commit_sha if promotion is not None else None
+                ),
                 created_at=stored.created_at,
                 updated_at=stored.updated_at,
             )

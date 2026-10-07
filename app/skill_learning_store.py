@@ -14,17 +14,32 @@ from app.agent_factory import AgentFactory
 from app.auth import OperatorPrincipal
 from app.models import (
     SkillLearningEvent,
+    SkillLearningPromotionLinkRecord,
     SkillLearningProposalRecord,
     SkillLearningReviewRecord,
+    Task,
+    TaskAttempt,
     utcnow,
+)
+from app.policy import State
+from app.promotion_contracts import (
+    CandidateEntry,
+    MergeRequest,
+    MergeRunResult,
+    PromotionRequest,
+    PromotionRunResult,
 )
 from app.skill_learning import (
     SkillLearningEvidenceRef,
+    SkillLearningPromotionLink,
     SkillLearningProposal,
     SkillLearningReview,
     SkillLearningReviewRequest,
     SkillProcedureRevision,
     propose_skill_revision,
+    skill_procedure_artifact_bytes,
+    skill_procedure_artifact_path,
+    skill_procedure_artifact_sha256,
 )
 from app.skill_learning_records import CoreSkillLearningRecords
 from app.skills import SkillRegistry
@@ -32,6 +47,7 @@ from app.storage import SessionStore
 
 MAX_PROPOSAL_BYTES = 65_536
 MAX_REVIEW_BYTES = 16_384
+MAX_PROMOTION_LINK_BYTES = 32_768
 
 
 @dataclass(frozen=True)
@@ -51,10 +67,13 @@ class SkillLearningProposalStore:
         database: SessionStore,
         agent_factory: AgentFactory,
         skill_registry: SkillRegistry,
+        *,
+        promotion_repository: str | None = None,
     ) -> None:
         self.database = database
         self.agent_factory = agent_factory
         self.skill_registry = skill_registry
+        self.promotion_repository = promotion_repository
         self.records = CoreSkillLearningRecords(database, agent_factory)
 
     def _build(
@@ -362,6 +381,278 @@ class SkillLearningProposalStore:
             ).all()
             return tuple(self._stored(session, row) for row in rows)
 
+    @classmethod
+    def _stored_promotion_link(
+        cls, row: SkillLearningPromotionLinkRecord
+    ) -> SkillLearningPromotionLink:
+        if len(row.link_json.encode("utf-8")) > MAX_PROMOTION_LINK_BYTES:
+            raise ValueError("skill_learning_promotion_link_invalid")
+        link = SkillLearningPromotionLink.model_validate_json(row.link_json)
+        if (
+            link.link_id != row.id
+            or link.proposal_id != row.proposal_id
+            or link.reviewer_id != row.reviewer_id
+            or link.review_fingerprint != row.review_fingerprint
+            or link.revision_sha256 != row.revision_sha256
+            or link.artifact_path != row.artifact_path
+            or link.artifact_sha256 != row.artifact_sha256
+            or link.artifact_bytes != row.artifact_bytes
+            or link.repository != row.repository
+            or link.promotion_task_id != row.promotion_task_id
+            or link.promotion_action_version != row.promotion_action_version
+            or link.promotion_action_hash != row.promotion_action_hash
+            or link.promotion_review_fingerprint != row.promotion_review_fingerprint
+            or link.pr_number != row.pr_number
+            or link.pr_head_sha != row.pr_head_sha
+            or link.merge_task_id != row.merge_task_id
+            or link.merge_action_version != row.merge_action_version
+            or link.merge_action_hash != row.merge_action_hash
+            or link.merge_commit_sha != row.merge_commit_sha
+            or link.link_fingerprint != row.link_fingerprint
+            or link.linked_at != row.created_at
+            or link.runtime_authority is not False
+            or row.runtime_authority is not False
+        ):
+            raise ValueError("skill_learning_promotion_link_invalid")
+        return link
+
+    @staticmethod
+    def _latest_successful_attempt(session: Session, task: Task) -> TaskAttempt:
+        attempt = session.scalar(
+            select(TaskAttempt)
+            .where(TaskAttempt.task_id == task.id)
+            .order_by(TaskAttempt.number.desc())
+            .limit(1)
+        )
+        if (
+            attempt is None
+            or attempt.outcome != State.SUCCEEDED
+            or attempt.error is not None
+            or attempt.result != task.result
+        ):
+            raise ValueError("skill_learning_promotion_lineage_invalid")
+        return attempt
+
+    def _promotion_lineage(
+        self,
+        session: Session,
+        merge_task_id: str,
+        expected_entry: CandidateEntry,
+    ) -> tuple[Task, PromotionRequest, PromotionRunResult, Task, MergeRequest, MergeRunResult]:
+        if self.promotion_repository is None:
+            raise ValueError("skill_learning_promotion_repository_unavailable")
+
+        merge_task = session.get(Task, merge_task_id)
+        if (
+            merge_task is None
+            or merge_task.kind != "merge_run"
+            or merge_task.status != State.SUCCEEDED
+            or merge_task.merge_spec is None
+            or merge_task.result is None
+        ):
+            raise ValueError("skill_learning_merge_task_invalid")
+        self._latest_successful_attempt(session, merge_task)
+        try:
+            merge = MergeRequest.model_validate(merge_task.merge_spec)
+            merge_result = MergeRunResult.model_validate(merge_task.result)
+        except ValueError:
+            raise ValueError("skill_learning_merge_task_invalid") from None
+
+        promotion_task = session.get(Task, merge.promotion_task_id)
+        if (
+            promotion_task is None
+            or promotion_task.kind != "promotion_run"
+            or promotion_task.status != State.SUCCEEDED
+            or promotion_task.promotion_spec is None
+            or promotion_task.result is None
+        ):
+            raise ValueError("skill_learning_promotion_task_invalid")
+        self._latest_successful_attempt(session, promotion_task)
+        try:
+            promotion = PromotionRequest.model_validate(promotion_task.promotion_spec)
+            promotion_result = PromotionRunResult.model_validate(promotion_task.result)
+        except ValueError:
+            raise ValueError("skill_learning_promotion_task_invalid") from None
+
+        review = promotion.review
+        publication = promotion_result.publication
+        commit = promotion_result.commit
+        if (
+            promotion.repository != self.promotion_repository
+            or publication.repository != self.promotion_repository
+            or merge_result.repository != self.promotion_repository
+            or merge.promotion_task_id != promotion_task.id
+            or merge.promotion_action_version != promotion_task.action_version
+            or merge.promotion_action_hash != promotion_task.action_hash
+            or merge.promotion != promotion
+            or merge.publication != publication
+            or merge.ci.repository != publication.repository
+            or merge.ci.pr_number != publication.pr_number
+            or merge.ci.head_sha != publication.pr_head_sha
+            or merge.ci.base_sha != publication.pr_base_sha
+            or commit.review_fingerprint != review.review_fingerprint
+            or commit.branch != promotion.branch
+            or commit.base_sha != review.base_sha
+            or publication.branch != promotion.branch
+            or publication.commit_sha != commit.commit_sha
+            or publication.pr_head_sha != commit.commit_sha
+            or publication.pr_base_sha != review.base_sha
+            or merge_result.pr_number != publication.pr_number
+            or merge_result.base_branch != publication.base_branch
+            or merge_result.base_sha != review.base_sha
+            or merge_result.head_branch != publication.branch
+            or merge_result.head_sha != publication.pr_head_sha
+            or merge_result.merge_method != merge.merge_method
+            or review.changed_file_count != 1
+            or review.candidate_manifest != [expected_entry]
+        ):
+            raise ValueError("skill_learning_promotion_lineage_invalid")
+        return promotion_task, promotion, promotion_result, merge_task, merge, merge_result
+
+    def get_promotion_link(self, proposal_id: str) -> SkillLearningPromotionLink | None:
+        with self.database.read() as session:
+            row = session.scalar(
+                select(SkillLearningPromotionLinkRecord).where(
+                    SkillLearningPromotionLinkRecord.proposal_id == proposal_id
+                )
+            )
+            return self._stored_promotion_link(row) if row is not None else None
+
+    def record_promotion_link(
+        self,
+        proposal_id: str,
+        merge_task_id: str,
+        principal: OperatorPrincipal,
+    ) -> tuple[SkillLearningPromotionLink, bool]:
+        """Bind an accepted proposal to existing successful promotion/merge evidence only."""
+
+        if not isinstance(principal, OperatorPrincipal) or principal.subject != "ahmad":
+            raise PermissionError("skill_learning_reviewer_forbidden")
+        stored = self.accepted_candidate_basis(proposal_id, principal)
+        if stored is None or stored.review is None:
+            raise ValueError("skill_learning_candidate_not_accepted_or_stale")
+
+        revision = stored.proposal.proposed_revision
+        artifact = skill_procedure_artifact_bytes(revision)
+        artifact_path = skill_procedure_artifact_path(revision)
+        artifact_sha = skill_procedure_artifact_sha256(revision)
+        expected_entry = CandidateEntry(
+            path=artifact_path,
+            operation="add",
+            object_type="file",
+            mode="100644",
+            size=len(artifact),
+            sha256=artifact_sha,
+        )
+
+        with self.database.transaction() as session:
+            proposal_row = session.get(SkillLearningProposalRecord, proposal_id)
+            if proposal_row is None:
+                raise LookupError("skill_learning_proposal_not_found")
+            current = self._stored(session, proposal_row)
+            if current != stored:
+                raise ValueError("skill_learning_proposal_stale")
+            promotion_task, promotion, promotion_result, merge_task, _merge, merge_result = (
+                self._promotion_lineage(session, merge_task_id, expected_entry)
+            )
+
+            existing = session.scalar(
+                select(SkillLearningPromotionLinkRecord).where(
+                    SkillLearningPromotionLinkRecord.proposal_id == proposal_id
+                )
+            )
+            merge_existing = session.scalar(
+                select(SkillLearningPromotionLinkRecord).where(
+                    SkillLearningPromotionLinkRecord.merge_task_id == merge_task_id
+                )
+            )
+
+            material = {
+                "schema_version": "zelo-skill-learning-promotion-link-v1",
+                "proposal_id": proposal_id,
+                "proposal_fingerprint": stored.proposal.proposal_fingerprint,
+                "review_fingerprint": stored.review.review_fingerprint,
+                "reviewer_id": "ahmad",
+                "revision_sha256": revision.content_sha256,
+                "artifact_path": artifact_path,
+                "artifact_sha256": artifact_sha,
+                "artifact_bytes": len(artifact),
+                "repository": promotion.repository,
+                "promotion_task_id": promotion_task.id,
+                "promotion_action_version": promotion_task.action_version,
+                "promotion_action_hash": promotion_task.action_hash,
+                "promotion_review_fingerprint": promotion.review.review_fingerprint,
+                "pr_number": promotion_result.publication.pr_number,
+                "pr_head_sha": promotion_result.publication.pr_head_sha,
+                "merge_task_id": merge_task.id,
+                "merge_action_version": merge_task.action_version,
+                "merge_action_hash": merge_task.action_hash,
+                "merge_commit_sha": merge_result.merge_commit_sha,
+                "runtime_authority": False,
+            }
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    material,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                    allow_nan=False,
+                ).encode("ascii")
+            ).hexdigest()
+            link_id = str(
+                uuid5(NAMESPACE_URL, f"zelo-skill-learning-promotion-link-v1:{fingerprint}")
+            )
+            link = SkillLearningPromotionLink(
+                **material,
+                link_id=link_id,
+                link_fingerprint=fingerprint,
+                linked_at=utcnow(),
+            )
+
+            if existing is not None:
+                retained = self._stored_promotion_link(existing)
+                retained_material = retained.model_dump(mode="json", exclude={"linked_at"})
+                link_material = link.model_dump(mode="json", exclude={"linked_at"})
+                if retained_material == link_material:
+                    return retained, False
+                raise ValueError("skill_learning_promotion_already_linked")
+            if merge_existing is not None:
+                raise ValueError("skill_learning_promotion_merge_reused")
+
+            encoded = self._encode(
+                link.model_dump(mode="json"),
+                MAX_PROMOTION_LINK_BYTES,
+                "skill_learning_promotion_link_too_large",
+            )
+            row = SkillLearningPromotionLinkRecord(
+                id=link.link_id,
+                proposal_id=proposal_id,
+                reviewer_id=link.reviewer_id,
+                review_fingerprint=link.review_fingerprint,
+                revision_sha256=link.revision_sha256,
+                artifact_path=link.artifact_path,
+                artifact_sha256=link.artifact_sha256,
+                artifact_bytes=link.artifact_bytes,
+                repository=link.repository,
+                promotion_task_id=link.promotion_task_id,
+                promotion_action_version=link.promotion_action_version,
+                promotion_action_hash=link.promotion_action_hash,
+                promotion_review_fingerprint=link.promotion_review_fingerprint,
+                pr_number=link.pr_number,
+                pr_head_sha=link.pr_head_sha,
+                merge_task_id=link.merge_task_id,
+                merge_action_version=link.merge_action_version,
+                merge_action_hash=link.merge_action_hash,
+                merge_commit_sha=link.merge_commit_sha,
+                link_fingerprint=link.link_fingerprint,
+                link_json=encoded,
+                runtime_authority=False,
+                created_at=link.linked_at,
+            )
+            session.add(row)
+            session.flush()
+            return self._stored_promotion_link(row), True
+
     def list_for_agent(
         self,
         agent_instance_id: str,
@@ -390,6 +681,23 @@ class SkillLearningProposalStore:
                 .offset(offset)
             ).all()
             return tuple(self._stored(session, row) for row in rows), int(total or 0)
+
+    def promotion_links_for(
+        self, proposal_ids: tuple[str, ...]
+    ) -> dict[str, SkillLearningPromotionLink]:
+        """Return immutable historical promotion links for exact proposal IDs."""
+
+        if not proposal_ids:
+            return {}
+        if len(proposal_ids) > 100 or len(proposal_ids) != len(set(proposal_ids)):
+            raise ValueError("skill_learning_promotion_link_query_invalid")
+        with self.database.read() as session:
+            rows = session.scalars(
+                select(SkillLearningPromotionLinkRecord).where(
+                    SkillLearningPromotionLinkRecord.proposal_id.in_(proposal_ids)
+                )
+            ).all()
+            return {row.proposal_id: self._stored_promotion_link(row) for row in rows}
 
     def review_basis(self, proposal_id: str) -> StoredSkillLearningProposal | None:
         """Recheck current identity/evidence for a reviewer; grants no decision authority."""

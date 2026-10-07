@@ -216,7 +216,10 @@ def create_app(
             ).require()
             agent_factory = AgentFactory(agent_registry)
             skill_learning_store = SkillLearningProposalStore(
-                database, agent_factory, skill_registry
+                database,
+                agent_factory,
+                skill_registry,
+                promotion_repository=configuration.promotion_repository,
             )
             skill_learning_candidate_adapter = None
             if configuration.skill_learning_candidate_root is not None:

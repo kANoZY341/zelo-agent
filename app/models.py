@@ -849,3 +849,70 @@ class SkillLearningReviewRecord(Base):
     review_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
     review_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningPromotionLinkRecord(Base):
+    """Immutable historical proof of an operator-bound successful promotion/merge lineage."""
+
+    __tablename__ = "skill_learning_promotion_links"
+    __table_args__ = (
+        CheckConstraint("reviewer_id = 'ahmad'", name="ck_skill_learning_promotion_reviewer"),
+        CheckConstraint("runtime_authority = 0", name="ck_skill_learning_promotion_runtime"),
+        CheckConstraint(
+            "length(review_fingerprint) = 64", name="ck_skill_learning_promotion_review"
+        ),
+        CheckConstraint(
+            "length(revision_sha256) = 64", name="ck_skill_learning_promotion_revision"
+        ),
+        CheckConstraint(
+            "length(artifact_sha256) = 64", name="ck_skill_learning_promotion_artifact"
+        ),
+        CheckConstraint(
+            "length(promotion_action_hash) = 64", name="ck_skill_learning_promotion_action"
+        ),
+        CheckConstraint("length(merge_action_hash) = 64", name="ck_skill_learning_merge_action"),
+        CheckConstraint("length(link_fingerprint) = 64", name="ck_skill_learning_link_fingerprint"),
+        CheckConstraint(
+            "length(promotion_review_fingerprint) = 64",
+            name="ck_skill_learning_promotion_review_fingerprint",
+        ),
+        CheckConstraint("length(pr_head_sha) = 40", name="ck_skill_learning_promotion_pr_head"),
+        CheckConstraint(
+            "length(merge_commit_sha) = 40", name="ck_skill_learning_promotion_merge_commit"
+        ),
+        CheckConstraint(
+            "artifact_bytes BETWEEN 1 AND 65536", name="ck_skill_learning_promotion_artifact_bytes"
+        ),
+        CheckConstraint("pr_number >= 1", name="ck_skill_learning_promotion_pr_number"),
+        CheckConstraint(
+            "promotion_action_version >= 1", name="ck_skill_learning_promotion_action_version"
+        ),
+        CheckConstraint("merge_action_version >= 1", name="ck_skill_learning_merge_action_version"),
+        CheckConstraint("length(link_json) <= 32768", name="ck_skill_learning_promotion_link_size"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_learning_proposals.id"), unique=True, index=True
+    )
+    reviewer_id: Mapped[str] = mapped_column(String(32))
+    review_fingerprint: Mapped[str] = mapped_column(String(64))
+    revision_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_path: Mapped[str] = mapped_column(String(4096))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_bytes: Mapped[int] = mapped_column(Integer)
+    repository: Mapped[str] = mapped_column(String(256))
+    promotion_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), unique=True, index=True)
+    promotion_action_version: Mapped[int] = mapped_column(Integer)
+    promotion_action_hash: Mapped[str] = mapped_column(String(64))
+    promotion_review_fingerprint: Mapped[str] = mapped_column(String(64))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    merge_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), unique=True, index=True)
+    merge_action_version: Mapped[int] = mapped_column(Integer)
+    merge_action_hash: Mapped[str] = mapped_column(String(64))
+    merge_commit_sha: Mapped[str] = mapped_column(String(40))
+    link_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    link_json: Mapped[str] = mapped_column(Text)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

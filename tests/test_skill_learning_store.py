@@ -834,6 +834,8 @@ def test_agent_learned_skill_projection_is_bounded_metadata_only(client, proposa
         "review_id": None,
         "review_fingerprint": None,
         "promoted": False,
+        "promoted_revision_sha256": None,
+        "promotion_merge_commit_sha": None,
         "active_revision_sha256": None,
         "runtime_authority": False,
         "created_at": item["created_at"],

@@ -827,7 +827,9 @@ class AgentLearnedSkillItem(StrictModel):
     evidence_count: int = Field(ge=1, le=16)
     review_id: TaskId | None = None
     review_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
-    promoted: Literal[False] = False
+    promoted: bool = False
+    promoted_revision_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    promotion_merge_commit_sha: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
     active_revision_sha256: Literal[None] = None
     runtime_authority: Literal[False] = False
     created_at: datetime

@@ -371,6 +371,40 @@ def propose_skill_revision(
     )
 
 
+SKILL_PROCEDURE_ARTIFACT_ROOT = "skills/procedures"
+MAX_SKILL_PROCEDURE_ARTIFACT_BYTES = 65_536
+
+
+def skill_procedure_artifact_bytes(revision: "SkillProcedureRevision") -> bytes:
+    """Canonical inert bytes for review/promotion; never an activation operation."""
+
+    revision = SkillProcedureRevision.model_validate(revision.model_dump(mode="json"))
+    raw = json.dumps(
+        revision.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    if len(raw) > MAX_SKILL_PROCEDURE_ARTIFACT_BYTES:
+        raise ValueError("skill_learning_candidate_too_large")
+    return raw
+
+
+def skill_procedure_artifact_path(revision: "SkillProcedureRevision") -> str:
+    """Content-addressed repository-relative candidate path."""
+
+    revision = SkillProcedureRevision.model_validate(revision.model_dump(mode="json"))
+    return (
+        f"{SKILL_PROCEDURE_ARTIFACT_ROOT}/{revision.source_skill_id}/"
+        f"{revision.procedure_id}/v{revision.version}-{revision.content_sha256}.json"
+    )
+
+
+def skill_procedure_artifact_sha256(revision: "SkillProcedureRevision") -> str:
+    return hashlib.sha256(skill_procedure_artifact_bytes(revision)).hexdigest()
+
+
 class SkillLearningReviewChecks(SkillLearningContract):
     """Human review attestations required before acceptance."""
 
@@ -449,4 +483,70 @@ class SkillLearningReview(SkillLearningContract):
             raise ValueError("skill_learning_review_identity_mismatch")
         if self.decision == "accepted" and not self.checks.all_passed():
             raise ValueError("skill_learning_review_checks_failed")
+        return self
+
+
+GitSha = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$")]
+
+
+class SkillLearningPromotionLinkRequest(SkillLearningContract):
+    """Ahmad-selected successful merge task; never a request to perform a merge."""
+
+    merge_task_id: CanonicalUuid
+
+    @model_validator(mode="after")
+    def _validate_merge_id(self):
+        _canonical_uuid(self.merge_task_id)
+        return self
+
+
+class SkillLearningPromotionLink(SkillLearningContract):
+    """Immutable proof that one accepted learned revision passed Promotion->CI->Merge."""
+
+    schema_version: Literal["zelo-skill-learning-promotion-link-v1"] = (
+        "zelo-skill-learning-promotion-link-v1"
+    )
+    link_id: CanonicalUuid
+    proposal_id: CanonicalUuid
+    proposal_fingerprint: Sha256
+    review_fingerprint: Sha256
+    reviewer_id: Literal["ahmad"]
+    revision_sha256: Sha256
+    artifact_path: str = Field(min_length=1, max_length=4096)
+    artifact_sha256: Sha256
+    artifact_bytes: int = Field(ge=1, le=MAX_SKILL_PROCEDURE_ARTIFACT_BYTES)
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    promotion_task_id: CanonicalUuid
+    promotion_action_version: int = Field(ge=1)
+    promotion_action_hash: Sha256
+    promotion_review_fingerprint: Sha256
+    pr_number: int = Field(ge=1)
+    pr_head_sha: GitSha
+    merge_task_id: CanonicalUuid
+    merge_action_version: int = Field(ge=1)
+    merge_action_hash: Sha256
+    merge_commit_sha: GitSha
+    link_fingerprint: Sha256
+    linked_at: datetime
+    runtime_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _validate_identity(self):
+        for value in (
+            self.link_id,
+            self.proposal_id,
+            self.promotion_task_id,
+            self.merge_task_id,
+        ):
+            _canonical_uuid(value)
+        if self.linked_at.tzinfo is None:
+            raise ValueError("skill_learning_promotion_link_timestamp_invalid")
+        material = self.model_dump(
+            mode="json",
+            exclude={"link_id", "linked_at", "link_fingerprint"},
+        )
+        expected = _digest(material)
+        expected_id = str(uuid5(NAMESPACE_URL, f"zelo-skill-learning-promotion-link-v1:{expected}"))
+        if self.link_fingerprint != expected or self.link_id != expected_id:
+            raise ValueError("skill_learning_promotion_link_identity_mismatch")
         return self
