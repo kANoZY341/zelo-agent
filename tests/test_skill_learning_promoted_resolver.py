@@ -134,13 +134,10 @@ def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database,
     base, agent, _task, _attempt, first_revision, ref = proposal_case
     first_reviewed = accepted(base, agent, first_revision, ref)
     store = promotion_tests.promotion_store(database, base)
-    first_merge = promotion_tests.successful_lineage(database, first_revision)
-    store.record_promotion_link(
-        first_reviewed.proposal.proposal_id,
-        first_merge,
-        OperatorPrincipal(),
-    )
 
+    # Two historical v1 proposals can exist before either one is promoted.
+    # The new proposal-admission guard prevents fresh competing v1 proposals
+    # after promotion, while the resolver must still reject old divergent heads.
     second_revision = make_revision(
         title="Alternate promoted evidence retrieval",
         instructions=(
@@ -150,6 +147,12 @@ def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database,
         space_permissions=(),
     )
     second_reviewed = accepted(base, agent, second_revision, ref)
+    first_merge = promotion_tests.successful_lineage(database, first_revision)
+    store.record_promotion_link(
+        first_reviewed.proposal.proposal_id,
+        first_merge,
+        OperatorPrincipal(),
+    )
     second_merge = promotion_tests.successful_lineage(database, second_revision)
     store.record_promotion_link(
         second_reviewed.proposal.proposal_id,
@@ -196,6 +199,80 @@ def test_version_two_proposal_uses_exact_promoted_prior_without_activation(datab
     # A historical v1 proposal and its accepted review remain revalidatable.
     assert store.accepted_candidate_basis(reviewed.proposal.proposal_id, OperatorPrincipal())
     assert store.resolve_promoted_revision(proposed.proposal.proposal_id) is None
+
+
+def test_new_competing_version_one_is_refused_after_promotion(database, proposal_case):
+    store, reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+    original, created = store.submit(
+        agent_instance_id=agent.id,
+        revision=first_revision,
+        evidence_refs=(proposal_case[5],),
+    )
+    assert not created
+    assert original.proposal.proposal_id == reviewed.proposal.proposal_id
+
+    competing = make_revision(
+        title="Competing already-promoted version one",
+        space_permissions=(),
+    )
+    assert competing.content_sha256 != first_revision.content_sha256
+    with pytest.raises(ValueError, match="skill_learning_promoted_head_advanced"):
+        store.submit(
+            agent_instance_id=agent.id,
+            revision=competing,
+            evidence_refs=(proposal_case[5],),
+        )
+
+
+def test_new_competing_version_two_is_refused_after_promotion(database, proposal_case):
+    store, _reviewed, _link, first_revision, agent = promoted_case(database, proposal_case)
+    ref = proposal_case[5]
+    second = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Promoted second revision",
+        space_permissions=(),
+    )
+    original, created = store.submit(
+        agent_instance_id=agent.id, revision=second, evidence_refs=(ref,)
+    )
+    assert created
+    reviewed, created = store.record_review(
+        original.proposal.proposal_id,
+        promotion_tests.skill_learning_store_tests.review_request(),
+        OperatorPrincipal(),
+    )
+    assert created and reviewed.status == "accepted"
+    merge_id = promotion_tests.successful_lineage(database, second)
+    _link2, created = store.record_promotion_link(
+        original.proposal.proposal_id, merge_id, OperatorPrincipal()
+    )
+    assert created
+    replay, created = store.submit(
+        agent_instance_id=agent.id, revision=second, evidence_refs=(ref,)
+    )
+    assert not created and replay.proposal == original.proposal
+
+    competing = make_revision(
+        version=2,
+        prior_revision_sha256=first_revision.content_sha256,
+        title="Competing already-promoted second revision",
+        space_permissions=(),
+    )
+    assert competing.content_sha256 != second.content_sha256
+    with pytest.raises(ValueError, match="skill_learning_promoted_head_advanced"):
+        store.submit(agent_instance_id=agent.id, revision=competing, evidence_refs=(ref,))
+
+    third = make_revision(
+        version=3,
+        prior_revision_sha256=second.content_sha256,
+        title="Third revision after promoted second",
+        space_permissions=(),
+    )
+    third_result, created = store.submit(
+        agent_instance_id=agent.id, revision=third, evidence_refs=(ref,)
+    )
+    assert created and third_result.proposal.runtime_authority is False
 
 
 def test_version_two_proposal_rejects_wrong_prior_digest(database, proposal_case):
