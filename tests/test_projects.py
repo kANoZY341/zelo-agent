@@ -97,6 +97,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     assert "PR #100" in active_status
     assert "7fb82b8" in active_status
+    assert "PR #101" in active_status
     assert "GET /agents/{instance_id}/learned-skills" in active_status
     assert "metadata-only" in active_status
     assert "not_promoted" in active_status
@@ -109,6 +110,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #100" in roadmap_compact
+    assert "PR #101" in roadmap_compact
     assert "read-only per-Agent learned-skill projection" in roadmap_compact
     assert "not_promoted" in roadmap_compact
     assert "current=false" in roadmap_compact

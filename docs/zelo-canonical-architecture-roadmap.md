@@ -534,7 +534,7 @@ are merged. PR #100 completes the first governed per-Agent skill-learning slice:
 proposal-only Agent authority, append-only Ahmad review, inert candidate
 serialization, and no automatic promotion or runtime loading.
 
-The active follow-up is a **read-only per-Agent learned-skill projection**. Core
+PR #101 is the active follow-up: a **read-only per-Agent learned-skill projection**. Core
 projects governed proposal/review metadata under the existing authenticated Agent
 surface without exposing learned instructions, evidence source IDs, candidate
 paths or mutable authority. Accepted records show `not_promoted`; active promoted

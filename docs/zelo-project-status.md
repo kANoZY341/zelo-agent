@@ -13,7 +13,7 @@ Core v0.15 stays active; UI PR #61 remains parked. PR #100 is merged at
 skill-learning slice: direct proposal-only Agent authority, append-only Ahmad
 review, inert candidate serialization, and no automatic promotion/runtime load.
 
-The active slice adds a read-only Agent package projection at
+PR #101 is the active slice. It adds a read-only Agent package projection at
 `GET /agents/{instance_id}/learned-skills` behind existing operator auth. It is
 strictly metadata-only: proposal/review state, source skill/procedure identity,
 revision hashes/title, bounded evidence count/kinds/fingerprint, current/stale
