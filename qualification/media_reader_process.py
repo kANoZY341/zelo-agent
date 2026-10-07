@@ -39,6 +39,9 @@ class DockerReaderHandle:
         profile_bytes: bytes,
         *,
         spawn=asyncio.create_subprocess_exec,
+        runtime_probe=None,
+        stdout_limit=fixture.STDOUT_BYTES,
+        stderr_limit=fixture.STDERR_BYTES,
     ) -> None:
         try:
             contract.validate()
@@ -54,7 +57,14 @@ class DockerReaderHandle:
         if re.fullmatch(r"[0-9a-f]{64}", self.identity) is None:
             raise QualificationError("reader_handle_lease")
         self.name = "zelo-media-reader-" + self.identity
+        if type(stdout_limit) is not int or not 0 < stdout_limit <= fixture.STDOUT_BYTES:
+            raise QualificationError("reader_stdout_limit")
+        if type(stderr_limit) is not int or not 0 < stderr_limit <= fixture.STDERR_BYTES:
+            raise QualificationError("reader_stderr_limit")
         self._spawn = spawn
+        self._runtime_probe = runtime_probe
+        self._stdout_limit = stdout_limit
+        self._stderr_limit = stderr_limit
         self._commands: set[asyncio.Task] = set()
         self._attach: asyncio.Task | None = None
         self._stdout: asyncio.Task | None = None
@@ -78,7 +88,7 @@ class DockerReaderHandle:
         return self._case
 
     def _environment(self) -> dict[str, str]:
-        return {"DOCKER_CONFIG": str(self._case_directory())}
+        return {"DOCKER_CONFIG": str(self._case_directory()), "GOMAXPROCS": "2"}
 
     def _profile(self) -> Path:
         case = self._case_directory()
@@ -176,7 +186,9 @@ class DockerReaderHandle:
         async with asyncio.timeout_at(deadline):
             profile = self._profile()
             try:
-                container.verify_image(await self._inspect("image", self.image), self.contract)
+                container.verify_image(
+                    await self._inspect("image", self.image), self.contract, self.identity
+                )
             except container.Refused as exc:
                 raise QualificationError("reader_image_refused") from exc
             self._attempted = True
@@ -190,7 +202,9 @@ class DockerReaderHandle:
             self._acknowledged = True
             self._profile()
             try:
-                container.verify_image(await self._inspect("image", self.image), self.contract)
+                container.verify_image(
+                    await self._inspect("image", self.image), self.contract, self.identity
+                )
                 container.verify_container(
                     await self._inspect("container", self.name),
                     self.contract,
@@ -212,14 +226,28 @@ class DockerReaderHandle:
                     stderr=asyncio.subprocess.PIPE,
                     env=self._environment(),
                     close_fds=True,
-                    limit=fixture.STDOUT_BYTES + 1,
+                    limit=max(self._stdout_limit, self._stderr_limit) + 1,
                 )
             )
             process = await asyncio.shield(self._attach)
             if process.stdin is None or process.stdout is None or process.stderr is None:
                 raise QualificationError("reader_pipe_missing")
-            self._stdout = asyncio.create_task(_read_bounded(process.stdout, fixture.STDOUT_BYTES))
-            self._stderr = asyncio.create_task(_read_bounded(process.stderr, fixture.STDERR_BYTES))
+            if self._runtime_probe is not None:
+                data = await self._inspect("container", self.name)
+                try:
+                    container.verify_container(
+                        data,
+                        self.contract,
+                        self.name,
+                        self.identity,
+                        self.profile_bytes,
+                        running=True,
+                    )
+                except container.Refused as exc:
+                    raise QualificationError("reader_runtime_probe") from exc
+                await self._runtime_probe(data)
+            self._stdout = asyncio.create_task(_read_bounded(process.stdout, self._stdout_limit))
+            self._stderr = asyncio.create_task(_read_bounded(process.stderr, self._stderr_limit))
             process.stdin.write(payload)
             await process.stdin.drain()
             process.stdin.close()

@@ -1,0 +1,39 @@
+{
+  "actual_package_provenance": false,
+  "aggregate_cgroup_required": true,
+  "attempt_limit": 2,
+  "bootstrap_lock_sha256": "753df1ca08e5be5b29ae8b73d220bf6bfea052b8bed9ffdc0f64ac12091a8e4f",
+  "bootstrap_proof_sha256": "cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5",
+  "build_seconds": 90,
+  "case_seconds": 20,
+  "cpu_period": 100000,
+  "cpu_quota": 50000,
+  "export_bytes": 536870912,
+  "fixture_cases": [
+    "positive",
+    "bad_version",
+    "wrong_order",
+    "truncated"
+  ],
+  "image_decoder_authority": false,
+  "memory_bytes": 536870912,
+  "memory_swap_bytes": 536870912,
+  "network": "none",
+  "nofile": 32,
+  "pids_limit": 8,
+  "proof_scope": "runtime/media-native-reader/native-reader-proof-*",
+  "read_only_rootfs": true,
+  "runtime_authority": false,
+  "schema": "zelo-media-native-reader-synthetic-policy-v1",
+  "seccomp_sha256": "6416b47770785a41ac59073cdc77d9fe98517df2799dc83ef207e622de3053f6",
+  "stderr_bytes": 16384,
+  "stdin_bytes": 262144,
+  "stdout_bytes": 65536,
+  "terminal_controls": [
+    "stdout_limit",
+    "timeout",
+    "cancel",
+    "cancel_repeated"
+  ],
+  "whole_seconds": 240
+}

@@ -6,36 +6,37 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader offline boundary
+## Active increment: v0.15 Media native-reader qualification
 
-Core v0.15 stays active; UI is parked. PR #91 merged at 09b68a5 after 4,347 CI
-passes/two skips. Its one cleared 40-case ELF batch is version-proof attempt 3/4;
-the eight-node declaration graph closes dpkg-deb over the fixed libraries/loader
-but does not prove actual loading, symbols, ABI, provenance or runtime authority.
+Core v0.15 stays active; UI is parked. PR #93 remains draft at integration head
+`337435398356dd84f57b38d77a43c6549d3c506b`, tree
+`402ce08912876f8e3d33507ac9fb1b284ca6b1a2`. Exact-head CI
+`37601387861` passed **4,734 tests with two skips** plus Ruff/diff checks.
 
-The current slice is offline only. One canonical container contract binds the
-PR #91 proof/lock, inert content-addressed image identity, fixed loader/argv,
-PATH/HOME/TMPDIR=/nonexistent, runc, network none, read-only root, uid/gid65534,
-cap-drop ALL, no-new-privileges plus the exact vendored Moby default seccomp,
-512 MiB/no-extra-swap, PID8, half CPU and nofile32. A deterministic scratch-image
-manifest contains only the eight fixed binaries; entrypoint/env/user stay outside
-the image and are applied only at container creation.
+All **four** authorized native-reader attempts are permanently consumed and
+REFUSED; none is a success receipt. Attempt 1 stopped at lease-preflight.
+Attempts 2, 3 and 4 stopped during Docker build. Attempt 4 is
+`native-reader-proof-kvhyvgri`: policy SHA-256
+`51a8532bf63d2f603d6e671815850aa86e7984b7040918e0e86fe04569a364b6`,
+proof SHA-256
+`2c3bd1f7b130d3ce57bf317b5119971cdb30b68820b2e4f19503c1c0d14e1251`.
+Its build exited 2 after stderr reached 20,851 bytes and overflowed the bounded
+capture. Cleanup found zero labelled images/containers; admission marker/lock are
+empty. No attempt is reset, retried, deleted or reclassified.
 
-A separate fixed-fixture module creates four bounded synthetic Debian inputs
-(positive, bad version, wrong order, truncated). The Media-specific Docker owner
-has fake-only tests for exact inspect validation, output bounds, lost create
-acknowledgement, cleanup failure, profile drift and repeated cancellation while
-the capacity-one admission remains fenced. **No Docker daemon, loader, dpkg-deb,
-compressor or acquired archive has run in this slice.** The consolidated image,
-fixture, seccomp, contract and owner gates pass 158 offline tests.
+The separate build-only diagnostic succeeded on the exact same retained bundle
+(`0f53fb…`) and Dockerfile (`a097907d…`) without touching the proof ledger.
+Comparison found a concrete execution-context mismatch: the successful diagnostic
+used exact PATH/HOME/LANG/DOCKER_CONFIG while the qualifier build supplied only
+DOCKER_CONFIG before fixed GOMAXPROCS=2 was added. The code now shares one
+fail-closed Docker environment across readiness, diagnostics and qualification.
+This is a plausible cause, **not proven causation**. Native-reader tests pass
+412 cases and the broader Media/context regression passes 2,855 cases after the change; no fifth proof attempt is authorized.
 
-Next: freeze/review this source and merge it, then implement the one-shot operator
-that builds/exports/attests the inert scratch image and runs only the four fixed
-synthetic cases. Actual cgroup/process-tree evidence and complete cleanup precede
-any real authenticated package. USTAR remains narrow (GNU/PAX unsupported), then
-Media still needs real member/runtime/import closure, decoder/filter qualification,
-Core binding and release. Proof quotas/failures remain preserved; no model/UI/live
-system/config/data change occurred and v0.14.0 is unchanged.
+Next: full regression/CI and final review of this environment correction, then
+close PR #93 as a preserved failed qualification record unless a separately
+reviewed future proof budget is explicitly authorized. No acquired package,
+Pillow decode, Core binding, enabled flag or UI work is cleared.
 
 ## Checkpoint history
 

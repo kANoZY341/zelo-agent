@@ -96,8 +96,9 @@ def manifest(lock) -> ImageManifest:
 def dockerfile(value: ImageManifest) -> bytes:
     _require(type(value) is ImageManifest and len(value.files) == 8, "manifest")
     lines = ["FROM scratch"]
+    # The context files carry the pinned modes for legacy Docker COPY.
     for row in value.files:
-        lines.append(f"COPY --chown=0:0 --chmod={row.mode:04o} {row.source} /{row.destination}")
+        lines.append(f"COPY --chown=0:0 {row.source} /{row.destination}")
     lines.append(f'LABEL {container.BUNDLE_LABEL}="{value.digest}"')
     raw = ("\n".join(lines) + "\n").encode()
     _require(len(raw) <= DOCKERFILE_BYTES, "dockerfile")

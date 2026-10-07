@@ -1,0 +1,34 @@
+{
+  "schema": "zelo-media-native-reader-reconciliation-source-gates-v1",
+  "review_method": "direct ChatGPT; no Codex/model job",
+  "failed_source_head": "c6127669cda7923c851febe1b4f8530402f58ef8",
+  "failed_source_tree": "d6eaa8a1fa029cd049384f66d27de5218ba7c8cd",
+  "attempt1": {
+    "name": "native-reader-proof-uvjet91z",
+    "lease": "9dd76284f54fe91361c4646fafc97a78c98f5179437345d54f9c815b8ea8bd0f",
+    "policy_sha256": "a566a81238d144163e82ce91d728067c8afe36011fea404594f03f200ac868c3",
+    "proof_sha256": "027e7165fc21001eafb19cdb0a9c89bb0315012931c0a862ad742e5883655378",
+    "marker_sha256": "f88573e617e66156815491696f8a51fed078e07df85658800cc1cb259bb34472",
+    "consumed": true,
+    "accepted": false,
+    "success_receipt": false
+  },
+  "source_sha256": {
+    "qualification/media_reader_reconcile.py": "3d0809041a3a4a01859ba1e95e72ce73dcc59c62c7454a6239b6f7e8b2eaa230",
+    "scripts/reconcile_media_native_reader.py": "57c99d32a629832749d28d3af2c311ab7437a3044322cdebfc8b79c3b09db10d",
+    "scripts/qualify_media_native_reader.py": "4cd054bfbe5fe5317093f183c9dfb400a47497961a9e40408be299fbb1f7ccef",
+    "tests/test_media_reader_reconcile.py": "1e9064a098a49a4af7e2398663126685597b7f3e6c3a54111f18ff5f4543985a",
+    "tests/test_media_native_reader_reconciliation.py": "3c8429b1be9a5874e3d5dc0e1d15153807f1daf213008236973e6bdef918f698",
+    "tests/test_media_native_reader_operator.py": "815bc6cd4e0290840ceedc9742e61b4bbab0a12b6ede1a684c22bfc71ca3ee54"
+  },
+  "focused_recovery_passed": 57,
+  "focused_native_reader_passed": 211,
+  "combined_media_context_passed": 2790,
+  "active_status_characters": 1925,
+  "reconciliation_run_cleared": false,
+  "final_attempt_cleared": false,
+  "native_reader_attempts_used": 1,
+  "native_reader_attempt_limit": 2,
+  "integrate_current_main_before_final_attempt": true,
+  "runtime_authority": false
+}
