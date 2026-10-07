@@ -134,50 +134,119 @@ def upgrade() -> None:
                 WHERE id = NEW.merge_task_id
                   AND kind = 'merge_run' AND status = 'succeeded'
             )
-          OR NEW.review_fingerprint <> (
+          OR NEW.review_fingerprint IS NOT (
                 SELECT review_fingerprint FROM skill_learning_reviews
                 WHERE proposal_id = NEW.proposal_id
                   AND reviewer_id = 'ahmad' AND decision = 'accepted'
             )
-          OR NEW.revision_sha256 <> (
+          OR NEW.revision_sha256 IS NOT (
                 SELECT json_extract(proposal_json, '$.proposed_revision.content_sha256')
                 FROM skill_learning_proposals WHERE id = NEW.proposal_id
             )
-          OR json_extract(NEW.link_json, '$.proposal_id') <> NEW.proposal_id
-          OR json_extract(NEW.link_json, '$.proposal_fingerprint') <> (
+          OR json_extract(NEW.link_json, '$.proposal_id') IS NOT NEW.proposal_id
+          OR json_extract(NEW.link_json, '$.proposal_fingerprint') IS NOT (
                 SELECT proposal_fingerprint FROM skill_learning_proposals
                 WHERE id = NEW.proposal_id
             )
-          OR json_extract(NEW.link_json, '$.reviewer_id') <> NEW.reviewer_id
-          OR json_extract(NEW.link_json, '$.review_fingerprint') <> NEW.review_fingerprint
-          OR json_extract(NEW.link_json, '$.revision_sha256') <> NEW.revision_sha256
-          OR json_extract(NEW.link_json, '$.artifact_path') <> NEW.artifact_path
-          OR json_extract(NEW.link_json, '$.artifact_sha256') <> NEW.artifact_sha256
-          OR json_extract(NEW.link_json, '$.artifact_bytes') <> NEW.artifact_bytes
-          OR json_extract(NEW.link_json, '$.repository') <> NEW.repository
-          OR json_extract(NEW.link_json, '$.promotion_task_id') <> NEW.promotion_task_id
-          OR json_extract(NEW.link_json, '$.promotion_action_hash') <> NEW.promotion_action_hash
+          OR json_extract(NEW.link_json, '$.reviewer_id') IS NOT NEW.reviewer_id
+          OR json_extract(NEW.link_json, '$.review_fingerprint') IS NOT NEW.review_fingerprint
+          OR json_extract(NEW.link_json, '$.revision_sha256') IS NOT NEW.revision_sha256
+          OR json_extract(NEW.link_json, '$.artifact_path') IS NOT NEW.artifact_path
+          OR json_extract(NEW.link_json, '$.artifact_sha256') IS NOT NEW.artifact_sha256
+          OR json_extract(NEW.link_json, '$.artifact_bytes') IS NOT NEW.artifact_bytes
+          OR json_extract(NEW.link_json, '$.repository') IS NOT NEW.repository
+          OR json_extract(NEW.link_json, '$.promotion_task_id') IS NOT NEW.promotion_task_id
+          OR json_extract(NEW.link_json, '$.promotion_action_version')
+                IS NOT NEW.promotion_action_version
+          OR json_extract(NEW.link_json, '$.promotion_action_hash') IS NOT NEW.promotion_action_hash
           OR json_extract(NEW.link_json, '$.promotion_review_fingerprint')
-                <> NEW.promotion_review_fingerprint
-          OR json_extract(NEW.link_json, '$.pr_number') <> NEW.pr_number
-          OR json_extract(NEW.link_json, '$.pr_head_sha') <> NEW.pr_head_sha
-          OR json_extract(NEW.link_json, '$.merge_task_id') <> NEW.merge_task_id
-          OR json_extract(NEW.link_json, '$.merge_action_hash') <> NEW.merge_action_hash
-          OR json_extract(NEW.link_json, '$.merge_commit_sha') <> NEW.merge_commit_sha
-          OR json_extract(NEW.link_json, '$.link_fingerprint') <> NEW.link_fingerprint
+                IS NOT NEW.promotion_review_fingerprint
+          OR json_extract(NEW.link_json, '$.pr_number') IS NOT NEW.pr_number
+          OR json_extract(NEW.link_json, '$.pr_head_sha') IS NOT NEW.pr_head_sha
+          OR json_extract(NEW.link_json, '$.merge_task_id') IS NOT NEW.merge_task_id
+          OR json_extract(NEW.link_json, '$.merge_action_version') IS NOT NEW.merge_action_version
+          OR json_extract(NEW.link_json, '$.merge_action_hash') IS NOT NEW.merge_action_hash
+          OR json_extract(NEW.link_json, '$.merge_commit_sha') IS NOT NEW.merge_commit_sha
+          OR json_extract(NEW.link_json, '$.link_fingerprint') IS NOT NEW.link_fingerprint
+          OR NEW.promotion_action_version IS NOT (
+                SELECT action_version FROM tasks WHERE id = NEW.promotion_task_id
+            )
+          OR NEW.promotion_action_hash IS NOT (
+                SELECT action_hash FROM tasks WHERE id = NEW.promotion_task_id
+            )
+          OR NEW.merge_action_version IS NOT (
+                SELECT action_version FROM tasks WHERE id = NEW.merge_task_id
+            )
+          OR NEW.merge_action_hash IS NOT (
+                SELECT action_hash FROM tasks WHERE id = NEW.merge_task_id
+            )
+          OR NEW.repository IS NOT json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.repository'
+            )
+          OR NEW.repository IS NOT json_extract(
+                (SELECT result FROM tasks WHERE id = NEW.merge_task_id),
+                '$.repository'
+            )
+          OR NEW.pr_number IS NOT json_extract(
+                (SELECT result FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.publication.pr_number'
+            )
+          OR NEW.pr_head_sha IS NOT json_extract(
+                (SELECT result FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.publication.pr_head_sha'
+            )
+          OR NEW.pr_number IS NOT json_extract(
+                (SELECT result FROM tasks WHERE id = NEW.merge_task_id),
+                '$.pr_number'
+            )
+          OR NEW.pr_head_sha IS NOT json_extract(
+                (SELECT result FROM tasks WHERE id = NEW.merge_task_id),
+                '$.head_sha'
+            )
+          OR json_array_length(
+                json_extract(
+                    (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                    '$.review.candidate_manifest'
+                )
+            ) IS NOT 1
+          OR NEW.artifact_path IS NOT json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].path'
+            )
+          OR NEW.artifact_sha256 IS NOT json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].sha256'
+            )
+          OR NEW.artifact_bytes IS NOT json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].size'
+            )
+          OR json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].operation'
+            ) IS NOT 'add'
+          OR json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].object_type'
+            ) IS NOT 'file'
+          OR json_extract(
+                (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
+                '$.review.candidate_manifest[0].mode'
+            ) IS NOT '100644'
           OR json_extract(
                 (SELECT merge_spec FROM tasks WHERE id = NEW.merge_task_id),
                 '$.promotion_task_id'
-            ) <> NEW.promotion_task_id
+            ) IS NOT NEW.promotion_task_id
           OR json_extract(
                 (SELECT result FROM tasks WHERE id = NEW.merge_task_id),
                 '$.merge_commit_sha'
-            ) <> NEW.merge_commit_sha
+            ) IS NOT NEW.merge_commit_sha
           OR json_extract(
                 (SELECT promotion_spec FROM tasks WHERE id = NEW.promotion_task_id),
                 '$.review.review_fingerprint'
-            ) <> NEW.promotion_review_fingerprint
-          OR COALESCE(json_extract(NEW.link_json, '$.runtime_authority'), 1) <> 0
+            ) IS NOT NEW.promotion_review_fingerprint
+          OR COALESCE(json_extract(NEW.link_json, '$.runtime_authority'), 1) IS NOT 0
         BEGIN
             SELECT RAISE(ABORT, 'Skill-learning promotion link is not authorized');
         END"""

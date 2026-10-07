@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.agent_factory import AgentFactory
 from app.auth import OperatorPrincipal
 from app.models import (
+    AuditEvent,
     SkillLearningEvent,
     SkillLearningPromotionLinkRecord,
     SkillLearningProposalRecord,
@@ -21,7 +22,7 @@ from app.models import (
     TaskAttempt,
     utcnow,
 )
-from app.policy import State
+from app.policy import State, action_hash
 from app.promotion_contracts import (
     CandidateEntry,
     MergeRequest,
@@ -474,6 +475,26 @@ class SkillLearningProposalStore:
         except ValueError:
             raise ValueError("skill_learning_promotion_task_invalid") from None
 
+        expected_promotion_hash = action_hash(
+            promotion_task.kind,
+            promotion_task.payload,
+            promotion_task.timeout_seconds,
+            promotion_task.action_version,
+            promotion_task.promotion_spec,
+        )
+        expected_merge_hash = action_hash(
+            merge_task.kind,
+            merge_task.payload,
+            merge_task.timeout_seconds,
+            merge_task.action_version,
+            merge_task.merge_spec,
+        )
+        if (
+            promotion_task.action_hash != expected_promotion_hash
+            or merge_task.action_hash != expected_merge_hash
+        ):
+            raise ValueError("skill_learning_promotion_lineage_invalid")
+
         review = promotion.review
         publication = promotion_result.publication
         commit = promotion_result.commit
@@ -650,6 +671,22 @@ class SkillLearningProposalStore:
                 created_at=link.linked_at,
             )
             session.add(row)
+            session.flush()
+            session.add(
+                AuditEvent(
+                    task_id=merge_task.id,
+                    event="skill_learning_promoted",
+                    details={
+                        "proposal_id": proposal_id,
+                        "link_id": link.link_id,
+                        "revision_sha256": link.revision_sha256,
+                        "promotion_task_id": promotion_task.id,
+                        "merge_task_id": merge_task.id,
+                        "merge_commit_sha": merge_result.merge_commit_sha,
+                        "runtime_authority": False,
+                    },
+                )
+            )
             session.flush()
             return self._stored_promotion_link(row), True
 

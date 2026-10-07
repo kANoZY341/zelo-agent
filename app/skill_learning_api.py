@@ -141,6 +141,8 @@ def record_promotion_link(
         raise HTTPException(status_code=403, detail="skill_learning_reviewer_forbidden") from None
     except ValueError as error:
         code = str(error)
+        if not code.startswith("skill_learning_") or not code.replace("_", "").isalnum():
+            code = "skill_learning_promotion_link_refused"
         conflict = {
             "skill_learning_candidate_not_accepted_or_stale",
             "skill_learning_proposal_stale",

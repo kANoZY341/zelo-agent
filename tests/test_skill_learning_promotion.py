@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth import OperatorPrincipal
 from app.developer_contracts import ValidationResult, WorkerIdentity
-from app.models import SkillLearningPromotionLinkRecord, Task, TaskAttempt
+from app.models import AuditEvent, SkillLearningPromotionLinkRecord, Task, TaskAttempt
 from app.policy import State, action_hash
 from app.promotion_contracts import (
     CICheckSnapshot,
@@ -303,6 +303,24 @@ def test_ahmad_links_exact_successful_promotion_and_projection_stays_inert(
     assert created is False
     assert retried == link
 
+    with database.read() as session:
+        promoted_events = session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == merge_task_id,
+                AuditEvent.event == "skill_learning_promoted",
+            )
+        ).all()
+    assert len(promoted_events) == 1
+    assert promoted_events[0].details == {
+        "proposal_id": reviewed.proposal.proposal_id,
+        "link_id": link.link_id,
+        "revision_sha256": revision.content_sha256,
+        "promotion_task_id": link.promotion_task_id,
+        "merge_task_id": merge_task_id,
+        "merge_commit_sha": link.merge_commit_sha,
+        "runtime_authority": False,
+    }
+
     client.app.state.skill_learning_store = store
     response = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH)
     assert response.status_code == 200, response.text
@@ -362,6 +380,45 @@ def test_promotion_link_refuses_repository_drift_and_unaccepted_proposal(databas
             wrong_repo_merge,
             OperatorPrincipal(),
         )
+
+
+def test_promotion_link_recomputes_source_action_hashes(database, proposal_case):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    store = promotion_store(database, base)
+    merge_task_id = successful_lineage(database, revision)
+
+    with database.transaction() as session:
+        merge_task = session.get(Task, merge_task_id)
+        merge = MergeRequest.model_validate(merge_task.merge_spec)
+        promotion_task = session.get(Task, merge.promotion_task_id)
+        promotion_task.action_hash = "f" * 64
+
+    with pytest.raises(ValueError, match="skill_learning_promotion_lineage_invalid"):
+        store.record_promotion_link(
+            reviewed.proposal.proposal_id,
+            merge_task_id,
+            OperatorPrincipal(),
+        )
+    assert store.get_promotion_link(reviewed.proposal.proposal_id) is None
+
+
+def test_promotion_link_recomputes_merge_action_hash(database, proposal_case):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    store = promotion_store(database, base)
+    merge_task_id = successful_lineage(database, revision)
+
+    with database.transaction() as session:
+        session.get(Task, merge_task_id).action_hash = "f" * 64
+
+    with pytest.raises(ValueError, match="skill_learning_promotion_lineage_invalid"):
+        store.record_promotion_link(
+            reviewed.proposal.proposal_id,
+            merge_task_id,
+            OperatorPrincipal(),
+        )
+    assert store.get_promotion_link(reviewed.proposal.proposal_id) is None
 
 
 def test_promotion_link_accepts_exact_reused_merge_result(database, proposal_case):
@@ -483,6 +540,179 @@ def test_database_rejects_forged_promotion_link_review_fingerprint(database, pro
             )
 
 
+def _direct_link_values(database, reviewed, revision, merge_task_id, **overrides):
+    with database.read() as session:
+        merge_task = session.get(Task, merge_task_id)
+        merge = MergeRequest.model_validate(merge_task.merge_spec)
+        merge_result = MergeRunResult.model_validate(merge_task.result)
+        promotion_task = session.get(Task, merge.promotion_task_id)
+        promotion = PromotionRequest.model_validate(promotion_task.promotion_spec)
+        promotion_result = PromotionRunResult.model_validate(promotion_task.result)
+
+    artifact = skill_procedure_artifact_bytes(revision)
+    values = {
+        "id": "00000000-0000-4000-8000-000000000199",
+        "proposal_id": reviewed.proposal.proposal_id,
+        "proposal_fingerprint": reviewed.proposal.proposal_fingerprint,
+        "reviewer_id": "ahmad",
+        "review_fingerprint": reviewed.review.review_fingerprint,
+        "revision_sha256": revision.content_sha256,
+        "artifact_path": skill_procedure_artifact_path(revision),
+        "artifact_sha256": skill_procedure_artifact_sha256(revision),
+        "artifact_bytes": len(artifact),
+        "repository": REPOSITORY,
+        "promotion_task_id": promotion_task.id,
+        "promotion_action_version": promotion_task.action_version,
+        "promotion_action_hash": promotion_task.action_hash,
+        "promotion_review_fingerprint": promotion.review.review_fingerprint,
+        "pr_number": promotion_result.publication.pr_number,
+        "pr_head_sha": promotion_result.publication.pr_head_sha,
+        "merge_task_id": merge_task.id,
+        "merge_action_version": merge_task.action_version,
+        "merge_action_hash": merge_task.action_hash,
+        "merge_commit_sha": merge_result.merge_commit_sha,
+        "link_fingerprint": "d" * 64,
+        "runtime_authority": False,
+        "created_at": datetime.now(UTC),
+    }
+    values.update(overrides)
+    link_payload = {
+        "schema_version": "zelo-skill-learning-promotion-link-v1",
+        "link_id": values["id"],
+        "proposal_id": values["proposal_id"],
+        "proposal_fingerprint": values["proposal_fingerprint"],
+        "review_fingerprint": values["review_fingerprint"],
+        "reviewer_id": values["reviewer_id"],
+        "revision_sha256": values["revision_sha256"],
+        "artifact_path": values["artifact_path"],
+        "artifact_sha256": values["artifact_sha256"],
+        "artifact_bytes": values["artifact_bytes"],
+        "repository": values["repository"],
+        "promotion_task_id": values["promotion_task_id"],
+        "promotion_action_version": values["promotion_action_version"],
+        "promotion_action_hash": values["promotion_action_hash"],
+        "promotion_review_fingerprint": values["promotion_review_fingerprint"],
+        "pr_number": values["pr_number"],
+        "pr_head_sha": values["pr_head_sha"],
+        "merge_task_id": values["merge_task_id"],
+        "merge_action_version": values["merge_action_version"],
+        "merge_action_hash": values["merge_action_hash"],
+        "merge_commit_sha": values["merge_commit_sha"],
+        "link_fingerprint": values["link_fingerprint"],
+        "linked_at": values["created_at"].isoformat(),
+        "runtime_authority": False,
+    }
+    values["link_json"] = json.dumps(
+        link_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return values
+
+
+_DIRECT_LINK_INSERT = text(
+    """
+    INSERT INTO skill_learning_promotion_links (
+        id, proposal_id, reviewer_id, review_fingerprint,
+        revision_sha256, artifact_path, artifact_sha256,
+        artifact_bytes, repository, promotion_task_id,
+        promotion_action_version, promotion_action_hash,
+        promotion_review_fingerprint, pr_number, pr_head_sha,
+        merge_task_id, merge_action_version, merge_action_hash,
+        merge_commit_sha, link_fingerprint, link_json,
+        runtime_authority, created_at
+    ) VALUES (
+        :id, :proposal_id, :reviewer_id, :review_fingerprint,
+        :revision_sha256, :artifact_path, :artifact_sha256,
+        :artifact_bytes, :repository, :promotion_task_id,
+        :promotion_action_version, :promotion_action_hash,
+        :promotion_review_fingerprint, :pr_number, :pr_head_sha,
+        :merge_task_id, :merge_action_version, :merge_action_hash,
+        :merge_commit_sha, :link_fingerprint, :link_json,
+        0, :created_at
+    )
+    """
+)
+
+
+@pytest.mark.parametrize(
+    ("field", "mutate"),
+    [
+        ("promotion_action_version", lambda value: value + 1),
+        ("promotion_action_hash", lambda _value: "f" * 64),
+        ("merge_action_version", lambda value: value + 1),
+        ("merge_action_hash", lambda _value: "f" * 64),
+        ("artifact_path", lambda value: value + ".forged"),
+        ("artifact_sha256", lambda _value: "f" * 64),
+        ("artifact_bytes", lambda value: value - 1),
+        ("pr_number", lambda value: value + 1),
+        ("pr_head_sha", lambda _value: "f" * 40),
+    ],
+)
+def test_database_rejects_forged_promotion_lineage_metadata(database, proposal_case, field, mutate):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    merge_task_id = successful_lineage(database, revision)
+    exact = _direct_link_values(database, reviewed, revision, merge_task_id)
+    forged = mutate(exact[field])
+    assert forged != exact[field]
+    values = _direct_link_values(
+        database,
+        reviewed,
+        revision,
+        merge_task_id,
+        **{field: forged},
+    )
+
+    with pytest.raises(IntegrityError, match="not authorized"):
+        with database.transaction() as session:
+            session.execute(_DIRECT_LINK_INSERT, values)
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    [
+        "promotion_action_version",
+        "merge_action_version",
+        "artifact_sha256",
+        "pr_head_sha",
+    ],
+)
+def test_database_rejects_missing_link_json_identity(database, proposal_case, missing_field):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    merge_task_id = successful_lineage(database, revision)
+    values = _direct_link_values(database, reviewed, revision, merge_task_id)
+    payload = json.loads(values["link_json"])
+    payload.pop(missing_field)
+    values["link_json"] = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    with pytest.raises(IntegrityError, match="not authorized"):
+        with database.transaction() as session:
+            session.execute(_DIRECT_LINK_INSERT, values)
+
+
+def test_database_rejects_missing_promotion_manifest_identity(database, proposal_case):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    merge_task_id = successful_lineage(database, revision)
+    values = _direct_link_values(database, reviewed, revision, merge_task_id)
+
+    with database.transaction() as session:
+        merge_task = session.get(Task, merge_task_id)
+        merge = dict(merge_task.merge_spec)
+        promotion_task = session.get(Task, merge["promotion_task_id"])
+        promotion = dict(promotion_task.promotion_spec)
+        review = dict(promotion["review"])
+        review.pop("candidate_manifest")
+        promotion["review"] = review
+        promotion_task.promotion_spec = promotion
+
+    with pytest.raises(IntegrityError, match="not authorized"):
+        with database.transaction() as session:
+            session.execute(_DIRECT_LINK_INSERT, values)
+
+
 def test_promotion_link_records_are_append_only(database, proposal_case):
     base, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(base, agent, revision, ref)
@@ -542,3 +772,25 @@ def test_operator_api_records_existing_merge_only(client, database, proposal_cas
 
     serialized = json.dumps(payload, sort_keys=True)
     assert revision.instructions not in serialized
+
+
+def test_operator_api_normalizes_unexpected_promotion_link_error(
+    client, database, proposal_case, monkeypatch
+):
+    base, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(base, agent, revision, ref)
+    store = promotion_store(database, base)
+    client.app.state.skill_learning_store = store
+
+    def unexpected(*args, **kwargs):
+        raise ValueError("/private/host/path must not leak")
+
+    monkeypatch.setattr(store, "record_promotion_link", unexpected)
+    response = client.post(
+        f"/skill-learning/proposals/{reviewed.proposal.proposal_id}/promotion-link",
+        headers=AUTH,
+        json={"merge_task_id": "00000000-0000-4000-8000-000000000001"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "skill_learning_promotion_link_refused"
+    assert "private" not in response.text
