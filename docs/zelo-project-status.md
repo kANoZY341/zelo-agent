@@ -32,7 +32,7 @@ returned; filesystem errors are normalized. Responses explicitly keep
 `runtime_authority=false` and `promotion_started=false`. The adapter still does
 not invoke Developer, Review, Promotion, CI, registry loading or activation.
 
-Combined post-integration validation passes **157 tests** with one known
+Combined post-integration validation passes **159 tests** with one known
 worktree-only DeveloperRuntime test deselected; Ruff/format/diff checks pass.
 Next: exact-head CI/source review. Promotion linkage remains a separate later gate.
 

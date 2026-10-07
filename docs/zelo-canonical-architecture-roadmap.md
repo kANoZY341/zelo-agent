@@ -546,7 +546,7 @@ Developer, Review, Promotion, CI, registry loading or activation. Active registr
 still do not read candidate staging. Promotion linkage and promoted-revision
 resolution remain separate later gates.
 
-Combined integrated validation passes **157 cases** with one known Git-worktree
+Combined integrated validation passes **159 cases** with one known Git-worktree
 DeveloperRuntime test deselected; Ruff/format/diff checks pass. Require exact-head
 CI and source review before merge. UI #61 remains parked.
 
@@ -1034,7 +1034,7 @@ remain before decoder qualification. Core first; UI stays parked.
 
 ### Media inert ELF tool-source checkpoint — 3 October 2026
 
-PR79 merged ata8157ec3 with matching tree,2,800CI passes and all focused/standalone/
+PR79 merged ata8159ec3 with matching tree,2,800CI passes and all focused/standalone/
 fault gates. The exact55file tool-source copy retains both required notices and grants
 no parser execution or platform authority. See [final gates](reviews/media-elf-tool-final-gates.md).
 Continue [isolated ELF dependency metadata](v0.15-media-elf-dependency-metadata.md)
