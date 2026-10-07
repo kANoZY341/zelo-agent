@@ -533,7 +533,7 @@ Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99, PR #100,
 PR #102 and PR #103 are merged. Candidate materialization is operator-only and
 still grants no runtime authority.
 
-The active gate is **learned-skill promotion proof linkage**. Ahmad may bind an
+PR #104 is the active gate for **learned-skill promotion proof linkage**. Ahmad may bind an
 accepted learned proposal only to an already-successful existing Merge task. Core
 requires the exact canonical learned artifact as the sole Promotion review manifest
 entry and revalidates Promotion -> CI -> Merge identity, configured repository,

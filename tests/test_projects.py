@@ -101,6 +101,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #100" in active_status
     assert "PR #102" in active_status
     assert "PR #103" in active_status
+    assert "PR #104" in active_status
     assert "f9a739e" in active_status
     assert "4,850 tests with two skips" in active_compact
     assert "merge_task_id" in active_status
@@ -118,6 +119,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #103" in roadmap_compact
+    assert "PR #104" in roadmap_compact
     assert "learned-skill promotion proof linkage" in roadmap_compact
     assert "already-successful existing Merge task" in roadmap_compact
     assert "sole Promotion review manifest entry" in roadmap_compact

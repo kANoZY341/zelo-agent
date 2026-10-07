@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Latest checkpoint verified: 5 October 2026
+Latest checkpoint verified: 7 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -13,7 +13,7 @@ PR #100, PR #102 and PR #103 are merged. PR #103 merge commit
 `f9a739e0b08941b85531e6974162ea42f8cb7a76` adds Ahmad-only candidate
 materialization; its exact reviewed head passed **4,850 tests with two skips**.
 
-The active slice adds an immutable **promotion proof link** for an accepted learned
+PR #104 is the active slice and adds an immutable **promotion proof link** for an accepted learned
 revision after the normal Zelo Promotion -> CI -> Merge pipeline has already
 succeeded. Ahmad supplies only an existing successful `merge_task_id`; this API
 does not initiate Developer, Promotion, CI, merge or release work.
