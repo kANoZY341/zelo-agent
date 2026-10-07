@@ -90,11 +90,12 @@ def test_dockerfile_is_inert_scratch_only():
     assert not any(token in text for token in forbidden)
 
 
-def test_dockerfile_destinations_and_modes_are_fixed():
+def test_dockerfile_uses_legacy_compatible_copy_with_fixed_destinations():
     value = m.manifest(lock())
     text = m.dockerfile(value).decode()
+    assert "--chmod" not in text
     for row in value.files:
-        assert (f"COPY --chown=0:0 --chmod={row.mode:04o} {row.source} /{row.destination}") in text
+        assert f"COPY --chown=0:0 {row.source} /{row.destination}" in text
 
 
 def test_expected_export_is_exact_and_no_notice_or_helper_file():

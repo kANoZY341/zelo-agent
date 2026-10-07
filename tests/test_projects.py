@@ -90,23 +90,34 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.15" in sources
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
+    active_compact = " ".join(active_status.split())
     assert active_status.startswith("## Active increment: v0.15 Media native-reader")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #91" in active_status
-    assert "4,347 CI" in active_status
-    assert "version-proof attempt 3/4" in active_status
-    assert "Moby default seccomp" in active_status
-    assert "158 offline tests" in active_status
-    assert "No Docker daemon" in active_status
+    assert "PR #93" in active_status
+    assert "4,734 tests" in active_status
+    assert "four" in active_status.lower()
+    assert "native-reader-proof-kvhyvgri" in active_status
+    assert "20,851 bytes" in active_status
+    assert "zero labelled images/containers" in active_status
+    assert "fail-closed Docker environment" in active_compact
+    assert "not proven causation" in active_status
+    assert "412 cases" in active_status
+    assert "2,855 cases" in active_status
+    assert "no fifth proof attempt" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
-    assert "PR #91" in roadmap_content
-    assert "40-case ELF metadata batch" in roadmap_content
-    assert "158 offline/fake-only tests" in roadmap_content
-    assert "native-reader-container" in roadmap_content
-    assert "GNU/PAX" in roadmap_content
-    assert "ABI/runtime authority" in roadmap_content
+    roadmap_compact = " ".join(roadmap_content.split())
+    assert "PR #93" in roadmap_compact
+    assert "4,734 tests/two skips" in roadmap_compact
+    assert "Four authorized" in roadmap_compact
+    assert "20,851 stderr bytes" in roadmap_compact
+    assert "fail-closed Docker environment" in roadmap_compact
+    assert "not proven causation" in roadmap_compact
+    assert "412 cases" in roadmap_compact
+    assert "2,855 cases" in roadmap_compact
+    assert "no fifth attempt" in roadmap_compact
+    assert "GNU/PAX" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

@@ -78,59 +78,61 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 native Media package-reader container contract after
-PR91 merge 09b68a5355098e15f3549faa98126203c08309eb. Continue Core; UI needs fresh acceptance.
+The active work is PR #93 finalization after four preserved synthetic
+native-reader refusals. **All four authorized attempts are consumed. Do not create,
+retry, reset, delete or reclassify another native-reader proof attempt.** Continue
+Core; UI needs fresh acceptance.
 Do not polish, deploy or acceptance-test UI in this phase.
 
-## Current scope: pure native-reader container contract and synthetic next gate
+## Current scope: PR93 failed native-reader qualification record
 
-PR91 merged at 09b68a5355098e15f3549faa98126203c08309eb with exact reviewed
-tree 4b39b2f253108e7bbf1461b4cccaffac321d270e. Exact-head CI 37204122789
-passed 4,347 tests, two skips. One source-cleared 40-case ELF metadata batch ran
-once and passed as version-proof attempt 3/4. Proof SHA256:
-cc5c463a62ccd73534d88c37b2dbc9ad4b0343161066998343877e469a6601e5.
-Independent stdlib-only audit accepted all 40 retained records and the eight-node
-dependency graph; no target executable, loader, compressor or package member ran.
+PR #93 remains an open draft. Current correction work aligns Docker CLI execution
+between the successful build-only diagnostic and the full qualifier. The retained
+runtime evidence lives under
+`/home/zelo/zelo/core-v015-browser-renderer/runtime`; do not copy, repair, move,
+delete or reset that evidence.
 
-The graph closes dpkg-deb over fixed libz/liblzma/libzstd/libbz2/libmd/libc and
-the fixed loader, with every declared required version present. This is declaration
-consistency only: actual dynamic load, symbol resolution, ABI qualification,
-platform completeness, independent binary provenance and runtime authority remain
-false. Version proof quota is now 3/4 consumed; do not spend the final attempt
-without a separately reviewed need.
+The four refused attempts are immutable:
+- attempt 1 `native-reader-proof-uvjet91z`: lease-preflight refusal;
+- attempt 2 `native-reader-proof-672ubxw7`: build refusal;
+- attempt 3 `native-reader-proof-x7s79c20`: build refusal;
+- attempt 4 `native-reader-proof-kvhyvgri`: build refusal.
 
-Current tracked work may include only the consolidated offline boundary in
-docs/v0.15-media-native-reader-container.md: deterministic inert image manifest,
-four fixed synthetic Debian fixtures, exact vendored-default seccomp pin, canonical
-container policy, Media-specific owner and fake-only lifecycle tests. No Docker
-daemon call, image build/create/start/export, dpkg-deb/loader/compressor run,
-acquired archive/member read or Pillow execution is cleared by this source slice.
-Focused offline tests pass158 and combined Media/context checks pass2691.
+Attempt-4 policy SHA256 is
+`51a8532bf63d2f603d6e671815850aa86e7984b7040918e0e86fe04569a364b6`;
+proof SHA256 is
+`2c3bd1f7b130d3ce57bf317b5119971cdb30b68820b2e4f19503c1c0d14e1251`.
+Its build exited2 after stderr reached20,851bytes and overflowed the bounded
+capture. Cleanup found zero exact labelled containers/images and admission
+marker/lock empty. No native success receipt or runtime authority exists.
 
-The proposed future command is fixed loader + fixed library path + dpkg-deb
---threads-max=1 --fsys-tarfile -, stdin only, no host PATH/helper fallback. Runtime
-policy remains fail-closed: content image/bundle identity, runc, network none,
-read-only root, uid/gid65534, cap-drop ALL, no-new-privileges plus exact Moby
-default seccomp,512MiB/no extra swap,pids8,half CPU,nofile32, private IPC/cgroupns,
-no host user/PID/UTS namespace, init, mounts/devices/ports/DNS/sysctls/tmpfs,
-ambient Docker config or daemon logs/restart.
+The v2 append-only grant SHA256 is
+`4c3dbda2ae77db193c296dbffb105b18f14d306541c6793675e04f0e600d1271`.
+It authorized only attempt4 and is consumed. **No fifth attempt is authorized.**
+Any future proof requires a new, separately reviewed explicit user budget decision.
 
-After this offline slice passes its own full CI and exact-tree merge, implement a
-separate one-shot setup/operator. That later branch may build/export/attest only
-the inert fixed image and must receive new frozen-source clearance before one
-synthetic native matrix. Use only the four fixed synthetic inputs; none of the
-eight acquired archives. Actual cgroup/process-tree enforcement and cleanup must
-be evidenced before receipt. Native reader and USTAR scanner remain separate
-trust boundaries; GNU/PAX refusal returns to design. Real package/member/runtime/
-import closure, resource/filter and image decoding, Core binding and release remain.
+The build-only diagnostic receipt SHA256 is
+`ee68674ecd2ba41feab06676ca60fa4de619f8a6ee0cc09d2f1d59f4897a3411`.
+It succeeded without touching the proof ledger. Fresh comparison proves the
+diagnostic and qualifier use the same retained bundle
+`0f53fb8375237850a0f3aacb850159ae9453e346f31c936ce85bbd6de2031e04`,
+the same Dockerfile
+`a097907d925d3c2ac2efe9984fc91fa83cbf7c9def98e973b5fb742e5a1b4df9`,
+and the same network-none/pull-false build flags.
 
-Original scopes remain preserved: origin4/4 and old-loader4/4 exhausted; index2/4;
-ELF-version3/4; acquisition1/4; dpkg identity1/1; source16/16; helpers8/8+directory;
-tarfile content observations consumed; USTAR isolation1/2. No reset, proof rewrite,
-automatic retry, system/config/daemon/updater change or user-data mutation.
-No model/Codex job. Preserve exactly one machine-consumed active status heading,
-decisive facts <=2200 chars, parked UI #61/worktrees and v0.14.0. Finish v0.15,
-then canonical v0.16 -> v0.17 -> v0.18.
+A concrete mismatch was found in the old execution environment: the diagnostic
+supplied fixed PATH/HOME/LANG/DOCKER_CONFIG, while qualification supplied only
+DOCKER_CONFIG before fixed GOMAXPROCS=2. The implementation now uses one exact
+fail-closed Docker environment across readiness, diagnostic and qualification.
+Treat this as a plausible cause, **not proven causation**. Do not run a new native
+proof merely because the environment is corrected.
+
+Current correction validation:52 focused environment/diagnostic tests,412
+native-reader/recovery tests and2,855 Media/context tests passed; Ruff/diff checks
+passed. Require fresh full CI and exact-head review before merging PR #93 as a
+preserved failed qualification record. After #93, continue the agreed queue
+#98 -> #99 -> #100. UI #61 remains parked. No acquired package, Pillow decode,
+Core activation, release or deployment is cleared.
 
 ## Workspace decision
 
@@ -144,3 +146,5 @@ then canonical v0.16 -> v0.17 -> v0.18.
   or materially adapted code.
 - UI code must remain a projection/adapter over canonical Core state. It must not
   create a parallel task, approval, scheduler, memory, or authority system.
+
+[executed on device: Zelo (e9a33897-63c0-4476-b309-eacb1dd2b7db)]

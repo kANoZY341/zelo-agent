@@ -32,13 +32,13 @@ def build_identity():
     return "c" * 64
 
 
-def image_record():
+def image_record(identity="e" * 64):
     return {
         "Id": image_id(),
         "Architecture": "amd64",
         "Os": "linux",
         "Config": {
-            "Labels": {m.BUNDLE_LABEL: build_identity()},
+            "Labels": {m.LEASE_LABEL: identity, m.BUNDLE_LABEL: build_identity()},
             "Entrypoint": None,
             "Cmd": None,
             "Env": None,
@@ -52,7 +52,7 @@ def image_record():
     }
 
 
-def container_record(name, identity, cid, *, drift=None):
+def container_record(name, identity, cid, *, drift=None, running=False):
     profile = json.dumps(json.loads(seccomp.profile_bytes()), separators=(",", ":"))
     value = {
         "Id": cid,
@@ -116,7 +116,7 @@ def container_record(name, identity, cid, *, drift=None):
             "SecurityOpt": ["no-new-privileges", "seccomp=" + profile],
         },
         "Mounts": [],
-        "State": {"Running": False},
+        "State": {"Running": running, "Pid": 43210 if running else 0},
     }
     if drift == "network":
         value["HostConfig"]["NetworkMode"] = "bridge"
@@ -210,7 +210,8 @@ class Daemon:
 
     async def spawn(self, *args, **kwargs):
         assert args[: len(CLI)] == CLI
-        assert set(kwargs["env"]) == {"DOCKER_CONFIG"}
+        assert set(kwargs["env"]) == {"DOCKER_CONFIG", "GOMAXPROCS"}
+        assert kwargs["env"]["GOMAXPROCS"] == "2"
         case = Path(kwargs["env"]["DOCKER_CONFIG"])
         assert case.parent == self.jobs and case.name.startswith("native-reader-")
         args = args[len(CLI) :]
@@ -227,7 +228,7 @@ class Daemon:
         if stage == self.failure:
             return Process(code=1)
         if stage == "image inspect":
-            return Process(json.dumps([image_record()]).encode())
+            return Process(json.dumps([image_record(self.identity)]).encode())
         if stage == "container inspect":
             return Process(
                 json.dumps(
@@ -237,6 +238,7 @@ class Daemon:
                             self.identity,
                             self.cid,
                             drift=self.drift,
+                            running=self.attached is not None and self.attached.returncode is None,
                         )
                     ]
                 ).encode()
@@ -267,6 +269,7 @@ async def exercise(setup, daemon):
     handles = []
 
     async def factory(lease):
+        daemon.identity = lease.identity
         handle = DockerReaderHandle(
             lease,
             m.ReaderContainerContract(image_id(), build_identity()),
@@ -476,6 +479,7 @@ def test_handle_is_one_shot(setup):
         admission, jobs = setup
         daemon = Daemon(jobs)
         lease = AdmissionController(admission).acquire(digest())
+        daemon.identity = lease.identity
         handle = DockerReaderHandle(
             lease,
             m.ReaderContainerContract(image_id(), build_identity()),
@@ -518,3 +522,41 @@ def test_no_product_imports_of_native_reader_modules():
         if any(name in text for name in names):
             imported.append(path)
     assert imported == []
+
+
+def test_runtime_probe_runs_before_stdin_and_sees_running_container(setup):
+    async def case():
+        admission, jobs = setup
+        daemon = Daemon(jobs)
+        owner = LeaseResourceOwner(AdmissionController(admission), digest(), 2)
+        seen = []
+
+        async def probe(data):
+            seen.append(
+                (data["State"]["Running"], data["State"]["Pid"], bytes(daemon.attached.stdin.raw))
+            )
+            assert data["State"]["Running"] is True
+            assert data["State"]["Pid"] == 43210
+            assert daemon.attached is not None
+            assert daemon.attached.stdin.raw == b""
+
+        async def factory(lease):
+            daemon.identity = lease.identity
+            return DockerReaderHandle(
+                lease,
+                m.ReaderContainerContract(image_id(), build_identity()),
+                jobs,
+                seccomp.profile_bytes(),
+                spawn=daemon.spawn,
+                runtime_probe=probe,
+            )
+
+        result = await owner.run(
+            factory,
+            lambda handle: handle.stream(fixture.fixture("positive"), owner.deadline),
+        )
+        assert result.exit_code == 0
+        assert seen == [(True, 43210, b"")]
+        assert owner.cleanup_confirmed is True
+
+    run(case())

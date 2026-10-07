@@ -529,22 +529,25 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #91 merged at 09b68a5 after
-4,347 CI passes/two skips. Its single cleared 40-case ELF metadata batch consumed
-version-proof attempt 3/4 and established a closed eight-node dependency/version
-declaration graph for the fixed reader bootstrap. It did not execute dpkg-deb or
-prove ABI/runtime authority.
+Core-first checkpoint (7 October 2026): PR #93 remains draft at integration
+head `3374353`; exact-head CI passed **4,734 tests/two skips**. Four authorized
+synthetic native-reader attempts are retained and REFUSED: attempt 1 at
+lease-preflight, attempts 2–4 at Docker build. Attempt 4 retained a bounded
+exit-2 build failure with 20,851 stderr bytes; cleanup proved zero labelled
+containers/images and an empty admission marker/lock. No success receipt or
+runtime authority exists and no fifth attempt is authorized.
 
-Current work is docs/v0.15-media-native-reader-container.md: the consolidated
-offline native-reader boundary. Its canonical container, fixed Debian fixtures,
-deterministic inert scratch-image manifest, exact default seccomp pin and
-Media-specific owned-container lifecycle pass 158 offline/fake-only tests. No
-Docker/native execution is cleared in this phase. The next one-shot operator must
-build/export/attest the inert image and prove aggregate cgroup/process cleanup
-using only fixed synthetic packages before any real authenticated package attempt.
-USTAR remains narrow; GNU/PAX stay unsupported. Media still needs native stream
-qualification, real member/runtime/import closure, resource/filter and image
-decoding, Core binding and release. UI #61 and v0.14.0 remain unchanged.
+A separate build-only diagnostic succeeded using the same bundle/Dockerfile bytes
+without touching the proof ledger. Investigation isolated a deterministic
+environment mismatch: diagnostic Docker calls carried fixed PATH/HOME/LANG plus
+DOCKER_CONFIG, while qualification supplied only DOCKER_CONFIG before
+GOMAXPROCS=2. The implementation now shares one fail-closed Docker environment;
+this is a plausible explanation, **not proven causation**. Native-reader/recovery
+tests pass 412 cases and the broader Media/context regression passes 2,855 cases after the correction. Require full regression, exact-head CI
+and final review before merging PR #93 as the preserved qualification record.
+Media still needs a separately authorized future native proof before real package
+streaming, then runtime/import/image-decoder closure and Core binding. USTAR
+remains narrow; GNU/PAX remain unsupported. UI #61 and v0.14.0 stay unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
