@@ -77,6 +77,7 @@ from app.self_improvement_runtime import (
 )
 from app.shell_contracts import ShellExecutionSpec
 from app.shell_worker import ShellRuntimeError
+from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
@@ -738,6 +739,7 @@ class TaskService:
         browser_supervisor: Supervisor[Any] | None = None,
         shell_supervisor: Supervisor[Any] | None = None,
         computer_supervisor: Supervisor[Any] | None = None,
+        skill_learning_store: SkillLearningProposalStore | None = None,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -754,6 +756,7 @@ class TaskService:
         self.browser_supervisor = browser_supervisor
         self.shell_supervisor = shell_supervisor
         self.computer_supervisor = computer_supervisor
+        self.skill_learning_store = skill_learning_store
 
     @staticmethod
     def _agent_execution_selection(
@@ -819,7 +822,14 @@ class TaskService:
             or instance.registry_version != binding.registry_version
             or current_binding.spec != binding.spec
             or not self.agent_factory.matches_agent(current_binding)
-            or binding.task_kind not in binding.spec.allowed_task_kinds
+            or (
+                binding.task_kind == "skill_learning_proposal_run"
+                and (binding.spec.skill_learning != "propose" or binding.delegation is not None)
+            )
+            or (
+                binding.task_kind != "skill_learning_proposal_run"
+                and binding.task_kind not in binding.spec.allowed_task_kinds
+            )
         ):
             raise DomainError("Agent execution identity is stale", 409)
 
@@ -1737,8 +1747,17 @@ class TaskService:
             "developer_run",
             "python_run",
             "research_run",
+            "skill_learning_proposal_run",
         }:
             raise DomainError("Agent execution supports only specialist task kinds", 422)
+        if request.kind == "skill_learning_proposal_run":
+            if agent_execution is None:
+                raise DomainError("Skill-learning proposal requires Agent execution", 422)
+            if (
+                agent_execution.spec.skill_learning != "propose"
+                or agent_execution.delegation is not None
+            ):
+                raise DomainError("Agent skill-learning policy does not allow proposals", 409)
         if request.kind == "computer_run" and agent_execution is None:
             raise DomainError("Computer worker requires Agent execution", 422)
         if request.kind == "promotion_run":

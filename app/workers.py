@@ -18,6 +18,7 @@ from app.schemas import (
     PythonRunResult,
     ResearchRunResult,
     ShellRunResult,
+    SkillLearningProposalRunResult,
     TextPayload,
     TextStatsResult,
 )
@@ -32,6 +33,7 @@ RESULT_MODELS = {
     "ai_prompt": AIPromptResult,
     "agent_run": AgentRunResult,
     "research_run": ResearchRunResult,
+    "skill_learning_proposal_run": SkillLearningProposalRunResult,
     "python_run": PythonRunResult,
     "shell_run": ShellRunResult,
     "api_run": ApiRunResult,

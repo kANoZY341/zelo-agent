@@ -767,3 +767,85 @@ class ConversationTurn(Base):
     usage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     core_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningProposalRecord(Base):
+    """Frozen candidate. Status is projected from append-only events."""
+
+    __tablename__ = "skill_learning_proposals"
+    __table_args__ = (
+        CheckConstraint("length(proposal_json) <= 65536", name="ck_skill_proposal_size"),
+        CheckConstraint("length(proposal_fingerprint) = 64", name="ck_skill_proposal_fingerprint"),
+        CheckConstraint("length(revision_sha256) = 64", name="ck_skill_proposal_revision"),
+        CheckConstraint(
+            "length(agent_registry_version) = 64", name="ck_skill_proposal_agent_registry"
+        ),
+        CheckConstraint(
+            "length(skill_registry_version) = 64", name="ck_skill_proposal_skill_registry"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    agent_instance_id: Mapped[str] = mapped_column(ForeignKey("agent_instances.id"), index=True)
+    agent_id: Mapped[str] = mapped_column(String(64))
+    agent_version: Mapped[int] = mapped_column(Integer)
+    agent_registry_version: Mapped[str] = mapped_column(String(64))
+    skill_registry_version: Mapped[str] = mapped_column(String(64))
+    source_skill_id: Mapped[str] = mapped_column(String(64))
+    source_skill_version: Mapped[int] = mapped_column(Integer)
+    procedure_id: Mapped[str] = mapped_column(String(64))
+    revision_sha256: Mapped[str] = mapped_column(String(64))
+    prior_revision_sha256: Mapped[str | None] = mapped_column(String(64))
+    proposal_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningEvent(Base):
+    """Append-only proposal and review status history."""
+
+    __tablename__ = "skill_learning_events"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "sequence", name="uq_skill_learning_event_sequence"),
+        CheckConstraint("sequence >= 1", name="ck_skill_learning_event_sequence"),
+        CheckConstraint(
+            "event IN ('proposed','reviewed','accepted','rejected')",
+            name="ck_skill_learning_event_name",
+        ),
+        CheckConstraint(
+            "(sequence = 1 AND event = 'proposed' AND reviewer_id IS NULL) OR "
+            "(sequence IN (2,3) AND event IN ('reviewed','accepted','rejected') "
+            "AND reviewer_id = 'ahmad')",
+            name="ck_skill_learning_event_reviewer",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    proposal_id: Mapped[str] = mapped_column(ForeignKey("skill_learning_proposals.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event: Mapped[str] = mapped_column(String(32))
+    reviewer_id: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillLearningReviewRecord(Base):
+    """One immutable human decision bound to an exact proposal snapshot."""
+
+    __tablename__ = "skill_learning_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('accepted','rejected')", name="ck_skill_learning_review_decision"
+        ),
+        CheckConstraint("reviewer_id = 'ahmad'", name="ck_skill_learning_review_reviewer"),
+        CheckConstraint("length(review_json) <= 16384", name="ck_skill_learning_review_size"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_learning_proposals.id"), unique=True, index=True
+    )
+    reviewer_id: Mapped[str] = mapped_column(String(32))
+    decision: Mapped[str] = mapped_column(String(16))
+    review_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    review_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

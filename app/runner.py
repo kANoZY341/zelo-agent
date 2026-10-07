@@ -4,6 +4,8 @@ import asyncio
 import logging
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.agent import AgentRuntime, AgentRuntimeError
 from app.api_worker import ApiRuntime, ApiRuntimeError
 from app.browser_worker import BrowserRuntime, BrowserRuntimeError
@@ -16,6 +18,7 @@ from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.python_worker import PythonRuntime, PythonRuntimeError
 from app.research import ResearchRuntime, ResearchRuntimeError
+from app.schemas import SkillLearningProposalPayload, SkillLearningProposalRunResult
 from app.self_improvement import SelfImprovementError
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
@@ -29,6 +32,14 @@ from app.worker_registry import Supervisor
 from app.workers import RESULT_MODELS, Worker, execute
 
 logger = logging.getLogger("zelo")
+
+
+class SkillLearningTaskError(Exception):
+    """Stable denial codes for Core-owned proposal tasks."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
 
 
 class Runner:
@@ -226,6 +237,8 @@ class Runner:
             operation = asyncio.create_task(self._agent_worker(execution))
         elif execution.kind == "research_run":
             operation = asyncio.create_task(self._research_worker(execution))
+        elif execution.kind == "skill_learning_proposal_run":
+            operation = asyncio.create_task(self._skill_learning_proposal_worker(execution))
         elif execution.kind == "python_run":
             operation = asyncio.create_task(self._python_worker(execution))
         elif execution.kind == "shell_run":
@@ -336,6 +349,8 @@ class Runner:
             self.service.finish(execution, State.FAILED, error=error.code)
         except ResearchRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
+        except SkillLearningTaskError as error:
+            self.service.finish(execution, State.FAILED, error=error.code)
         except PythonRuntimeError as error:
             self.service.finish(execution, State.FAILED, error=error.code)
         except ShellRuntimeError as error:
@@ -422,6 +437,43 @@ class Runner:
             self.operations.pop(execution.task_id, None)
             if wake_scheduler:
                 self.wake.set()
+
+    async def _skill_learning_proposal_worker(self, execution: Execution) -> dict[str, Any]:
+        binding = execution.agent_execution
+        if (
+            binding is None
+            or binding.spec.skill_learning != "propose"
+            or binding.delegation is not None
+        ):
+            raise SkillLearningTaskError("skill_learning_agent_forbidden")
+        store = self.service.skill_learning_store
+        if store is None:
+            raise SkillLearningTaskError("skill_learning_store_unavailable")
+        try:
+            payload = SkillLearningProposalPayload.model_validate(execution.payload)
+        except ValidationError:
+            raise SkillLearningTaskError("skill_learning_payload_invalid") from None
+        try:
+            stored, created = store.submit(
+                agent_instance_id=binding.agent_instance_id,
+                revision=payload.revision,
+                evidence_refs=payload.evidence_refs,
+            )
+        except ValueError as error:
+            code = error.args[0] if error.args else None
+            if (
+                not isinstance(code, str)
+                or not code.startswith("skill_learning_")
+                or not code.replace("_", "").isalnum()
+            ):
+                code = "skill_learning_proposal_denied"
+            raise SkillLearningTaskError(code) from None
+        return SkillLearningProposalRunResult(
+            proposal_id=stored.proposal.proposal_id,
+            proposal_fingerprint=stored.proposal.proposal_fingerprint,
+            status=stored.status,
+            created=created,
+        ).model_dump(mode="json")
 
     async def _model_worker(self, execution: Execution) -> dict[str, Any]:
         if self.gateway is None or execution.profile is None:

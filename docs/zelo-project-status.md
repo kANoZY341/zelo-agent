@@ -6,38 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 named-endpoint Agent computer navigation
+## Active increment: v0.15 governed per-Agent skill learning
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93 and PR #98 are merged;
-PR #98's internal-only Agent-computer topology remains the execution boundary.
-PR #99 is the active gate at qualified code head
-`4d4112cde4a58b782ed92757b7bccdcfde8d8d98`, tree
-`97afc43ce3e3530e8fccfd1db3e5a42dec3b1ddf`. Matching CI run
-`37618948869` passed **4,768 tests with two skips** plus Ruff/diff checks.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98 and PR #99 are
+merged. PR #99 merge commit `72cf0d709f4cfd929ff5c0b0cc69701100437a3a`
+preserves named-endpoint navigation as the first browser mutation: trusted HTTPS
+endpoint ID + bounded canonical path only, with separate Worker authority,
+pre/post human-control checks, final-origin enforcement, Core egress and no
+arbitrary URL/click/type/write/shell authority.
 
-PR #99 grants only `browser_navigate` through a separate
-`computer_navigate_core` Worker: trusted Agent-granted HTTPS `endpoint_id` plus
-bounded canonical path, never arbitrary URL/query/fragment input. Frozen execution
-identity binds Agent, Worker, endpoint registry, egress policy, browser permission
-and backend/topology. Human control is checked before navigation and again after
-OpenBot returns. Normal projection excludes page text and removes final-URL
-query/fragment data.
+PR #100 is now the active gate. It implements governed Agent skill-learning
+**proposals**, not self-activation. An Agent with `skill_learning="propose"` may
+submit one bounded procedure revision backed only by retained, successful,
+Agent-bound `research_run` evidence. Core revalidates Agent/project/registry,
+source skill, evidence ownership, capability/task/tool/Space bounds and version
+identity before persistence; delegated proposal execution is refused.
 
-The matching-source live proof passed on real pinned OpenBot. Named
-`example.com` navigation succeeded through Core egress; direct public curl was
-blocked; final HTTPS authority/result bounds passed; a real takeover after the
-browser response caused `computer_human_control_active` with no accepted result;
-handback succeeded; browser-permission revocation cancelled the next queued task
-with **zero attempts**; both host master tokens were absent; all disposable
-containers/networks/listeners were removed. Sanitized receipt SHA-256:
-`6a62863505da2dbd162f59894e52b3ea4f8db8f525fc0c705491a7fb4cc0761e`.
-Independent audit SHA-256:
-`636234e9aaff76571e68b6b6cb51494951a12a6adc09ae89b10510fa04e55a5f`.
+Proposals and reviews are append-only. Operator auth maps only to Ahmad; an
+accepted review requires all six explicit review checks. Acceptance does not
+change AgentSpec, SkillSpec, task routing, tool/worker authority or runtime
+permissions. The candidate adapter can serialize only a freshly revalidated,
+accepted proposal into a content-addressed `skills/procedures/...` artifact
+under an operator-selected staging root. That path is not read by the active Skill
+Registry and has no task/API/promotion wiring.
 
-Next: exact-head docs CI/final review and merge PR #99, then continue PR #100
-governed per-Agent skill learning. Click/type/key/scroll, arbitrary URLs,
-workspace writes, shell, credentials, screenshot context, host fallback and UI
-authority remain disabled.
+Integrated validation currently passes **128 focused skill-learning/database/
+Agent-factory/context tests** plus Ruff/format/diff checks. Next: finish merged
+main validation, freeze exact source, fresh full CI/review, then merge PR #100 if
+unchanged. Later revision promotion remains fail-closed until a trusted promoted-
+revision resolver and explicit Developer/Review/Promotion handoff are designed.
 
 ## Checkpoint history
 

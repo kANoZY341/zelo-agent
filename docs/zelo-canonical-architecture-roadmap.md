@@ -529,26 +529,27 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93 and PR #98 are merged.
-PR #99 named-endpoint navigation is qualified at code head `4d4112c`, tree
-`97afc43c`. Matching full CI passed **4,768 tests/two skips**. Authority remains
-limited to trusted Agent-granted HTTPS endpoint ID + bounded canonical path through
-the separate `computer_navigate_core` Worker; arbitrary URL/query/fragment task
-input, click/type/key/scroll/write/shell and host fallback remain disabled.
+Core-first checkpoint (7 October 2026): PR #93, PR #98 and PR #99 are merged.
+PR #99 establishes only named-endpoint browser navigation behind the merged
+internal-only computer topology; click/type/write/shell/arbitrary URLs remain
+separate later gates.
 
-The matching-source real OpenBot proof passed: `example.com` navigation succeeded
-only through Core egress while direct public curl was blocked; final HTTPS
-authority/result bounds passed; human takeover after the browser response caused
-the returned result to be refused before completion; handback succeeded; browser
-permission revocation cancelled the next queued navigation with zero attempts;
-both host master tokens were absent; cleanup left zero disposable proof resources.
-Receipt SHA-256 is `6a62863505da…0761e`; independent stdlib-only audit SHA-256
-is `636234e9aaff…55a5f`. Normal task/conversation projection excludes page text
-and strips final-URL query/fragment data.
+PR #100 is the active v0.15 gate for **governed per-Agent skill learning**. Agents
+may propose bounded procedure revisions only when their trusted AgentSpec permits
+`skill_learning="propose"`. Core binds current Agent/project/registry identity,
+source Skill identity, retained successful Agent-bound research evidence and the
+existing authority envelope. Capability/task/tool/Space widening is refused.
 
-Require docs-only exact-head CI/final review, then merge PR #99 and continue
-PR #100 governed per-Agent skill learning. UI #61 stays parked and v0.14.0
-remains unchanged.
+Proposal and review records are append-only. Ahmad is the only reviewer principal;
+acceptance requires all six review checks and remains inert. A separate
+operator-requested candidate adapter may serialize a freshly revalidated accepted
+revision into a content-addressed staging artifact, but active registries never
+read that path and no Developer/Review/Promotion handoff is automatic. Later
+revision promotion fails closed until a trusted promoted-revision resolver exists.
+
+Current integrated validation passes **128 focused skill-learning/database/
+Agent-factory/context tests** plus Ruff/format/diff checks. Require fresh exact-head
+full CI and final source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

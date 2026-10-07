@@ -556,11 +556,11 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
         after = triggers()
         for name, sql in before.items():
             if name == "tasks_agent_execution_spec_kind_guard":
-                sql = sql.replace(
-                    "NEW.kind NOT IN ('developer_run','research_run')",
-                    "NEW.kind NOT IN "
-                    "('developer_run','research_run','browser_run','shell_run','computer_run')",
-                )
+                current = after[name]
+                assert "skill_learning_proposal_run" in current
+                assert "$.spec.skill_learning" in current
+                assert "$.delegation" in current
+                continue
             assert after[name] == sql
         assert set(after) - set(before) == {
             "tasks_browser_spec_immutable",
@@ -573,6 +573,14 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "agent_computer_events_sequence_guard",
             "agent_computer_permissions_no_delete",
             "agent_computer_permissions_no_reassign",
+            "skill_learning_events_sequence_guard",
+            "skill_learning_review_insert_guard",
+            "skill_learning_reviews_no_delete",
+            "skill_learning_reviews_no_update",
+            "skill_learning_events_no_delete",
+            "skill_learning_events_no_update",
+            "skill_learning_proposals_no_delete",
+            "skill_learning_proposals_no_update",
         }
     finally:
         db.close()
