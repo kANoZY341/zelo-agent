@@ -6,31 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 promotion exclusivity and inert v0.16 channels
+## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger
 
-Core-first development continues. v0.15 remains the current Core version.
-Merged PR #107 adds promoted-head admission checks for new skill proposals.
-Merged PR #108 (bc6f50c94b7d42c25a32462a8657606534dff457) adds
-non-authoritative WhatsApp/email/browser text envelopes, reserved channel:
-idempotency keys and prepared-only outbound intents. The exact reviewed
-tree matches merged main; 4,965 tests passed, 2 skipped.
+Core-first work remains on Core v0.15. Merged PR #107 established the
+governed learned-skill proposal admission guard. Merged PR #108 at
+bc6f50c94b7d42c25a32462a8657606534dff457 added bounded inert channel:
+text envelopes, HMAC pseudonymous identities and prepared-only replies;
+4,965 tests passed, 2 skipped.
 
-PR #110 is the active, unmerged v0.15 promotion-link recording-exclusivity
-gate. Accepted skill proposals remain historical, but two competing
-previously accepted heads cannot both gain new local promotion links.
-It does NOT prevent an external GitHub PR merging before link recording:
-a separate pre-merge publication-identity/exclusivity gate remains.
-No learned skill runtime activation or worker/tool permission is enabled.
-See docs/v0.15-skill-promotion-exclusivity.md.
+PR #109 merged at bd586aa702d2b8b414db8bd22ac2676575c194f4 with
+4,985 tests passed, 2 skipped; its merged tree exactly matches the
+reviewed source. It adds operator-selected opaque thread bindings and
+append-only unverified inbound replay observations. These records store no
+original message body and cannot claim provider authentication, account
+ownership, Mind admission, execution, delivery, voice or calling authority.
 
-PR #109 is the unmerged v0.16 operator-selected channel thread binding
-and unverified message observation ledger. Neither #108 nor #109 enables
-provider authentication, delivery, voice/calls, webhook ingress or Mind
-execution from untrusted provider text.
+PR #110 is the active unmerged v0.15 local promotion-link exclusivity
+gate. Competing previously accepted skill revisions cannot both receive
+new local promotion links. Historical reviewed decisions remain valid.
+The separate PR #111 still provides the proposed generic GitHub
+pre-merge publication refusal; a future identity-bound publication
+reservation remains necessary. There is no automatic learned skill
+runtime activation or expansion of Agent/Worker/Tool permissions.
 
 Media native-reader qualification remains refused after four authorized
-attempts; do not reset its ledger or perform an unauthorized fifth attempt.
-UI PR #61 remains draft and parked.
+attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
 ## Checkpoint history
 
