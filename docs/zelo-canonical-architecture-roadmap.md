@@ -534,7 +534,7 @@ including #102, #103, #104 and #105. PR #105 adds a read-only trusted historical
 promoted-revision resolver and extends CI job headroom to 30 minutes. It does
 not activate learned content.
 
-The active v0.15 gate is **trusted prior-revision binding**. For version N>=2,
+PR #106 is the active v0.15 gate for **trusted prior-revision binding**. For version N>=2,
 Core resolves the exact promoted version N-1 for the same AgentInstance, source
 Skill and procedure. The proposal must have an exact prior SHA-256 and pass the
 existing capability/task/tool/Space envelope; version 1 remains backward

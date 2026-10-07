@@ -13,8 +13,8 @@ and #105 are merged; UI PR #61 remains parked. PR #105 merged at
 92188dd3af944b749ba39caf6da50262527088f3 after exact-head CI passed
 4,905 tests with 2 skipped. Its reviewed merged tree is unchanged.
 
-The current gate binds a new learned-procedure proposal to the exact preceding
-promoted version, not an untrusted Agent claim. A version 2 proposal must cite
+PR #106 is the active gate and binds a new learned-procedure proposal to the
+exact preceding promoted version, not an untrusted Agent claim. A version 2 proposal must cite
 the verified promoted version 1 for the same AgentInstance, source Skill and
 procedure. Version 3 must cite promoted version 2, and so on. The trusted
 historical resolver authenticates the Ahmad review, append-only promotion link,
