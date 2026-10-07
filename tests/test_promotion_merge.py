@@ -191,6 +191,56 @@ def merged_pr(request, merge_sha):
     }
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "skills/procedures/skill/proc/v1-content.json",
+        "skills//procedures/skill/proc/v1-content.json",
+        "skills\\procedures\\skill\\proc\\v1-content.json",
+        "skills/unrelated/../procedures/skill/proc/v1-content.json",
+    ],
+)
+def test_generic_merge_refuses_unqualified_learned_skill_artifacts_before_put(tmp_path, path):
+    settings, request, ci = fixture(tmp_path)
+    base_entry = request.promotion.review.candidate_manifest[0]
+    protected = base_entry.model_copy(update={"path": path})
+    review = request.promotion.review.model_copy(update={"candidate_manifest": [protected]})
+    promotion = request.promotion.model_copy(update={"review": review})
+    guarded = request.model_copy(update={"promotion": promotion})
+    endpoint = f"/repos/{guarded.promotion.repository}/pulls/7"
+    transport = ScriptedTransport([("GET", endpoint, open_pr(guarded))])
+    verifier = FakeCIVerifier(ci)
+
+    with pytest.raises(DeveloperError, match="promotion_merge_skill_publication_unqualified"):
+        asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(guarded))
+
+    assert transport.calls == [("GET", endpoint, None)]
+    assert verifier.calls == []
+
+
+def test_exact_historical_learned_skill_merge_recovery_remains_read_only(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    base_entry = request.promotion.review.candidate_manifest[0]
+    protected = base_entry.model_copy(
+        update={"path": "skills/procedures/skill/proc/v1-content.json"}
+    )
+    review = request.promotion.review.model_copy(update={"candidate_manifest": [protected]})
+    guarded = request.model_copy(
+        update={"promotion": request.promotion.model_copy(update={"review": review})}
+    )
+    merge_sha = "8" * 40
+    endpoint = f"/repos/{guarded.promotion.repository}/pulls/7"
+    transport = ScriptedTransport([("GET", endpoint, merged_pr(guarded, merge_sha))])
+    verifier = FakeCIVerifier(ci)
+
+    recovered = asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(guarded))
+
+    assert recovered.reused
+    assert recovered.merge_commit_sha == merge_sha
+    assert transport.calls == [("GET", endpoint, None)]
+    assert verifier.calls == []
+
+
 def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
     settings, request, ci = fixture(tmp_path)
     merge_sha = "8" * 40
