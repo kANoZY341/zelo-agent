@@ -529,27 +529,24 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): PR #93, PR #98 and PR #99 are merged.
-PR #99 establishes only named-endpoint browser navigation behind the merged
-internal-only computer topology; click/type/write/shell/arbitrary URLs remain
-separate later gates.
+Core-first checkpoint (7 October 2026): PR #93, PR #98, PR #99 and PR #100
+are merged. PR #100 completes the first governed per-Agent skill-learning slice:
+proposal-only Agent authority, append-only Ahmad review, inert candidate
+serialization, and no automatic promotion or runtime loading.
 
-PR #100 is the active v0.15 gate for **governed per-Agent skill learning**. Agents
-may propose bounded procedure revisions only when their trusted AgentSpec permits
-`skill_learning="propose"`. Core binds current Agent/project/registry identity,
-source Skill identity, retained successful Agent-bound research evidence and the
-existing authority envelope. Capability/task/tool/Space widening is refused.
+The active follow-up is a **read-only per-Agent learned-skill projection**. Core
+projects governed proposal/review metadata under the existing authenticated Agent
+surface without exposing learned instructions, evidence source IDs, candidate
+paths or mutable authority. Accepted records show `not_promoted`; active promoted
+revision identity remains unavailable/null until a separately trusted
+promoted-revision resolver exists. Stale evidence/identity is projected as
+`current=false` without rewriting history.
 
-Proposal and review records are append-only. Ahmad is the only reviewer principal;
-acceptance requires all six review checks and remains inert. A separate
-operator-requested candidate adapter may serialize a freshly revalidated accepted
-revision into a content-addressed staging artifact, but active registries never
-read that path and no Developer/Review/Promotion handoff is automatic. Later
-revision promotion fails closed until a trusted promoted-revision resolver exists.
-
-Current integrated validation passes **128 focused skill-learning/database/
-Agent-factory/context tests** plus Ruff/format/diff checks. Require fresh exact-head
-full CI and final source review before merge. UI #61 remains parked.
+Current validation passes **136 focused learned-skill/skill-learning/Agent/
+database/context tests** plus Ruff/format/diff checks. After this projection is
+reviewed/merged, the next learning gate is a trusted promotion-status resolver and
+explicit Developer/Review/Promotion handoff—not autonomous loading. Computer
+click/type/write/shell/arbitrary-URL gates and UI #61 remain separate/parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

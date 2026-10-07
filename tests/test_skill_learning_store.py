@@ -45,6 +45,7 @@ from app.skill_learning_records import CoreSkillLearningRecords, task_attempt_so
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
 from app.tasks import TaskService
+from tests.conftest import AUTH
 from tests.test_agent_execution import direct_services, project
 from tests.test_skill_learning import revision
 
@@ -384,6 +385,8 @@ def test_agent_task_api_runs_bounded_proposal_through_core_and_is_idempotent(
     client, database, settings, proposal_case
 ):
     store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    assert client.portal is not None
+    client.portal.call(client.app.state.runner.stop)
     tasks, execution = learning_task_services(database, settings, store)
     client.app.state.agent_execution = execution
     task_input = proposal_task(candidate, ref)
@@ -709,3 +712,91 @@ def test_stale_evidence_after_acceptance_blocks_candidate(tmp_path, proposal_cas
             principal=OperatorPrincipal(),
         )
     assert not list(tmp_path.rglob("*.json"))
+
+
+def test_agent_learned_skill_projection_is_metadata_only(client, proposal_case):
+    store, agent, _task, _attempt, revision_value, ref = proposal_case
+    proposed, _ = store.submit(
+        agent_instance_id=agent.id,
+        revision=revision_value,
+        evidence_refs=(ref,),
+    )
+    client.app.state.skill_learning_store = store
+
+    unauthorized = client.get(
+        f"/agents/{agent.id}/learned-skills",
+        headers={"Authorization": "Bearer invalid-test-token"},
+    )
+    assert unauthorized.status_code == 401
+
+    response = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH)
+    assert response.status_code == 200, response.text
+    page = response.json()
+    assert page["agent_instance_id"] == agent.id
+    assert page["total"] == 1
+    assert page["promoted_revision_resolver_available"] is False
+    item = page["items"][0]
+    assert item["proposal_id"] == proposed.proposal.proposal_id
+    assert item["source_skill_id"] == revision_value.source_skill_id
+    assert item["procedure_id"] == revision_value.procedure_id
+    assert item["proposed_version"] == revision_value.version
+    assert item["revision_sha256"] == revision_value.content_sha256
+    assert item["review_status"] == "pending"
+    assert item["review_fingerprint"] is None
+    assert item["current"] is True
+    assert item["evidence"]["count"] == 1
+    assert item["evidence"]["kinds"] == ["task_attempt"]
+    assert len(item["evidence"]["fingerprint"]) == 64
+    assert item["promotion_status"] == "not_eligible"
+    assert item["active_revision_sha256"] is None
+    assert item["runtime_authority"] is False
+    serialized = json.dumps(page, sort_keys=True)
+    assert revision_value.instructions not in serialized
+    assert "verification_steps" not in serialized
+    assert ref.source_id not in serialized
+
+    reviewed, _ = store.record_review(
+        proposed.proposal.proposal_id,
+        review_request(),
+        OperatorPrincipal(),
+    )
+    accepted = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH).json()["items"][0]
+    assert accepted["review_status"] == "accepted"
+    assert accepted["review_fingerprint"] == reviewed.review.review_fingerprint
+    assert accepted["promotion_status"] == "not_promoted"
+    assert accepted["active_revision_sha256"] is None
+    assert accepted["runtime_authority"] is False
+
+    missing = client.get(
+        "/agents/00000000-0000-4000-8000-000000000099/learned-skills",
+        headers=AUTH,
+    )
+    assert missing.status_code == 404
+
+
+def test_learned_skill_projection_marks_stale_without_mutating_history(
+    client, database, proposal_case
+):
+    store, agent, task, attempt, revision_value, ref = proposal_case
+    proposed, _ = store.submit(
+        agent_instance_id=agent.id,
+        revision=revision_value,
+        evidence_refs=(ref,),
+    )
+    client.app.state.skill_learning_store = store
+
+    with database.transaction() as session:
+        saved_task = session.get(Task, task.id)
+        saved_attempt = session.get(TaskAttempt, attempt.attempt_id)
+        changed = deepcopy(saved_attempt.result)
+        changed["answer"] = "Changed after proposal persistence."
+        saved_attempt.result = changed
+        saved_task.result = changed
+
+    response = client.get(f"/agents/{agent.id}/learned-skills", headers=AUTH)
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["proposal_id"] == proposed.proposal.proposal_id
+    assert item["review_status"] == "pending"
+    assert item["current"] is False
+    assert store.get(proposed.proposal.proposal_id) == proposed

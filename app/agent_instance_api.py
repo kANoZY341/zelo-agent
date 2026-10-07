@@ -16,6 +16,8 @@ from app.schemas import (
     AgentMemoryContextRequest,
     AgentMemoryContextResponse,
 )
+from app.skill_learning import LearnedSkillProposalPage
+from app.skill_learning_store import SkillLearningProposalStore
 
 router = APIRouter(prefix="/agents", dependencies=[Depends(require_operator)])
 
@@ -24,7 +26,12 @@ def service(request: Request) -> AgentInstanceService:
     return request.app.state.agent_instances
 
 
+def learned_skill_store(request: Request) -> SkillLearningProposalStore:
+    return request.app.state.skill_learning_store
+
+
 Agents = Annotated[AgentInstanceService, Depends(service)]
+LearnedSkills = Annotated[SkillLearningProposalStore, Depends(learned_skill_store)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0, le=1_000_000)]
 ProjectId = Annotated[
@@ -63,6 +70,20 @@ def get_agent_instance(
     agents: Agents,
 ) -> AgentInstanceResponse:
     return agents.get(instance_id)
+
+
+@router.get("/{instance_id}/learned-skills", response_model=LearnedSkillProposalPage)
+def list_agent_learned_skills(
+    instance_id: str,
+    agents: Agents,
+    learned: LearnedSkills,
+    limit: Limit = 20,
+    offset: Offset = 0,
+) -> LearnedSkillProposalPage:
+    # Existence is checked through the canonical AgentInstance service; learning
+    # records remain historical/read-only even if the instance is paused/retired.
+    agents.get(instance_id)
+    return learned.list_for_agent(instance_id, limit=limit, offset=offset)
 
 
 @router.post("/{instance_id}/transition", response_model=AgentInstanceResponse)

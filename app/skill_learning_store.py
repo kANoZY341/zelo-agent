@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agent_factory import AgentFactory
@@ -19,6 +19,9 @@ from app.models import (
     utcnow,
 )
 from app.skill_learning import (
+    LearnedSkillEvidenceSummary,
+    LearnedSkillProposalPage,
+    LearnedSkillProposalView,
     SkillLearningEvidenceRef,
     SkillLearningProposal,
     SkillLearningReview,
@@ -361,6 +364,94 @@ class SkillLearningProposalStore:
                 .limit(limit)
             ).all()
             return tuple(self._stored(session, row) for row in rows)
+
+    @staticmethod
+    def _evidence_summary(proposal: SkillLearningProposal) -> LearnedSkillEvidenceSummary:
+        refs = [item.model_dump(mode="json") for item in proposal.evidence_refs]
+        raw = json.dumps(
+            refs,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("ascii")
+        return LearnedSkillEvidenceSummary(
+            count=len(refs),
+            kinds=tuple(sorted({item.kind for item in proposal.evidence_refs})),
+            fingerprint=hashlib.sha256(raw).hexdigest(),
+        )
+
+    def _is_current(self, stored: StoredSkillLearningProposal) -> bool:
+        try:
+            rebuilt = self._build(
+                stored.proposal.agent_instance_id,
+                stored.proposal.proposed_revision,
+                stored.proposal.evidence_refs,
+            )
+        except ValueError:
+            return False
+        return rebuilt == stored.proposal
+
+    def _learned_view(self, stored: StoredSkillLearningProposal) -> LearnedSkillProposalView:
+        proposal = stored.proposal
+        revision = proposal.proposed_revision
+        review_status = "pending" if stored.status == "proposed" else stored.status
+        return LearnedSkillProposalView(
+            proposal_id=proposal.proposal_id,
+            proposal_fingerprint=proposal.proposal_fingerprint,
+            source_skill_id=proposal.source_skill_id,
+            source_skill_version=proposal.source_skill_version,
+            procedure_id=revision.procedure_id,
+            proposed_version=revision.version,
+            revision_sha256=revision.content_sha256,
+            prior_revision_sha256=revision.prior_revision_sha256,
+            title=revision.title,
+            review_status=review_status,
+            review_fingerprint=stored.review.review_fingerprint if stored.review else None,
+            current=self._is_current(stored),
+            evidence=self._evidence_summary(proposal),
+            promotion_status="not_promoted" if stored.status == "accepted" else "not_eligible",
+            created_at=stored.created_at,
+            updated_at=stored.updated_at,
+        )
+
+    def list_for_agent(
+        self,
+        agent_instance_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> LearnedSkillProposalPage:
+        """Project governed learning records for exactly one AgentInstance."""
+
+        if not 1 <= limit <= 100 or offset < 0:
+            raise ValueError("skill_learning_list_limit_invalid")
+        with self.database.read() as session:
+            condition = SkillLearningProposalRecord.agent_instance_id == agent_instance_id
+            total = (
+                session.scalar(
+                    select(func.count()).select_from(SkillLearningProposalRecord).where(condition)
+                )
+                or 0
+            )
+            rows = session.scalars(
+                select(SkillLearningProposalRecord)
+                .where(condition)
+                .order_by(
+                    SkillLearningProposalRecord.created_at.desc(),
+                    SkillLearningProposalRecord.id,
+                )
+                .offset(offset)
+                .limit(limit)
+            ).all()
+            stored = tuple(self._stored(session, row) for row in rows)
+        return LearnedSkillProposalPage(
+            agent_instance_id=agent_instance_id,
+            items=tuple(self._learned_view(item) for item in stored),
+            limit=limit,
+            offset=offset,
+            total=total,
+        )
 
     def review_basis(self, proposal_id: str) -> StoredSkillLearningProposal | None:
         """Recheck current identity/evidence for a reviewer; grants no decision authority."""

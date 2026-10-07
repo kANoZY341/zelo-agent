@@ -450,3 +450,53 @@ class SkillLearningReview(SkillLearningContract):
         if self.decision == "accepted" and not self.checks.all_passed():
             raise ValueError("skill_learning_review_checks_failed")
         return self
+
+
+class LearnedSkillEvidenceSummary(SkillLearningContract):
+    """Bounded evidence metadata for the read-only per-Agent learned-skill view."""
+
+    count: int = Field(ge=1, le=16)
+    kinds: tuple[EvidenceKind, ...] = Field(min_length=1, max_length=3)
+    fingerprint: Sha256
+
+    @model_validator(mode="after")
+    def _canonicalize(self):
+        if self.kinds != tuple(sorted(set(self.kinds))):
+            raise ValueError("learned_skill_evidence_kinds_not_canonical")
+        if self.count < len(self.kinds):
+            raise ValueError("learned_skill_evidence_count_invalid")
+        return self
+
+
+class LearnedSkillProposalView(SkillLearningContract):
+    """Metadata-only projection of one governed proposal; never executable content."""
+
+    proposal_id: CanonicalUuid
+    proposal_fingerprint: Sha256
+    source_skill_id: SkillId
+    source_skill_version: int = Field(ge=1, le=1_000_000)
+    procedure_id: SkillName
+    proposed_version: int = Field(ge=1, le=1_000_000)
+    revision_sha256: Sha256
+    prior_revision_sha256: Sha256 | None = None
+    title: str = Field(min_length=1, max_length=128)
+    review_status: Literal["pending", "accepted", "rejected"]
+    review_fingerprint: Sha256 | None = None
+    current: bool
+    evidence: LearnedSkillEvidenceSummary
+    promotion_status: Literal["not_eligible", "not_promoted"]
+    active_revision_sha256: None = None
+    runtime_authority: Literal[False] = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class LearnedSkillProposalPage(SkillLearningContract):
+    """Read-only Agent package projection; active promoted identity is not resolved yet."""
+
+    agent_instance_id: CanonicalUuid
+    items: tuple[LearnedSkillProposalView, ...]
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
+    promoted_revision_resolver_available: Literal[False] = False

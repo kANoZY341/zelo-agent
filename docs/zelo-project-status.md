@@ -6,35 +6,33 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 governed per-Agent skill learning
+## Active increment: v0.15 read-only per-Agent learned-skill projection
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98 and PR #99 are
-merged. PR #99 merge commit `72cf0d709f4cfd929ff5c0b0cc69701100437a3a`
-preserves named-endpoint navigation as the first browser mutation: trusted HTTPS
-endpoint ID + bounded canonical path only, with separate Worker authority,
-pre/post human-control checks, final-origin enforcement, Core egress and no
-arbitrary URL/click/type/write/shell authority.
+Core v0.15 stays active; UI PR #61 remains parked. PR #100 is merged at
+`7fb82b8bbc20e2024538cc60670164acd2b56888`, completing the first governed
+skill-learning slice: direct proposal-only Agent authority, append-only Ahmad
+review, inert candidate serialization, and no automatic promotion/runtime load.
 
-PR #100 is now the active gate. It implements governed Agent skill-learning
-**proposals**, not self-activation. An Agent with `skill_learning="propose"` may
-submit one bounded procedure revision backed only by retained, successful,
-Agent-bound `research_run` evidence. Core revalidates Agent/project/registry,
-source skill, evidence ownership, capability/task/tool/Space bounds and version
-identity before persistence; delegated proposal execution is refused.
+The active slice adds a read-only Agent package projection at
+`GET /agents/{instance_id}/learned-skills` behind existing operator auth. It is
+strictly metadata-only: proposal/review state, source skill/procedure identity,
+revision hashes/title, bounded evidence count/kinds/fingerprint, current/stale
+status, and promotion state. It does **not** return procedure instructions,
+verification/failure steps, evidence source IDs, candidate artifact paths, hidden
+reasoning, or mutable authority.
 
-Proposals and reviews are append-only. Operator auth maps only to Ahmad; an
-accepted review requires all six explicit review checks. Acceptance does not
-change AgentSpec, SkillSpec, task routing, tool/worker authority or runtime
-permissions. The candidate adapter can serialize only a freshly revalidated,
-accepted proposal into a content-addressed `skills/procedures/...` artifact
-under an operator-selected staging root. That path is not read by the active Skill
-Registry and has no task/API/promotion wiring.
+Accepted proposals project as `not_promoted`; pending/rejected proposals are
+`not_eligible`. `active_revision_sha256` is explicitly null and
+`promoted_revision_resolver_available=false` because no trusted promoted-revision
+resolver exists yet. Runtime authority remains false. Historical proposals stay
+visible if an Agent is paused/retired, while evidence/identity drift marks the
+projection `current=false` without mutating append-only history.
 
-Integrated validation currently passes **128 focused skill-learning/database/
-Agent-factory/context tests** plus Ruff/format/diff checks. Next: finish merged
-main validation, freeze exact source, fresh full CI/review, then merge PR #100 if
-unchanged. Later revision promotion remains fail-closed until a trusted promoted-
-revision resolver and explicit Developer/Review/Promotion handoff are designed.
+Validation passes **136 focused learned-skill/skill-learning/Agent/database/
+context tests** plus Ruff/format/diff checks. Next: freeze/review this projection
+slice, then define a separate trusted promotion-status resolver/handoff before any
+learned revision can become runtime-active. Click/type/write/shell and UI authority
+remain separate later gates.
 
 ## Checkpoint history
 

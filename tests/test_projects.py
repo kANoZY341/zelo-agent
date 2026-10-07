@@ -91,35 +91,29 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 governed per-Agent skill learning")
+    assert active_status.startswith(
+        "## Active increment: v0.15 read-only per-Agent learned-skill projection"
+    )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #93" in active_status
-    assert "PR #98" in active_status
-    assert "PR #99" in active_status
-    assert "72cf0d7" in active_status
     assert "PR #100" in active_status
-    assert 'skill_learning="propose"' in active_status
-    assert "research_run" in active_status
-    assert "delegated proposal execution is refused" in active_compact
-    assert "append-only" in active_status
-    assert "all six explicit review checks" in active_compact
-    assert "skills/procedures/" in active_status
-    assert "not read by the active Skill Registry" in active_compact
-    assert "128 focused skill-learning/database/" in active_compact
+    assert "7fb82b8" in active_status
+    assert "GET /agents/{instance_id}/learned-skills" in active_status
+    assert "metadata-only" in active_status
+    assert "not_promoted" in active_status
+    assert "promoted_revision_resolver_available=false" in active_compact
+    assert "active_revision_sha256" in active_status
+    assert "current=false" in active_status
+    assert "136 focused learned-skill/skill-learning/Agent/database/" in active_compact
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
-    assert "PR #93" in roadmap_compact
-    assert "PR #98" in roadmap_compact
-    assert "PR #99" in roadmap_compact
     assert "PR #100" in roadmap_compact
-    assert "governed per-Agent skill learning" in roadmap_compact
-    assert 'skill_learning="propose"' in roadmap_compact
-    assert "Capability/task/tool/Space widening is refused" in roadmap_compact
-    assert "Ahmad is the only reviewer principal" in roadmap_compact
-    assert "active registries never read that path" in roadmap_compact
-    assert "128 focused skill-learning/database/" in roadmap_compact
+    assert "read-only per-Agent learned-skill projection" in roadmap_compact
+    assert "not_promoted" in roadmap_compact
+    assert "current=false" in roadmap_compact
+    assert "136 focused learned-skill/skill-learning/Agent/" in roadmap_compact
+    assert "trusted promotion-status resolver" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
