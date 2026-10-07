@@ -534,7 +534,7 @@ including #102, #103, #104, #105 and #106. PR #106 adds trusted exact
 promoted-predecessor binding for version 2+ learned proposals. This still
 does not activate learned content.
 
-The active v0.15 follow-up is **promoted-head admission**: Core refuses a
+PR #107 is the active v0.15 follow-up for **promoted-head admission**: Core refuses a
 brand-new proposal at or below the latest promoted version for the same
 AgentInstance/Skill/procedure. Exact stored-proposal retries remain
 idempotent, and historical accepted reviews/proof links remain

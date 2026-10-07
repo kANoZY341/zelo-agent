@@ -14,7 +14,8 @@ including #103, #104, #105 and #106. PR #106 merged at
 4,911 tests with 2 skipped and the merge tree matched reviewed source.
 The redesigned UI PR #61 remains draft and parked.
 
-The current slice adds a fail-closed **new-proposal admission guard** over
+PR #107 is the active slice and adds a fail-closed **new-proposal admission
+guard** over
 trusted promoted-revision history. A brand-new learned procedure proposal is
 refused with skill_learning_promoted_head_advanced if its version is at or
 below the latest promoted version for the exact AgentInstance, Skill and

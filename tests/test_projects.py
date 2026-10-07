@@ -95,6 +95,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106"):
         assert pr in active_status
+    assert "PR #107" in active_status
     assert "2e6ae8f" in active_status
     assert "4,911 tests with 2 skipped" in active_compact
     assert "new-proposal admission guard" in active_compact
@@ -107,6 +108,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
+    assert "PR #107" in roadmap_content
     assert "PR #106" in roadmap_content
     assert "promoted-head admission" in roadmap_compact
     assert "promotion-time exclusivity" in roadmap_compact
