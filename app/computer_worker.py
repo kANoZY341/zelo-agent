@@ -513,6 +513,13 @@ class ComputerRuntime:
 
         if not self.matches(spec):
             raise ComputerRuntimeError("computer_execution_spec_stale")
+        if action == "browser_navigate":
+            try:
+                control = await self.backend.control(spec.agent_instance_id)
+            except ComputerBackendError as error:
+                raise ComputerRuntimeError(str(error)) from None
+            if control.holder == "human" or control.requested or control.transitioning:
+                raise ComputerRuntimeError("computer_human_control_active")
         result = self._normalize(spec, raw)
         emit(
             f"{event_prefix}_completed",

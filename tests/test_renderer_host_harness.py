@@ -138,7 +138,7 @@ def test_integration_diagnostic_requires_explicit_container_opt_in(monkeypatch):
 def test_setup_command_captures_both_streams_and_sanitizes_failure():
     import sys
 
-    from scripts.qualify_browser_renderer import command
+    from scripts.qualify_browser_renderer import _CommandFailure, command
 
     assert (
         command(
@@ -146,16 +146,21 @@ def test_setup_command_captures_both_streams_and_sanitizes_failure():
         )
         == "ok\n"
     )
-    with pytest.raises(RuntimeError, match="^setup_command_failed$"):
+    with pytest.raises(_CommandFailure, match="^setup_command_failed$") as failure:
         command(
             [
                 sys.executable,
                 "-I",
                 "-S",
                 "-c",
-                "import sys; sys.stderr.write('do-not-echo'); sys.exit(2)",
+                "import sys; print('stdout-secret'); sys.stderr.write('do-not-echo'); sys.exit(2)",
             ]
         )
+    assert failure.value.returncode == 2
+    assert failure.value.stdout == b"stdout-secret\n"
+    assert failure.value.stderr == b"do-not-echo"
+    assert "stdout-secret" not in str(failure.value)
+    assert "do-not-echo" not in str(failure.value)
 
 
 @pytest.mark.parametrize("target", [1, 2])
@@ -175,6 +180,41 @@ def test_setup_command_output_flood_is_bounded_and_reaped(tmp_path, target):
     pid = int(pidfile.read_text())
     with pytest.raises(ChildProcessError):
         os.waitpid(pid, os.WNOHANG)
+
+
+def test_setup_command_drains_bounded_overflow_and_retains_final_failure():
+    import hashlib
+    import sys
+
+    from scripts import qualify_media_native_reader as reader
+    from scripts.qualify_browser_renderer import _command, _CommandFailure
+
+    stdout = b"x" * 5000 + b"Error response from daemon: unexpected EOF" + bytes((10,))
+    stderr = b"y" * 20000 + b"private-stderr"
+    code = f"import os,sys;os.write(1,{stdout!r});os.write(2,{stderr!r});sys.exit(7)"
+    with pytest.raises(_CommandFailure, match="^setup_command_failed$") as failure:
+        _command(
+            [sys.executable, "-I", "-S", "-c", code],
+            10,
+            {"PATH": "/usr/bin:/bin"},
+            stdout_limit=1024,
+            drain_output_overflow=True,
+        )
+
+    error = failure.value
+    assert error.overflowed == ("err", "out")
+    assert len(error.stdout) == 1024
+    assert len(error.stderr) == 16384
+    assert error.stdout_tail.endswith(b"unexpected EOF" + bytes((10,)))
+    assert error.stderr_tail.endswith(b"private-stderr")
+    assert error.stdout_bytes_total == len(stdout)
+    assert error.stderr_bytes_total == len(stderr)
+    assert error.stdout_sha256 == hashlib.sha256(stdout).hexdigest()
+    assert error.stderr_sha256 == hashlib.sha256(stderr).hexdigest()
+    evidence = reader._build_failure_evidence(error)
+    assert evidence["output_category"] == "build_stream_unexpected_eof"
+    assert evidence["overflowed_streams"] == ["err", "out"]
+    assert "private-stderr" not in str(evidence)
 
 
 def test_setup_command_timeout_reaps_the_owned_child(tmp_path):
@@ -204,6 +244,7 @@ def test_operator_docker_process_ignores_live_daemon_and_credentials(monkeypatch
         "HOME",
         "LD_PRELOAD",
         "ZELO_OPERATOR_TOKEN",
+        "GOMAXPROCS",
     ):
         monkeypatch.setenv(name, "live-sentinel")
     with operator_process(["/usr/bin/docker", "image", "inspect", "sha256:" + "a" * 64]) as (
@@ -212,6 +253,7 @@ def test_operator_docker_process_ignores_live_daemon_and_credentials(monkeypatch
     ):
         assert args[:2] == ["/usr/bin/docker", "--host=unix:///var/run/docker.sock"]
         assert "live-sentinel" not in env.values()
+        assert env["GOMAXPROCS"] == "2"
         assert "DOCKER_HOST" not in env and "DOCKER_CONTEXT" not in env and "LD_PRELOAD" not in env
         directory = Path(env["DOCKER_CONFIG"])
         assert directory.exists() and list(directory.iterdir()) == []

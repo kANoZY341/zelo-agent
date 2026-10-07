@@ -28,6 +28,56 @@ MAX_EXPORT_ENTRIES = 8192
 MAX_COMMAND_LOG = 16384
 
 
+class _CommandOutputLimit(ValueError):
+    def __init__(self, stream: str):
+        self.stream = stream
+        super().__init__("setup_command_output_limit")
+
+
+class _CommandFailure(RuntimeError):
+    """Bounded output for local classification; never include it in the message."""
+
+    def __init__(
+        self,
+        returncode: int,
+        stdout: bytes,
+        stderr: bytes,
+        argv: tuple[str, ...],
+        *,
+        stdout_tail: bytes = b"",
+        stderr_tail: bytes = b"",
+        stdout_bytes_total: int | None = None,
+        stderr_bytes_total: int | None = None,
+        stdout_sha256: str | None = None,
+        stderr_sha256: str | None = None,
+        overflowed: tuple[str, ...] = (),
+    ):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.stdout_tail = stdout_tail
+        self.stderr_tail = stderr_tail
+        self.stdout_bytes_total = (
+            len(stdout) + len(stdout_tail) if stdout_bytes_total is None else stdout_bytes_total
+        )
+        self.stderr_bytes_total = (
+            len(stderr) + len(stderr_tail) if stderr_bytes_total is None else stderr_bytes_total
+        )
+        self.stdout_sha256 = (
+            hashlib.sha256(stdout + stdout_tail).hexdigest()
+            if stdout_sha256 is None
+            else stdout_sha256
+        )
+        self.stderr_sha256 = (
+            hashlib.sha256(stderr + stderr_tail).hexdigest()
+            if stderr_sha256 is None
+            else stderr_sha256
+        )
+        self.overflowed = overflowed
+        self.argv = argv
+        super().__init__("setup_command_failed")
+
+
 @contextmanager
 def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str]]]:
     """No inherited credentials, config, contexts, daemon selectors or loader hooks.
@@ -40,6 +90,7 @@ def operator_process(args: list[str]) -> Iterator[tuple[list[str], dict[str, str
     if not args or args[0] != "/usr/bin/docker":
         yield args, environment
         return
+    environment["GOMAXPROCS"] = "2"
     if any(
         arg.startswith(("--host", "--context", "--config", "-H")) or arg == "-c" for arg in args[1:]
     ):
@@ -56,13 +107,25 @@ def command(args: list[str], timeout: float = 20) -> str:
         return _command(argv, timeout, environment)
 
 
-def _command(args: list[str], timeout: float, environment: dict[str, str]) -> str:
+def _command(
+    args: list[str],
+    timeout: float,
+    environment: dict[str, str],
+    *,
+    stdout_limit: int = 131072,
+    drain_output_overflow: bool = False,
+) -> str:
     """Bounded trusted operator command; no shell, input, or unbounded capture.
 
     The fixed local compiler/Docker CLI remain trusted. An isolated process group
-    lets overflow/deadline cleanup cover their helper children without selecting
-    any unrelated process. Stderr is never echoed as an exception payload.
+    lets deadline cleanup cover helper children. Callers may opt to drain and discard
+    bytes beyond capture caps, avoiding premature peer disconnects on noisy streams.
     """
+    if type(stdout_limit) is not int or not 0 <= stdout_limit <= 131072:
+        raise ValueError("setup_command_stdout_limit")
+    if type(drain_output_overflow) is not bool:
+        raise ValueError("setup_command_overflow_mode")
+
     import signal
 
     process = subprocess.Popen(
@@ -75,7 +138,11 @@ def _command(args: list[str], timeout: float, environment: dict[str, str]) -> st
     )
     assert process.stdout is not None and process.stderr is not None
     buffers = {"out": bytearray(), "err": bytearray()}
-    limits = {"out": 131072, "err": MAX_COMMAND_LOG}
+    tails = {"out": bytearray(), "err": bytearray()}
+    limits = {"out": stdout_limit, "err": MAX_COMMAND_LOG}
+    totals = {"out": 0, "err": 0}
+    digests = {"out": hashlib.sha256(), "err": hashlib.sha256()}
+    overflowed = set()
     deadline = time.monotonic() + timeout
     try:
         with selectors.DefaultSelector() as ready:
@@ -90,13 +157,53 @@ def _command(args: list[str], timeout: float, environment: dict[str, str]) -> st
                     if not chunk:
                         ready.unregister(key.fileobj)
                     else:
-                        target = buffers[key.data]
-                        if len(target) + len(chunk) > limits[key.data]:
-                            raise ValueError("setup_command_output_limit")
-                        target.extend(chunk)
-        if process.wait(timeout=max(0.01, deadline - time.monotonic())) != 0:
-            raise RuntimeError("setup_command_failed")
-        return buffers["out"].decode("utf-8")
+                        stream = key.data
+                        totals[stream] += len(chunk)
+                        digests[stream].update(chunk)
+                        target = buffers[stream]
+                        remaining_capture = limits[stream] - len(target)
+                        if len(chunk) <= remaining_capture:
+                            target.extend(chunk)
+                        elif drain_output_overflow:
+                            overflowed.add(stream)
+                            if remaining_capture > 0:
+                                target.extend(chunk[:remaining_capture])
+                            tail = tails[stream]
+                            tail.extend(chunk[max(remaining_capture, 0) :])
+                            if len(tail) > MAX_COMMAND_LOG:
+                                del tail[:-MAX_COMMAND_LOG]
+                        else:
+                            raise _CommandOutputLimit(stream)
+        returncode = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+        if returncode != 0:
+            raise _CommandFailure(
+                returncode,
+                bytes(buffers["out"]),
+                bytes(buffers["err"]),
+                tuple(args),
+                stdout_tail=bytes(tails["out"]),
+                stderr_tail=bytes(tails["err"]),
+                stdout_bytes_total=totals["out"],
+                stderr_bytes_total=totals["err"],
+                stdout_sha256=digests["out"].hexdigest(),
+                stderr_sha256=digests["err"].hexdigest(),
+                overflowed=tuple(sorted(overflowed)),
+            )
+        return buffers["out"].decode(
+            "utf-8", errors="replace" if drain_output_overflow else "strict"
+        )
+    except (TimeoutError, _CommandOutputLimit) as error:
+        # Preserve bounded captures on failed commands without exposing them in messages.
+        error.stdout = bytes(buffers["out"])
+        error.stderr = bytes(buffers["err"])
+        error.stdout_tail = bytes(tails["out"])
+        error.stderr_tail = bytes(tails["err"])
+        error.stdout_bytes_total = totals["out"]
+        error.stderr_bytes_total = totals["err"]
+        error.stdout_sha256 = digests["out"].hexdigest()
+        error.stderr_sha256 = digests["err"].hexdigest()
+        error.overflowed = tuple(sorted(overflowed))
+        raise
     finally:
         # Until wait()/poll() reaps the leader its PID cannot be reused. Do not
         # signal a group after a successful wait returned and released that PID.

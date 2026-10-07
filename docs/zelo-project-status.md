@@ -6,36 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader offline boundary
+## Active increment: v0.15 named-endpoint Agent computer navigation
 
-Core v0.15 stays active; UI is parked. PR #91 merged at 09b68a5 after 4,347 CI
-passes/two skips. Its one cleared 40-case ELF batch is version-proof attempt 3/4;
-the eight-node declaration graph closes dpkg-deb over the fixed libraries/loader
-but does not prove actual loading, symbols, ABI, provenance or runtime authority.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93 is merged as a
+preserved failed Media qualification record. PR #98 is merged at
+`8cbaa14b9290cdddcdcd8ea15d7d9e7cc790d4e7` with the reviewed internal-only
+Agent-computer topology intact.
 
-The current slice is offline only. One canonical container contract binds the
-PR #91 proof/lock, inert content-addressed image identity, fixed loader/argv,
-PATH/HOME/TMPDIR=/nonexistent, runc, network none, read-only root, uid/gid65534,
-cap-drop ALL, no-new-privileges plus the exact vendored Moby default seccomp,
-512 MiB/no-extra-swap, PID8, half CPU and nofile32. A deterministic scratch-image
-manifest contains only the eight fixed binaries; entrypoint/env/user stay outside
-the image and are applied only at container creation.
+PR #99 is now the active Core gate. Its navigation branch is integrated onto
+current main and keeps mutation authority deliberately narrow:
+`browser_navigate` accepts only an Agent-granted trusted HTTPS `endpoint_id`
+plus a bounded canonical path. Core freezes the exact navigation Worker,
+endpoint-registry binding, egress-policy fingerprint, persisted browser
+permission digest and backend/topology identity. Arbitrary URL input,
+query/fragment task input, click/type/key/scroll, writes, shell, credentials,
+screenshots in Agent/model results and host fallback remain disabled.
 
-A separate fixed-fixture module creates four bounded synthetic Debian inputs
-(positive, bad version, wrong order, truncated). The Media-specific Docker owner
-has fake-only tests for exact inspect validation, output bounds, lost create
-acknowledgement, cleanup failure, profile drift and repeated cancellation while
-the capacity-one admission remains fenced. **No Docker daemon, loader, dpkg-deb,
-compressor or acquired archive has run in this slice.** The consolidated image,
-fixture, seccomp, contract and owner gates pass 158 offline tests.
+Integrated source validation passes **111 focused navigation/egress/worker/context
+tests** plus Ruff/format/diff checks. Source review also closed a takeover race:
+human control is now checked both immediately before navigation and again after
+OpenBot returns, before a result can be accepted. If takeover/request/transition
+starts during navigation, the returned page is refused with
+`computer_human_control_active` and no completed-navigation event is emitted.
 
-Next: freeze/review this source and merge it, then implement the one-shot operator
-that builds/exports/attests the inert scratch image and runs only the four fixed
-synthetic cases. Actual cgroup/process-tree evidence and complete cleanup precede
-any real authenticated package. USTAR remains narrow (GNU/PAX unsupported), then
-Media still needs real member/runtime/import closure, decoder/filter qualification,
-Core binding and release. Proof quotas/failures remain preserved; no model/UI/live
-system/config/data change occurred and v0.14.0 is unchanged.
+Next: commit/push the integrated source, fresh exact-head full CI, then a new
+matching-source live proof on the real pinned OpenBot topology. The proof must
+confirm named-endpoint navigation succeeds only through Core egress, final origin
+stays exact, permission revocation blocks the next task, human takeover remains
+fail-closed, and disposable resources are removed. Then review/merge #99 and
+continue #100 governed per-Agent skill learning.
 
 ## Checkpoint history
 

@@ -365,6 +365,42 @@ def test_human_takeover_blocks_navigation_before_backend_action(database, settin
     assert not any(call[0] == "browser_navigate" for call in backend.calls)
 
 
+def test_human_takeover_during_navigation_refuses_returned_result(database, settings):
+    backend, _endpoints, _runtime, supervisor, tasks, execution, instance = setup_navigation(
+        database, settings
+    )
+    original = backend.navigate_action
+
+    async def navigate_then_take_over(instance_id: str, url: str):
+        raw = await original(instance_id, url)
+        backend.control_state = ComputerControlState(
+            holder="human",
+            requested=False,
+            transitioning=False,
+            resumeSnapshotRequired=False,
+        )
+        return raw
+
+    backend.navigate_action = navigate_then_take_over
+    task, _ = execution.submit(
+        instance.id,
+        navigation_task(),
+        "computer-nav:human-during",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None
+
+    asyncio.run(Runner(tasks, computer_supervisor=supervisor)._run(claimed))
+
+    failed = tasks.get(task.id)
+    assert failed.status == State.FAILED
+    assert failed.error == "computer_human_control_active"
+    assert sum(call[0] == "browser_navigate" for call in backend.calls) == 1
+    names = [event.event for event in tasks.events(task.id, 100, 0)]
+    assert "computer_navigation_started" in names
+    assert "computer_navigation_completed" not in names
+
+
 def test_navigation_projection_excludes_page_content():
     result = {
         "action": "browser_navigate",

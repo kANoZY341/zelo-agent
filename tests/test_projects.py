@@ -90,23 +90,36 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "docs/zelo-canonical-architecture-roadmap.md#v0.15" in sources
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
-    assert active_status.startswith("## Active increment: v0.15 Media native-reader")
+    active_compact = " ".join(active_status.split())
+    assert active_status.startswith(
+        "## Active increment: v0.15 named-endpoint Agent computer navigation"
+    )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "PR #91" in active_status
-    assert "4,347 CI" in active_status
-    assert "version-proof attempt 3/4" in active_status
-    assert "Moby default seccomp" in active_status
-    assert "158 offline tests" in active_status
-    assert "No Docker daemon" in active_status
+    assert "PR #93" in active_status
+    assert "PR #98" in active_status
+    assert "8cbaa14b" in active_status
+    assert "PR #99" in active_status
+    assert "browser_navigate" in active_status
+    assert "111 focused navigation/egress/worker/context tests" in active_compact
+    assert (
+        "human control is now checked both immediately before navigation and again after"
+        in active_compact
+    )
+    assert "computer_human_control_active" in active_status
+    assert "no completed-navigation event" in active_compact
+    assert "matching-source live proof" in active_compact
+    assert "#100 governed per-Agent skill learning" in active_compact
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
-    assert "PR #91" in roadmap_content
-    assert "40-case ELF metadata batch" in roadmap_content
-    assert "158 offline/fake-only tests" in roadmap_content
-    assert "native-reader-container" in roadmap_content
-    assert "GNU/PAX" in roadmap_content
-    assert "ABI/runtime authority" in roadmap_content
+    roadmap_compact = " ".join(roadmap_content.split())
+    assert "PR #93" in roadmap_compact
+    assert "PR #98" in roadmap_compact
+    assert "PR #99" in roadmap_compact
+    assert "named-endpoint navigation" in roadmap_compact
+    assert "111 focused navigation/egress/worker/context tests" in roadmap_compact
+    assert "human control is now rechecked after OpenBot returns" in roadmap_compact
+    assert "PR #100" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
