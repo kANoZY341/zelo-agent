@@ -46,8 +46,13 @@ def derive_opaque_channel_key(
         or not raw_identifier
         or raw_identifier != raw_identifier.strip()
         or "\x00" in raw_identifier
-        or len(raw_identifier.encode("utf-8")) > 512
     ):
+        raise ValueError("channel_identity_raw_invalid")
+    try:
+        encoded_identifier = raw_identifier.encode("utf-8")
+    except UnicodeError:
+        raise ValueError("channel_identity_raw_invalid") from None
+    if len(encoded_identifier) > 512:
         raise ValueError("channel_identity_raw_invalid")
     material = json.dumps(
         {
@@ -76,9 +81,15 @@ def _fingerprint(domain: str, value: dict[str, str]) -> str:
 
 
 def _validate_text(text: str, digest: str) -> None:
-    if "\x00" in text or len(text.encode("utf-8")) > CHANNEL_TEXT_BYTES:
+    if "\x00" in text:
         raise ValueError("channel_text_invalid")
-    if hashlib.sha256(text.encode("utf-8")).hexdigest() != digest:
+    try:
+        encoded = text.encode("utf-8")
+    except UnicodeError:
+        raise ValueError("channel_text_invalid") from None
+    if len(encoded) > CHANNEL_TEXT_BYTES:
+        raise ValueError("channel_text_invalid")
+    if hashlib.sha256(encoded).hexdigest() != digest:
         raise ValueError("channel_text_digest_mismatch")
 
 

@@ -265,3 +265,25 @@ def test_channel_pseudonym_refuses_bad_namespace_or_identifier(overrides, error)
     params.update(overrides)
     with pytest.raises(ValueError, match=error):
         derive_opaque_channel_key(bytes(range(32)), **params)
+
+
+def test_ingress_rejects_unpaired_surrogate_as_validation_error():
+    surrogate = chr(0xD800)
+    with pytest.raises(ValidationError):
+        ingress(text=surrogate, text_sha256="a" * 64)
+
+
+def test_delivery_rejects_unpaired_surrogate_as_validation_error():
+    surrogate = chr(0xD800)
+    with pytest.raises(ValidationError):
+        delivery(text=surrogate, text_sha256="a" * 64)
+
+
+def test_hmac_pseudonym_rejects_unpaired_surrogate_as_value_error():
+    with pytest.raises(ValueError, match="channel_identity_raw_invalid"):
+        derive_opaque_channel_key(
+            bytes(range(32)),
+            channel="whatsapp",
+            purpose="sender",
+            raw_identifier=chr(0xD800),
+        )
