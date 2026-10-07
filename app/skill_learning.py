@@ -550,3 +550,48 @@ class SkillLearningPromotionLink(SkillLearningContract):
         if self.link_fingerprint != expected or self.link_id != expected_id:
             raise ValueError("skill_learning_promotion_link_identity_mismatch")
         return self
+
+
+class SkillLearningPromotedRevisionSnapshot(SkillLearningContract):
+    """Historical exact revision proven merged; never an activation grant."""
+
+    schema_version: Literal["zelo-skill-learning-promoted-revision-v1"] = (
+        "zelo-skill-learning-promoted-revision-v1"
+    )
+    proposal_id: CanonicalUuid
+    proposal_fingerprint: Sha256
+    review_fingerprint: Sha256
+    reviewer_id: Literal["ahmad"] = "ahmad"
+    promotion_link_id: CanonicalUuid
+    promotion_link_fingerprint: Sha256
+    agent_instance_id: CanonicalUuid
+    source_skill_id: SkillId
+    source_skill_version: int = Field(ge=1, le=1_000_000)
+    procedure_id: SkillName
+    revision_sha256: Sha256
+    revision: SkillProcedureRevision
+    repository: str = Field(min_length=3, max_length=256, pattern=r"^[^/\s]+/[^/\s]+$")
+    artifact_path: str = Field(min_length=1, max_length=4096)
+    artifact_sha256: Sha256
+    artifact_bytes: int = Field(ge=1, le=MAX_SKILL_PROCEDURE_ARTIFACT_BYTES)
+    merge_commit_sha: GitSha
+    promoted_at: datetime
+    runtime_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _validate_snapshot(self):
+        for value in (self.proposal_id, self.promotion_link_id, self.agent_instance_id):
+            _canonical_uuid(value)
+        if self.promoted_at.tzinfo is None:
+            raise ValueError("skill_learning_promoted_revision_timestamp_invalid")
+        if (
+            self.revision.source_skill_id != self.source_skill_id
+            or self.revision.source_skill_version != self.source_skill_version
+            or self.revision.procedure_id != self.procedure_id
+            or self.revision.content_sha256 != self.revision_sha256
+            or self.artifact_path != skill_procedure_artifact_path(self.revision)
+            or self.artifact_sha256 != skill_procedure_artifact_sha256(self.revision)
+            or self.artifact_bytes != len(skill_procedure_artifact_bytes(self.revision))
+        ):
+            raise ValueError("skill_learning_promoted_revision_identity_mismatch")
+        return self
