@@ -6,35 +6,36 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 trusted prior-revision binding
+## Active increment: v0.15 promoted-head admission guard
 
-Core v0.15 remains active. PRs #93, #98, #99, #100, #102, #103, #104
-and #105 are merged; UI PR #61 remains parked. PR #105 merged at
-92188dd3af944b749ba39caf6da50262527088f3 after exact-head CI passed
-4,905 tests with 2 skipped. Its reviewed merged tree is unchanged.
+Core-first development continues. Merged PRs #93, #98, #99, #100, #102,
+including #103, #104, #105 and #106. PR #106 merged at
+2e6ae8fcecd9c32199d4e35cc8f3df3cef9f4725 after exact-head CI passed
+4,911 tests with 2 skipped and the merge tree matched reviewed source.
+The redesigned UI PR #61 remains draft and parked.
 
-PR #106 is the active gate and binds a new learned-procedure proposal to the
-exact preceding promoted version, not an untrusted Agent claim. A version 2 proposal must cite
-the verified promoted version 1 for the same AgentInstance, source Skill and
-procedure. Version 3 must cite promoted version 2, and so on. The trusted
-historical resolver authenticates the Ahmad review, append-only promotion link,
-configured repository and exact content-addressed artifact identity.
+PR #107 is the active slice and adds a fail-closed **new-proposal admission
+guard** over
+trusted promoted-revision history. A brand-new learned procedure proposal is
+refused with skill_learning_promoted_head_advanced if its version is at or
+below the latest promoted version for the exact AgentInstance, Skill and
+procedure. Historical identical proposal retries remain idempotent; earlier
+accepted reviews and promotion links remain revalidatable after newer
+promotions. A valid next version still requires the exact previously promoted
+revision and its content hash, the current trusted repository identity, and
+all existing Agent/Skill/evidence and capability/task/tool/Space checks.
 
-Version-1 proposals remain backward compatible: they require no prior revision
-even after promotion. For version 2+ the resolver selects exactly N-1, not
-whichever version is latest, so earlier accepted revisions remain reviewable and
-idempotent after subsequent promotions. Duplicate version heads, missing
-promotions, wrong digests, repository drift, version gaps and histories beyond
-64 entries are refused. Cross-Agent reuse is forbidden.
+This guard is not a global promotion-time uniqueness guarantee: two
+competing proposals created before either promotion remain possible in
+history. The historical resolver MUST refuse ambiguous promoted heads;
+a separate publication-time exclusivity policy is required to prevent that
+scenario. No runtime learned-skill loading, AgentSpec mutation, auto-review
+or promotion, or tool/worker/computer authority is introduced.
 
-The existing capability/task/tool/Space envelope checks remain in force. No
-runtime Skill Registry loading, new task/API authority, cross-Agent sharing,
-automatic review/promotion or AgentSpec mutation is introduced. Proposed
-revisions still have runtime_authority=false and authority_widening=false.
-
-Focused resolver/prior regression passed 20 tests. The refreshed integrated learning/promotion/Agent/database/context suite
-passed 203 tests, including the cross-Agent isolation regression. Require full integrated
-validation, exact-head CI and source review before merge.
+The follow-up branch's focused admission/ambiguity checks passed 3 tests.
+The integrated resolver/promotion/learning/Agent/context suite passed
+177 tests, Ruff and format passed. Next: final integrated merge validation,
+fresh exact-head CI and source review. No learned skill has been activated.
 
 ## Checkpoint history
 

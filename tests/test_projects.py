@@ -91,33 +91,29 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 trusted prior-revision binding")
+    assert active_status.startswith("## Active increment: v0.15 promoted-head admission guard")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105"):
+    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106"):
         assert pr in active_status
-    assert "PR #106" in active_status
-    assert "92188dd" in active_status
-    assert "4,905 tests with 2 skipped" in active_compact
-    assert "exact preceding promoted version" in active_compact
-    assert "same AgentInstance" in active_status
-    assert "Version-1 proposals remain backward compatible" in active_compact
-    assert "Cross-Agent reuse is forbidden" in active_status
-    assert "runtime_authority=false" in active_status
-    assert "authority_widening=false" in active_status
-    assert "20 tests" in active_status
-    assert "203 tests" in active_status
+    assert "PR #107" in active_status
+    assert "2e6ae8f" in active_status
+    assert "4,911 tests with 2 skipped" in active_compact
+    assert "new-proposal admission guard" in active_compact
+    assert "skill_learning_promoted_head_advanced" in active_status
+    assert "idempotent" in active_status
+    assert "ambiguous promoted heads" in active_compact
+    assert "runtime learned-skill loading" in active_compact
+    assert "177 tests" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
+    assert "PR #107" in roadmap_content
     assert "PR #106" in roadmap_content
-    assert "PR #105" in roadmap_content
-    assert "trusted prior-revision binding" in roadmap_compact
-    assert "exact promoted version N-1" in roadmap_compact
-    assert "Cross-Agent" in roadmap_content
-    assert "runtime_authority=false" in roadmap_content
-    assert "20 passed" in roadmap_compact
-    assert "203 passed" in roadmap_compact
+    assert "promoted-head admission" in roadmap_compact
+    assert "promotion-time exclusivity" in roadmap_compact
+    assert "No automatic promotion" in roadmap_compact
+    assert "177 passed" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
