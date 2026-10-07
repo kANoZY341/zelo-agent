@@ -92,19 +92,17 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
     assert active_status.startswith(
-        "## Active increment: Core v0.15 and inert v0.16 channel foundation"
+        "## Active increment: v0.16 channel binding and v0.15 skill governance"
     )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106", "#107"):
+    for pr in ("#107", "#108", "#109", "#110"):
         assert pr in active_status
-    assert "b3e665a" in active_status
-    assert "4,913 tests and 2 skips" in active_compact
-    assert "idempotently" in active_status
-    assert "ambiguous promoted heads" in active_compact
-    assert "PR #108" in active_status
+    assert "bc6f50c94b7d42c25a32462a8657606534dff457" in active_status
+    assert "4,965 tests passed, 2 skipped" in active_compact
     assert "channel:" in active_status
-    assert "transport_authority remain false" in active_compact
-    assert "113 channel/Mind/scheduler/context tests" in active_compact
+    assert "unverified" in active_compact
+    assert "No sending or Mind admission was enabled" in active_compact
+    assert "pre-merge publication" in active_compact
     assert "four authorized attempts" in active_compact
     assert "UI PR #61 remains parked" in active_status
     assert "Historical increment:" not in active_status

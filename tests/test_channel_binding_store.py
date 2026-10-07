@@ -1,7 +1,9 @@
 """v0.16 inert channel-binding and unverified observation persistence."""
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier
 
 import pytest
 from sqlalchemy import func, select, text
@@ -173,6 +175,42 @@ def test_message_replay_with_same_identity_and_changed_text_is_refused(database)
     assert previous.message_fingerprint() == new_value.message_fingerprint()
     with pytest.raises(ValueError, match="channel_message_replay_conflict"):
         store.observe_unverified(new_value, principal=OperatorPrincipal())
+
+
+@pytest.mark.parametrize("conflicting_body", [False, True])
+def test_concurrent_message_observations_are_atomic(database, conflicting_body):
+    store, _conversation_id, _binding = bind(database)
+    original = message()
+    changed = "Edited provider message in a simultaneous retry."
+    contender = message(text=changed, text_sha256=digest(changed)) if conflicting_body else original
+    barrier = Barrier(2)
+
+    def observe(envelope):
+        barrier.wait(timeout=10)
+        try:
+            row, created = store.observe_unverified(envelope, principal=OperatorPrincipal())
+        except ValueError as exc:
+            return "conflict", str(exc), None
+        return ("created" if created else "duplicate"), row.message_fingerprint, row.text_sha256
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(observe, original)
+        second = pool.submit(observe, contender)
+        results = [first.result(timeout=30), second.result(timeout=30)]
+
+    outcomes = sorted(result[0] for result in results)
+    if conflicting_body:
+        assert outcomes == ["conflict", "created"]
+        assert next(item[1] for item in results if item[0] == "conflict") == (
+            "channel_message_replay_conflict"
+        )
+    else:
+        assert outcomes == ["created", "duplicate"]
+    with database.read() as session:
+        rows = session.scalars(select(ChannelIngressObservationRecord)).all()
+        assert len(rows) == 1
+        assert rows[0].text_sha256 == next(item[2] for item in results if item[0] == "created")
+        assert session.scalar(select(func.count()).select_from(ConversationTurn)) == 0
 
 
 def test_message_timestamp_drift_is_refused_for_same_message_id(database):
