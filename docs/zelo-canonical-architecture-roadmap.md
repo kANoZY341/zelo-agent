@@ -529,28 +529,23 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (7 October 2026): merged PRs #93, #98, #99, #100,
-including #102, #103, #104 and #105. PR #105 adds a read-only trusted historical
-promoted-revision resolver and extends CI job headroom to 30 minutes. It does
-not activate learned content.
+Core-first checkpoint (8 October 2026): merged PRs #93, #98, #99, #100,
+including #102, #103, #104, #105, #106 and #107. PR #107 adds the
+new-proposal admission guard. It refuses a brand-new learned procedure
+revision at or below the latest promoted version for the same
+AgentInstance, source Skill and procedure. Stored proposal retries remain
+idempotent, and historical reviews/proof links remain valid.
 
-PR #106 is the active v0.15 gate for **trusted prior-revision binding**. For version N>=2,
-Core resolves the exact promoted version N-1 for the same AgentInstance, source
-Skill and procedure. The proposal must have an exact prior SHA-256 and pass the
-existing capability/task/tool/Space envelope; version 1 remains backward
-compatible. Historical v2 reviews remain valid even after v3 is proposed.
-Duplicate promoted heads, version gaps, wrong prior hash, missing promotion,
-repository drift and histories exceeding 64 entries fail closed. Cross-Agent
-promoted revisions cannot be borrowed.
+A limitation remains: candidates created before either promotion can still
+produce an ambiguous history. The read-only resolver refuses such heads;
+a separate promotion-time exclusivity guard is required to prevent competing
+publications. No new task, worker, tool, computer, AgentSpec or active registry
+authority has been granted. Learned procedures are not automatically loaded.
 
-The binding is only a Core proposal-construction/revalidation prerequisite.
-It does not add a new API/task, runtime Skill Registry consumer, activation
-grant, automatic review or Promotion action. runtime_authority=false remains
-in force. Runtime learned-skill loading requires a separate future gate.
-
-Focused prior-resolution suite: 20 passed. Refreshed integrated learning/promotion/Agent/database/context suite:
-203 passed, including the cross-Agent isolation regression. Require refreshed integrated validation, exact-head CI and
-final source review. UI PR #61 remains parked.
+PR #108 begins non-authoritative v0.16 channel contracts; it does not close
+v0.15 Media native-reader qualification or the remaining Core gates. The
+four previously consumed native-reader qualification attempts remain
+preserved as refusals. UI PR #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

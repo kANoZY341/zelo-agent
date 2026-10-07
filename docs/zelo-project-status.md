@@ -6,35 +6,36 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 trusted prior-revision binding
+## Active increment: Core v0.15 and inert v0.16 channel foundation
 
-Core v0.15 remains active. PRs #93, #98, #99, #100, #102, #103, #104
-and #105 are merged; UI PR #61 remains parked. PR #105 merged at
-92188dd3af944b749ba39caf6da50262527088f3 after exact-head CI passed
-4,905 tests with 2 skipped. Its reviewed merged tree is unchanged.
+Core-first development continues. Merged PRs #93, #98, #99, #100,
+including #102, #103, #104, #105, #106 and #107. PR #107 merge
+b3e665ab76768d6a14d16cdf1d799f8783c8f6c4 passed exact-head CI
+with 4,913 tests and 2 skips; its merged tree matches the reviewed source.
 
-PR #106 is the active gate and binds a new learned-procedure proposal to the
-exact preceding promoted version, not an untrusted Agent claim. A version 2 proposal must cite
-the verified promoted version 1 for the same AgentInstance, source Skill and
-procedure. Version 3 must cite promoted version 2, and so on. The trusted
-historical resolver authenticates the Ahmad review, append-only promotion link,
-configured repository and exact content-addressed artifact identity.
+Governed learned-procedure proposals now refuse newly competing versions at
+or below the latest promoted revision. An existing exact proposal can replay
+idempotently; the trusted historical resolver refuses ambiguous promoted
+heads. Historical proof is NOT activation. A separate promotion-time
+exclusivity gate remains necessary for competing proposals created before
+either was promoted.
 
-Version-1 proposals remain backward compatible: they require no prior revision
-even after promotion. For version 2+ the resolver selects exactly N-1, not
-whichever version is latest, so earlier accepted revisions remain reviewable and
-idempotent after subsequent promotions. Duplicate version heads, missing
-promotions, wrong digests, repository drift, version gaps and histories beyond
-64 entries are refused. Cross-Agent reuse is forbidden.
+PR #108 is the active contract-only v0.16 channel foundation on current
+main. It defines bounded inbound text envelopes, channel/thread/message
+fingerprints, keyed HMAC pseudonyms and prepared-only delivery intents.
+The operator-facing Mind turn route reserves the channel: namespace
+against caller-supplied idempotency keys. Execution_authority and
+transport_authority remain false.
 
-The existing capability/task/tool/Space envelope checks remain in force. No
-runtime Skill Registry loading, new task/API authority, cross-Agent sharing,
-automatic review/promotion or AgentSpec mutation is introduced. Proposed
-revisions still have runtime_authority=false and authority_widening=false.
+There is no webhook, provider authentication, WhatsApp/email/call/voice
+transport, account binding, message delivery, new task/worker/tool grant or
+runtime learned-skill loader. Local integration on merged PR #106 passed
+113 channel/Mind/scheduler/context tests after Unicode hardening.
+Fresh exact-head CI/review on the merged PR #107 baseline is required.
 
-Focused resolver/prior regression passed 20 tests. The refreshed integrated learning/promotion/Agent/database/context suite
-passed 203 tests, including the cross-Agent isolation regression. Require full integrated
-validation, exact-head CI and source review before merge.
+Media native-reader proof remains refused after four authorized attempts;
+do not reset its ledger or perform an unauthorized fifth qualification.
+The redesigned UI PR #61 remains parked. Continue Core-first work.
 
 ## Checkpoint history
 

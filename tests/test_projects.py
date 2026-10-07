@@ -91,33 +91,32 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 trusted prior-revision binding")
+    assert active_status.startswith(
+        "## Active increment: Core v0.15 and inert v0.16 channel foundation"
+    )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105"):
+    for pr in ("#93", "#98", "#99", "#100", "#102", "#103", "#104", "#105", "#106", "#107"):
         assert pr in active_status
-    assert "PR #106" in active_status
-    assert "92188dd" in active_status
-    assert "4,905 tests with 2 skipped" in active_compact
-    assert "exact preceding promoted version" in active_compact
-    assert "same AgentInstance" in active_status
-    assert "Version-1 proposals remain backward compatible" in active_compact
-    assert "Cross-Agent reuse is forbidden" in active_status
-    assert "runtime_authority=false" in active_status
-    assert "authority_widening=false" in active_status
-    assert "20 tests" in active_status
-    assert "203 tests" in active_status
+    assert "b3e665a" in active_status
+    assert "4,913 tests and 2 skips" in active_compact
+    assert "idempotently" in active_status
+    assert "ambiguous promoted heads" in active_compact
+    assert "PR #108" in active_status
+    assert "channel:" in active_status
+    assert "transport_authority remain false" in active_compact
+    assert "113 channel/Mind/scheduler/context tests" in active_compact
+    assert "four authorized attempts" in active_compact
+    assert "UI PR #61 remains parked" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
-    assert "PR #106" in roadmap_content
-    assert "PR #105" in roadmap_content
-    assert "trusted prior-revision binding" in roadmap_compact
-    assert "exact promoted version N-1" in roadmap_compact
-    assert "Cross-Agent" in roadmap_content
-    assert "runtime_authority=false" in roadmap_content
-    assert "20 passed" in roadmap_compact
-    assert "203 passed" in roadmap_compact
+    assert "PR #107" in roadmap_content
+    assert "PR #108" in roadmap_content
+    assert "new-proposal admission guard" in roadmap_compact
+    assert "promotion-time exclusivity guard" in roadmap_compact
+    assert "Learned procedures are not automatically loaded" in roadmap_compact
+    assert "four previously consumed" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
