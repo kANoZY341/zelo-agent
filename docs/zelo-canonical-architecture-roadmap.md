@@ -541,11 +541,12 @@ Worker selection, endpoint registry, egress policy, persisted browser permission
 and backend/topology identity. Final page authority must remain on the frozen
 HTTPS host/port.
 
-After integrating current main, **111 focused navigation/egress/worker/context
+After integrating current main, **141 focused navigation/egress/worker/context
 tests** plus Ruff/format/diff checks pass. Review found and closed one authority
 race: human control is now rechecked after OpenBot returns as well as before the
 request, so takeover/request/transition during navigation causes the result to be
-refused rather than accepted under stale Agent control.
+refused rather than accepted under stale Agent control. Normal projection also
+drops navigation page text plus final-URL query/fragment data.
 
 Require fresh exact-head full CI and a new matching-source live proof before
 merging PR #99. Then continue PR #100 governed per-Agent skill learning.

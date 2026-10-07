@@ -407,7 +407,7 @@ def test_navigation_projection_excludes_page_content():
         "agent_instance_id": "00000000-0000-4000-8000-000000000001",
         "browser_navigate": {
             "endpoint_id": "public_site",
-            "url": "https://example.com/docs",
+            "url": "https://example.com/docs?token=PRIVATE-QUERY#PRIVATE-FRAGMENT",
             "title": "Example Docs",
             "text": "PRIVATE-NAVIGATION-CONTENT",
             "truncated": False,
@@ -420,6 +420,10 @@ def test_navigation_projection_excludes_page_content():
     projection, truncated = _project_task_result("computer_run", result, 4096)
     assert truncated is True
     assert projection["browser_navigate"]["endpoint_id"] == "public_site"
+    assert projection["browser_navigate"]["url"] == "https://example.com/docs"
     assert projection["browser_navigate"]["text_chars"] == 26
     assert "text" not in projection["browser_navigate"]
-    assert "PRIVATE-NAVIGATION-CONTENT" not in str(projection)
+    serialized = str(projection)
+    assert "PRIVATE-NAVIGATION-CONTENT" not in serialized
+    assert "PRIVATE-QUERY" not in serialized
+    assert "PRIVATE-FRAGMENT" not in serialized

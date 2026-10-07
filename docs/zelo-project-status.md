@@ -22,12 +22,14 @@ permission digest and backend/topology identity. Arbitrary URL input,
 query/fragment task input, click/type/key/scroll, writes, shell, credentials,
 screenshots in Agent/model results and host fallback remain disabled.
 
-Integrated source validation passes **111 focused navigation/egress/worker/context
+Integrated source validation passes **141 focused navigation/egress/worker/context
 tests** plus Ruff/format/diff checks. Source review also closed a takeover race:
 human control is now checked both immediately before navigation and again after
 OpenBot returns, before a result can be accepted. If takeover/request/transition
 starts during navigation, the returned page is refused with
 `computer_human_control_active` and no completed-navigation event is emitted.
+Normal task/conversation projection also strips page text and removes final-URL
+query/fragment data, preventing same-origin redirect tokens from entering context.
 
 Next: commit/push the integrated source, fresh exact-head full CI, then a new
 matching-source live proof on the real pinned OpenBot topology. The proof must

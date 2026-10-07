@@ -100,13 +100,14 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "8cbaa14b" in active_status
     assert "PR #99" in active_status
     assert "browser_navigate" in active_status
-    assert "111 focused navigation/egress/worker/context tests" in active_compact
+    assert "141 focused navigation/egress/worker/context tests" in active_compact
     assert (
         "human control is now checked both immediately before navigation and again after"
         in active_compact
     )
     assert "computer_human_control_active" in active_status
     assert "no completed-navigation event" in active_compact
+    assert "removes final-URL query/fragment data" in active_compact
     assert "matching-source live proof" in active_compact
     assert "#100 governed per-Agent skill learning" in active_compact
     assert "Historical increment:" not in active_status
@@ -117,7 +118,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #98" in roadmap_compact
     assert "PR #99" in roadmap_compact
     assert "named-endpoint navigation" in roadmap_compact
-    assert "111 focused navigation/egress/worker/context tests" in roadmap_compact
+    assert "141 focused navigation/egress/worker/context tests" in roadmap_compact
     assert "human control is now rechecked after OpenBot returns" in roadmap_compact
     assert "PR #100" in roadmap_compact
     assert "candidate wheel" not in roadmap_content

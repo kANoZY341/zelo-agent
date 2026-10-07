@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -221,6 +222,25 @@ def _bounded_projection_text(value: Any, limit: int) -> str | None:
         return value
     marker = "...[truncated]"
     return value[: limit - len(marker)] + marker
+
+
+def _navigation_projection_url(value: Any) -> str | None:
+    """Project a navigation URL without query or fragment data."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return None
+    safe = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return _bounded_projection_json_text(safe, TASK_PROJECTION_PATH_CHARS)
 
 
 def _bounded_projection_exit_code(value: Any) -> int | None:
@@ -549,7 +569,7 @@ def _computer_result_projection(result: dict[str, Any]) -> dict[str, Any]:
         text_value = value.get("text")
         projection["browser_navigate"] = {
             "endpoint_id": _bounded_projection_text(value.get("endpoint_id"), 64),
-            "url": _bounded_projection_json_text(value.get("url"), TASK_PROJECTION_PATH_CHARS),
+            "url": _navigation_projection_url(value.get("url")),
             "title": _bounded_projection_json_text(value.get("title"), TASK_PROJECTION_FIELD_CHARS),
             "text_chars": len(text_value) if isinstance(text_value, str) else 0,
             "truncated": value.get("truncated"),
