@@ -105,7 +105,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "all six explicit review checks" in active_compact
     assert "skills/procedures/" in active_status
     assert "not read by the active Skill Registry" in active_compact
-    assert "125 focused skill-learning/database/" in active_compact
+    assert "128 focused skill-learning/database/" in active_compact
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
@@ -119,7 +119,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "Capability/task/tool/Space widening is refused" in roadmap_compact
     assert "Ahmad is the only reviewer principal" in roadmap_compact
     assert "active registries never read that path" in roadmap_compact
-    assert "125 focused skill-learning/database/" in roadmap_compact
+    assert "128 focused skill-learning/database/" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

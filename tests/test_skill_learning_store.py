@@ -616,6 +616,65 @@ def test_conflicting_existing_bytes_are_never_overwritten(tmp_path, proposal_cas
     assert target.read_bytes() == b"modified candidate"
 
 
+def test_identical_candidate_retry_refuses_writable_existing_file(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    adapter = SkillLearningCandidateAdapter(store)
+    artifact = adapter.materialize(
+        reviewed.proposal.proposal_id,
+        staging_root=tmp_path,
+        principal=OperatorPrincipal(),
+    )
+    target = tmp_path / artifact.relative_path
+    target.chmod(0o644)
+
+    with pytest.raises(ValueError, match="candidate_conflict"):
+        adapter.materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert target.read_bytes() == artifact.content
+
+
+def test_identical_candidate_retry_refuses_hardlinked_existing_file(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    adapter = SkillLearningCandidateAdapter(store)
+    artifact = adapter.materialize(
+        reviewed.proposal.proposal_id,
+        staging_root=tmp_path,
+        principal=OperatorPrincipal(),
+    )
+    target = tmp_path / artifact.relative_path
+    outside = tmp_path / "candidate-hardlink"
+    outside.hardlink_to(target)
+
+    with pytest.raises(ValueError, match="candidate_conflict"):
+        adapter.materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert target.stat().st_nlink == 2
+
+
+def test_candidate_refuses_writable_staging_descendant(tmp_path, proposal_case):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    skills = tmp_path / "skills"
+    skills.mkdir(mode=0o755)
+    skills.chmod(0o777)
+
+    with pytest.raises(ValueError, match="candidate_directory_untrusted"):
+        SkillLearningCandidateAdapter(store).materialize(
+            reviewed.proposal.proposal_id,
+            staging_root=tmp_path,
+            principal=OperatorPrincipal(),
+        )
+    assert not list(skills.iterdir())
+
+
 def test_symlinked_candidate_parent_cannot_escape_staging_root(tmp_path, proposal_case):
     store, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(store, agent, revision, ref)

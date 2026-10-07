@@ -547,7 +547,7 @@ revision into a content-addressed staging artifact, but active registries never
 read that path and no Developer/Review/Promotion handoff is automatic. Later
 revision promotion fails closed until a trusted promoted-revision resolver exists.
 
-Current integrated validation passes **125 focused skill-learning/database/
+Current integrated validation passes **128 focused skill-learning/database/
 Agent-factory/context tests** plus Ruff/format/diff checks. Require fresh exact-head
 full CI and final source review before merge. UI #61 remains parked.
 

@@ -30,7 +30,7 @@ accepted proposal into a content-addressed `skills/procedures/...` artifact
 under an operator-selected staging root. That path is not read by the active Skill
 Registry and has no task/API/promotion wiring.
 
-Integrated validation currently passes **125 focused skill-learning/database/
+Integrated validation currently passes **128 focused skill-learning/database/
 Agent-factory/context tests** plus Ruff/format/diff checks. Next: finish merged
 main validation, freeze exact source, fresh full CI/review, then merge PR #100 if
 unchanged. Later revision promotion remains fail-closed until a trusted promoted-

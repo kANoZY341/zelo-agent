@@ -41,6 +41,17 @@ def _canonical_bytes(revision: SkillProcedureRevision) -> bytes:
     ).encode("ascii")
 
 
+def _require_trusted_directory(fd: int) -> None:
+    info = os.fstat(fd)
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or info.st_uid != os.geteuid()
+        or info.st_gid != os.getegid()
+        or info.st_mode & 0o022
+    ):
+        raise ValueError("skill_learning_candidate_directory_untrusted")
+
+
 def _open_dir(parent_fd: int, name: str, *, create: bool) -> int:
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
     if create:
@@ -48,7 +59,27 @@ def _open_dir(parent_fd: int, name: str, *, create: bool) -> int:
             os.mkdir(name, mode=0o755, dir_fd=parent_fd)
         except FileExistsError:
             pass
-    return os.open(name, flags, dir_fd=parent_fd)
+    fd = os.open(name, flags, dir_fd=parent_fd)
+    try:
+        _require_trusted_directory(fd)
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _file_identity(info: os.stat_result) -> tuple[int, ...]:
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_mode,
+        info.st_uid,
+        info.st_gid,
+        info.st_nlink,
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
 
 
 def _write_immutable(root: Path, parts: tuple[str, ...], content: bytes) -> bool:
@@ -59,6 +90,7 @@ def _write_immutable(root: Path, parts: tuple[str, ...], content: bytes) -> bool
     directory_fd = root_fd
     opened: list[int] = [root_fd]
     try:
+        _require_trusted_directory(root_fd)
         for part in parts[:-1]:
             directory_fd = _open_dir(directory_fd, part, create=True)
             opened.append(directory_fd)
@@ -71,13 +103,25 @@ def _write_immutable(root: Path, parts: tuple[str, ...], content: bytes) -> bool
                 filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=directory_fd
             )
             try:
-                if not stat.S_ISREG(os.fstat(read_fd).st_mode):
+                before = os.fstat(read_fd)
+                if (
+                    not stat.S_ISREG(before.st_mode)
+                    or before.st_uid != os.geteuid()
+                    or before.st_gid != os.getegid()
+                    or stat.S_IMODE(before.st_mode) != 0o444
+                    or before.st_nlink != 1
+                    or not 0 < before.st_size <= MAX_ARTIFACT_BYTES
+                ):
                     raise ValueError("skill_learning_candidate_conflict") from None
+                identity = _file_identity(before)
                 existing = bytearray()
                 while chunk := os.read(read_fd, 8192):
                     existing.extend(chunk)
                     if len(existing) > MAX_ARTIFACT_BYTES:
                         raise ValueError("skill_learning_candidate_conflict") from None
+                after = os.fstat(read_fd)
+                if _file_identity(after) != identity or len(existing) != before.st_size:
+                    raise ValueError("skill_learning_candidate_conflict") from None
             finally:
                 os.close(read_fd)
             if bytes(existing) != content:
@@ -90,7 +134,18 @@ def _write_immutable(root: Path, parts: tuple[str, ...], content: bytes) -> bool
                 if written <= 0:
                     raise OSError("skill_learning_candidate_write_failed")
                 view = view[written:]
+            os.fchmod(fd, 0o444)
             os.fsync(fd)
+            info = os.fstat(fd)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.geteuid()
+                or info.st_gid != os.getegid()
+                or stat.S_IMODE(info.st_mode) != 0o444
+                or info.st_nlink != 1
+                or info.st_size != len(content)
+            ):
+                raise ValueError("skill_learning_candidate_write_identity")
         except BaseException:
             os.close(fd)
             os.unlink(filename, dir_fd=directory_fd)
