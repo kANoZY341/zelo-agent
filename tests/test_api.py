@@ -217,3 +217,18 @@ def test_skill_learning_candidate_staging_is_opt_in_and_startup_bounded(settings
         assert configured_client.app.state.skill_learning_candidate_adapter is not None
         assert root.is_dir()
         assert root.stat().st_mode & 0o022 == 0
+
+
+def test_skill_learning_candidate_startup_refuses_untrusted_root(settings, database):
+    root = settings.runtime_dir / "untrusted-skill-learning-candidates"
+    root.mkdir(mode=0o700)
+    root.chmod(0o777)
+    configured = settings.model_copy(
+        update={
+            "skill_learning_candidate_root": root,
+            "scheduler_enabled": False,
+        }
+    )
+    with pytest.raises(ValueError, match="candidate_directory_untrusted"):
+        with TestClient(create_app(configured), headers=AUTH):
+            pass

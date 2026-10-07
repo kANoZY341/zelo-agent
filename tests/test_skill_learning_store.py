@@ -877,3 +877,28 @@ def test_agent_learned_skill_projection_requires_existing_agent_and_operator(cli
     missing = "00000000-0000-4000-8000-000000000001"
     response = client.get(f"/agents/{missing}/learned-skills", headers=AUTH)
     assert response.status_code == 404
+
+
+def test_candidate_api_normalizes_filesystem_permission_error(
+    client, proposal_case, tmp_path, monkeypatch
+):
+    store, agent, _task, _attempt, revision, ref = proposal_case
+    reviewed = accepted(store, agent, revision, ref)
+    root = tmp_path / "candidates"
+    root.mkdir(mode=0o700)
+    adapter = SkillLearningCandidateAdapter(store)
+    client.app.state.skill_learning_store = store
+    client.app.state.skill_learning_candidate_adapter = adapter
+    client.app.state.settings.skill_learning_candidate_root = root
+
+    def denied(*args, **kwargs):
+        raise PermissionError("/private/host/path must not leak")
+
+    monkeypatch.setattr(adapter, "materialize", denied)
+    response = client.post(
+        f"/skill-learning/proposals/{reviewed.proposal.proposal_id}/candidate",
+        headers=AUTH,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "skill_learning_candidate_io_refused"
+    assert "private" not in response.text

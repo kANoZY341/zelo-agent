@@ -225,6 +225,9 @@ def create_app(
                     parents=True,
                     exist_ok=True,
                 )
+                SkillLearningCandidateAdapter.validate_staging_root(
+                    configuration.skill_learning_candidate_root
+                )
                 skill_learning_candidate_adapter = SkillLearningCandidateAdapter(
                     skill_learning_store
                 )

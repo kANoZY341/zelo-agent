@@ -82,8 +82,6 @@ def materialize_candidate(
             staging_root=root,
             principal=principal,
         )
-    except PermissionError:
-        raise HTTPException(status_code=403, detail="skill_learning_reviewer_forbidden") from None
     except OSError:
         raise HTTPException(status_code=409, detail="skill_learning_candidate_io_refused") from None
     except ValueError as error:

@@ -170,6 +170,17 @@ class SkillLearningCandidateAdapter:
     def __init__(self, store: SkillLearningProposalStore) -> None:
         self.store = store
 
+    @staticmethod
+    def validate_staging_root(staging_root: Path) -> None:
+        if not staging_root.is_absolute():
+            raise ValueError("skill_learning_candidate_root_must_be_absolute")
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        fd = os.open(staging_root, flags)
+        try:
+            _require_trusted_directory(fd)
+        finally:
+            os.close(fd)
+
     def materialize(
         self,
         proposal_id: str,
