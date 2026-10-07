@@ -42,6 +42,7 @@ sys.path.insert(0, str(ROOT))
 from qualification import media_reader_cgroup as cgroup  # noqa: E402
 from qualification import media_reader_container as container  # noqa: E402
 from qualification import media_reader_extra_attempt as extra  # noqa: E402
+from qualification import media_reader_extra_attempt_v2 as extra_v2  # noqa: E402
 from qualification import media_reader_fixture as fixture  # noqa: E402
 from qualification import media_reader_image as image  # noqa: E402
 from qualification import media_reader_reconcile as reconcile  # noqa: E402
@@ -178,16 +179,21 @@ def _private_runtime_path(path, runtime_root):
     return path
 
 
-def _attempt_directory(runtime_root=None, *, extra_grant=False):
+def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version=1):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     base = runtime / RUNTIME_PROOF_BASE
     _private_runtime_path(base, runtime)
     with os.scandir(base) as attempts:
         entries = list(attempts)
     if len(entries) >= MAX_ATTEMPTS:
-        if not extra_grant or len(entries) != MAX_ATTEMPTS:
+        if not extra_grant:
             raise ValueError("reader_native_attempt_limit")
-        extra.validate(runtime, held_admission=True)
+        if recovery_version == 1 and len(entries) == MAX_ATTEMPTS:
+            extra.validate(runtime, held_admission=True)
+        elif recovery_version == 2 and len(entries) == 3:
+            extra_v2.validate(runtime, held_admission=True)
+        else:
+            raise ValueError("reader_native_attempt_limit")
     for entry in entries:
         path = base / entry.name
         _private_runtime_path(path, runtime)
@@ -871,16 +877,23 @@ async def _qualify(runtime_root=None):
         raise ValueError("reader_native_scope_required")
     runtime = Path(runtime_root)
     extra_grant = False
+    recovery_version = 0
     try:
         try:
             scope.validate_runtime_scope(runtime)
         except scope.ScopeRefused as exc:
-            if (
-                str(exc) != "reader_native_scope_attempt_count"
-                or not (runtime / RUNTIME_PROOF_BASE / extra.SECOND).is_dir()
-            ):
+            if str(exc) != "reader_native_scope_attempt_count":
                 raise
-            extra.validate(runtime)
+            attempt_base = runtime / RUNTIME_PROOF_BASE
+            names = sorted(item.name for item in attempt_base.iterdir())
+            if len(names) == 2 and extra.SECOND in names:
+                extra.validate(runtime)
+                recovery_version = 1
+            elif len(names) == 3 and extra.SECOND in names and extra_v2.THIRD in names:
+                extra_v2.validate(runtime)
+                recovery_version = 2
+            else:
+                raise
             extra_grant = True
     except Exception as exc:
         raise _precondition_refusal("scope", exc) from None
@@ -894,7 +907,14 @@ async def _qualify(runtime_root=None):
     try:
         admission = runtime / RUNTIME_ADMISSION
         _private_runtime_path(admission, runtime)
-        spec = policy(extra.EXTRA_LIMIT if extra_grant else MAX_ATTEMPTS)
+        attempt_limit = (
+            extra.EXTRA_LIMIT
+            if recovery_version == 1
+            else extra_v2.EXTRA_LIMIT
+            if recovery_version == 2
+            else MAX_ATTEMPTS
+        )
+        spec = policy(attempt_limit)
         digest = shared._digest(spec)
         lease = AdmissionController(admission).acquire(digest)
     except Exception as exc:
@@ -906,7 +926,9 @@ async def _qualify(runtime_root=None):
     report_attempted = False
     stage = "attempt"
     try:
-        attempt = _attempt_directory(runtime, extra_grant=extra_grant)
+        attempt = _attempt_directory(
+            runtime, extra_grant=extra_grant, recovery_version=recovery_version or 1
+        )
         store = _Store(attempt, state)
         store.json("policy.json", spec)
         docker_config = attempt / "docker-config"
