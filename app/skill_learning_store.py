@@ -800,6 +800,25 @@ class SkillLearningProposalStore:
             if merge_existing is not None:
                 raise ValueError("skill_learning_promotion_merge_reused")
 
+            # Proposals accepted before another head was promoted remain valid
+            # historical records, but may not create a second promoted head.
+            # The SQLite writer is serialized via BEGIN IMMEDIATE, so the
+            # current promoted lineage cannot advance between this check and
+            # our durable link insert. Exact link retries returned above.
+            latest = self.resolve_promoted_procedure(
+                stored.proposal.agent_instance_id,
+                revision.source_skill_id,
+                revision.procedure_id,
+            )
+            if latest is None:
+                if revision.version != 1 or revision.prior_revision_sha256 is not None:
+                    raise ValueError("skill_learning_promotion_predecessor_missing")
+            elif (
+                revision.version != latest.revision.version + 1
+                or revision.prior_revision_sha256 != latest.revision_sha256
+            ):
+                raise ValueError("skill_learning_promoted_head_advanced")
+
             encoded = self._encode(
                 link.model_dump(mode="json"),
                 MAX_PROMOTION_LINK_BYTES,

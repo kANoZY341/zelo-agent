@@ -534,7 +534,7 @@ including #102, #103, #104, #105 and #106. PR #106 adds trusted exact
 promoted-predecessor binding for version 2+ learned proposals. This still
 does not activate learned content.
 
-PR #107 is the active v0.15 follow-up for **promoted-head admission**: Core refuses a
+PR #107 is the merged v0.15 **promoted-head admission** gate at b3e665ab: Core refuses a
 brand-new proposal at or below the latest promoted version for the same
 AgentInstance/Skill/procedure. Exact stored-proposal retries remain
 idempotent, and historical accepted reviews/proof links remain
@@ -543,14 +543,18 @@ N-1 and all trusted authority-envelope restrictions.
 
 A critical limitation remains: historical competing candidates created
 before promotion could still result in an ambiguous promotion history.
-The read-only resolver refuses such heads; preventing the second
-publication needs a separate promotion-time exclusivity gate. No worker,
-task, tool, computer, AgentSpec or active registry authority changes.
+The read-only resolver refuses such heads. A separate, unmerged follow-up
+now prevents a second *local promotion link* for a competing or stale
+preaccepted revision. An external publication lock still needs a separate
+pre-merge promotion-time exclusivity and trusted skill-identity gate.
+No worker, task, tool, computer, AgentSpec or active registry authority changes.
 No automatic promotion or runtime skill activation is included.
 
-Local focused admission/ambiguity checks: 3 passed; integrated
-resolver/promotion/learning/Agent/context gate: 177 passed. Require
-fresh exact-head full CI and source review. UI PR #61 stays parked.
+The earlier PR #107 admission/ambiguity checks passed 3 focused and
+177 passed in integrated regressions. The separate local-link guard has 108
+skill-learning regressions, one API conflict test and five context tests
+passed; exact-head full CI and source review are still required for the
+new branch. UI PR #61 stays parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the

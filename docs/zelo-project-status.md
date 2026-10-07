@@ -6,36 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 promoted-head admission guard
+## Active increment: Core v0.15 skill governance and inert v0.16 channel work
 
-Core-first development continues. Merged PRs #93, #98, #99, #100, #102,
-including #103, #104, #105 and #106. PR #106 merged at
-2e6ae8fcecd9c32199d4e35cc8f3df3cef9f4725 after exact-head CI passed
-4,911 tests with 2 skipped and the merge tree matched reviewed source.
-The redesigned UI PR #61 remains draft and parked.
+Core-first development continues. Merged PRs #93, #98 through #100 and
+PRs #102 through #107 include bounded learned-skill proposal, review,
+materialization, promoted-lineage resolution and submission admission guards.
+PR #107 is merged at b3e665ab76768d6a14d16cdf1d799f8783c8f6c4.
+Historical promotion proof does **not** activate a learned skill.
 
-PR #107 is the active slice and adds a fail-closed **new-proposal admission
-guard** over
-trusted promoted-revision history. A brand-new learned procedure proposal is
-refused with skill_learning_promoted_head_advanced if its version is at or
-below the latest promoted version for the exact AgentInstance, Skill and
-procedure. Historical identical proposal retries remain idempotent; earlier
-accepted reviews and promotion links remain revalidatable after newer
-promotions. A valid next version still requires the exact previously promoted
-revision and its content hash, the current trusted repository identity, and
-all existing Agent/Skill/evidence and capability/task/tool/Space checks.
+An isolated v0.15 follow-up branch is implementing promotion-link recording
+exclusivity for proposals accepted before either has been promoted. The
+existing accepted review remains historical; only the next verified revision
+head may receive a new promotion link. This work is not merged or released,
+and the generic GitHub publisher still requires a *separate pre-merge*
+exclusivity/identity gate. See
+`docs/v0.15-skill-promotion-exclusivity.md`.
 
-This guard is not a global promotion-time uniqueness guarantee: two
-competing proposals created before either promotion remain possible in
-history. The historical resolver MUST refuse ambiguous promoted heads;
-a separate publication-time exclusivity policy is required to prevent that
-scenario. No runtime learned-skill loading, AgentSpec mutation, auto-review
-or promotion, or tool/worker/computer authority is introduced.
+PR #108 (transport-neutral, inert message envelopes) is open on main;
+PR #109 (opaque operator-selected thread binding and unverified replay
+observations) is a stacked, unmerged draft. Neither branch connects a provider
+or authorizes execution, Mind turns, message sending or deliveries. Both
+require exact-head CI and final source review before their respective merges.
 
-The follow-up branch's focused admission/ambiguity checks passed 3 tests.
-The integrated resolver/promotion/learning/Agent/context suite passed
-177 tests, Ruff and format passed. Next: final integrated merge validation,
-fresh exact-head CI and source review. No learned skill has been activated.
+Media native-reader qualification remains refused after four authorized
+attempts; do not reset the ledger or perform an unauthorized fifth attempt.
+UI PR #61 remains draft and parked. Core version remains v0.15.
 
 ## Checkpoint history
 

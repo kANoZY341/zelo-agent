@@ -130,7 +130,9 @@ def test_procedure_resolver_returns_unique_latest_promoted_revision(database, pr
     )
 
 
-def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database, proposal_case):
+def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(
+    database, proposal_case, monkeypatch
+):
     base, agent, _task, _attempt, first_revision, ref = proposal_case
     first_reviewed = accepted(base, agent, first_revision, ref)
     store = promotion_tests.promotion_store(database, base)
@@ -154,11 +156,16 @@ def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database,
         OperatorPrincipal(),
     )
     second_merge = promotion_tests.successful_lineage(database, second_revision)
-    store.record_promotion_link(
-        second_reviewed.proposal.proposal_id,
-        second_merge,
-        OperatorPrincipal(),
-    )
+    # Simulate a historical pre-exclusivity database with two already-linked
+    # heads. The live writer refuses this; the historical resolver must still
+    # fail closed if old records contain the ambiguity.
+    with monkeypatch.context() as legacy_writer:
+        legacy_writer.setattr(store, "resolve_promoted_procedure", lambda *a, **kw: None)
+        store.record_promotion_link(
+            second_reviewed.proposal.proposal_id,
+            second_merge,
+            OperatorPrincipal(),
+        )
 
     with pytest.raises(ValueError, match="promoted_revision_ambiguous"):
         store.resolve_promoted_procedure(
@@ -166,6 +173,45 @@ def test_procedure_resolver_refuses_two_promoted_heads_at_same_version(database,
             first_revision.source_skill_id,
             first_revision.procedure_id,
         )
+
+
+def test_two_preaccepted_competing_heads_cannot_both_gain_promotion_proof(database, proposal_case):
+    base, agent, _task, _attempt, first_revision, ref = proposal_case
+    first_reviewed = accepted(base, agent, first_revision, ref)
+    second_revision = make_revision(
+        title="Competing preaccepted first revision",
+        instructions=(
+            "Gather only authorized evidence and retain exact identity with "
+            "another reviewed first revision."
+        ),
+        space_permissions=(),
+    )
+    second_reviewed = accepted(base, agent, second_revision, ref)
+    store = promotion_tests.promotion_store(database, base)
+    first_merge = promotion_tests.successful_lineage(database, first_revision)
+    second_merge = promotion_tests.successful_lineage(database, second_revision)
+
+    first_link, created = store.record_promotion_link(
+        first_reviewed.proposal.proposal_id, first_merge, OperatorPrincipal()
+    )
+    assert created
+    # Ahmad's earlier acceptance is still recorded, not silently revoked.
+    assert store.accepted_candidate_basis(second_reviewed.proposal.proposal_id, OperatorPrincipal())
+    with pytest.raises(ValueError, match="skill_learning_promoted_head_advanced"):
+        store.record_promotion_link(
+            second_reviewed.proposal.proposal_id, second_merge, OperatorPrincipal()
+        )
+    assert store.get_promotion_link(second_reviewed.proposal.proposal_id) is None
+    assert (
+        store.resolve_promoted_procedure(
+            agent.id, first_revision.source_skill_id, first_revision.procedure_id
+        ).proposal_id
+        == first_reviewed.proposal.proposal_id
+    )
+    replay, created = store.record_promotion_link(
+        first_reviewed.proposal.proposal_id, first_merge, OperatorPrincipal()
+    )
+    assert not created and replay == first_link
 
 
 def test_version_two_proposal_uses_exact_promoted_prior_without_activation(database, proposal_case):
