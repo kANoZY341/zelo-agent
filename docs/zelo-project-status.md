@@ -8,35 +8,36 @@ in `docs/zelo-workspace-decision.md`.
 
 ## Active increment: v0.15 named-endpoint Agent computer navigation
 
-Core v0.15 stays active; UI PR #61 remains parked. PR #93 is merged as a
-preserved failed Media qualification record. PR #98 is merged at
-`8cbaa14b9290cdddcdcd8ea15d7d9e7cc790d4e7` with the reviewed internal-only
-Agent-computer topology intact.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93 and PR #98 are merged;
+PR #98's internal-only Agent-computer topology remains the execution boundary.
+PR #99 is the active gate at qualified code head
+`4d4112cde4a58b782ed92757b7bccdcfde8d8d98`, tree
+`97afc43ce3e3530e8fccfd1db3e5a42dec3b1ddf`. Matching CI run
+`37618948869` passed **4,768 tests with two skips** plus Ruff/diff checks.
 
-PR #99 is now the active Core gate. Its navigation branch is integrated onto
-current main and keeps mutation authority deliberately narrow:
-`browser_navigate` accepts only an Agent-granted trusted HTTPS `endpoint_id`
-plus a bounded canonical path. Core freezes the exact navigation Worker,
-endpoint-registry binding, egress-policy fingerprint, persisted browser
-permission digest and backend/topology identity. Arbitrary URL input,
-query/fragment task input, click/type/key/scroll, writes, shell, credentials,
-screenshots in Agent/model results and host fallback remain disabled.
+PR #99 grants only `browser_navigate` through a separate
+`computer_navigate_core` Worker: trusted Agent-granted HTTPS `endpoint_id` plus
+bounded canonical path, never arbitrary URL/query/fragment input. Frozen execution
+identity binds Agent, Worker, endpoint registry, egress policy, browser permission
+and backend/topology. Human control is checked before navigation and again after
+OpenBot returns. Normal projection excludes page text and removes final-URL
+query/fragment data.
 
-Integrated source validation passes **141 focused navigation/egress/worker/context
-tests** plus Ruff/format/diff checks. Source review also closed a takeover race:
-human control is now checked both immediately before navigation and again after
-OpenBot returns, before a result can be accepted. If takeover/request/transition
-starts during navigation, the returned page is refused with
-`computer_human_control_active` and no completed-navigation event is emitted.
-Normal task/conversation projection also strips page text and removes final-URL
-query/fragment data, preventing same-origin redirect tokens from entering context.
+The matching-source live proof passed on real pinned OpenBot. Named
+`example.com` navigation succeeded through Core egress; direct public curl was
+blocked; final HTTPS authority/result bounds passed; a real takeover after the
+browser response caused `computer_human_control_active` with no accepted result;
+handback succeeded; browser-permission revocation cancelled the next queued task
+with **zero attempts**; both host master tokens were absent; all disposable
+containers/networks/listeners were removed. Sanitized receipt SHA-256:
+`6a62863505da2dbd162f59894e52b3ea4f8db8f525fc0c705491a7fb4cc0761e`.
+Independent audit SHA-256:
+`636234e9aaff76571e68b6b6cb51494951a12a6adc09ae89b10510fa04e55a5f`.
 
-Next: commit/push the integrated source, fresh exact-head full CI, then a new
-matching-source live proof on the real pinned OpenBot topology. The proof must
-confirm named-endpoint navigation succeeds only through Core egress, final origin
-stays exact, permission revocation blocks the next task, human takeover remains
-fail-closed, and disposable resources are removed. Then review/merge #99 and
-continue #100 governed per-Agent skill learning.
+Next: exact-head docs CI/final review and merge PR #99, then continue PR #100
+governed per-Agent skill learning. Click/type/key/scroll, arbitrary URLs,
+workspace writes, shell, credentials, screenshot context, host fallback and UI
+authority remain disabled.
 
 ## Checkpoint history
 

@@ -97,18 +97,17 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     assert "PR #93" in active_status
     assert "PR #98" in active_status
-    assert "8cbaa14b" in active_status
+    assert "PR #98 are merged" in active_compact
     assert "PR #99" in active_status
     assert "browser_navigate" in active_status
-    assert "141 focused navigation/egress/worker/context tests" in active_compact
-    assert (
-        "human control is now checked both immediately before navigation and again after"
-        in active_compact
-    )
+    assert "4,768 tests with two skips" in active_compact
+    assert "qualified code head" in active_compact
+    assert "matching-source live proof passed" in active_compact
+    assert "direct public curl was blocked" in active_compact
     assert "computer_human_control_active" in active_status
-    assert "no completed-navigation event" in active_compact
-    assert "removes final-URL query/fragment data" in active_compact
-    assert "matching-source live proof" in active_compact
+    assert "zero attempts" in active_compact
+    assert "6a628635" in active_status
+    assert "636234e9" in active_status
     assert "#100 governed per-Agent skill learning" in active_compact
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
@@ -118,8 +117,10 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "PR #98" in roadmap_compact
     assert "PR #99" in roadmap_compact
     assert "named-endpoint navigation" in roadmap_compact
-    assert "141 focused navigation/egress/worker/context tests" in roadmap_compact
-    assert "human control is now rechecked after OpenBot returns" in roadmap_compact
+    assert "4,768 tests/two skips" in roadmap_compact
+    assert "matching-source real OpenBot proof passed" in roadmap_compact
+    assert "zero attempts" in roadmap_compact
+    assert "6a62863505da" in roadmap_compact
     assert "PR #100" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")

@@ -530,28 +530,25 @@ not merge it wholesale.
 ### v0.15 — Capability and skills ecosystem
 
 Core-first checkpoint (7 October 2026): PR #93 and PR #98 are merged.
-PR #98 preserves the qualified internal-only Agent-computer topology: private
-Core control, no direct public egress, authenticated per-Agent Core proxy and
-live permission revocation. PR #99 is now the active Core gate.
+PR #99 named-endpoint navigation is qualified at code head `4d4112c`, tree
+`97afc43c`. Matching full CI passed **4,768 tests/two skips**. Authority remains
+limited to trusted Agent-granted HTTPS endpoint ID + bounded canonical path through
+the separate `computer_navigate_core` Worker; arbitrary URL/query/fragment task
+input, click/type/key/scroll/write/shell and host fallback remain disabled.
 
-PR #99 adds only **named-endpoint navigation**. The Agent supplies a trusted
-configured endpoint ID plus bounded canonical path, never an arbitrary URL. A
-separate `computer_navigate_core` Worker/authority binds exact Agent identity,
-Worker selection, endpoint registry, egress policy, persisted browser permission
-and backend/topology identity. Final page authority must remain on the frozen
-HTTPS host/port.
+The matching-source real OpenBot proof passed: `example.com` navigation succeeded
+only through Core egress while direct public curl was blocked; final HTTPS
+authority/result bounds passed; human takeover after the browser response caused
+the returned result to be refused before completion; handback succeeded; browser
+permission revocation cancelled the next queued navigation with zero attempts;
+both host master tokens were absent; cleanup left zero disposable proof resources.
+Receipt SHA-256 is `6a62863505da…0761e`; independent stdlib-only audit SHA-256
+is `636234e9aaff…55a5f`. Normal task/conversation projection excludes page text
+and strips final-URL query/fragment data.
 
-After integrating current main, **141 focused navigation/egress/worker/context
-tests** plus Ruff/format/diff checks pass. Review found and closed one authority
-race: human control is now rechecked after OpenBot returns as well as before the
-request, so takeover/request/transition during navigation causes the result to be
-refused rather than accepted under stale Agent control. Normal projection also
-drops navigation page text plus final-URL query/fragment data.
-
-Require fresh exact-head full CI and a new matching-source live proof before
-merging PR #99. Then continue PR #100 governed per-Agent skill learning.
-Click/type/key/scroll, arbitrary URLs, workspace writes, shell and UI authority
-remain separate later gates. UI #61 stays parked and v0.14.0 remains unchanged.
+Require docs-only exact-head CI/final review, then merge PR #99 and continue
+PR #100 governed per-Agent skill learning. UI #61 stays parked and v0.14.0
+remains unchanged.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
