@@ -6,31 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: Core v0.15 skill governance and inert v0.16 channel work
+## Active increment: v0.15 promotion exclusivity and inert v0.16 channels
 
-Core-first development continues. Merged PRs #93, #98 through #100 and
-PRs #102 through #107 include bounded learned-skill proposal, review,
-materialization, promoted-lineage resolution and submission admission guards.
-PR #107 is merged at b3e665ab76768d6a14d16cdf1d799f8783c8f6c4.
-Historical promotion proof does **not** activate a learned skill.
+Core-first development continues. v0.15 remains the current Core version.
+Merged PR #107 adds promoted-head admission checks for new skill proposals.
+Merged PR #108 (bc6f50c94b7d42c25a32462a8657606534dff457) adds
+non-authoritative WhatsApp/email/browser text envelopes, reserved channel:
+idempotency keys and prepared-only outbound intents. The exact reviewed
+tree matches merged main; 4,965 tests passed, 2 skipped.
 
-An isolated v0.15 follow-up branch is implementing promotion-link recording
-exclusivity for proposals accepted before either has been promoted. The
-existing accepted review remains historical; only the next verified revision
-head may receive a new promotion link. This work is not merged or released,
-and the generic GitHub publisher still requires a *separate pre-merge*
-exclusivity/identity gate. See
-`docs/v0.15-skill-promotion-exclusivity.md`.
+PR #110 is the active, unmerged v0.15 promotion-link recording-exclusivity
+gate. Accepted skill proposals remain historical, but two competing
+previously accepted heads cannot both gain new local promotion links.
+It does NOT prevent an external GitHub PR merging before link recording:
+a separate pre-merge publication-identity/exclusivity gate remains.
+No learned skill runtime activation or worker/tool permission is enabled.
+See docs/v0.15-skill-promotion-exclusivity.md.
 
-PR #108 (transport-neutral, inert message envelopes) is open on main;
-PR #109 (opaque operator-selected thread binding and unverified replay
-observations) is a stacked, unmerged draft. Neither branch connects a provider
-or authorizes execution, Mind turns, message sending or deliveries. Both
-require exact-head CI and final source review before their respective merges.
+PR #109 is the unmerged v0.16 operator-selected channel thread binding
+and unverified message observation ledger. Neither #108 nor #109 enables
+provider authentication, delivery, voice/calls, webhook ingress or Mind
+execution from untrusted provider text.
 
 Media native-reader qualification remains refused after four authorized
-attempts; do not reset the ledger or perform an unauthorized fifth attempt.
-UI PR #61 remains draft and parked. Core version remains v0.15.
+attempts; do not reset its ledger or perform an unauthorized fifth attempt.
+UI PR #61 remains draft and parked.
 
 ## Checkpoint history
 

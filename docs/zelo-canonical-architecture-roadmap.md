@@ -530,31 +530,36 @@ not merge it wholesale.
 ### v0.15 — Capability and skills ecosystem
 
 Core-first checkpoint (8 October 2026): merged PRs #93, #98, #99, #100,
-including #102, #103, #104, #105 and #106. PR #106 adds trusted exact
-promoted-predecessor binding for version 2+ learned proposals. This still
-does not activate learned content.
+including #102, #103, #104, #105, #106 and #107. PR #107 adds the
+new-proposal admission guard. It refuses a brand-new learned procedure
+revision at or below the latest promoted version for the same
+AgentInstance, source Skill and procedure. Stored proposal retries remain
+idempotent, and historical reviews/proof links remain valid.
 
-PR #107 is the merged v0.15 **promoted-head admission** gate at b3e665ab: Core refuses a
-brand-new proposal at or below the latest promoted version for the same
-AgentInstance/Skill/procedure. Exact stored-proposal retries remain
-idempotent, and historical accepted reviews/proof links remain
-revalidatable. Proposed future versions still require the exact promoted
-N-1 and all trusted authority-envelope restrictions.
+PR #107 is the merged **promoted-head admission** gate at b3e665ab:
+Core refuses a brand-new learned skill proposal at or below the latest
+promoted version for the same AgentInstance/Skill/procedure. Historical
+identical proposal retries stay idempotent and accepted reviews survive.
 
-A critical limitation remains: historical competing candidates created
-before promotion could still result in an ambiguous promotion history.
-The read-only resolver refuses such heads. A separate, unmerged follow-up
-now prevents a second *local promotion link* for a competing or stale
-preaccepted revision. An external publication lock still needs a separate
-pre-merge promotion-time exclusivity and trusted skill-identity gate.
-No worker, task, tool, computer, AgentSpec or active registry authority changes.
-No automatic promotion or runtime skill activation is included.
+PR #110 is the unmerged **local promotion-link recording exclusivity** gate.
+It serializes verified head checks before storing new promotion proof;
+previously accepted competing heads cannot both acquire local links.
+Historical divergent heads still cause the resolver to refuse ambiguity.
+This does NOT implement an external GitHub pre-merge publication lock:
+a separate trusted learned-skill identity and promotion-time exclusivity
+gate are required before merging a competing external PR.
 
-The earlier PR #107 admission/ambiguity checks passed 3 focused and
-177 passed in integrated regressions. The separate local-link guard has 108
-skill-learning regressions, one API conflict test and five context tests
-passed; exact-head full CI and source review are still required for the
-new branch. UI PR #61 stays parked.
+Merged PR #108 starts non-authoritative v0.16 channel contracts; PR #109
+is a separate draft operator-selected binding and unverified replay ledger.
+These are not runtime skill activation, provider authentication or new
+AgentSpec/worker/tool authority. The four previously consumed native-reader
+qualification attempts remain preserved as refusals. UI PR #61 stays parked.
+
+Earlier PR #107 admission/ambiguity tests passed 3 focused and 177
+integrated cases. PR #110 local validation passed 108 skill-learning
+regressions, an HTTP conflict test, a concurrent writer test and five
+context tests before the new main integration. Exact-head CI remains
+required for the updated PR #110.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -614,6 +619,17 @@ Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
+
+PR #108 is the contract-only v0.16 foundation: transport-neutral,
+**non-authoritative** channel text envelopes,
+keyed opaque provider/thread/message identities, and reserved channel turn
+idempotency keys. This foundation has no provider credentials or connected
+transports. A separately qualified adapter must authenticate provider origin,
+bind Ahmad-approved accounts to existing Mind conversations, persist inbound
+replay/edits and outbound delivery receipts, and enforce send approval before
+any WhatsApp/email/voice action is enabled. Provider text is always untrusted
+data, never permission to execute a Core task. Live calling remains a separate
+authority and transport qualification.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:

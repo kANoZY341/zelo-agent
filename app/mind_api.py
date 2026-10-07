@@ -64,6 +64,6 @@ async def send_turn(
     mind: Mind,
     idempotency_key: IdempotencyKey,
 ) -> ConversationTurnResponse:
-    if idempotency_key.startswith("schedule:"):
+    if idempotency_key.startswith(("schedule:", "channel:")):
         raise DomainError("Reserved conversation idempotency namespace", 422)
     return await mind.send_turn(conversation_id, body.text, idempotency_key)

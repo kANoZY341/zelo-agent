@@ -92,27 +92,28 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
     assert active_status.startswith(
-        "## Active increment: Core v0.15 skill governance and inert v0.16 channel work"
+        "## Active increment: v0.15 promotion exclusivity and inert v0.16 channels"
     )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    for pr in ("#93", "#107", "#108", "#109"):
+    for pr in ("#107", "#108", "#109", "#110"):
         assert pr in active_status
-    assert "b3e665ab" in active_status
-    assert "historical" in active_compact.lower()
-    assert "promotion-link recording exclusivity" in active_compact
-    assert "pre-merge" in active_compact
-    assert "not merged or released" in active_compact
-    assert "no learned revision" not in active_compact
+    assert "bc6f50c94b7d42c25a32462a8657606534dff457" in active_status
+    assert "4,965 tests passed, 2 skipped" in active_compact
+    assert "competing" in active_compact
+    assert "local promotion links" in active_compact
+    assert "pre-merge publication" in active_compact
+    assert "four authorized attempts" in active_compact
+    assert "UI PR #61 remains draft and parked" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #107" in roadmap_content
-    assert "PR #106" in roadmap_content
-    assert "promoted-head admission" in roadmap_compact
+    assert "PR #108" in roadmap_content
+    assert "new-proposal admission guard" in roadmap_compact
     assert "promotion-time exclusivity" in roadmap_compact
-    assert "No automatic promotion" in roadmap_compact
-    assert "177 passed" in roadmap_compact
+    assert "not runtime skill activation" in roadmap_compact
+    assert "four previously consumed" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (
