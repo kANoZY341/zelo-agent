@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import re
 from typing import Literal
@@ -94,6 +95,10 @@ class OpenBotComputerBackend:
             "openbot_revision": OPENBOT_COMPUTER_REVISION,
             "namespace": self.settings.computer_namespace,
             "supervisor_url": self.settings.computer_supervisor_url,
+            "internal_network_cidr": self.settings.computer_internal_network_cidr,
+            "network_name": self.settings.computer_network_name,
+            "egress_proxy_host": self.settings.computer_egress_proxy_host,
+            "egress_proxy_port": self.settings.computer_egress_proxy_port,
         }
         return hashlib.sha256(
             json.dumps(
@@ -141,6 +146,7 @@ class OpenBotComputerBackend:
                 transport=self.transport,
                 follow_redirects=False,
                 timeout=timeout,
+                trust_env=False,
             ) as client:
                 async with client.stream(
                     "GET" if body is None else "POST",
@@ -208,6 +214,7 @@ class OpenBotComputerBackend:
                 transport=self.transport,
                 follow_redirects=False,
                 timeout=timeout,
+                trust_env=False,
             ) as client:
                 async with client.stream(
                     "GET" if body is None else "POST",
@@ -279,15 +286,36 @@ class OpenBotComputerBackend:
         parsed = urlparse(candidate)
         if (
             parsed.scheme != "http"
-            or parsed.hostname != "127.0.0.1"
-            or state.port is None
-            or parsed.port != state.port
+            or parsed.hostname is None
             or parsed.username
             or parsed.password
             or parsed.path not in {"", "/"}
             or parsed.query
             or parsed.fragment
         ):
+            raise ComputerBackendError("computer_endpoint_invalid")
+
+        cidr = self.settings.computer_internal_network_cidr
+        proxy_host = self.settings.computer_egress_proxy_host
+        if cidr is not None or proxy_host is not None:
+            if cidr is None or proxy_host is None or parsed.port != 4100:
+                raise ComputerBackendError("computer_endpoint_invalid")
+            try:
+                address = ipaddress.ip_address(parsed.hostname)
+                network = ipaddress.ip_network(cidr, strict=True)
+            except ValueError:
+                raise ComputerBackendError("computer_endpoint_invalid") from None
+            if (
+                address.version != 4
+                or str(address) != parsed.hostname
+                or address not in network
+                or address in {network.network_address, network.broadcast_address}
+                or str(address) == proxy_host
+            ):
+                raise ComputerBackendError("computer_endpoint_invalid")
+            return f"http://{address}:4100"
+
+        if parsed.hostname != "127.0.0.1" or state.port is None or parsed.port != state.port:
             raise ComputerBackendError("computer_endpoint_invalid")
         return f"http://127.0.0.1:{state.port}"
 
@@ -340,6 +368,44 @@ class OpenBotComputerBackend:
                 body={"path": path},
             )
         raise ComputerBackendError("computer_action_unsupported")
+
+    async def navigate_action(
+        self,
+        agent_instance_id: str,
+        url: str,
+    ) -> object:
+        if (
+            not isinstance(url, str)
+            or not 1 <= len(url) <= 2048
+            or url.strip() != url
+            or not url.startswith("https://")
+            or any(character in url for character in "\r\n\x00")
+        ):
+            raise ComputerBackendError("computer_navigation_url_invalid")
+        try:
+            parsed = urlparse(url)
+            port = parsed.port or 443
+        except ValueError:
+            raise ComputerBackendError("computer_navigation_url_invalid") from None
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or not parsed.hostname.isascii()
+            or parsed.netloc != parsed.netloc.lower()
+            or parsed.username is not None
+            or parsed.password is not None
+            or not 1 <= port <= 65535
+        ):
+            raise ComputerBackendError("computer_navigation_url_invalid")
+        state = await self.existing(agent_instance_id)
+        if state is None or state.status != "running":
+            raise ComputerBackendError("computer_not_running")
+        return await self._computer_request(
+            agent_instance_id,
+            state,
+            "/navigate",
+            body={"url": url},
+        )
 
     async def control(self, agent_instance_id: str) -> ComputerControlState:
         state = await self.existing(agent_instance_id)

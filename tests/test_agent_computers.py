@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import hmac
+from pathlib import Path
 
 import httpx
 import pytest
@@ -250,3 +251,166 @@ def test_default_agents_do_not_gain_computer_routes(client):
     response = client.get(f"/agents/{instance['id']}/computer")
     assert response.status_code == 404
     assert response.json()["detail"] == "Agent instance has no computer profile"
+
+
+def test_internal_topology_configuration_is_exact_and_fail_closed():
+    configured = settings(
+        computer_internal_network_cidr="172.30.250.0/24",
+        computer_egress_proxy_host="172.30.250.1",
+    )
+    assert configured.computer_internal_network_cidr == "172.30.250.0/24"
+    assert configured.computer_egress_proxy_host == "172.30.250.1"
+
+    with pytest.raises(ValidationError, match="configured together"):
+        settings(computer_internal_network_cidr="172.30.250.0/24")
+
+    with pytest.raises(ValidationError, match="first usable address"):
+        settings(
+            computer_internal_network_cidr="172.30.250.0/24",
+            computer_egress_proxy_host="172.30.250.2",
+        )
+
+    with pytest.raises(ValidationError, match="RFC1918"):
+        settings(
+            computer_internal_network_cidr="100.64.0.0/24",
+            computer_egress_proxy_host="100.64.0.1",
+        )
+
+
+def test_internal_endpoint_is_accepted_only_inside_exact_configured_cidr():
+    backend = OpenBotComputerBackend(
+        settings(
+            computer_internal_network_cidr="172.30.250.0/24",
+            computer_egress_proxy_host="172.30.250.1",
+        )
+    )
+    agent_id = "agent-1"
+    state = ComputerState.model_validate(
+        {
+            "botId": agent_id,
+            "container": "zelo-computer-agent-1",
+            "status": "running",
+            "url": "http://172.30.250.2:4100",
+        }
+    )
+    assert backend.endpoint(agent_id, state) == "http://172.30.250.2:4100"
+
+    loopback = state.model_copy(update={"url": "http://127.0.0.1:49152", "port": 49152})
+    with pytest.raises(ComputerBackendError, match="computer_endpoint_invalid"):
+        backend.endpoint(agent_id, loopback)
+
+    for url in (
+        "http://172.30.250.1:4100",
+        "http://172.30.251.2:4100",
+        "http://10.0.0.2:4100",
+        "http://172.30.250.2:4101",
+        "http://172.30.250.0:4100",
+        "http://172.30.250.255:4100",
+    ):
+        with pytest.raises(ComputerBackendError, match="computer_endpoint_invalid"):
+            backend.endpoint(agent_id, state.model_copy(update={"url": url}))
+
+
+def test_internal_endpoint_is_rejected_without_internal_topology():
+    backend = OpenBotComputerBackend(settings())
+    state = ComputerState.model_validate(
+        {
+            "botId": "agent-1",
+            "container": "zelo-computer-agent-1",
+            "status": "running",
+            "url": "http://172.30.250.2:4100",
+        }
+    )
+    with pytest.raises(ComputerBackendError, match="computer_endpoint_invalid"):
+        backend.endpoint("agent-1", state)
+
+
+def test_backend_identity_binds_internal_topology():
+    baseline = OpenBotComputerBackend(settings()).identity
+    internal = OpenBotComputerBackend(
+        settings(
+            computer_internal_network_cidr="172.30.250.0/24",
+            computer_egress_proxy_host="172.30.250.1",
+        )
+    ).identity
+    changed = OpenBotComputerBackend(
+        settings(
+            computer_internal_network_cidr="172.30.251.0/24",
+            computer_egress_proxy_host="172.30.251.1",
+        )
+    ).identity
+
+    assert baseline != internal
+    assert internal != changed
+
+
+def test_navigation_adapter_is_https_only_and_uses_derived_agent_token():
+    agent_id = "agent-1"
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/computers":
+            return httpx.Response(
+                200,
+                json={
+                    "computers": [
+                        {
+                            "botId": agent_id,
+                            "container": "zelo-computer-agent-1",
+                            "status": "running",
+                            "port": 49152,
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/navigate":
+            assert request.method == "POST"
+            return httpx.Response(
+                200,
+                json={
+                    "url": "https://example.com/docs",
+                    "title": "Example",
+                    "text": "ok",
+                    "truncated": False,
+                    "elapsedMs": 1,
+                    "challenge": None,
+                },
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    backend = OpenBotComputerBackend(
+        settings(),
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(backend.navigate_action(agent_id, "https://example.com/docs"))
+    assert result["title"] == "Example"
+
+    derived = backend.derive_agent_token(agent_id)
+    computer_request = calls[-1]
+    assert computer_request.headers["authorization"] == f"Bearer {derived}"
+    assert computer_request.headers["x-openbot-bot-id"] == agent_id
+    assert ("c" * 24) not in str(dict(computer_request.headers))
+
+    for bad in (
+        "http://example.com/",
+        "https://user:pass@example.com/",
+        " https://example.com/",
+        "https://EXAMPLE.com/",
+        "HTTPS://example.com/",
+        "https://example.com/\nnext",
+    ):
+        with pytest.raises(
+            ComputerBackendError,
+            match="computer_navigation_url_invalid",
+        ):
+            asyncio.run(backend.navigate_action(agent_id, bad))
+
+
+def test_hardened_supervisor_network_mode_never_prefers_published_loopback():
+    source = Path("deployment/agent-computers/harden-supervisor.mjs").read_text()
+    assert "...(!network && port ? { port } : {})," in source
+    assert "...(network\n          ? address" in source
+    assert "...(options.network\n        ? settled?.address" in source
+    assert "...(settled?.port\n        ? { url:" not in source

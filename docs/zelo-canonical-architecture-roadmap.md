@@ -275,6 +275,10 @@ need them. The UI, model and worker layers never become the authority boundary.
     autonomous browser actions continue.
 20. Learning may propose or improve skills, but learned skills never widen tool,
     capability, Space, budget or external-action authority automatically.
+21. Mutation-capable Agent Computers have no direct public egress. Public browser
+    traffic must cross a Zelo Core-owned, per-Agent authenticated allowlist proxy;
+    Core computer control may use only a validated private address inside the exact
+    configured internal computer network.
 
 ## Reuse before rebuild
 
@@ -525,31 +529,27 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
-Core-first checkpoint (4 October 2026): PR #91 merged at 09b68a5 after
-4,347 CI passes/two skips. Its single cleared 40-case ELF metadata batch consumed
-version-proof attempt 3/4 and established a closed eight-node dependency/version
-declaration graph for the fixed reader bootstrap. It did not execute dpkg-deb or
-prove ABI/runtime authority.
+Core-first checkpoint (7 October 2026): PR #93, PR #98 and PR #99 are merged.
+PR #99 establishes only named-endpoint browser navigation behind the merged
+internal-only computer topology; click/type/write/shell/arbitrary URLs remain
+separate later gates.
 
-Current work is docs/v0.15-media-native-reader-container.md: the consolidated
-offline native-reader boundary. Its canonical container, fixed Debian fixtures,
-deterministic inert scratch-image manifest, exact default seccomp pin and
-Media-specific owned-container lifecycle pass 158 offline/fake-only tests. No
-Docker/native execution is cleared in this phase. The next one-shot operator must
-build/export/attest the inert image and prove aggregate cgroup/process cleanup
-using only fixed synthetic packages before any real authenticated package attempt.
-USTAR remains narrow; GNU/PAX stay unsupported. Media still needs native stream
-qualification, real member/runtime/import closure, resource/filter and image
-decoding, Core binding and release. UI #61 and v0.14.0 remain unchanged.
+PR #100 is the active v0.15 gate for **governed per-Agent skill learning**. Agents
+may propose bounded procedure revisions only when their trusted AgentSpec permits
+`skill_learning="propose"`. Core binds current Agent/project/registry identity,
+source Skill identity, retained successful Agent-bound research evidence and the
+existing authority envelope. Capability/task/tool/Space widening is refused.
 
-Separate skill-learning status: draft PR #100 implements the bounded Agent
-proposal task, immutable proposal persistence, operator review, inert acceptance,
-and an operator-requested candidate-only serializer. It remains unmerged and has
-no production migration. Candidate artifacts require explicit handoff through the
-existing Developer/Review/Promotion path; no automatic handoff or runtime loading
-is wired. Later revisions fail closed pending a trusted promoted-revision source.
-Exact-head CI evidence and the current tested commit are recorded on the PR. This
-work does not replace or advance the active Media gate.
+Proposal and review records are append-only. Ahmad is the only reviewer principal;
+acceptance requires all six review checks and remains inert. A separate
+operator-requested candidate adapter may serialize a freshly revalidated accepted
+revision into a content-addressed staging artifact, but active registries never
+read that path and no Developer/Review/Promotion handoff is automatic. Later
+revision promotion fails closed until a trusted promoted-revision resolver exists.
+
+Current integrated validation passes **125 focused skill-learning/database/
+Agent-factory/context tests** plus Ruff/format/diff checks. Require fresh exact-head
+full CI and final source review before merge. UI #61 remains parked.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -588,9 +588,18 @@ Computer Worker rollout is explicitly phased:
 3. Agent-only **read-only observation** (`browser_snapshot`, `browser_read`,
    `files_list`, `files_read`) with exact permission/backend execution
    identity and claim-time revocation;
-4. separately qualified browser mutation actions;
-5. separately qualified workspace writes; and
-6. shell only through an explicit later authority decision.
+4. Core-owned browser egress and internal-network topology: no direct public
+   computer egress, per-Agent proxy credentials, trusted HTTPS endpoint grants,
+   private-CIDR Core control and live revocation;
+5. first browser mutation: **named-endpoint navigation only**, using a separate
+   `computer_navigate` Worker/authority, trusted HTTPS endpoint ID + bounded
+   path, exact endpoint/egress/permission/backend binding and claim/runtime
+   revalidation;
+6. separately qualified interactive browser mutation actions such as
+   click/type/key/scroll, each behind explicit policy rather than inherited from
+   navigation;
+7. separately qualified workspace writes; and
+8. shell only through an explicit later authority decision.
 
 Passing an earlier phase never implicitly grants a later phase. Screenshots may
 be owner-facing through the Computer Panel without automatically becoming

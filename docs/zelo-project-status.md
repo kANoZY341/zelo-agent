@@ -6,36 +6,35 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 Media native-reader offline boundary
+## Active increment: v0.15 governed per-Agent skill learning
 
-Core v0.15 stays active; UI is parked. PR #91 merged at 09b68a5 after 4,347 CI
-passes/two skips. Its one cleared 40-case ELF batch is version-proof attempt 3/4;
-the eight-node declaration graph closes dpkg-deb over the fixed libraries/loader
-but does not prove actual loading, symbols, ABI, provenance or runtime authority.
+Core v0.15 stays active; UI PR #61 remains parked. PR #93, PR #98 and PR #99 are
+merged. PR #99 merge commit `72cf0d709f4cfd929ff5c0b0cc69701100437a3a`
+preserves named-endpoint navigation as the first browser mutation: trusted HTTPS
+endpoint ID + bounded canonical path only, with separate Worker authority,
+pre/post human-control checks, final-origin enforcement, Core egress and no
+arbitrary URL/click/type/write/shell authority.
 
-The current slice is offline only. One canonical container contract binds the
-PR #91 proof/lock, inert content-addressed image identity, fixed loader/argv,
-PATH/HOME/TMPDIR=/nonexistent, runc, network none, read-only root, uid/gid65534,
-cap-drop ALL, no-new-privileges plus the exact vendored Moby default seccomp,
-512 MiB/no-extra-swap, PID8, half CPU and nofile32. A deterministic scratch-image
-manifest contains only the eight fixed binaries; entrypoint/env/user stay outside
-the image and are applied only at container creation.
+PR #100 is now the active gate. It implements governed Agent skill-learning
+**proposals**, not self-activation. An Agent with `skill_learning="propose"` may
+submit one bounded procedure revision backed only by retained, successful,
+Agent-bound `research_run` evidence. Core revalidates Agent/project/registry,
+source skill, evidence ownership, capability/task/tool/Space bounds and version
+identity before persistence; delegated proposal execution is refused.
 
-A separate fixed-fixture module creates four bounded synthetic Debian inputs
-(positive, bad version, wrong order, truncated). The Media-specific Docker owner
-has fake-only tests for exact inspect validation, output bounds, lost create
-acknowledgement, cleanup failure, profile drift and repeated cancellation while
-the capacity-one admission remains fenced. **No Docker daemon, loader, dpkg-deb,
-compressor or acquired archive has run in this slice.** The consolidated image,
-fixture, seccomp, contract and owner gates pass 158 offline tests.
+Proposals and reviews are append-only. Operator auth maps only to Ahmad; an
+accepted review requires all six explicit review checks. Acceptance does not
+change AgentSpec, SkillSpec, task routing, tool/worker authority or runtime
+permissions. The candidate adapter can serialize only a freshly revalidated,
+accepted proposal into a content-addressed `skills/procedures/...` artifact
+under an operator-selected staging root. That path is not read by the active Skill
+Registry and has no task/API/promotion wiring.
 
-Next: freeze/review this source and merge it, then implement the one-shot operator
-that builds/exports/attests the inert scratch image and runs only the four fixed
-synthetic cases. Actual cgroup/process-tree evidence and complete cleanup precede
-any real authenticated package. USTAR remains narrow (GNU/PAX unsupported), then
-Media still needs real member/runtime/import closure, decoder/filter qualification,
-Core binding and release. Proof quotas/failures remain preserved; no model/UI/live
-system/config/data change occurred and v0.14.0 is unchanged.
+Integrated validation currently passes **125 focused skill-learning/database/
+Agent-factory/context tests** plus Ruff/format/diff checks. Next: finish merged
+main validation, freeze exact source, fresh full CI/review, then merge PR #100 if
+unchanged. Later revision promotion remains fail-closed until a trusted promoted-
+revision resolver and explicit Developer/Review/Promotion handoff are designed.
 
 ## Checkpoint history
 
@@ -108,14 +107,35 @@ refused with `computer_human_control_active` while the owner held control; after
 handback, OpenBot reported `resume_snapshot_required=true`. The disposable
 container, profile, workspace and supervisor were removed after the proof.
 
-The active next phase is the **browser mutation egress prerequisite**, not
-navigation itself. It adds Agent-scoped canonical HTTPS endpoint grants, a
-derived per-Agent proxy credential, Core-owned public-address DNS resolution and
-a bounded CONNECT proxy. The proxy revalidates current Agent/permission/endpoint
-authority on connection establishment, after DNS and before forwarding tunnel
-chunks, so revocation blocks new and already-open traffic. `computer_navigate`
-is registered as a capability but no mutation action is exposed yet. See
-`docs/v0.15-computer-browser-mutation-egress-gate.md`.
+PR #97 is merged at `b67d0d85aa24e2c2a376e1baa08996788fe86b1d` and adds
+the **browser mutation egress prerequisite**, not navigation itself:
+Agent-scoped canonical HTTPS endpoint grants, a derived per-Agent proxy
+credential, Core-owned public-address DNS resolution and a bounded CONNECT proxy.
+The proxy revalidates current Agent/permission/endpoint authority on connection
+establishment, after DNS and before forwarding tunnel chunks, so revocation
+blocks new and already-open traffic. `computer_navigate` is registered as a
+capability but no mutation action is exposed yet. Exact-head CI run #2009 passed.
+See `docs/v0.15-computer-browser-mutation-egress-gate.md`.
+
+PR #98 is the internal-topology gate and has passed the live Zelo-host proof.
+Agent computers join an internal-only Docker network, Core control uses the
+validated private computer IP, and public browser traffic can leave only through
+the Core proxy bound to the bridge gateway. In the latest disposable proof the
+computer was `172.31.250.3:4100`, direct public curl was blocked, real Chromium
+reached allowlisted `https://example.com` through the proxy with title
+`Example Domain`, then Browser permission revocation caused the next navigation
+to fail. The Agent container did not contain either host-only master token. All
+qualification resources were removed. See
+`docs/v0.15-computer-internal-topology.md`.
+
+PR #99 is the stacked first browser-mutation slice. It adds only
+`browser_navigate` using `endpoint_id + bounded path`; arbitrary URL input is
+not part of the task contract. Navigation selects a separate
+`computer_navigate_core` Worker with `agent-computer-navigate-v1` authority,
+freezes the exact endpoint-registry and egress-policy identity, revalidates
+permission/backend/endpoint state before and after execution, remains blocked by
+human takeover, and rejects a final cross-origin page even if OpenBot reports
+success. Click/type/key/scroll remain later gates.
 
 Workspace writes, shell, credentials, screenshots in Agent results, host access,
 host fallback and the parked UI remain out of scope. See

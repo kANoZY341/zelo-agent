@@ -665,6 +665,7 @@ class Runner:
             path=execution.payload.get("path", ""),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            endpoint_id=execution.payload.get("endpoint_id"),
         )
 
     async def _shell_worker(self, execution: Execution) -> dict[str, Any]:
