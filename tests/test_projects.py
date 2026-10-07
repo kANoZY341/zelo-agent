@@ -91,33 +91,33 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 Media native-reader")
+    assert active_status.startswith("## Active increment: v0.15 Agent computer internal topology")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     assert "PR #93" in active_status
-    assert "4,734 tests" in active_status
-    assert "four" in active_status.lower()
-    assert "native-reader-proof-kvhyvgri" in active_status
-    assert "20,851 bytes" in active_status
-    assert "zero labelled images/containers" in active_status
-    assert "fail-closed Docker environment" in active_compact
-    assert "not proven causation" in active_status
-    assert "412 cases" in active_status
-    assert "2,855 cases" in active_status
-    assert "no fifth proof attempt" in active_status
+    assert "8325c1b" in active_status
+    assert "PR #98" in active_status
+    assert "0aac2b7" in active_status
+    assert "56 focused computer/egress/worker tests" in active_compact
+    assert "172.30.253.3:4100" in active_status
+    assert "refused a loopback substitute" in active_compact
+    assert "direct public curl was blocked" in active_compact
+    assert "HTTP 200" in active_status
+    assert "HTTP 502" in active_status
+    assert "53b4174e" in active_status
+    assert "#99 -> #100" in active_status
     assert "Historical increment:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]
     roadmap_compact = " ".join(roadmap_content.split())
     assert "PR #93" in roadmap_compact
-    assert "4,734 tests/two skips" in roadmap_compact
-    assert "Four authorized" in roadmap_compact
-    assert "20,851 stderr bytes" in roadmap_compact
-    assert "fail-closed Docker environment" in roadmap_compact
-    assert "not proven causation" in roadmap_compact
-    assert "412 cases" in roadmap_compact
-    assert "2,855 cases" in roadmap_compact
-    assert "no fifth attempt" in roadmap_compact
-    assert "GNU/PAX" in roadmap_compact
+    assert "PR #98" in roadmap_compact
+    assert "0aac2b7" in roadmap_compact
+    assert "56 focused computer/egress/worker tests" in roadmap_compact
+    assert "172.30.253.3:4100" in roadmap_compact
+    assert "refused a loopback substitute" in roadmap_compact
+    assert "Direct public egress was blocked" in roadmap_compact
+    assert "PR #99" in roadmap_compact
+    assert "PR #100" in roadmap_compact
     assert "candidate wheel" not in roadmap_content
     status_document = (resolver.root / "docs/zelo-project-status.md").read_text(encoding="utf-8")
     assert (

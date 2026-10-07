@@ -336,17 +336,24 @@ computer but cannot roll the Core revocation back if the backend is unavailable.
 Human handback preserves OpenBot's fresh-snapshot requirement. See
 `docs/v0.15-agent-computer-control.md`.
 
-The next stacked slice adds the first **Agent-executable read-only Computer
-Worker**. `computer_run` is Agent-only and is restricted to
-`browser_snapshot`, `browser_read`, `files_list`, and `files_read`.
-Submission binds the exact AgentInstance, Supervisor selection, worker-authority
-policy, persisted permission digest, and OpenBot backend identity. Claim
-revalidates all of them before creating an attempt, so permission revocation can
-cancel queued work before execution. Human takeover blocks Agent reads.
+The merged first **Agent-executable read-only Computer Worker** keeps
+`computer_run` Agent-only and restricted to `browser_snapshot`, `browser_read`,
+`files_list`, and `files_read`. Submission binds the exact AgentInstance,
+Supervisor selection, worker-authority policy, persisted permission digest, and
+OpenBot backend identity. Claim revalidates all of them before creating an
+attempt, so permission revocation can cancel queued work before execution.
+Human takeover blocks Agent reads.
 
 Browser navigation/click/type, workspace writes, screenshots in Agent/model
-results, shell, credentials, and host fallback remain disabled. See
-`docs/v0.15-computer-worker-read.md`.
+results, shell, credentials, and host fallback remain disabled. The egress
+prerequisite is merged and the internal-topology slice now qualifies trusted
+HTTPS endpoint grants, a per-Agent authenticated Core egress proxy and an
+internal-only Docker topology in which Core reaches the computer by a validated
+private IP. Direct public egress from the Agent computer remains unavailable.
+See
+docs/v0.15-computer-worker-read.md,
+docs/v0.15-computer-browser-mutation-egress-gate.md, and
+docs/v0.15-computer-internal-topology.md.
 
 ## Bounded API Worker (v0.15)
 

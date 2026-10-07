@@ -324,6 +324,7 @@ def test_settings_require_rfc1918_proxy_bind_and_complete_backend():
     with pytest.raises(ValueError, match="complete computer backend"):
         Settings(
             _env_file=None,
+            computer_internal_network_cidr="172.30.250.0/24",
             computer_egress_proxy_host="172.30.250.1",
         )
 
@@ -332,6 +333,7 @@ def test_settings_require_rfc1918_proxy_bind_and_complete_backend():
         computer_supervisor_url="http://127.0.0.1:4312",
         computer_supervisor_token="s" * 24,
         computer_token="c" * 24,
+        computer_internal_network_cidr="172.30.250.0/24",
         computer_egress_proxy_host="172.30.250.1",
         computer_egress_proxy_port=4390,
     )

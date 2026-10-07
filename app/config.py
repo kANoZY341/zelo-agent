@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     browser_worker_admission: Path | None = None
     api_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
     computer_browser_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    computer_internal_network_cidr: str | None = None
+    computer_network_name: str = Field(
+        default="zelo-agent-computer-sandbox",
+        min_length=1,
+        max_length=63,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$",
+    )
     computer_egress_proxy_host: str | None = None
     computer_egress_proxy_port: int = Field(default=4390, ge=1024, le=65535)
     computer_supervisor_url: str | None = None
@@ -153,6 +160,38 @@ class Settings(BaseSettings):
         ApiEndpointRegistry.from_entries(value)
         return value
 
+    @field_validator("computer_internal_network_cidr")
+    @classmethod
+    def validate_computer_internal_network_cidr(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+        import ipaddress
+
+        try:
+            network = ipaddress.ip_network(value, strict=True)
+        except ValueError:
+            raise ValueError(
+                "Computer internal network CIDR must be a canonical IPv4 network"
+            ) from None
+        private_networks = (
+            ipaddress.ip_network("10.0.0.0/8"),
+            ipaddress.ip_network("172.16.0.0/12"),
+            ipaddress.ip_network("192.168.0.0/16"),
+        )
+        if (
+            network.version != 4
+            or str(network) != value
+            or not 16 <= network.prefixlen <= 28
+            or not any(network.subnet_of(parent) for parent in private_networks)
+        ):
+            raise ValueError(
+                "Computer internal network CIDR must be canonical RFC1918 IPv4 /16-/28"
+            )
+        return value
+
     @field_validator("computer_egress_proxy_host")
     @classmethod
     def validate_computer_egress_proxy_host(cls, value: str | None) -> str | None:
@@ -188,12 +227,39 @@ class Settings(BaseSettings):
             item is not None for item in values
         ):
             raise ValueError("Computer backend configuration must be complete")
-        if self.computer_egress_proxy_host is not None and not all(
+        topology = (
+            self.computer_internal_network_cidr,
+            self.computer_egress_proxy_host,
+        )
+        if any(item is not None for item in topology) and not all(
+            item is not None for item in topology
+        ):
+            raise ValueError(
+                "Computer internal network CIDR and egress proxy host must be configured together"
+            )
+        if any(item is not None for item in topology) and not all(
             item is not None for item in values
         ):
             raise ValueError(
-                "Computer egress proxy requires the complete computer backend configuration"
+                "Computer internal topology requires the complete computer backend configuration"
             )
+        if (
+            self.computer_internal_network_cidr is not None
+            and self.computer_egress_proxy_host is not None
+        ):
+            import ipaddress
+
+            network = ipaddress.ip_network(
+                self.computer_internal_network_cidr,
+                strict=True,
+            )
+            proxy = ipaddress.ip_address(self.computer_egress_proxy_host)
+            expected_gateway = network.network_address + 1
+            if proxy != expected_gateway:
+                raise ValueError(
+                    "Computer egress proxy host must be the first usable address "
+                    "in the internal CIDR"
+                )
         return self
 
     @field_validator("computer_supervisor_url")
