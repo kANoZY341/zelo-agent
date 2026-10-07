@@ -835,6 +835,15 @@ class AgentLearnedSkillItem(StrictModel):
     created_at: datetime
     updated_at: datetime
 
+    @model_validator(mode="after")
+    def _promotion_proof_shape(self):
+        proof = (self.promoted_revision_sha256, self.promotion_merge_commit_sha)
+        if self.promoted and any(value is None for value in proof):
+            raise ValueError("learned_skill_promotion_proof_incomplete")
+        if not self.promoted and any(value is not None for value in proof):
+            raise ValueError("learned_skill_promotion_proof_without_status")
+        return self
+
 
 class AgentLearnedSkillPage(StrictModel):
     items: list[AgentLearnedSkillItem]

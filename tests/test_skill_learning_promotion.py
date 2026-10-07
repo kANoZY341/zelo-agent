@@ -5,6 +5,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +25,7 @@ from app.promotion_contracts import (
     PromotionReview,
     PromotionRunResult,
 )
+from app.schemas import AgentLearnedSkillItem
 from app.skill_learning import (
     skill_procedure_artifact_bytes,
     skill_procedure_artifact_path,
@@ -270,6 +272,35 @@ def successful_lineage(
         )
         session.flush()
         return merge_task.id
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"promoted": True},
+        {
+            "promoted": False,
+            "promoted_revision_sha256": "a" * 64,
+            "promotion_merge_commit_sha": "b" * 40,
+        },
+    ),
+)
+def test_learned_skill_projection_requires_complete_promotion_proof(updates):
+    base = {
+        "proposal_id": "00000000-0000-4000-8000-000000000001",
+        "source_skill_id": "research",
+        "source_skill_version": 1,
+        "procedure_id": "inspect_sources",
+        "proposed_version": 1,
+        "revision_sha256": "c" * 64,
+        "status": "accepted",
+        "evidence_count": 1,
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+    base.update(updates)
+    with pytest.raises(ValidationError, match="learned_skill_promotion_proof"):
+        AgentLearnedSkillItem.model_validate(base)
 
 
 def test_ahmad_links_exact_successful_promotion_and_projection_stays_inert(
