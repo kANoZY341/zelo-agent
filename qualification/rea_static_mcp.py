@@ -622,6 +622,10 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             owner_token=owner_token,
         )
         deadline = time.monotonic() + MAX_RUNTIME_SECONDS
+        # A Docker create can cross into the daemon before Popen returns.
+        # Retain owner.json and CID unless reconciliation completes, even
+        # on KeyboardInterrupt, SystemExit or other BaseException paths.
+        retained_for_recovery = True
         try:
             process = subprocess.Popen(
                 argv,
@@ -681,12 +685,8 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             return _receipt(analyzed, source_sha, count, total)
         finally:
             _close_owned_process(process, cidfile, env, owner_token)
-    except ReaStaticRefusal as error:
-        if str(error) == "rea_owned_container_cleanup_unproven":
-            # Preserve the private directory AND exact owned CID for operator
-            # reconciliation. Never erase the ownership record on uncertainty.
-            retained_for_recovery = True
-        raise
+            # Only confirmed cleanup releases the private ownership record.
+            retained_for_recovery = False
     finally:
         if not retained_for_recovery:
             try:

@@ -573,3 +573,56 @@ def test_docker_reconciliation_fails_closed_on_multiple_ids(monkeypatch):
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     with pytest.raises(ReaStaticRefusal, match="rea_docker_reconciliation_invalid"):
         module._list_docker_containers("label=zelo.rea.qualification.run=" + "c" * 32, {})
+
+
+def test_keyboard_interrupt_during_cleanup_preserves_owned_recovery_state(tmp_path, monkeypatch):
+    from qualification import rea_static_mcp as module
+    from scripts.qualify_rea_static_mcp import INDEX_JS, PACKAGE_JSON
+
+    workspace = tmp_path / "qualification"
+    source = workspace / "fixtures" / "tiny-app"
+    source.mkdir(parents=True)
+    (source / "index.js").write_bytes(INDEX_JS)
+    (source / "package.json").write_bytes(PACKAGE_JSON)
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    docker_bin = tmp_path / "docker"
+    docker_bin.write_text("fake")
+    monkeypatch.setattr(module, "NATIVE_FIXTURE_ROOT", workspace)
+    monkeypatch.setattr(module, "NATIVE_RUNTIME", runtime)
+    monkeypatch.setattr(module, "DOCKER_BIN", docker_bin)
+    monkeypatch.setattr(module, "trusted_profile", lambda _runtime: {"node_image_id": IMAGE_ID})
+    monkeypatch.setattr(module.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    class FakeTransport:
+        def __init__(self, _process, _deadline):
+            pass
+
+        def call(self, message):
+            if "id" not in message:
+                return {}
+            if message["id"] == 1:
+                return {
+                    "protocolVersion": PROTOCOL,
+                    "serverInfo": {"name": "rea", "version": "5.0.0"},
+                }
+            return _valid_mcp_result()
+
+    monkeypatch.setattr(module, "_McpTransport", FakeTransport)
+
+    def interrupt_cleanup(_process, cidfile, _env, owner_token):
+        assert len(owner_token) == 32
+        cidfile.write_text("e" * 64)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(module, "_close_owned_process", interrupt_cleanup)
+    with pytest.raises(KeyboardInterrupt):
+        module.analyze_static_fixture()
+    retained = list(workspace.glob("rea-mcp-*"))
+    assert len(retained) == 1
+    assert (retained[0] / "owned.cid").read_text() == "e" * 64
+    owner = json.loads((retained[0] / "owner.json").read_text())
+    assert owner["schema"] == "zelo-rea-owned-container-v1"
+    assert len(owner["token"]) == 32
+    assert owner["label"] == "zelo.rea.qualification.run"
+    assert owner["container_name"] == "zelo-rea-static-" + owner["token"]

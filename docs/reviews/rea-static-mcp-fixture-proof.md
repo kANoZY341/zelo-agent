@@ -99,3 +99,13 @@ invalid-owner/daemon-failure tests exercise these paths.
 The corrected real native fixed-fixture MCP call passed again, with no
 qualification stage remaining on the successful path. This result remains
 restricted to the fixed, harmless two-file fixture.
+
+## Fourth independent review correction — interruption-proof retention
+
+A third independent Astra Medium review found an interrupt path: a Ctrl-C
+during Docker cleanup raised KeyboardInterrupt, bypassing the narrow
+ReaStaticRefusal recovery handler and deleting owner.json/CID before
+cleanup was proven. The code now defaults to retaining stage ownership
+before Docker Popen, and releases that retention only after the exact
+owned cleanup completes successfully. The new KeyboardInterrupt
+regression verifies private stage, owner token and CID survive interruption.
