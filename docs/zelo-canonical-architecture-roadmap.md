@@ -605,7 +605,11 @@ merged PR #119 (main af6c209). The optional five independent engine Git
 submodules remain pinned by commit but not included as copied source. The
 REA Specialist candidate from #116 and the source-built static MCP proof
 from #118 are already delivered in #119, not alternate activation routes.
-The fixed manual fixture does not admit user targets. Next qualify exact per-tool
+The fixed manual fixture does not admit user targets. A separate
+[operator-only offline admission utility](v0.15-rea-target-admission.md) now seals
+text-only target snapshots from a fixed private inbox. It has no analyzer consumer,
+Core approval, Worker registration or execution grants; receipt binding, revocation
+and real analyzer integration remain future gates. Next qualify exact per-tool
 Core WorkerAuthority/Task/Agent/Space permissions, source identity,
 evidence, sandbox cleanup and approvals before any REA execution by Zelo.
 Importing MIT source does not grant host/browser/credential access and
