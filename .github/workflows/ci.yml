@@ -18,7 +18,9 @@ jobs:
       - Linux
       - X64
       - zelo-ci
-    timeout-minutes: 30
+    # The full Core suite now exceeds 30 minutes on the pinned self-hosted runner.
+    # Keep the same full pytest/Ruff/diff gates; allow completion and traceback reporting.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:

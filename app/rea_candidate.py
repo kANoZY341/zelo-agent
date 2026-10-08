@@ -17,9 +17,13 @@ class ReaCandidateSnapshot(BaseModel):
     schema_version: Literal["zelo-rea-candidate-v1"] = "zelo-rea-candidate-v1"
     integration_id: Literal["rea"] = "rea"
     lifecycle: Literal["draft"] = "draft"
-    package_name: Literal["rea-agents"] = "rea-agents"
-    package_version: Literal["5.0.0"] = "5.0.0"
-    mcp_name: Literal["io.github.morluto/rea"] = "io.github.morluto/rea"
+    source_tag: Literal["rea-agents-6.0.0"] = "rea-agents-6.0.0"
+    source_commit: Literal["6fee42689ae6e95a0182e0d4d0f55644e73e72be"] = (
+        "6fee42689ae6e95a0182e0d4d0f55644e73e72be"
+    )
+    source_path: Literal["third_party/rea"] = "third_party/rea"
+    tools_available: Literal[139] = 139
+    tool_grants: tuple[str, ...] = ()
     execution_enabled: Literal[False] = False
     agent: AgentSpec
     capability: CapabilitySpec

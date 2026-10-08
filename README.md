@@ -63,15 +63,31 @@ python -m pytest -q
 Runtime dependencies include the local HTTP client used by the Ollama adapter.
 The development requirements add pytest and Ruff.
 
+## Vendored REA source (inactive)
+
+The complete upstream REA 6.0.0 **tracked source snapshot** is copied into
+`third_party/rea/` at pinned tag `rea-agents-6.0.0`. This is our own versioned
+source, not a dependency on a live third-party MCP service or runtime npm
+package. The immutable source manifest, original MIT and third-party notices,
+and five optional external engine gitlink identities are recorded in
+`integrations/rea/source-v6.0.0.manifest.json`. The optional engines are
+**not** bundled. Verify without installing or executing REA:
+
+    .venv/bin/python -m scripts.verify_rea_source_vendor
+
+This import registers **no Zelo Worker, agent, capability, Tool, API route,
+computer, network connection or execution authority**. See
+`docs/v0.15-rea-v6-source-import.md` for provenance and later gates.
+
 ## Structure and scope
 
-REA (Reverse Engineer Anything) is staged as an **inactive**, operator-visible
-candidate at authenticated `GET /integration-candidates/rea` with an inert,
-pinned manifest under `integrations/rea/`. It is intentionally **not** part
-of live Agent, Capability or Skill registries; their version fingerprints
-and existing execution bindings remain intact. See
-`docs/v0.15-rea-integration.md`. No REA dependency, MCP server, host process,
-new tool or task authority is enabled by this candidate.
+REA's source-owned v6 Specialist is available to authenticated operators
+as a read-only draft candidate at GET /integration-candidates/rea.
+Its instructions, capability and skill remain outside live registries.
+The candidate references the local pinned REA v6 source and all 139
+upstream observed MCP tool names, but grants no execution, tools,
+computer, secrets, network or Task/Worker authority. See
+docs/v0.15-rea-integration.md and docs/v0.15-rea-v6-source-import.md.
 
 - `app/application.py`: reusable explicitly configured application factory/lifespan.
 - `app/main.py`: normal environment-backed ASGI entry point.

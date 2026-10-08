@@ -1,5 +1,6 @@
 """Exact-head, separately approved squash merge execution."""
 
+import posixpath
 from typing import Any
 
 from app.config import Settings
@@ -7,6 +8,7 @@ from app.developer_process import DeveloperError
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_contracts import MergeRequest, MergeRunResult
 from app.promotion_github import GhApiTransport, GitHubTransport, publisher_identity
+from app.skill_learning import SKILL_PROCEDURE_ARTIFACT_ROOT
 
 HEX = set("0123456789abcdef")
 
@@ -25,6 +27,33 @@ def _sha(value: Any) -> str:
     ):
         raise DeveloperError("promotion_merge_response_invalid")
     return value
+
+
+def _publishes_unqualified_learned_skill(request: MergeRequest) -> bool:
+    """Fail closed on the reserved learned-procedure repository subtree.
+
+    A generic MergeRequest carries no Core-verified learned-skill proposal
+    identity, promoted predecessor or exclusive publication reservation.
+    Normalize unusual separator/dot spellings conservatively before checking
+    the reserved path so the generic merge worker cannot publish these files.
+    This is not a substitute for a later identity-bound merge authorization.
+    """
+
+    root = SKILL_PROCEDURE_ARTIFACT_ROOT
+    parts = root.split("/")
+    # A file/symlink replacing an ancestor directory would also remove or
+    # shadow the protected subtree. Git review entries are file/symlink
+    # operations, never safe recursive directory-only metadata changes.
+    reserved_ancestors = {"/".join(parts[:depth]) for depth in range(1, len(parts))}
+    for entry in request.promotion.review.candidate_manifest:
+        normalized = posixpath.normpath(entry.path.replace("\\", "/")).lstrip("/")
+        if (
+            normalized in reserved_ancestors
+            or normalized == root
+            or normalized.startswith(root + "/")
+        ):
+            return True
+    return False
 
 
 class PromotionMergeRuntime:
@@ -117,6 +146,13 @@ class PromotionMergeRuntime:
             or _sha(base.get("sha")) != request.publication.pr_base_sha
         ):
             raise DeveloperError("promotion_merge_pr_changed")
+
+        # Exact already-merged recovery above is read-only and historical.
+        # New external publication of learned procedures must use a future
+        # Core identity-bound and exclusive authorization path, never this
+        # generic PR merge action, even if the generic CI is green.
+        if _publishes_unqualified_learned_skill(request):
+            raise DeveloperError("promotion_merge_skill_publication_unqualified")
 
         fresh_ci = await self.ci_verifier.verify(
             request.promotion,

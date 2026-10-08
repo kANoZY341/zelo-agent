@@ -529,6 +529,9 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+The four previously consumed Media native-reader qualification attempts
+remain refused; no fifth attempt is authorized by a skills merge.
+
 Core-first checkpoint (8 October 2026): merged PRs #93, #98, #99, #100,
 including #102, #103, #104, #105, #106 and #107. PR #107 adds the
 new-proposal admission guard. It refuses a brand-new learned procedure
@@ -541,13 +544,17 @@ Core refuses a brand-new learned skill proposal at or below the latest
 promoted version for the same AgentInstance/Skill/procedure. Historical
 identical proposal retries stay idempotent and accepted reviews survive.
 
-PR #110 is the unmerged **local promotion-link recording exclusivity** gate.
-It serializes verified head checks before storing new promotion proof;
-previously accepted competing heads cannot both acquire local links.
-Historical divergent heads still cause the resolver to refuse ambiguity.
-This does NOT implement an external GitHub pre-merge publication lock:
-a separate trusted learned-skill identity and promotion-time exclusivity
-gate are required before merging a competing external PR.
+Merged PR #110 at b8a9634 (4,988 passed, 2 skipped) adds
+**local promotion-link recording exclusivity**: under a serialized SQLite
+writer, previously accepted competing skill revision heads cannot gain a
+second local promotion link. Historical divergent heads remain fail-closed.
+PR #111 is the next draft **generic pre-merge publication refusal**:
+until trusted skill identity/exclusive publication reservations exist, the
+generic GitHub merger must refuse protected learned-procedure files.
+Neither gate adds runtime skill activation, and this refusal is not global
+GitHub branch protection or proof that a separate GitHub client is blocked.
+A trusted, skill-specific promotion-time exclusivity reservation is still
+required for publication; this is not runtime skill activation.
 
 Merged PR #108 starts non-authoritative v0.16 channel contracts; merged PR #109
 (bd586aa7) adds operator-selected opaque bindings and unverified replay metadata.
@@ -555,11 +562,17 @@ These are not runtime skill activation, provider authentication or new
 AgentSpec/worker/tool authority. The four previously consumed native-reader
 qualification attempts remain preserved as refusals. UI PR #61 stays parked.
 
-Earlier PR #107 admission/ambiguity tests passed 3 focused and 177
-integrated cases. PR #110 local validation passed 108 skill-learning
-regressions, an HTTP conflict test, a concurrent writer test and five
-context tests before the new main integration. Exact-head CI remains
-required for the updated PR #110.
+The exact-head #110 CI passed 4,988 tests and 2 skips, Ruff and format,
+and its reviewed tree exactly matched merged main. The still-open PR #111
+requires independent exact-head full CI after retargeting to merged main,
+and no unreviewed publication or worker/tool permission is enabled.
+
+A separate, **inert** next-step publication-intent contract can freeze one
+currently accepted proposal, operator review, exact content-addressed artifact
+and verified promoted predecessor into a deterministic SHA-256-bound preview.
+It has no durable exclusive claim, GitHub merge authority, Task/Tool grant or
+runtime activation. The generic PR #111 learned-file refusal remains in force.
+See `docs/v0.15-skill-publication-intent-contract.md`.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -582,6 +595,21 @@ Add controlled:
 - Capability Registry;
 - selected MCP/plugin adapters;
 - optional Ruflo swarm adapter.
+
+REA full-source reuse decision (8 October 2026): copy the complete upstream
+REA 6.0.0 Git-tracked source into Zelo under `third_party/rea/`, pinned to
+commit `6fee42689ae6e95a0182e0d4d0f55644e73e72be`, rather than
+depending on an external MCP installation. This is inert provenance-only
+source adoption, recorded in `docs/v0.15-rea-v6-source-import.md` and
+draft PR #119. The optional five independent engine Git submodules remain
+pinned by commit but not included as copied source. The earlier REA catalog
+#116 and npm-backed MCP proof #118 are parked, not alternate activation
+routes. First build a Zelo-owned source artifact, then qualify exact per-tool
+Core WorkerAuthority/Task/Agent/Space permissions, source identity,
+evidence, sandbox cleanup and approvals before any REA execution by Zelo.
+Importing MIT source does not grant host/browser/credential access and
+preserves original legal notices. Complete current Core and v0.16 gates
+before REA execution integration.
 
 For Computer Worker infrastructure, prefer reuse over rebuilding container and
 browser lifecycle from zero. The first candidate is the exact OpenBot revision
@@ -618,42 +646,69 @@ Agent/model context.
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
-REA is a selected **candidate** MCP/CLI integration for this v0.15
-ecosystem, not an authorized execution backend. Its first Core slice **declares**
-a draft `reverse_engineering` Specialist Agent, draft capability and
-`rea_investigation` skill in a separate operator-visible candidate catalog,
-plus a version-pinned, disabled manifest. Existing live Agent, Capability and
-Skill registries and their execution-binding fingerprints remain unchanged.
-It has no Worker, task, execution tool, persistent computer, external setup,
-target/process access, network/credential grant, or skill activation. The
-dedicated security/qualification sequence is in
-[REA integration](v0.15-rea-integration.md). The v0.15 promotion/publication
-gates and prior Core priorities still precede REA runtime activation; neither
-v0.16 channels nor v0.17/0.18 milestones are reordered.
+The REA v6 full-source import is kept in-tree. Its separate, operator-visible
+draft reverse_engineering Specialist Agent, reverse_engineering Capability,
+and rea_investigation Skill are pinned to this imported source. The source
+advertises 139 observed tools but none is granted to Core or to an Agent.
+The existing active Agent/Capability/Skill registry versions stay unchanged.
+No Worker, task, computer, host/target/browser/network/credential permission
+is enabled by the candidate. The plan in
+[REA integration](v0.15-rea-integration.md) retains Core's original
+approval/claim-time authority and source qualification. Runtime activation
+must separately pass review; earlier v0.15, v0.16 and later milestones
+retain their existing priority.
 
 ### v0.16 — Channels and presence
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
-channel text envelopes,
-keyed opaque provider/thread/message identities, and reserved channel turn
-idempotency keys. This foundation has no provider credentials or connected
-transports. A separately qualified adapter must authenticate provider origin,
+channel text envelopes, keyed opaque provider/thread/message identities
+and reserved channel-turn idempotency keys.
+
+The WhatsApp signature verifier checks Meta's X-Hub-Signature-256 against
+the exact raw webhook bytes using a trusted server-owned App Secret.
+The signed-text parser extracts exactly one bounded inbound text event,
+refusing mixed, malformed, media or batched payloads; status-only events
+produce no text turn. The inert projection derives keyed pseudonymous
+WABA/phone/sender/thread/message identities under an independent Core
+identity secret, producing only an unverified ChannelTextIngress.
+These offline functions grant no provider account ownership, freshness,
+replay, Mind admission or sending authority. See the signature, parser
+and ingress documentation:
+docs/v0.16-whatsapp-signature-foundation.md,
+docs/v0.16-whatsapp-signed-text-shape.md and
+docs/v0.16-whatsapp-opaque-ingress.md.
+
+This foundation has no connected providers, live credentials or transport.
+A separately qualified adapter must authenticate provider origin,
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
 
-PR #109 is the separate draft Core binding/observation ledger, based on
-merged PR #108: an Ahmad-selected opaque thread may map to an existing
-Mind conversation, but that
-mapping is not provider authentication. Only message ID, text digest and UTC
-metadata are retained with append-only replay checks; no external webhook,
-message-to-Mind admission, delivery receipt or send authority is granted.
-Integrated migration/channel/Mind/scheduler tests passed 266 cases locally
-before the current concurrent-replay regression. Full exact-head CI remains
-required. Provider verification and outbound approval are later gates.
+Merged PR #109 (bd586aa, 4,985 passed and 2 skipped) provides the
+separate Core binding/observation ledger: an Ahmad-selected opaque thread
+may map to an existing Mind conversation, but that mapping is not provider
+authentication. Only message ID, text digest and UTC metadata are retained
+with append-only replay checks; no external webhook, message-to-Mind admission,
+delivery receipt or send authority is granted.
+
+Merged PR #110 (b8a9634, 4,988 passed and 2 skipped) closes local
+learned-skill promotion-link exclusivity. Neither the thread ledger nor a
+valid provider HMAC authenticates a WhatsApp account.
+
+The distinct operator-selected WhatsApp account ledger is a later, **inert**
+Core gate. It records a chosen opaque WABA+receiving-phone identity bound to
+an opaque trusted Meta App Secret identity, supports exact idempotent selection
+and append-only irreversible revocation, but permanently denies claiming
+provider authenticity, Mind admission or delivery authority. No secrets,
+plaintext account IDs, ingress adapter, worker or API route are connected.
+See `docs/v0.16-channel-operator-account-selection.md`. A future separately
+qualified provider adapter must compare the signed, parsed provider facts
+against a still-current operator choice and live trusted secret/registry
+binding before any replay or Mind admission. Replay freshness and outbound
+approval remain independent later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
