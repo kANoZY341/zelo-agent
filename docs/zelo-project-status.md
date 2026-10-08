@@ -37,26 +37,25 @@ ledger. All default permissions for Mind admission, provider authenticity
 and outbound delivery remain false. No real Meta account/credential,
 network webhook listener, Mind turn, sending, voice or calling is enabled.
 
-Draft PR #119 stages the complete, pinned REA 6.0.0 source snapshot
-(2,082 upstream-tracked files plus five separately pinned optional Git
-submodule identities) in Zelo instead of an npm-backed external MCP
-dependency. Its source manifest and integrity verifier remain inert:
-no REA Worker, Tool, Agent activation, native engine, host access or
-network execution is authorized. The older REA drafts #116 and #118
-remain parked while Core-controlled source build and later per-tool
-authority gates are planned.
+Merged PR #119 (main af6c209) delivered the complete, pinned REA 6.0.0
+source snapshot (2,082 upstream files and five optional pinned gitlinks),
+the inert Specialist candidate and the fixed-fixture source-built MCP proof.
+Its exact-head full CI and post-merge main CI both passed. PR #116's
+implementation was merged through #119; PR #118 was closed only after its
+implementation and tests were verified on main. The source manifest and
+verifier remain non-authoritative: no REA Worker, Tool, Agent activation,
+native engine, user-target access or network execution is authorized.
 
 
 ## REA source-owned candidate preparation
 
-Draft PR #119 pins the full upstream REA v6 source and its 139-tool
-catalog; no REA Worker or agent execution is enabled. PR #116 migrates
-its draft Specialist/Capability/Skill metadata and read-only operator
-candidate view from v5 npm references to that Zelo-owned source.
-PR #118 now qualifies its exact REA v6 source-built, fixed-fixture MCP
-static reader inside an isolated no-network Docker guest. This proves a
-local-source bridge, not generalized REA Worker execution. Neither PR
-grants runtime host, user-target, network or secret access;
+Main now contains the REA v6 source and its observed 139-tool catalog,
+the draft Specialist/Capability/Skill and operator-only candidate view,
+and a source-built fixed-fixture MCP static reader proven in an isolated
+no-network Docker guest. The fixture digest is independently pinned at the
+analyzer boundary before Docker launch, so the CLI's fixture preparation
+is not the only defense against substituted files. This is not a generalized
+REA Worker. No runtime host, user-target, network or secret access is granted;
 Media refusal history and UI PR #61 remain preserved.
 
 ## Checkpoint history
