@@ -26,6 +26,11 @@ def test_prepared_plan_is_exact_and_non_authoritative(client, database):
     assert record["snapshot_id"] == SNAPSHOT_ID
     assert record["receipt_sha256"] == selected.receipt_sha256
     assert record["content_sha256"] == selected.content_sha256
+    assert record["file_count"] == selected.file_count
+    assert record["total_bytes"] == selected.total_bytes
+    assert record["source_manifest_sha256"] == (
+        "6f593ce98506d319cce71acbc975b0c150360d371845f1634966c5dc254a19b9"
+    )
     assert record["review_fingerprint"] == selected.review_fingerprint
     assert record["source_commit"] == "6fee42689ae6e95a0182e0d4d0f55644e73e72be"
     assert record["catalog_sha256"] == plans.EXPECTED_CATALOG_SHA256

@@ -23,6 +23,7 @@ from app.rea_tool_inventory import (
 from app.worker_authority import authority_policy_version
 
 SCHEMA = "zelo-rea-analysis-plan-preview-v1"
+SOURCE_MANIFEST_SHA256 = "6f593ce98506d319cce71acbc975b0c150360d371845f1634966c5dc254a19b9"
 _REFUSALS = (
     "target_not_verified_by_core",
     "rea_agent_not_active",
@@ -48,8 +49,13 @@ class ReaAnalysisPlanPreview(BaseModel):
     snapshot_id: str = Field(pattern=r"^target-[0-9a-f]{32}$")
     receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    file_count: int = Field(ge=1, le=128)
+    total_bytes: int = Field(ge=0, le=4 * 1024 * 1024)
     review_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_commit: Literal["6fee42689ae6e95a0182e0d4d0f55644e73e72be"]
+    source_manifest_sha256: Literal[
+        "6f593ce98506d319cce71acbc975b0c150360d371845f1634966c5dc254a19b9"
+    ]
     catalog_sha256: Literal["82fb67571758c177d1eecac72efac152772cccc753442a77ef9418edc69be6a0"]
     tool_name: Literal["analyze_javascript_application"]
     tool_qualification: Literal["fixed_fixture_only_not_target_qualified"]
@@ -145,8 +151,11 @@ def prepare_rea_analysis_plan(
         "snapshot_id": selected.snapshot_id,
         "receipt_sha256": selected.receipt_sha256,
         "content_sha256": selected.content_sha256,
+        "file_count": selected.file_count,
+        "total_bytes": selected.total_bytes,
         "review_fingerprint": selected.review_fingerprint,
         "source_commit": candidate.source_commit,
+        "source_manifest_sha256": SOURCE_MANIFEST_SHA256,
         "catalog_sha256": EXPECTED_CATALOG_SHA256,
         "tool_name": "analyze_javascript_application",
         "tool_qualification": "fixed_fixture_only_not_target_qualified",
