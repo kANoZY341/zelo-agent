@@ -44,7 +44,21 @@ Its exact-head full CI and post-merge main CI both passed. PR #116's
 implementation was merged through #119; PR #118 was closed only after its
 implementation and tests were verified on main. The source manifest and
 verifier remain non-authoritative: no REA Worker, Tool, Agent activation,
-native engine, user-target access or network execution is authorized.
+native engine, user-target execution or network access is authorized.
+
+Merged #121 tightened the fixed static-fixture identity; #122 adds the
+operator-only, 139-tool name inventory; and #123 (main 36937ef) delivers
+explicitly selected, bounded, sealed text-only target snapshots under a fixed
+private inbox. Neither target admission nor the preflight review proposal
+approves or runs that target. PR #125, merged at `3d1c8bad4dedffa4289e177112f53ccdc1797076`,
+fixes two independent test-only Core CI scheduling/procfs observation races.
+Its exact-head full CI passed (5,281 tests passed, 2 skipped). Post-merge
+`main` CI remains a separate gate.
+The next isolated REA step is an explicitly opted-in, **offline local** target
+preflight CLI: reverify independently retained snapshot digest, pinned vendored
+source and catalog; emit a deterministic inert review fingerprint. It does not
+add a live Core API route or import target files into the runtime. This
+still grants no Worker, Task, lease, approval, tool or analyzer execution.
 
 
 ## REA source-owned candidate preparation
