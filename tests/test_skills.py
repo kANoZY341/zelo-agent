@@ -145,7 +145,6 @@ def test_default_registry_validates_current_surfaces_and_agents():
         "core_review",
         "evidence_retrieval",
         "python_execution",
-        "rea_investigation",
         "shell_execution",
     ]
 
@@ -218,7 +217,6 @@ def test_application_exposes_operator_only_read_only_skill_snapshot(client):
         "core_review",
         "evidence_retrieval",
         "python_execution",
-        "rea_investigation",
         "shell_execution",
     ]
 

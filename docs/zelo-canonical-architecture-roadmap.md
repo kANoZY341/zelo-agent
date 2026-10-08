@@ -619,9 +619,11 @@ Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
 REA is a selected **candidate** MCP/CLI integration for this v0.15
-ecosystem, not an authorized execution backend. Its first Core slice registers a
-draft `reverse_engineering` Specialist Agent, matching draft capability and
-`rea_investigation` skill, and a version-pinned, disabled package manifest.
+ecosystem, not an authorized execution backend. Its first Core slice **declares**
+a draft `reverse_engineering` Specialist Agent, draft capability and
+`rea_investigation` skill in a separate operator-visible candidate catalog,
+plus a version-pinned, disabled manifest. Existing live Agent, Capability and
+Skill registries and their execution-binding fingerprints remain unchanged.
 It has no Worker, task, execution tool, persistent computer, external setup,
 target/process access, network/credential grant, or skill activation. The
 dedicated security/qualification sequence is in

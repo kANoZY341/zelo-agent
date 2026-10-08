@@ -128,7 +128,6 @@ def test_default_registry_extends_research_for_v015_worker_routing():
         "evidence_synthesis",
         "python_execution",
         "research",
-        "reverse_engineering",
         "shell_execution",
         "zelo_core_development",
     ]
@@ -232,7 +231,6 @@ def test_application_exposes_operator_only_capability_snapshot(client):
         "evidence_synthesis",
         "python_execution",
         "research",
-        "reverse_engineering",
         "shell_execution",
         "zelo_core_development",
     ]

@@ -214,16 +214,6 @@ def default_skill_registry() -> SkillRegistry:
                 lifecycle="active",
             ),
             SkillSpec(
-                skill_id="rea_investigation",
-                description=(
-                    "Evidence-grounded REA investigation of operator-approved shipped "
-                    "software, without executable tool authority in this catalog slice."
-                ),
-                required_capabilities=("reverse_engineering",),
-                procedures=("rea_investigation",),
-                lifecycle="draft",
-            ),
-            SkillSpec(
                 skill_id="shell_execution",
                 description="Run bounded built-in Shell text compute in a closed no-network guest.",
                 required_capabilities=("shell_execution",),
@@ -240,4 +230,19 @@ def default_skill_registry() -> SkillRegistry:
                 lifecycle="active",
             ),
         )
+    )
+
+
+def rea_investigation_skill_spec() -> SkillSpec:
+    """Describe a candidate REA procedure without changing the live Skill Registry."""
+
+    return SkillSpec(
+        skill_id="rea_investigation",
+        description=(
+            "Evidence-grounded REA investigation of operator-approved shipped "
+            "software, without executable tool authority in this candidate slice."
+        ),
+        required_capabilities=("reverse_engineering",),
+        procedures=("rea_investigation",),
+        lifecycle="draft",
     )

@@ -65,10 +65,13 @@ The development requirements add pytest and Ruff.
 
 ## Structure and scope
 
-REA (Reverse Engineer Anything) is staged as an **inactive** v0.15 draft
-Specialist/Capability/Skill with an inert pinned integration manifest under
-`integrations/rea/`. See `docs/v0.15-rea-integration.md`; no REA dependency,
-MCP server, host process or new task authority is enabled by this catalog.
+REA (Reverse Engineer Anything) is staged as an **inactive**, operator-visible
+candidate at authenticated `GET /integration-candidates/rea` with an inert,
+pinned manifest under `integrations/rea/`. It is intentionally **not** part
+of live Agent, Capability or Skill registries; their version fingerprints
+and existing execution bindings remain intact. See
+`docs/v0.15-rea-integration.md`. No REA dependency, MCP server, host process,
+new tool or task authority is enabled by this candidate.
 
 - `app/application.py`: reusable explicitly configured application factory/lifespan.
 - `app/main.py`: normal environment-backed ASGI entry point.
