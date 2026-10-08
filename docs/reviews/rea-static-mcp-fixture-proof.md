@@ -39,3 +39,26 @@ external credential, persistent computer, MCP registration or production
 execution grant. Future user-selected targets and native/runtime provider
 analysis need separately reviewed permissions, resource gates and source proof.
 The unrelated four Media-reader refusals remain exhausted and preserved.
+
+## Actual Linux guest enforcement witness
+
+A fixed local Node diagnostic ran with the same security flags and read-only
+REA/target mounts as the MCP proof. Its observations on the Zelo Docker host:
+
+- effective UID/GID: 1000/1000 (non-root)
+- NoNewPrivs: 1; CapEff: 0000000000000000
+- memory.max: 402653184 bytes (384 MiB)
+- memory.swap.max: 0
+- pids.max: 64; cpu.max: 100000 100000 (one CPU quota)
+- Docker socket and host secrets path: absent
+- writes to /etc, /target and /rea: EROFS
+- write to isolated /tmp: allowed
+- TCP connect to 1.1.1.1:443: ENETUNREACH
+
+These are observations for the fixed diagnostic run, not proof against a
+container-escape vulnerability or an arbitrary hostile artifact.
+
+The dependency lockfile was also checked with npm audit on 8 October 2026:
+zero low/moderate/high/critical advisories reported for the installed
+production dependency closure. This is one timestamped advisory database
+check, not proof that the dependencies contain no vulnerabilities.
