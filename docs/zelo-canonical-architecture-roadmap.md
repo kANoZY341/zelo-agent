@@ -567,6 +567,13 @@ and its reviewed tree exactly matched merged main. The still-open PR #111
 requires independent exact-head full CI after retargeting to merged main,
 and no unreviewed publication or worker/tool permission is enabled.
 
+A separate, **inert** next-step publication-intent contract can freeze one
+currently accepted proposal, operator review, exact content-addressed artifact
+and verified promoted predecessor into a deterministic SHA-256-bound preview.
+It has no durable exclusive claim, GitHub merge authority, Task/Tool grant or
+runtime activation. The generic PR #111 learned-file refusal remains in force.
+See `docs/v0.15-skill-publication-intent-contract.md`.
+
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
 Core work. Preserve draft PR #61; its earlier early-beta/U2 priority is superseded.
