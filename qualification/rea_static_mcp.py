@@ -398,6 +398,7 @@ def _close_owned_process(
     if not OWNER_TOKEN.fullmatch(owner_token):
         raise ReaStaticRefusal("rea_owner_identity_invalid")
     cleanup_uncertain = False
+    reconciliation_completed = False
     client_reaped = process.poll() is not None
     try:
         if not client_reaped:
@@ -448,10 +449,14 @@ def _close_owned_process(
                     cleanup_uncertain = True
             if cid is not None and _list_docker_containers(f"id={cid}", env):
                 cleanup_uncertain = True
+            # Set only after every owned-container daemon query has returned.
+            # KeyboardInterrupt/SystemExit during reconciliation must retain
+            # the ownership file for an operator to verify/delete later.
+            reconciliation_completed = not cleanup_uncertain and client_reaped
         except (OSError, subprocess.TimeoutExpired, UnicodeError, ReaStaticRefusal):
             cleanup_uncertain = True
     finally:
-        if not cleanup_uncertain and client_reaped:
+        if reconciliation_completed:
             cidfile.unlink(missing_ok=True)
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream is not None:

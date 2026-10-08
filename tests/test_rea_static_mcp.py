@@ -640,3 +640,53 @@ def test_keyboard_interrupt_during_cleanup_preserves_owned_recovery_state(tmp_pa
     assert len(owner["token"]) == 32
     assert owner["label"] == "zelo.rea.qualification.run"
     assert owner["container_name"] == "zelo-rea-static-" + owner["token"]
+
+
+def test_real_cleanup_interrupt_during_daemon_reconciliation_preserves_cid(tmp_path, monkeypatch):
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    cidfile.write_text("e" * 64)
+    observations = []
+
+    def interrupt_daemon_query(filter_name, _env):
+        observations.append(filter_name)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(module, "_list_docker_containers", interrupt_daemon_query)
+    with pytest.raises(KeyboardInterrupt):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "a" * 32)
+    assert observations == ["label=zelo.rea.qualification.run=" + "a" * 32]
+    assert cidfile.read_text() == "e" * 64
+
+
+def test_real_cleanup_interrupt_during_docker_removal_preserves_cid(tmp_path, monkeypatch):
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    cidfile.write_text("e" * 64)
+    monkeypatch.setattr(module, "_list_docker_containers", lambda *_: ("e" * 64,))
+
+    def interrupt_removal(_argv, **_kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(module.subprocess, "run", interrupt_removal)
+    with pytest.raises(KeyboardInterrupt):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "a" * 32)
+    assert cidfile.read_text() == "e" * 64

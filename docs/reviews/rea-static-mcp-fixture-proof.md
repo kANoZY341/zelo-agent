@@ -143,3 +143,10 @@ runtime dependency for PR #118. The source-owned REA v6 proof uses:
 This is a strict **one-tool static qualification only**, not installed
 user tooling or a live Core authority grant. Preserve the old v5 evidence
 for audit but use this v6 profile for any subsequent qualifications.
+
+Independent REA v6 static bridge review found that a KeyboardInterrupt
+during the REAL Docker reconciliation function could delete the CID early.
+The reviewed correction now uses a separate reconciliation_completed
+flag set only after all daemon checks return. Interruption anywhere before
+verified cleanup retains the CID/owner file. Two new tests interrupt the
+actual owned cleanup during daemon enumeration and during Docker removal.
