@@ -536,16 +536,30 @@ revision at or below the latest promoted version for the same
 AgentInstance, source Skill and procedure. Stored proposal retries remain
 idempotent, and historical reviews/proof links remain valid.
 
-A limitation remains: candidates created before either promotion can still
-produce an ambiguous history. The read-only resolver refuses such heads;
-a separate promotion-time exclusivity guard is required to prevent competing
-publications. No new task, worker, tool, computer, AgentSpec or active registry
-authority has been granted. Learned procedures are not automatically loaded.
+PR #107 is the merged **promoted-head admission** gate at b3e665ab:
+Core refuses a brand-new learned skill proposal at or below the latest
+promoted version for the same AgentInstance/Skill/procedure. Historical
+identical proposal retries stay idempotent and accepted reviews survive.
 
-PR #108 begins non-authoritative v0.16 channel contracts; it does not close
-v0.15 Media native-reader qualification or the remaining Core gates. The
-four previously consumed native-reader qualification attempts remain
-preserved as refusals. UI PR #61 remains parked.
+PR #110 is the unmerged **local promotion-link recording exclusivity** gate.
+It serializes verified head checks before storing new promotion proof;
+previously accepted competing heads cannot both acquire local links.
+Historical divergent heads still cause the resolver to refuse ambiguity.
+This does NOT implement an external GitHub pre-merge publication lock:
+a separate trusted learned-skill identity and promotion-time exclusivity
+gate are required before merging a competing external PR.
+
+Merged PR #108 starts non-authoritative v0.16 channel contracts; merged PR #109
+(bd586aa7) adds operator-selected opaque bindings and unverified replay metadata.
+These are not runtime skill activation, provider authentication or new
+AgentSpec/worker/tool authority. The four previously consumed native-reader
+qualification attempts remain preserved as refusals. UI PR #61 stays parked.
+
+Earlier PR #107 admission/ambiguity tests passed 3 focused and 177
+integrated cases. PR #110 local validation passed 108 skill-learning
+regressions, an HTTP conflict test, a concurrent writer test and five
+context tests before the new main integration. Exact-head CI remains
+required for the updated PR #110.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -606,38 +620,40 @@ Zelo-owned interfaces.
 
 ### v0.16 — Channels and presence
 
-The WhatsApp provider-integrity follow-up remains an independent,
-unmerged gate: Meta `X-Hub-Signature-256` is verified over the exact
-raw webhook bytes using the trusted server's App Secret. Signature validity
-alone is **not** provider-account ownership, event freshness, replay
-protection, Mind admission or authority to reply. See
-`docs/v0.16-whatsapp-signature-foundation.md`. This offline verifier is
-not connected to HTTP or messaging APIs.
+Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
+contract-only v0.16 foundation: transport-neutral, **non-authoritative**
+channel text envelopes, keyed opaque provider/thread/message identities,
+and reserved channel turn idempotency keys.
 
-The separately staged signed-text-shape parser also remains offline. After
-valid HMAC proof it extracts only one strictly bounded WhatsApp Business Account
-text event; unsupported, mixed or batched events fail closed, and status-only
-notifications produce no text turn. Parsing remains non-authoritative; no
-account binding, replay admission, provider connection, sending or Mind execution
-exists. See `docs/v0.16-whatsapp-signed-text-shape.md`.
+The WhatsApp signature verifier checks Meta's `X-Hub-Signature-256`
+against exact webhook bytes using a trusted server-owned App Secret.
+The signed-text-shape parser extracts exactly one bounded inbound text event.
+Mixed, media, malformed and batched messages fail closed; signed status-only
+notifications produce no text turn. An inert projection then derives HMAC
+pseudonymous WABA/receiving-phone/sender/thread/message identities under an
+**independent Core identity secret**, creating only an unverified
+`ChannelTextIngress` contract. These checks are offline and grant no account
+ownership, freshness, replay authority, Mind admission or sending; the real
+provider registry and operator-controlled revocation remain later gates.
+See `docs/v0.16-whatsapp-signature-foundation.md`,
+`docs/v0.16-whatsapp-signed-text-shape.md`, and
+`docs/v0.16-whatsapp-opaque-ingress.md`.
 
-A subsequent inert projection can translate one signed WhatsApp text event to
-the existing `ChannelTextIngress` using HMAC-pseudonymous WABA/phone/sender/
-message identities under a *separate* Core key, without persisting raw provider
-IDs or granting account approval, replay admission, message delivery or runtime
-authority. See `docs/v0.16-whatsapp-opaque-ingress.md`. This is distinct from
-verified provider registry and revocation, which are still required.
-
-PR #108 is the contract-only v0.16 foundation: transport-neutral,
-**non-authoritative** channel text envelopes,
-keyed opaque provider/thread/message identities, and reserved channel turn
-idempotency keys. This foundation has no provider credentials or connected
+This foundation has no provider credentials or connected
 transports. A separately qualified adapter must authenticate provider origin,
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
+
+Merged PR #109 (bd586aa, 4,985 passed and 2 skipped) adds the separate
+operator-selected opaque thread and append-only unverified message ledger.
+Merged PR #110 (b8a9634, 4,988 passed and 2 skipped) closes local
+promotion-link exclusivity. Neither the ledger nor a valid provider HMAC
+authenticates a WhatsApp account; no external webhook, Mind admission,
+delivery receipt or send authority is granted. Provider verification,
+replay/freshness and outbound approval remain independent later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:

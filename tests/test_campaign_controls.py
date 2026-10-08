@@ -600,7 +600,7 @@ def test_campaign_control_migration_preserves_existing_campaign_state(settings):
         with database.read() as session:
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0035_skill_learning_promotion_links"
+                == "0036_channel_thread_observations"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_task_links")) == 1
