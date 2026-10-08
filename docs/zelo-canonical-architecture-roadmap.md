@@ -635,10 +635,16 @@ Zelo-owned interfaces.
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
-channel text envelopes,
-keyed opaque provider/thread/message identities, and reserved channel turn
-idempotency keys. This foundation has no provider credentials or connected
-transports. A separately qualified adapter must authenticate provider origin,
+channel text envelopes, keyed opaque provider/thread/message identities
+and reserved channel-turn idempotency keys. The WhatsApp signature
+follow-up verifies Meta's
+`X-Hub-Signature-256` against the exact raw webhook bytes using a trusted
+server-owned App Secret. Signature validity alone is **not** proof of
+account ownership, freshness, replay permission, Mind admission or sending.
+This pure offline verifier is not connected to HTTP or messaging APIs;
+see `docs/v0.16-whatsapp-signature-foundation.md`.
+This foundation has no provider credentials or connected transports.
+A separately qualified adapter must authenticate provider origin,
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
@@ -652,6 +658,10 @@ authentication. Only message ID, text digest and UTC metadata are retained
 with append-only replay checks; no external webhook, message-to-Mind admission,
 delivery receipt or send authority is granted.
 
+Merged PR #110 (b8a9634, 4,988 passed and 2 skipped) closes local
+learned-skill promotion-link exclusivity. Neither the thread ledger nor a
+valid provider HMAC authenticates a WhatsApp account.
+
 The distinct operator-selected WhatsApp account ledger is a later, **inert**
 Core gate. It records a chosen opaque WABA+receiving-phone identity bound to
 an opaque trusted Meta App Secret identity, supports exact idempotent selection
@@ -661,7 +671,8 @@ plaintext account IDs, ingress adapter, worker or API route are connected.
 See `docs/v0.16-channel-operator-account-selection.md`. A future separately
 qualified provider adapter must compare the signed, parsed provider facts
 against a still-current operator choice and live trusted secret/registry
-binding before any replay or Mind admission. Outbound approval is later.
+binding before any replay or Mind admission. Replay freshness and outbound
+approval remain independent later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
