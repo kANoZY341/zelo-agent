@@ -622,15 +622,15 @@ Zelo-owned interfaces.
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
-channel text envelopes. The WhatsApp signature follow-up verifies Meta's
+channel text envelopes, keyed opaque provider/thread/message identities
+and reserved channel-turn idempotency keys. The WhatsApp signature
+follow-up verifies Meta's
 `X-Hub-Signature-256` against the exact raw webhook bytes using a trusted
 server-owned App Secret. Signature validity alone is **not** proof of
 account ownership, freshness, replay permission, Mind admission or sending.
 This pure offline verifier is not connected to HTTP or messaging APIs;
 see `docs/v0.16-whatsapp-signature-foundation.md`.
-keyed opaque provider/thread/message identities, and reserved channel turn
-idempotency keys. This foundation has no provider credentials or connected
-transports. A separately qualified adapter must authenticate provider origin,
+This foundation has no provider credentials or connected transports. A separately qualified adapter must authenticate provider origin,
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
