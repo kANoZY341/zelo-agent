@@ -91,7 +91,7 @@ def test_docker_contract_exactly_denies_network_and_write_authority(tmp_path):
     runtime = tmp_path / "runtime"
     staging = tmp_path / "staging"
     cid = staging / "owned.cid"
-    args = docker_args(runtime, staging, cid, IMAGE_ID, uid=1000, gid=1000)
+    args = docker_args(runtime, staging, cid, IMAGE_ID, uid=1000, gid=1000, owner_token="a" * 32)
     for required in (
         "run",
         "-i",
@@ -110,6 +110,8 @@ def test_docker_contract_exactly_denies_network_and_write_authority(tmp_path):
     ):
         assert required in args
     assert f"--cidfile={cid}" in args
+    assert f"--name=zelo-rea-static-{'a' * 32}" in args
+    assert f"--label=zelo.rea.qualification.run={'a' * 32}" in args
     assert any("--mount=type=bind" in arg and "target=/rea,readonly" in arg for arg in args)
     assert any("--mount=type=bind" in arg and "target=/target,readonly" in arg for arg in args)
     assert "--privileged" not in args
@@ -119,9 +121,9 @@ def test_docker_contract_exactly_denies_network_and_write_authority(tmp_path):
         "mcp",
     )
     with pytest.raises(ReaStaticRefusal, match="rea_root_execution_forbidden"):
-        docker_args(runtime, staging, cid, IMAGE_ID, uid=0, gid=1000)
+        docker_args(runtime, staging, cid, IMAGE_ID, uid=0, gid=1000, owner_token="a" * 32)
     with pytest.raises(ReaStaticRefusal, match="rea_unpinned_image"):
-        docker_args(runtime, staging, cid, "node:latest", uid=1000, gid=1000)
+        docker_args(runtime, staging, cid, "node:latest", uid=1000, gid=1000, owner_token="a" * 32)
 
 
 def _valid_mcp_result():
@@ -233,6 +235,7 @@ def test_container_mount_paths_refuse_docker_option_injection(tmp_path):
             IMAGE_ID,
             uid=1000,
             gid=1000,
+            owner_token="a" * 32,
         )
 
 
@@ -268,10 +271,16 @@ def test_cleanup_refuses_when_owned_container_remains(tmp_path, monkeypatch):
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
-        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"})
-    assert len(commands) == 2
-    assert commands[0][-3:] == ["rm", "-f", "f" * 64]
-    assert commands[1][-3:] == ["--no-trunc", "--filter", "id=" + "f" * 64]
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "a" * 32)
+    assert len(commands) == 4
+    assert commands[0][-3:] == [
+        "--no-trunc",
+        "--filter",
+        "label=zelo.rea.qualification.run=" + "a" * 32,
+    ]
+    assert commands[1][-3:] == ["rm", "-f", "f" * 64]
+    assert commands[2][-3:] == commands[0][-3:]
+    assert commands[3][-3:] == ["--no-trunc", "--filter", "id=" + "f" * 64]
     assert cidfile.read_text() == "f" * 64
 
 
@@ -403,7 +412,8 @@ def test_stage_retention_is_tied_to_exact_owned_container_cleanup(
 
     monkeypatch.setattr(module, "_McpTransport", FakeTransport)
 
-    def fake_cleanup(_process, cidfile, _env):
+    def fake_cleanup(_process, cidfile, _env, owner_token):
+        assert len(owner_token) == 32
         cidfile.write_text("f" * 64)
         if fail_cleanup:
             raise ReaStaticRefusal("rea_owned_container_cleanup_unproven")
@@ -421,3 +431,145 @@ def test_stage_retention_is_tied_to_exact_owned_container_cleanup(
         receipt = module.analyze_static_fixture()
         assert receipt.input_files == 2
         assert not list(workspace.glob("rea-mcp-*"))
+
+
+def test_missing_cid_reconciles_owner_label_and_fails_closed(tmp_path, monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if "ps" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=b"")
+        raise AssertionError("No container may be removed without label proof")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "b" * 32)
+    assert len(calls) == 1
+    assert calls[0][-2:] == ["--filter", "label=zelo.rea.qualification.run=" + "b" * 32]
+
+
+def test_missing_cid_reconciles_and_removes_only_labelled_container(tmp_path, monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    calls = []
+    state = {"present": True}
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if "ps" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, stdout=(b"e" * 64 + b"\n") if state["present"] else b""
+            )
+        if "rm" in argv:
+            assert argv[-1] == "e" * 64
+            state["present"] = False
+            return subprocess.CompletedProcess(argv, 0, stdout=b"")
+        raise AssertionError("Unexpected Docker action")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "a" * 32)
+    assert len(calls) == 3
+    assert "ps" in calls[0]
+    assert calls[0][-1] == "label=zelo.rea.qualification.run=" + "a" * 32
+    assert calls[1][-3:] == ["rm", "-f", "e" * 64]
+    assert "ps" in calls[2]
+    assert state["present"] is False
+
+
+def test_mismatched_cid_and_owner_label_never_remove_other_container(tmp_path, monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    cidfile.write_text("f" * 64)
+    calls = []
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        if "ps" in argv:
+            if "label=" in argv[-1]:
+                return subprocess.CompletedProcess(argv, 0, stdout=b"e" * 64 + b"\n")
+            return subprocess.CompletedProcess(argv, 0, stdout=b"f" * 64 + b"\n")
+        raise AssertionError("Must not remove a CID that is not proven by label")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"}, "d" * 32)
+    assert len(calls) == 3
+    assert all("rm" not in cmd for cmd in calls)
+    assert cidfile.read_text() == "f" * 64
+
+
+def test_docker_refuses_model_provided_or_invalid_owner_tag(tmp_path):
+    staging = tmp_path / "staging"
+    with pytest.raises(ReaStaticRefusal, match="rea_owner_identity_invalid"):
+        docker_args(
+            tmp_path / "runtime",
+            staging,
+            staging / "owned.cid",
+            IMAGE_ID,
+            uid=1000,
+            gid=1000,
+            owner_token="a" * 32 + ",privileged=true",
+        )
+
+
+def test_docker_reconciliation_fails_closed_for_daemon_outage(monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    def fake_run(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 1, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_docker_reconciliation_failed"):
+        module._list_docker_containers("label=zelo.rea.qualification.run=" + "c" * 32, {})
+
+
+def test_docker_reconciliation_fails_closed_on_multiple_ids(monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    def fake_run(argv, **_kwargs):
+        return subprocess.CompletedProcess(argv, 0, stdout=b"a" * 64 + b"\n" + b"b" * 64 + b"\n")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_docker_reconciliation_invalid"):
+        module._list_docker_containers("label=zelo.rea.qualification.run=" + "c" * 32, {})

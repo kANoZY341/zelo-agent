@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import select
 import shutil
 import signal
@@ -38,6 +39,8 @@ MAX_RPC_BYTES = 1_500_000
 MAX_STDERR_BYTES = 16_384
 MAX_RUNTIME_SECONDS = 45
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
+OWNER_TOKEN = re.compile(r"^[0-9a-f]{32}$")
+OWNER_LABEL = "zelo.rea.qualification.run"
 EVIDENCE_ID = re.compile(r"^ev_[0-9a-f]{64}$")
 SAFE_NAME = re.compile(r"^[a-zA-Z0-9_.-]{1,120}$")
 FILE_EXTENSIONS = frozenset({".js", ".mjs", ".cjs", ".json", ".html", ".css", ".map"})
@@ -265,12 +268,21 @@ def stage_source(source: Path, destination: Path) -> tuple[str, int, int]:
 
 
 def docker_args(
-    runtime: Path, staging: Path, cidfile: Path, image_id: str, *, uid: int, gid: int
+    runtime: Path,
+    staging: Path,
+    cidfile: Path,
+    image_id: str,
+    *,
+    uid: int,
+    gid: int,
+    owner_token: str,
 ) -> tuple[str, ...]:
     """Immutable Docker policy: no network, capabilities, host workspace or shell."""
 
     if uid <= 0 or gid <= 0:
         raise ReaStaticRefusal("rea_root_execution_forbidden")
+    if not OWNER_TOKEN.fullmatch(owner_token):
+        raise ReaStaticRefusal("rea_owner_identity_invalid")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
         raise ReaStaticRefusal("rea_unpinned_image")
     if not runtime.is_absolute() or not staging.is_absolute() or not cidfile.is_absolute():
@@ -289,6 +301,8 @@ def docker_args(
         "--rm",
         "--pull=never",
         f"--cidfile={cidfile}",
+        f"--name=zelo-rea-static-{owner_token}",
+        f"--label={OWNER_LABEL}={owner_token}",
         "--network=none",
         "--read-only",
         "--cap-drop=ALL",
@@ -322,20 +336,55 @@ def _clean_env(staging: Path) -> dict[str, str]:
     }
 
 
-def _close_owned_process(
-    process: subprocess.Popen[bytes], cidfile: Path, env: dict[str, str]
-) -> None:
-    """Reap our exact Docker client and prove its CID is absent before success."""
+def _list_docker_containers(filter_name: str, env: dict[str, str]) -> tuple[str, ...]:
+    """Get exact complete Docker IDs or fail; never trust a truncated list."""
 
+    result = subprocess.run(
+        [
+            str(DOCKER_BIN),
+            f"--host={DOCKER_SOCKET}",
+            "ps",
+            "-aq",
+            "--no-trunc",
+            "--filter",
+            filter_name,
+        ],
+        check=False,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env=env,
+        timeout=8,
+    )
+    if result.returncode != 0 or len(result.stdout) > 1024:
+        raise ReaStaticRefusal("rea_docker_reconciliation_failed")
+    lines = result.stdout.decode("ascii").splitlines()
+    if len(lines) > 1 or any(not HEX64.fullmatch(item) for item in lines):
+        raise ReaStaticRefusal("rea_docker_reconciliation_invalid")
+    return tuple(lines)
+
+
+def _close_owned_process(
+    process: subprocess.Popen[bytes],
+    cidfile: Path,
+    env: dict[str, str],
+    owner_token: str,
+) -> None:
+    """Reconcile one random ownership label, never remove an unverified Docker ID."""
+
+    if not OWNER_TOKEN.fullmatch(owner_token):
+        raise ReaStaticRefusal("rea_owner_identity_invalid")
     cleanup_uncertain = False
+    client_reaped = process.poll() is not None
     try:
-        if process.poll() is None:
+        if not client_reaped:
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
             try:
                 process.wait(timeout=3)
+                client_reaped = True
             except subprocess.TimeoutExpired:
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
@@ -343,16 +392,28 @@ def _close_owned_process(
                     pass
                 try:
                     process.wait(timeout=3)
+                    client_reaped = True
                 except subprocess.TimeoutExpired:
                     cleanup_uncertain = True
-        if cidfile.exists():
-            try:
-                cid = cidfile.read_text(encoding="ascii").strip()
-                if not HEX64.fullmatch(cid):
+
+        try:
+            cid = cidfile.read_text(encoding="ascii").strip() if cidfile.exists() else None
+            if not isinstance(cid, str) or not HEX64.fullmatch(cid):
+                # Even an empty daemon result cannot establish that an
+                # interrupted create with no CID was never launched.
+                cleanup_uncertain = True
+                cid = None
+
+            label_filter = f"label={OWNER_LABEL}={owner_token}"
+            owned = _list_docker_containers(label_filter, env)
+            if owned:
+                # Never delete a CID copied into our staging directory unless
+                # the daemon independently proves that exact owner label.
+                if cid is not None and owned != (cid,):
                     cleanup_uncertain = True
                 else:
                     subprocess.run(
-                        [str(DOCKER_BIN), f"--host={DOCKER_SOCKET}", "rm", "-f", cid],
+                        [str(DOCKER_BIN), f"--host={DOCKER_SOCKET}", "rm", "-f", owned[0]],
                         check=False,
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
@@ -360,34 +421,19 @@ def _close_owned_process(
                         env=env,
                         timeout=8,
                     )
-                    remaining = subprocess.run(
-                        [
-                            str(DOCKER_BIN),
-                            f"--host={DOCKER_SOCKET}",
-                            "ps",
-                            "-aq",
-                            "--no-trunc",
-                            "--filter",
-                            f"id={cid}",
-                        ],
-                        check=False,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        env=env,
-                        timeout=8,
-                    )
-                    if remaining.returncode != 0 or remaining.stdout.strip():
-                        cleanup_uncertain = True
-            except (OSError, subprocess.TimeoutExpired, UnicodeError):
+                if _list_docker_containers(label_filter, env):
+                    cleanup_uncertain = True
+            if cid is not None and _list_docker_containers(f"id={cid}", env):
                 cleanup_uncertain = True
+        except (OSError, subprocess.TimeoutExpired, UnicodeError, ReaStaticRefusal):
+            cleanup_uncertain = True
     finally:
-        if not cleanup_uncertain:
+        if not cleanup_uncertain and client_reaped:
             cidfile.unlink(missing_ok=True)
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
-    if cleanup_uncertain:
+    if cleanup_uncertain or not client_reaped:
         raise ReaStaticRefusal("rea_owned_container_cleanup_unproven")
 
 
@@ -546,9 +592,23 @@ def analyze_static_fixture() -> ReaStaticReceipt:
     state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if state_root.is_symlink():
         raise ReaStaticRefusal("rea_state_symlink")
-    stage = Path(tempfile.mkdtemp(prefix="rea-mcp-", dir=state_root))
+    owner_token = secrets.token_hex(16)
+    stage = Path(tempfile.mkdtemp(prefix=f"rea-mcp-{owner_token}-", dir=state_root))
     retained_for_recovery = False
     try:
+        (stage / "owner.json").write_text(
+            json.dumps(
+                {
+                    "schema": "zelo-rea-owned-container-v1",
+                    "label": OWNER_LABEL,
+                    "token": owner_token,
+                    "container_name": f"zelo-rea-static-{owner_token}",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            encoding="ascii",
+        )
         source_sha, count, total = stage_source(source, stage)
         cidfile = stage / "owned.cid"
         env = _clean_env(stage)
@@ -559,6 +619,7 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             profile["node_image_id"],
             uid=os.geteuid(),
             gid=os.getegid(),
+            owner_token=owner_token,
         )
         deadline = time.monotonic() + MAX_RUNTIME_SECONDS
         try:
@@ -619,7 +680,7 @@ def analyze_static_fixture() -> ReaStaticReceipt:
                 raise ReaStaticRefusal("rea_mcp_invalid_result")
             return _receipt(analyzed, source_sha, count, total)
         finally:
-            _close_owned_process(process, cidfile, env)
+            _close_owned_process(process, cidfile, env, owner_token)
     except ReaStaticRefusal as error:
         if str(error) == "rea_owned_container_cleanup_unproven":
             # Preserve the private directory AND exact owned CID for operator

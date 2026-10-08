@@ -79,3 +79,23 @@ with no success receipt. New offline tests exercise symlinked-parent refusal,
 exact fixture content, successful cleanup and retained-CID failure. The
 corrected fixed-fixture native Docker/MCP proof passed and left zero
 owned staging directories in the success case.
+
+## Third independent review correction — missing Docker CID
+
+A second independent Codex Astra Medium review identified one P2 cleanup
+edge case: a Docker start that has no CID file could previously be considered
+clean without querying the daemon. The corrected bridge now commits a randomly
+generated 128-bit ownership token into the private staging directory before
+launch and applies both an exact Docker name and unique
+zelo.rea.qualification.run ownership label. Cleanup consults the daemon's
+full, non-truncated container IDs filtered by that label, and only removes
+an ID verified by that same owner label. It rejects mismatched ID/label
+records, malformed or multiple daemon results, and Docker daemon errors.
+The bridge never reports success with a missing CID, even if daemon
+enumeration is empty; the private owner record remains available for
+reconciliation. Three missing/mismatched-CID regression tests and additional
+invalid-owner/daemon-failure tests exercise these paths.
+
+The corrected real native fixed-fixture MCP call passed again, with no
+qualification stage remaining on the successful path. This result remains
+restricted to the fixed, harmless two-file fixture.
