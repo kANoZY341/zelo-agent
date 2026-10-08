@@ -317,3 +317,64 @@ def test_real_offline_preview_is_schema_compatible_but_still_not_core_proof(
     assert stored.review_fingerprint == preview.review_fingerprint
     assert not stored.target_verified_by_core
     assert not stored.execution_authority and not stored.worker_authority
+
+
+def test_database_rejects_direct_execution_grant_in_inert_selection(database):
+    values = review_dict()
+    with pytest.raises(IntegrityError):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO rea_operator_target_selections "
+                    "(snapshot_id,receipt_sha256,content_sha256,review_fingerprint,file_count,"
+                    "total_bytes,operator_id,selected_at,execution_authority,worker_authority,"
+                    "approval_authority) VALUES "
+                    "(:snapshot_id,:receipt_sha256,:content_sha256,:review_fingerprint,"
+                    ":file_count,:total_bytes,'ahmad','2026-10-08 00:00:00',1,0,0)"
+                ),
+                values,
+            )
+    with database.read() as session:
+        assert count(session, ReaOperatorTargetSelectionRecord) == 0
+
+
+def test_upgrading_existing_0037_account_data_retains_history(settings):
+    from alembic import command
+    from sqlalchemy import inspect
+
+    from app.database import Database, migration_config
+
+    database = Database(settings.database_path)
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0037_channel_operator_account_selection")
+
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO channel_operator_account_selections "
+                    "(account_key,app_secret_identity,operator_id,selected_at,"
+                    "provider_authenticated,mind_admission_authority,delivery_authority) "
+                    "VALUES (:a,:b,'ahmad','2026-10-08 00:00:00',0,0,0)"
+                ),
+                {"a": "a" * 64, "b": "b" * 64},
+            )
+        database.migrate()
+        database.check_schema()
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0038_rea_target_operator_selection"
+            )
+            assert (
+                session.scalar(text("SELECT count(*) FROM channel_operator_account_selections"))
+                == 1
+            )
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+        assert {
+            "rea_operator_target_selections",
+            "rea_operator_target_revocations",
+        }.issubset(set(inspect(database.engine).get_table_names()))
+    finally:
+        database.close()
