@@ -50,6 +50,8 @@ def test_exact_manual_profile_is_pinned_and_denies_all_core_access():
     assert p["maximum_files"] == 128
     assert p["maximum_total_bytes"] == 4 * 1024 * 1024
     assert p["only_fixed_fixture_is_prior_qualified"] is True
+    assert p["exclusive_manual_run"] is True
+    assert p["refuse_unreconciled_owned_staging"] is True
 
 
 def test_modified_profile_and_symlink_are_refused(tmp_path, monkeypatch):
@@ -433,3 +435,59 @@ def test_trusted_source_runtime_alias_is_canonicalized_before_proof(
         f"source={physical.resolve(strict=True)},target=/rea,readonly" in argument
         for argument in commands[0]
     )
+
+
+def test_exclusive_manual_lock_serializes_local_qualifications(tmp_path, monkeypatch):
+    private = tmp_path / "qualification"
+    private.mkdir(mode=0o700)
+    monkeypatch.setattr(proof, "PROOF_ROOT", private)
+    with proof._exclusive_manual_run():
+        with pytest.raises(fixed.ReaStaticRefusal, match="rea_target_qualification_busy"):
+            with proof._exclusive_manual_run():
+                pytest.fail("Second manual REA proof cannot acquire a held lock")
+    # The lock is released when the first process exits normally.
+    with proof._exclusive_manual_run():
+        assert (private / ".rea-target-static.lock").stat().st_mode & 0o777 == 0o600
+
+
+def test_stale_manual_docker_staging_blocks_new_invocation(tmp_path, monkeypatch):
+    private = tmp_path / "qualification"
+    private.mkdir(mode=0o700)
+    monkeypatch.setattr(proof, "PROOF_ROOT", private)
+    retained = private / ("rea-target-" + "a" * 32 + "-unreconciled")
+    retained.mkdir(mode=0o700)
+    with pytest.raises(fixed.ReaStaticRefusal, match="rea_target_unreconciled_prior_run"):
+        with proof._exclusive_manual_run():
+            pytest.fail("Retained prior run may still own a container")
+    retained.rmdir()
+    with proof._exclusive_manual_run():
+        pass
+
+
+def test_symlinked_lock_file_is_never_followed(tmp_path, monkeypatch):
+    private = tmp_path / "qualification"
+    private.mkdir(mode=0o700)
+    monkeypatch.setattr(proof, "PROOF_ROOT", private)
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_bytes(b"not a REA lock")
+    (private / ".rea-target-static.lock").symlink_to(unrelated)
+    with pytest.raises(fixed.ReaStaticRefusal, match="rea_target_qualification_lock_unavailable"):
+        with proof._exclusive_manual_run():
+            pytest.fail("Never follow a replacement lock symlink")
+    assert unrelated.read_bytes() == b"not a REA lock"
+
+
+def test_failed_owned_cleanup_blocks_next_manual_probe(admitted, tmp_path, monkeypatch):
+    result, _, proof_root, _ = admitted
+    commands = _fake_native(monkeypatch, tmp_path, proof_root, cleanup_refused=True)
+    with pytest.raises(fixed.ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+        proof.analyze_verified_static_target(
+            result["snapshot_id"], result["receipt_sha256"], operator_opt_in=True
+        )
+    assert len(commands) == 1
+    assert len(list(proof_root.glob("rea-target-*-*"))) == 1
+    with pytest.raises(fixed.ReaStaticRefusal, match="rea_target_unreconciled_prior_run"):
+        proof.analyze_verified_static_target(
+            result["snapshot_id"], result["receipt_sha256"], operator_opt_in=True
+        )
+    assert len(commands) == 1

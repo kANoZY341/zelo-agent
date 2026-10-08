@@ -6,6 +6,7 @@ separate pinned local policy; it never widens the older fixed-fixture proof.
 All target data and analyzer output are untrusted; output is a bounded receipt.
 """
 
+import fcntl
 import hashlib
 import json
 import os
@@ -15,6 +16,8 @@ import stat
 import subprocess
 import tempfile
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -27,7 +30,7 @@ from qualification.rea_source_vendor import EXPECTED_COMMIT, EXPECTED_MANIFEST_S
 
 ROOT = Path(__file__).resolve().parents[1]
 OPERATOR_PROFILE = ROOT / "integrations" / "rea" / "offline-verified-target-v1.json"
-EXPECTED_PROFILE_SHA256 = "5123d351c93be9f4296765097b5f313b9bad6921301bbb9b3d51966a519aef0a"
+EXPECTED_PROFILE_SHA256 = "c489d44be9e37444fa45709ec81922685bf01009cb574cb178918d0bfe19b808"
 PROOF_ROOT = ROOT / "workspaces" / "rea-qualification"
 RUNTIME = fixed.NATIVE_RUNTIME
 MAX_PROFILE_BYTES = 2048
@@ -96,6 +99,8 @@ def _policy() -> dict[str, Any]:
                 "core_tool_grants",
                 "core_approval",
                 "only_fixed_fixture_is_prior_qualified",
+                "exclusive_manual_run",
+                "refuse_unreconciled_owned_staging",
             }
             or p["schema"] != "zelo-rea-offline-verified-target-static-v1"
             or p["source_commit"] != EXPECTED_COMMIT
@@ -119,6 +124,8 @@ def _policy() -> dict[str, Any]:
             or p["core_tool_grants"] != []
             or p["core_approval"] is not False
             or p["only_fixed_fixture_is_prior_qualified"] is not True
+            or p["exclusive_manual_run"] is not True
+            or p["refuse_unreconciled_owned_staging"] is not True
         ):
             raise fixed.ReaStaticRefusal("rea_target_profile_contract_invalid")
         return p
@@ -257,6 +264,61 @@ def _mcp_static_proof(process: subprocess.Popen[bytes], deadline: float) -> dict
     return result
 
 
+@contextmanager
+def _exclusive_manual_run() -> Iterator[None]:
+    """Fail closed on simultaneous or unreconciled manual Docker qualifications.
+
+    One private, nofollow, 0600 lock per operator-owned qualification root.
+    A crash releases the kernel lock but keeps its owned staging directory;
+    that retained directory blocks all later runs until separate reconciliation.
+    """
+
+    directory = None
+    lock = None
+    try:
+        directory = os.open(
+            PROOF_ROOT,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+        info = os.fstat(directory)
+        if (
+            info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) != 0o700
+            or not stat.S_ISDIR(info.st_mode)
+        ):
+            raise fixed.ReaStaticRefusal("rea_target_proof_root_not_private")
+        lock = os.open(
+            ".rea-target-static.lock",
+            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=directory,
+        )
+        detail = os.fstat(lock)
+        if (
+            not stat.S_ISREG(detail.st_mode)
+            or detail.st_nlink != 1
+            or detail.st_uid != os.geteuid()
+            or stat.S_IMODE(detail.st_mode) != 0o600
+        ):
+            raise fixed.ReaStaticRefusal("rea_target_qualification_lock_invalid")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise fixed.ReaStaticRefusal("rea_target_qualification_busy") from None
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.name.startswith("rea-target-"):
+                    raise fixed.ReaStaticRefusal("rea_target_unreconciled_prior_run")
+        yield
+    except OSError:
+        raise fixed.ReaStaticRefusal("rea_target_qualification_lock_unavailable") from None
+    finally:
+        if lock is not None:
+            os.close(lock)
+        if directory is not None:
+            os.close(directory)
+
+
 def analyze_verified_static_target(
     snapshot_id: str, receipt_sha256: str, *, operator_opt_in: bool = False
 ) -> ReaManualStaticTargetReceipt:
@@ -284,6 +346,15 @@ def analyze_verified_static_target(
         raise fixed.ReaStaticRefusal("rea_target_proof_root_unavailable")
     if stat.S_IMODE(PROOF_ROOT.stat().st_mode) != 0o700:
         raise fixed.ReaStaticRefusal("rea_target_proof_root_not_private")
+
+    with _exclusive_manual_run():
+        return _analyze_locked_target(snapshot_id, receipt_sha256, runtime, profile)
+
+
+def _analyze_locked_target(
+    snapshot_id: str, receipt_sha256: str, runtime: Path, profile: dict[str, Any]
+) -> ReaManualStaticTargetReceipt:
+    """Only the exclusive lock holder may create an owned Docker probe."""
 
     token = secrets.token_hex(16)
     stage = Path(tempfile.mkdtemp(prefix=f"rea-target-{token}-", dir=PROOF_ROOT))

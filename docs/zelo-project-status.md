@@ -81,8 +81,10 @@ canonical resolved physical path; an independent check with that same path
 **passed** all pinned REA 6.0.0 source, module, and dist hashes, and confirmed
 no network or Core Worker authority. The symlink escape guard remains intact
 for any links escaping that canonical root. No selected-target Docker proof was
-run, and this is not Core execution, approval, Worker registration, permission
-propagation or Evidence admission; those remain future separately reviewed gates.
+run. The offline operator qualifier now also enforces an exclusive local lock;
+unreconciled private stage directories block subsequent probes. This is not
+Core execution, approval, Worker registration, permission propagation or
+Evidence admission; those remain future separately reviewed gates.
 
 
 ## REA source-owned candidate preparation
