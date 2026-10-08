@@ -588,6 +588,12 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "channel_thread_bindings_no_update",
             "channel_ingress_observations_no_delete",
             "channel_ingress_observations_no_update",
+            "channel_operator_account_selections_no_delete",
+            "channel_operator_account_selections_no_update",
+            "channel_operator_account_selections_no_duplicate_insert",
+            "channel_operator_account_revocations_no_delete",
+            "channel_operator_account_revocations_no_update",
+            "channel_operator_account_revocations_no_duplicate_insert",
         }
     finally:
         db.close()

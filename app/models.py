@@ -859,6 +859,57 @@ class ChannelIngressObservationRecord(Base):
     delivery_authority: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class ChannelOperatorAccountSelectionRecord(Base):
+    """Inert, append-only operator selection; never provider authenticity."""
+
+    __tablename__ = "channel_operator_account_selections"
+    __table_args__ = (
+        CheckConstraint(
+            "length(account_key)=64 AND account_key NOT GLOB '*[^0-9a-f]*' "
+            "AND account_key != lower(hex(zeroblob(32)))",
+            name="ck_channel_selection_hex_account_key",
+        ),
+        CheckConstraint(
+            "length(app_secret_identity)=64 AND app_secret_identity NOT GLOB '*[^0-9a-f]*' "
+            "AND app_secret_identity != lower(hex(zeroblob(32)))",
+            name="ck_channel_selection_hex_app_secret_identity",
+        ),
+        CheckConstraint("operator_id='ahmad'", name="ck_channel_selection_operator"),
+        CheckConstraint("provider_authenticated=0", name="ck_channel_selection_not_provider_auth"),
+        CheckConstraint("mind_admission_authority=0", name="ck_channel_selection_not_mind"),
+        CheckConstraint("delivery_authority=0", name="ck_channel_selection_not_delivery"),
+    )
+
+    account_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    app_secret_identity: Mapped[str] = mapped_column(String(64))
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    selected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    provider_authenticated: Mapped[bool] = mapped_column(Boolean, default=False)
+    mind_admission_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    delivery_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ChannelOperatorAccountRevocationRecord(Base):
+    """Irreversible account selection refusal; no reapproval with the same key."""
+
+    __tablename__ = "channel_operator_account_revocations"
+    __table_args__ = (
+        CheckConstraint(
+            "length(account_key)=64 AND account_key NOT GLOB '*[^0-9a-f]*' "
+            "AND account_key != lower(hex(zeroblob(32)))",
+            name="ck_channel_selection_hex_account_key",
+        ),
+        CheckConstraint("operator_id='ahmad'", name="ck_channel_revocation_operator"),
+    )
+
+    account_key: Mapped[str] = mapped_column(
+        ForeignKey("channel_operator_account_selections.account_key"),
+        primary_key=True,
+    )
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 
