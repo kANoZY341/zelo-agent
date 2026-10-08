@@ -1,0 +1,142 @@
+import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
+
+import {
+  readEvidenceBundle,
+  writeEvidenceBundle,
+} from "../../../src/application/EvidenceBundleFiles.js";
+import { compareEvidenceBundlesCommand } from "../../../src/application/EvidenceBundleCommands.js";
+import { createEvidence } from "../../../src/domain/evidence.js";
+import {
+  createEvidenceBundle,
+  serializeEvidenceBundle,
+} from "../../../src/domain/evidenceBundle.js";
+
+const bundle = (result = true) =>
+  createEvidenceBundle([
+    createEvidence(
+      undefined,
+      { id: "fixture", name: "Fixture", version: "1" },
+      { operation: "health", parameters: {}, result },
+    ),
+  ]);
+
+describe("evidence bundle publication", () => {
+  it("allows only one simultaneous export without overwrite approval", async () => {
+    const root = await createTestTempDirectory("rea-evidence-exclusive-");
+    const path = join(root, "bundle.json");
+    const candidates = [bundle(), bundle(false)];
+    const results = await Promise.all(
+      candidates.map((value) => writeEvidenceBundle(value, path, false)),
+    );
+    expect(results.filter(({ ok }) => ok)).toHaveLength(1);
+    expect(results.filter(({ ok }) => !ok)).toMatchObject([
+      { ok: false, error: { _tag: "EvidenceFileError", reason: "exists" } },
+    ]);
+    const winner = candidates[results.findIndex(({ ok }) => ok)];
+    expect(await readEvidenceBundle(path)).toEqual({
+      ok: true,
+      value: winner,
+    });
+    expect(await readdir(root)).toEqual(["bundle.json"]);
+  });
+
+  it("round trips caller-selected paths without configured roots", async () => {
+    const root = await createTestTempDirectory("rea-evidence-dot-child-");
+    const directory = join(root, "..cache");
+    await mkdir(directory);
+    const path = join(directory, "bundle.json");
+    const value = bundle();
+    expect(await writeEvidenceBundle(value, path, false)).toMatchObject({
+      ok: true,
+    });
+    expect(await readEvidenceBundle(path)).toEqual({
+      ok: true,
+      value,
+    });
+  });
+});
+
+describe("evidence bundle filesystem adapter", () => {
+  it("round trips canonical bytes and requires explicit overwrite", async () => {
+    const directory = await createTestTempDirectory("rea-evidence-");
+    const path = join(directory, "bundle.json");
+    const evidenceBundle = bundle();
+    const first = await writeEvidenceBundle(evidenceBundle, path, false);
+    expect(first).toMatchObject({ ok: true, value: { path } });
+    expect(await readFile(path, "utf8")).toBe(
+      serializeEvidenceBundle(evidenceBundle),
+    );
+    expect(await readEvidenceBundle(path)).toEqual({
+      ok: true,
+      value: evidenceBundle,
+    });
+    expect(
+      await compareEvidenceBundlesCommand({
+        leftPath: path,
+        rightPath: path,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        status: "unchanged",
+        summary: { records_unchanged: 1 },
+      },
+    });
+    expect(
+      await writeEvidenceBundle(evidenceBundle, path, false),
+    ).toMatchObject({
+      ok: false,
+      error: { _tag: "EvidenceFileError", reason: "exists" },
+    });
+    expect(await writeEvidenceBundle(evidenceBundle, path, true)).toMatchObject(
+      { ok: true },
+    );
+  });
+
+  it("reads the caller-selected symlink target and refuses to replace a symlink", async () => {
+    const directory = await createTestTempDirectory("rea-evidence-");
+    const outside = join(directory, "outside");
+    await mkdir(outside);
+    const outsidePath = join(outside, "bundle.json");
+    await writeFile(outsidePath, serializeEvidenceBundle(bundle()));
+    const link = join(directory, "escaped.json");
+    await symlink(outsidePath, link);
+    expect(await readEvidenceBundle(link)).toMatchObject({
+      ok: true,
+      value: bundle(),
+    });
+    expect(await writeEvidenceBundle(bundle(), link, true)).toMatchObject({
+      ok: false,
+      error: { _tag: "EvidenceFileError", reason: "not-file" },
+    });
+  });
+
+  it("rejects malformed and tampered input", async () => {
+    const directory = await createTestTempDirectory("rea-evidence-");
+    const malformed = join(directory, "malformed.json");
+    await writeFile(malformed, "{");
+    expect(await readEvidenceBundle(malformed)).toMatchObject({
+      ok: false,
+      error: { _tag: "EvidenceFileError", reason: "invalid-json" },
+    });
+
+    const tampered = bundle();
+    const tamperedPath = join(directory, "tampered.json");
+    await writeFile(
+      tamperedPath,
+      JSON.stringify({
+        ...tampered,
+        records: [{ ...tampered.records[0], normalized_result: "changed" }],
+      }),
+    );
+    expect(await readEvidenceBundle(tamperedPath)).toMatchObject({
+      ok: false,
+      error: { _tag: "EvidenceIntegrityError" },
+    });
+  });
+});

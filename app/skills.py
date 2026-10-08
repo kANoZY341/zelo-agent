@@ -231,3 +231,18 @@ def default_skill_registry() -> SkillRegistry:
             ),
         )
     )
+
+
+def rea_investigation_skill_spec() -> SkillSpec:
+    """Describe a candidate REA procedure without changing the live Skill Registry."""
+
+    return SkillSpec(
+        skill_id="rea_investigation",
+        description=(
+            "Evidence-grounded REA investigation of operator-approved shipped "
+            "software, without executable tool authority in this candidate slice."
+        ),
+        required_capabilities=("reverse_engineering",),
+        procedures=("rea_investigation",),
+        lifecycle="draft",
+    )

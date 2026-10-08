@@ -1,0 +1,379 @@
+import type {
+  EvidenceWriter,
+  UnknownRegistryPort,
+} from "../application/investigation/InvestigationRecordPort.js";
+import type {
+  CallToolResult,
+  McpServer,
+  ServerContext,
+} from "@modelcontextprotocol/server";
+
+import type { AnalysisOperationPort } from "../application/AnalysisProvider.js";
+import {
+  EnhancedTools,
+  type ValidatedEnhancedCall,
+} from "../application/EnhancedTools.js";
+import {
+  REA_WORKFLOW_PROVIDER,
+  workflowAnalysisProfile,
+} from "../application/InvestigationProviders.js";
+import { toolContract, type ToolContract } from "../contracts/toolContracts.js";
+import type { AnalysisProfileCommitment } from "../domain/analysisProfile.js";
+import type { BinaryTarget } from "../domain/binaryTarget.js";
+import { UnknownRegistryError } from "../domain/unknownRegistryError.js";
+import { createEvidence } from "../domain/evidence.js";
+import type { JsonValue } from "../domain/jsonValue.js";
+import type { Logger } from "../logger.js";
+import { mcpProgressReporter } from "./mcpProgress.js";
+import { logToolExecution } from "./toolLogging.js";
+import { toolRegistrationOptions } from "./toolRegistrationOptions.js";
+import { toCallToolResult } from "./toolResult.js";
+import { executeFunctionAnalysisEvidence } from "../application/FunctionAnalysisEvidence.js";
+
+/** Optional session services used by enhanced tool registration. */
+export interface EnhancedToolRegistration {
+  readonly logger: Logger;
+  readonly activeTarget: (() => BinaryTarget | undefined) | undefined;
+  readonly analysisProfile:
+    | (() => AnalysisProfileCommitment | undefined)
+    | undefined;
+  readonly recordEvidence: EvidenceWriter["recordEvidence"] | undefined;
+  readonly recordUnknown: UnknownRegistryPort["recordUnknown"] | undefined;
+}
+
+/** Register composed workflows against the same port as direct bridge tools. */
+// oxlint-disable-next-line max-lines-per-function -- direct SDK calls retain each schema-handler type correlation.
+export const registerEnhancedTools = (
+  server: McpServer,
+  analysis: AnalysisOperationPort,
+  options: EnhancedToolRegistration,
+): void => {
+  const nativeDispatchMetadata = toolContract(
+    "inspect_native_dispatch_metadata",
+  );
+  const objcClasses = toolContract("get_objc_classes");
+  const objcProtocols = toolContract("get_objc_protocols");
+  const batchDecompile = toolContract("batch_decompile");
+  const callGraph = toolContract("get_call_graph");
+  const swiftTypes = toolContract("analyze_swift_types");
+  const xrefsToName = toolContract("find_xrefs_to_name");
+  const binaryOverview = toolContract("binary_overview");
+  const analyzeFunction = toolContract("analyze_function");
+  const inspectNativeApi = toolContract("inspect_native_api");
+  const traceFeature = toolContract("trace_feature");
+  const traceCallPath = toolContract("trace_call_path");
+  const traceNativeUiAction = toolContract("trace_native_ui_action");
+  const traceNativeValues = toolContract("trace_native_values");
+  server.registerTool(
+    traceNativeValues.name,
+    toolRegistrationOptions(traceNativeValues),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, traceNativeValues, {
+        validatedCall: { name: "trace_native_values", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    nativeDispatchMetadata.name,
+    toolRegistrationOptions(nativeDispatchMetadata),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, nativeDispatchMetadata, {
+        validatedCall: { name: "inspect_native_dispatch_metadata", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    objcClasses.name,
+    toolRegistrationOptions(objcClasses),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, objcClasses, {
+        validatedCall: { name: "get_objc_classes", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    objcProtocols.name,
+    toolRegistrationOptions(objcProtocols),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, objcProtocols, {
+        validatedCall: { name: "get_objc_protocols", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    batchDecompile.name,
+    toolRegistrationOptions(batchDecompile),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, batchDecompile, {
+        validatedCall: { name: "batch_decompile", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    callGraph.name,
+    toolRegistrationOptions(callGraph),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, callGraph, {
+        validatedCall: { name: "get_call_graph", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    swiftTypes.name,
+    toolRegistrationOptions(swiftTypes),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, swiftTypes, {
+        validatedCall: { name: "analyze_swift_types", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    xrefsToName.name,
+    toolRegistrationOptions(xrefsToName),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, xrefsToName, {
+        validatedCall: { name: "find_xrefs_to_name", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    binaryOverview.name,
+    toolRegistrationOptions(binaryOverview),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, binaryOverview, {
+        validatedCall: { name: "binary_overview", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    analyzeFunction.name,
+    toolRegistrationOptions(analyzeFunction),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, analyzeFunction, {
+        validatedCall: { name: "analyze_function", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    inspectNativeApi.name,
+    toolRegistrationOptions(inspectNativeApi),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, inspectNativeApi, {
+        validatedCall: { name: "inspect_native_api", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    traceFeature.name,
+    toolRegistrationOptions(traceFeature),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, traceFeature, {
+        validatedCall: { name: "trace_feature", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    traceCallPath.name,
+    toolRegistrationOptions(traceCallPath),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, traceCallPath, {
+        validatedCall: { name: "trace_call_path", input },
+        context,
+      }),
+  );
+  server.registerTool(
+    traceNativeUiAction.name,
+    toolRegistrationOptions(traceNativeUiAction),
+    (input, context) =>
+      executeEnhancedTool(analysis, options, traceNativeUiAction, {
+        validatedCall: { name: "trace_native_ui_action", input },
+        context,
+      }),
+  );
+};
+
+const executeEnhancedTool = async (
+  analysis: AnalysisOperationPort,
+  registration: EnhancedToolRegistration,
+  contract: ToolContract,
+  request: {
+    readonly validatedCall: ValidatedEnhancedCall;
+    readonly context: ServerContext;
+  },
+): Promise<CallToolResult> => {
+  const { validatedCall, context } = request;
+  const name = validatedCall.name;
+  const progress = mcpProgressReporter(context);
+  await progress.report({
+    phase: name,
+    completed: 0,
+    total: 1,
+    message: "started",
+  });
+  const parsedInput = validatedCall.input;
+  const parameters = jsonParameters(parsedInput);
+  if (name === "analyze_function")
+    return executeFunctionTool(analysis, registration, contract, {
+      context,
+      parameters,
+    });
+  const services = new EnhancedTools({
+    execute: (operation, operationParameters, executionOptions) =>
+      analysis.execute(operation, operationParameters, {
+        ...executionOptions,
+        progress,
+      }),
+  });
+  const result = await logToolExecution(registration.logger, name, () =>
+    services.executeValidated(validatedCall, context.mcpReq.signal),
+  );
+  await progress.report({
+    phase: name,
+    completed: 1,
+    total: 1,
+    message: result.ok ? "completed" : "failed",
+    terminal: true,
+  });
+  if (result.ok) {
+    const upstreamProfile = registration.analysisProfile?.();
+    const evidence = createEvidence(
+      registration.activeTarget?.(),
+      REA_WORKFLOW_PROVIDER,
+      {
+        operation: name,
+        parameters,
+        result: result.value,
+        ...(upstreamProfile === undefined
+          ? {}
+          : {
+              analysisProfile: workflowAnalysisProfile(upstreamProfile),
+            }),
+        confidence: "derived",
+        limitations: [
+          "Derived by an REA workflow from one or more provider observations.",
+        ],
+      },
+    );
+    const recorded = registration.recordEvidence?.(evidence);
+    if (recorded !== undefined && !recorded.ok)
+      return toCallToolResult(recorded, contract);
+    const unknowns = recordWorkflowUnknowns({
+      name,
+      result: result.value,
+      evidenceId: evidence.evidence_id,
+      recordUnknown: registration.recordUnknown,
+    });
+    if (!unknowns.ok) return toCallToolResult(unknowns, contract);
+    return toCallToolResult({ ok: true, value: evidence }, contract);
+  }
+  return toCallToolResult(result, contract);
+};
+
+const executeFunctionTool = async (
+  analysis: AnalysisOperationPort,
+  registration: EnhancedToolRegistration,
+  contract: ToolContract,
+  request: {
+    readonly context: ServerContext;
+    readonly parameters: Readonly<Record<string, JsonValue>>;
+  },
+): Promise<CallToolResult> => {
+  const { context, parameters } = request;
+  const progress = mcpProgressReporter(context);
+  const result = await logToolExecution(
+    registration.logger,
+    "analyze_function",
+    () =>
+      executeFunctionAnalysisEvidence(
+        analysis,
+        parameters,
+        registration.activeTarget?.(),
+        {
+          signal: context.mcpReq.signal,
+          progress,
+        },
+      ),
+  );
+  await progress.report({
+    phase: "analyze_function",
+    completed: 1,
+    total: 1,
+    message: result.ok ? "completed" : "failed",
+    terminal: true,
+  });
+  if (result.ok) {
+    const recorded = registration.recordEvidence?.(result.value);
+    if (recorded !== undefined && !recorded.ok)
+      return toCallToolResult(recorded, contract);
+  }
+  return toCallToolResult(result, contract);
+};
+
+const jsonParameters = (
+  input: Readonly<Record<string, JsonValue | undefined>>,
+): Record<string, JsonValue> =>
+  Object.fromEntries(
+    Object.entries(input).filter(
+      (entry): entry is [string, JsonValue] => entry[1] !== undefined,
+    ),
+  );
+
+interface WorkflowUnknownInput {
+  readonly name: string;
+  readonly result: JsonValue;
+  readonly evidenceId: string;
+  readonly recordUnknown: UnknownRegistryPort["recordUnknown"] | undefined;
+}
+
+const recordWorkflowUnknowns = ({
+  name,
+  result,
+  evidenceId,
+  recordUnknown,
+}: WorkflowUnknownInput):
+  | ReturnType<UnknownRegistryPort["recordUnknown"]>
+  | { readonly ok: true; readonly value: null } => {
+  if (
+    !["trace_feature", "trace_call_path", "inspect_native_api"].includes(
+      name,
+    ) ||
+    recordUnknown === undefined ||
+    typeof result !== "object" ||
+    result === null ||
+    Array.isArray(result) ||
+    !Array.isArray(result.residual_unknowns)
+  )
+    return { ok: true, value: null };
+  for (const question of result.residual_unknowns) {
+    if (typeof question !== "string") continue;
+    const recorded = recordUnknown({
+      question,
+      severity: "medium",
+      domain: name === "inspect_native_api" ? "native-api" : "control-flow",
+      supporting_evidence_ids: [evidenceId],
+      contradicting_evidence_ids: [],
+      required_authority: "shipped-artifact",
+      required_confidence: "observed",
+      required_environment: null,
+      recommended_probes: [
+        {
+          operation: name,
+          rationale:
+            name === "inspect_native_api"
+              ? "Confirm the unsupported boundary with a capable provider or ABI probe."
+              : "Continue with a focused query or another available provider.",
+        },
+      ],
+      relationships: [],
+    });
+    if (
+      !recorded.ok &&
+      !(
+        recorded.error instanceof UnknownRegistryError &&
+        recorded.error.reason === "already-exists"
+      )
+    )
+      return recorded;
+  }
+  return { ok: true, value: null };
+};

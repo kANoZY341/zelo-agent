@@ -596,6 +596,21 @@ Add controlled:
 - selected MCP/plugin adapters;
 - optional Ruflo swarm adapter.
 
+REA full-source reuse decision (8 October 2026): copy the complete upstream
+REA 6.0.0 Git-tracked source into Zelo under `third_party/rea/`, pinned to
+commit `6fee42689ae6e95a0182e0d4d0f55644e73e72be`, rather than
+depending on an external MCP installation. This is inert provenance-only
+source adoption, recorded in `docs/v0.15-rea-v6-source-import.md` and
+draft PR #119. The optional five independent engine Git submodules remain
+pinned by commit but not included as copied source. The earlier REA catalog
+#116 and npm-backed MCP proof #118 are parked, not alternate activation
+routes. First build a Zelo-owned source artifact, then qualify exact per-tool
+Core WorkerAuthority/Task/Agent/Space permissions, source identity,
+evidence, sandbox cleanup and approvals before any REA execution by Zelo.
+Importing MIT source does not grant host/browser/credential access and
+preserves original legal notices. Complete current Core and v0.16 gates
+before REA execution integration.
+
 For Computer Worker infrastructure, prefer reuse over rebuilding container and
 browser lifecycle from zero. The first candidate is the exact OpenBot revision
 already consumed by OpenDots, wrapped by a Zelo-owned fail-closed adapter. The
@@ -630,6 +645,18 @@ Agent/model context.
 
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
+
+The REA v6 full-source import is kept in-tree. Its separate, operator-visible
+draft reverse_engineering Specialist Agent, reverse_engineering Capability,
+and rea_investigation Skill are pinned to this imported source. The source
+advertises 139 observed tools but none is granted to Core or to an Agent.
+The existing active Agent/Capability/Skill registry versions stay unchanged.
+No Worker, task, computer, host/target/browser/network/credential permission
+is enabled by the candidate. The plan in
+[REA integration](v0.15-rea-integration.md) retains Core's original
+approval/claim-time authority and source qualification. Runtime activation
+must separately pass review; earlier v0.15, v0.16 and later milestones
+retain their existing priority.
 
 ### v0.16 — Channels and presence
 

@@ -1,0 +1,19 @@
+{
+  "schema": "zelo-rea-source-v6-static-mcp-proof-v1",
+  "source_commit": "6fee42689ae6e95a0182e0d4d0f55644e73e72be",
+  "source_manifest_sha256": "6f593ce98506d319cce71acbc975b0c150360d371845f1634966c5dc254a19b9",
+  "source_runtime": "rea-agents@6.0.0-from-vendored-source",
+  "mcp_server_version": "6.0.0",
+  "mcp_protocol_version": "2025-11-25",
+  "allowed_tool": "analyze_javascript_application",
+  "node_image_id": "sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c",
+  "node_modules_sha256": "8afb45131e0b026fd1574065e4f5209d5798d9467b3b3c30e420bb368e86486c",
+  "dist_sha256": "0bf80a0de2199577dd65e412b99cbd1dc091527e753dcfd66bf368d1126c4bbb",
+  "package_lock_sha256": "7296c105b0ee331d613edd79639cea1493568cfdad7ed8077866f7451f920dac",
+  "entrypoint_sha256": "51c10d06c6c277a7c482001096e4c35ba341246977cb9097920d2268a0270b22",
+  "execution_auto_enabled": false,
+  "manual_fixed_fixture_only": true,
+  "network_enabled": false,
+  "target_execution_enabled": false,
+  "zelo_runtime_worker_enabled": false
+}

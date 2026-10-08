@@ -1,0 +1,3 @@
+# Preserve pinned REA upstream files byte-for-byte, even if upstream has trailing whitespace.
+# Local Zelo source remains subject to the usual whitespace checks.
+third_party/rea/** -whitespace
