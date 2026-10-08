@@ -79,6 +79,10 @@ This import registers **no Zelo Worker, agent, capability, Tool, API route,
 computer, network connection or execution authority**. See
 `docs/v0.15-rea-v6-source-import.md` for provenance and later gates.
 
+An optional [offline target admission utility](docs/v0.15-rea-target-admission.md)
+can seal operator-selected text inputs from a fixed private inbox into inert
+snapshots. It requires explicit opt-in and grants no analyzer or Core authority.
+
 ## Structure and scope
 
 REA's source-owned v6 Specialist is available to authenticated operators
