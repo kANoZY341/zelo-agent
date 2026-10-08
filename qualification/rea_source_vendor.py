@@ -6,6 +6,7 @@ native analysis are authorized by this inventory verifier.
 
 import hashlib
 import json
+import os
 import re
 import stat
 from dataclasses import dataclass
@@ -35,6 +36,7 @@ REQUIRED_NOTICES = (
 _SHA1 = re.compile(r"[0-9a-f]{40}\Z", re.ASCII)
 _ALLOWED_MODES = frozenset({"100644", "100755"})
 _MAX_TOTAL_BYTES = 30 * 1024 * 1024
+_MAX_FILE_BYTES = 8 * 1024 * 1024
 
 
 class ReaVendorRefusal(ValueError):
@@ -87,6 +89,39 @@ def _regular_file(root: Path, relative: Path) -> Path:
     if not stat.S_ISREG(mode):
         raise ReaVendorRefusal("rea_vendor_nonregular_file")
     return path
+
+
+def _read_bounded_regular_file(path: Path, remaining_bytes: int) -> tuple[bytes, int]:
+    """Open without following final symlinks, and bound bytes BEFORE reading.
+
+    These are source-integrity checks, never permission to execute the contents.
+    """
+
+    if remaining_bytes < 0:
+        raise ReaVendorRefusal("rea_vendor_byte_limit")
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise ReaVendorRefusal("rea_vendor_nonregular_file")
+            if before.st_size > min(remaining_bytes, _MAX_FILE_BYTES):
+                raise ReaVendorRefusal("rea_vendor_byte_limit")
+            # Even if the file grows after fstat, only this many bytes can be allocated.
+            data = stream.read(before.st_size + 1)
+            after = os.fstat(stream.fileno())
+            if len(data) != before.st_size or (
+                before.st_dev,
+                before.st_ino,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            ) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                raise ReaVendorRefusal("rea_vendor_file_changed")
+            return data, before.st_mode
+    except OSError:
+        raise ReaVendorRefusal("rea_vendor_file_unavailable") from None
 
 
 def verify_vendored_rea_source(
@@ -157,24 +192,29 @@ def verify_vendored_rea_source(
         if record["mode"] not in _ALLOWED_MODES or not _SHA1.fullmatch(record["git_blob"]):
             raise ReaVendorRefusal("rea_vendor_file_identity_invalid")
         path = _regular_file(vendor_root, rel)
-        if bool(path.stat().st_mode & stat.S_IXUSR) != (record["mode"] == "100755"):
+        data, actual_mode = _read_bounded_regular_file(path, _MAX_TOTAL_BYTES - total_bytes)
+        if bool(actual_mode & stat.S_IXUSR) != (record["mode"] == "100755"):
             raise ReaVendorRefusal("rea_vendor_file_mode_mismatch")
-        data = path.read_bytes()
         total_bytes += len(data)
-        if total_bytes > _MAX_TOTAL_BYTES:
-            raise ReaVendorRefusal("rea_vendor_byte_limit")
         if _git_blob_digest(data) != record["git_blob"]:
             raise ReaVendorRefusal("rea_vendor_file_modified")
         expected.add(posix_path)
 
-    # An unreviewed extra executable, package or configuration file is forbidden.
+    # Also refuse FIFOs, sockets, devices and symlinks: not just extra regular files.
     for path in vendor_root.rglob("*"):
-        if path.is_file() or path.is_symlink():
-            rel = path.relative_to(vendor_root).as_posix()
-            _safe_relative_path(rel)
-            if path.is_symlink():
-                raise ReaVendorRefusal("rea_vendor_symlink_forbidden")
-            observed.add(rel)
+        rel = path.relative_to(vendor_root).as_posix()
+        _safe_relative_path(rel)
+        try:
+            mode = path.lstat().st_mode
+        except OSError:
+            raise ReaVendorRefusal("rea_vendor_inventory_unavailable") from None
+        if stat.S_ISDIR(mode):
+            continue
+        if stat.S_ISLNK(mode):
+            raise ReaVendorRefusal("rea_vendor_symlink_forbidden")
+        if not stat.S_ISREG(mode):
+            raise ReaVendorRefusal("rea_vendor_special_entry_forbidden")
+        observed.add(rel)
     if observed != expected:
         raise ReaVendorRefusal("rea_vendor_file_inventory_mismatch")
     for submodule in expected_links:
