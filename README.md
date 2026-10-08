@@ -82,6 +82,11 @@ computer, network connection or execution authority**. See
 An optional [offline target admission utility](docs/v0.15-rea-target-admission.md)
 can seal operator-selected text inputs from a fixed private inbox into inert
 snapshots. It requires explicit opt-in and grants no analyzer or Core authority.
+An explicit [offline target preflight](docs/v0.15-rea-target-preflight.md)
+rechecks an admitted snapshot against the unchanged pinned REA source and
+catalog and returns a content-bound *inert* review fingerprint through
+`python -m scripts.preflight_rea_target --allow-offline-rea-preflight`.
+There is no live Core API route, analyzer execution, Task, approval or Tool grant.
 
 ## Structure and scope
 
