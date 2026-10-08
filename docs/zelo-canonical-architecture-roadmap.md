@@ -622,7 +622,11 @@ may be used as execution authority. A separate
 [Core operator-target ledger](v0.15-rea-operator-target-selection.md) can
 store a single authenticated, operator-asserted inert review per snapshot ID
 and terminal revocation, but cannot verify target bytes, grant an analyzer
-Worker, create a Task/lease or approve an execution.
+Worker, create a Task/lease or approve an execution. A distinct
+[read-only analysis-plan projection](v0.15-rea-analysis-plan-preview.md)
+may show the current selected target, draft Specialist and worker authority
+policy fingerprints with explicit refusal reasons. It must not create a
+Task, approval, Worker registration, target file read or any execution grant.
 Importing MIT source does not grant host/browser/credential access and
 preserves original legal notices. Complete current Core and v0.16 gates
 before REA execution integration.

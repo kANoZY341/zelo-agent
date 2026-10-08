@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
 from app.auth import OperatorPrincipal, require_operator
+from app.rea_analysis_plan import ReaAnalysisPlanPreview, prepare_rea_analysis_plan
 from app.rea_operator_targets import (
     ReaOperatorTargetSelectionInput,
     ReaOperatorTargetSnapshot,
     ReaOperatorTargetStore,
 )
+from app.rea_tool_inventory import ReaCatalogRefusal
 
 router = APIRouter(dependencies=[Depends(require_operator)])
 
@@ -84,3 +86,28 @@ def revoke_rea_operator_target(
         if str(error) == "rea_target_identity_invalid":
             raise HTTPException(status_code=404, detail="rea_operator_target_not_found") from None
         raise HTTPException(status_code=503, detail="rea_operator_target_unavailable") from None
+
+
+@router.get(
+    "/integration-candidates/rea/operator-targets/{snapshot_id}/analysis-plan",
+    response_model=ReaAnalysisPlanPreview,
+)
+def get_rea_analysis_plan(
+    snapshot_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> ReaAnalysisPlanPreview:
+    """Read-only refused plan; selected metadata can never activate the analyzer."""
+
+    try:
+        return prepare_rea_analysis_plan(_target_store(request), snapshot_id, principal=principal)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="rea_operator_target_not_found") from None
+    except ValueError as error:
+        if str(error) == "rea_operator_target_revoked":
+            raise HTTPException(status_code=409, detail="rea_operator_target_revoked") from None
+        if str(error) == "rea_target_identity_invalid":
+            raise HTTPException(status_code=404, detail="rea_operator_target_not_found") from None
+        raise HTTPException(status_code=503, detail="rea_analysis_plan_unavailable") from None
+    except ReaCatalogRefusal:
+        raise HTTPException(status_code=503, detail="rea_analysis_plan_unavailable") from None

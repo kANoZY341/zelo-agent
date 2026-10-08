@@ -89,7 +89,10 @@ catalog and returns a content-bound *inert* review fingerprint through
 There is no live Core API route, analyzer execution, Task, approval or Tool grant.
 A separate [Core operator target selection ledger](docs/v0.15-rea-operator-target-selection.md)
 records authenticated, operator-asserted metadata and terminal revocations,
-not target verification or analyzer execution authority.
+not target verification or analyzer execution authority. A separate
+[read-only REA analysis plan](docs/v0.15-rea-analysis-plan-preview.md)
+shows why the draft Specialist and selected target cannot execute. It never
+registers an analyzer Worker, grants a Tool or creates a Task.
 
 ## Structure and scope
 

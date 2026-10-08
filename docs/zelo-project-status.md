@@ -65,7 +65,10 @@ review metadata and terminal refusal by snapshot identity. Core never imports
 admitted targets or uses a selection as proof of validated target bytes. Its
 execution, Tool, Worker, approval and task privileges remain permanently false
 in both service state and SQLite check constraints. This is explicitly not a
-working REA general-purpose Worker.
+working REA general-purpose Worker. The next independently reviewed,
+read-only analysis-plan projection may describe the current selection and
+security-policy identity with all execution refusals intact. No Task, Worker,
+Tool permission, runtime target access or analyzer process is enabled.
 
 
 ## REA source-owned candidate preparation
