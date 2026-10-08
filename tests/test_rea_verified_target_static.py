@@ -379,3 +379,24 @@ def test_qualified_probe_will_not_create_an_endpoint_or_core_task(client):
         ).json()["execution_enabled"]
         is False
     )
+
+
+def test_runtime_symlink_escape_refuses_before_any_target_or_docker(
+    admitted, tmp_path, monkeypatch
+):
+    result, _, proof_root, _ = admitted
+    _fake_native(monkeypatch, tmp_path, proof_root)
+
+    def refuse_unsafe_runtime(_runtime):
+        raise fixed.ReaStaticRefusal("rea_runtime_symlink_escape")
+
+    def forbid_launch(*_args, **_kwargs):
+        pytest.fail("Unsafe runtime must not start Docker")
+
+    monkeypatch.setattr(fixed, "trusted_profile", refuse_unsafe_runtime)
+    monkeypatch.setattr(proof.subprocess, "Popen", forbid_launch)
+    with pytest.raises(fixed.ReaStaticRefusal, match="rea_runtime_symlink_escape"):
+        proof.analyze_verified_static_target(
+            result["snapshot_id"], result["receipt_sha256"], operator_opt_in=True
+        )
+    assert not list(proof_root.glob("rea-target-*-*"))

@@ -73,9 +73,14 @@ codepath is prepared behind an explicit local CLI switch and its own pinned
 no-network sandbox policy. It verifies copied target contents against the
 independently retained receipt before allowing exactly one source-owned static
 REA MCP operation in an isolated Docker guest. No general-target native proof
-has yet been run or claimed successful. This is not Core execution, approval,
-Worker registration, permission propagation or Evidence admission; those
-remain future separately reviewed gates.
+has yet been run or claimed successful. Read-only runtime inspection of the
+previously copied REA v6 Node dependency tree refused with
+`rea_runtime_symlink_escape`: .bin entries escape the reviewed runtime root
+into a prior offline build directory. This must be corrected by a separate
+self-contained, independently fingerprinted offline runtime provisioning
+increment, never by relaxing the existing integrity guard. This is not Core
+execution, approval, Worker registration, permission propagation or Evidence
+admission; those remain future separately reviewed gates.
 
 
 ## REA source-owned candidate preparation
