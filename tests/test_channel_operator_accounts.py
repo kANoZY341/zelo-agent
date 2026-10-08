@@ -5,7 +5,7 @@ from threading import Barrier
 
 import pytest
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.auth import OperatorPrincipal
 from app.channel_operator_accounts import ChannelOperatorAccountStore
@@ -238,3 +238,80 @@ def test_sensitive_provider_information_never_written_by_service(database):
         assert not selections[0].mind_admission_authority
         assert not selections[0].delivery_authority
         assert count(session, ConversationTurn) == 0
+
+
+@pytest.mark.parametrize("insert_mode", ["INSERT OR REPLACE", "REPLACE", "INSERT OR IGNORE"])
+def test_raw_duplicate_selection_insert_modes_cannot_rewrite_history(database, insert_mode):
+    """SQLite REPLACE must not bypass the historical selection's DELETE guard."""
+
+    first = select_account(database)
+    with database.read() as session:
+        recursion = session.execute(text("PRAGMA recursive_triggers")).scalar_one()
+        assert recursion == 0
+
+    statement = (
+        f"{insert_mode} INTO channel_operator_account_selections "
+        "(account_key,app_secret_identity,operator_id,selected_at,"
+        "provider_authenticated,mind_admission_authority,delivery_authority) "
+        "VALUES (:key,:secret,'ahmad','2030-01-01 00:00:00',0,0,0)"
+    )
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(text(statement), {"key": ACCOUNT, "secret": "c" * 64})
+
+    assert store(database).get(ACCOUNT, principal=OPERATOR) == first
+    with database.read() as session:
+        assert count(session, ChannelOperatorAccountSelectionRecord) == 1
+
+
+@pytest.mark.parametrize("insert_mode", ["INSERT OR REPLACE", "REPLACE", "INSERT OR IGNORE"])
+def test_raw_duplicate_revocation_insert_modes_cannot_rewrite_history(database, insert_mode):
+    """Once revoked, raw SQL may not replace the irrevocable record timestamp."""
+
+    select_account(database)
+    assert store(database).revoke(account_key=ACCOUNT, principal=OPERATOR)
+    with database.read() as session:
+        original = session.execute(
+            text(
+                "SELECT revoked_at FROM channel_operator_account_revocations WHERE account_key=:key"
+            ),
+            {"key": ACCOUNT},
+        ).scalar_one()
+
+    statement = (
+        f"{insert_mode} INTO channel_operator_account_revocations "
+        "(account_key,operator_id,revoked_at) "
+        "VALUES (:key,'ahmad','2030-01-01 00:00:00')"
+    )
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(text(statement), {"key": ACCOUNT})
+
+    with database.read() as session:
+        assert count(session, ChannelOperatorAccountRevocationRecord) == 1
+        persisted = session.execute(
+            text(
+                "SELECT revoked_at FROM channel_operator_account_revocations WHERE account_key=:key"
+            ),
+            {"key": ACCOUNT},
+        ).scalar_one()
+    assert persisted == original
+    assert not store(database).get(ACCOUNT, principal=OPERATOR).currently_selected
+
+
+@pytest.mark.parametrize(
+    "table",
+    ["channel_operator_account_selections", "channel_operator_account_revocations"],
+)
+def test_append_only_account_tables_have_no_replaceable_hidden_rowid(database, table):
+    """WITHOUT ROWID removes the alternate raw SQL collision route."""
+
+    with database.read() as session:
+        create_sql = session.execute(
+            text("SELECT sql FROM sqlite_master WHERE name=:name AND type='table'"),
+            {"name": table},
+        ).scalar_one()
+    assert "WITHOUT ROWID" in create_sql.upper()
+    with database.read() as session:
+        with pytest.raises(OperationalError, match="rowid"):
+            session.execute(text(f"SELECT rowid FROM {table}"))

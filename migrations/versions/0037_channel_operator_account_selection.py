@@ -39,6 +39,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("mind_admission_authority=0", name="ck_channel_selection_not_mind"),
         sa.CheckConstraint("delivery_authority=0", name="ck_channel_selection_not_delivery"),
+        sqlite_with_rowid=False,
     )
     op.create_table(
         "channel_operator_account_revocations",
@@ -52,11 +53,23 @@ def upgrade() -> None:
         sa.Column("revoked_at", sa.DateTime(), nullable=False),
         _hex("account_key"),
         sa.CheckConstraint("operator_id='ahmad'", name="ck_channel_revocation_operator"),
+        sqlite_with_rowid=False,
     )
     for table in (
         "channel_operator_account_selections",
         "channel_operator_account_revocations",
     ):
+        # SQLITE INSERT OR REPLACE can otherwise implicitly delete a row
+        # without firing DELETE triggers when recursive_triggers is off.
+        # BEFORE INSERT runs before conflict replacement; reject duplicate
+        # keys even for REPLACE/INSERT OR IGNORE. WITHOUT ROWID removes the
+        # alternate implicit rowid collision/replacement path.
+        op.execute(
+            f"CREATE TRIGGER {table}_no_duplicate_insert "
+            f"BEFORE INSERT ON {table} "
+            f"WHEN EXISTS (SELECT 1 FROM {table} WHERE account_key = NEW.account_key) "
+            f"BEGIN SELECT RAISE(ABORT, 'Channel account selection is append-only'); END"
+        )
         for operation in ("UPDATE", "DELETE"):
             op.execute(
                 f"CREATE TRIGGER {table}_no_{operation.lower()} "
@@ -70,6 +83,7 @@ def downgrade() -> None:
         "channel_operator_account_revocations",
         "channel_operator_account_selections",
     ):
+        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_duplicate_insert")
         for operation in ("UPDATE", "DELETE"):
             op.execute(f"DROP TRIGGER IF EXISTS {table}_no_{operation.lower()}")
     op.drop_table("channel_operator_account_revocations")
