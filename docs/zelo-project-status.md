@@ -21,6 +21,9 @@ PR #110 merged at b8a963462a926e24517c884c7ceb0af454f9fa10:
 tree. Competing previously accepted skill revisions cannot gain a second
 local promotion link. Exact historical proof retries remain idempotent.
 
+Media native-reader qualification remains refused after four authorized
+attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
+
 PR #111 has merged the generic pre-merge publication refusal for protected
 learned-skill files. PR #117 also merged an inert identity-bound publication
 intent contract. These gates do not authorize runtime skill activation,
@@ -43,8 +46,6 @@ network execution is authorized. The older REA drafts #116 and #118
 remain parked while Core-controlled source build and later per-tool
 authority gates are planned.
 
-Media native-reader qualification remains refused after four authorized
-attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
 ## Checkpoint history
 
