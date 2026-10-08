@@ -58,15 +58,16 @@ target preflight CLI that rechecks sealed content, source and catalog hashes
 and emits an inert preview checksum. No Core API imports admitted files.
 Merged #127 (main 2b0610e) adds a Core-owned, append-only, authenticated
 operator selection and irreversible revocation ledger for **asserted**, not
-Core-verified, REA target identities. Its exact-head full CI passed; the new
-post-merge `main` CI must still pass before claiming that merged baseline green.
-All execution, Worker, Tool, Task and approval permissions remain false.
+Core-verified, REA target identities. Its exact-head full CI and post-merge
+`main` CI both passed. All execution, Worker, Tool, Task and approval
+permissions remain false.
 
-The read-only analysis-plan projection (PR #128) displays a non-authoritative
-selected target, draft REA Specialist and current WorkerAuthority policy
-fingerprints with five fixed refusal reasons. It never reads target bytes,
-creates a Task, invokes an analyzer or grants execution authority. Its
-post-merge CI and release remain separate verification gates.
+Merged PR #128 (main `4a8d4c2ebb3c10e3c6851194d8ead2b5b882bdcf`)
+delivers the read-only, denied analysis-plan projection for the selected
+asserted target, draft REA Specialist and current WorkerAuthority identity.
+It emits all five fixed refusal reasons; it never reads target bytes, creates
+a Task, invokes an analyzer or grants execution authority. Its exact-head
+full CI passed; post-merge `main` CI remains a separate pending gate.
 
 A subsequent strictly manual **offline sealed-target static qualification**
 codepath is prepared behind an explicit local CLI switch and its own pinned
