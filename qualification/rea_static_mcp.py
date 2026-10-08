@@ -33,6 +33,11 @@ DOCKER_BIN = Path("/usr/bin/docker")
 DOCKER_SOCKET = "unix:///var/run/docker.sock"
 TOOL = "analyze_javascript_application"
 PROTOCOL = "2025-11-25"
+# Exact independently pinned two-file manual fixture; neither caller nor REA
+# may substitute arbitrary user-selected source through this proof path.
+FIXTURE_SHA256 = "a68ef06cab5e6a226db2bb45494bf82a6a2e6934eb785cb540cf5d6fd0b4bbdf"
+FIXTURE_FILE_COUNT = 2
+FIXTURE_TOTAL_BYTES = 130
 MAX_FILE_COUNT = 128
 MAX_FILE_BYTES = 512 * 1024
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -641,6 +646,14 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             encoding="ascii",
         )
         source_sha, count, total = stage_source(source, stage)
+        # Validate the actual staged copy, not merely the fixture preparation
+        # script or the mutable source directory. Refuse before Docker starts.
+        if (
+            not secrets.compare_digest(source_sha, FIXTURE_SHA256)
+            or count != FIXTURE_FILE_COUNT
+            or total != FIXTURE_TOTAL_BYTES
+        ):
+            raise ReaStaticRefusal("rea_fixture_identity_mismatch")
         cidfile = stage / "owned.cid"
         env = _clean_env(stage)
         argv = docker_args(
