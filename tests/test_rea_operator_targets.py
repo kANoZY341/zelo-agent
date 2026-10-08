@@ -319,8 +319,17 @@ def test_real_offline_preview_is_schema_compatible_but_still_not_core_proof(
     assert not stored.execution_authority and not stored.worker_authority
 
 
-def test_database_rejects_direct_execution_grant_in_inert_selection(database):
+@pytest.mark.parametrize(
+    "grant_flag", ("execution_authority", "worker_authority", "approval_authority")
+)
+def test_database_rejects_direct_privilege_grants_in_inert_selection(database, grant_flag):
     values = review_dict()
+    values.update(
+        {
+            flag: int(flag == grant_flag)
+            for flag in ("execution_authority", "worker_authority", "approval_authority")
+        }
+    )
     with pytest.raises(IntegrityError):
         with database.transaction() as session:
             session.execute(
@@ -330,7 +339,8 @@ def test_database_rejects_direct_execution_grant_in_inert_selection(database):
                     "total_bytes,operator_id,selected_at,execution_authority,worker_authority,"
                     "approval_authority) VALUES "
                     "(:snapshot_id,:receipt_sha256,:content_sha256,:review_fingerprint,"
-                    ":file_count,:total_bytes,'ahmad','2026-10-08 00:00:00',1,0,0)"
+                    ":file_count,:total_bytes,'ahmad','2026-10-08 00:00:00',"
+                    ":execution_authority,:worker_authority,:approval_authority)"
                 ),
                 values,
             )
