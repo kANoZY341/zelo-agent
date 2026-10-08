@@ -639,13 +639,17 @@ channel text envelopes, keyed opaque provider/thread/message identities,
 and reserved channel-turn idempotency keys.
 
 The WhatsApp signature verifier checks Meta's `X-Hub-Signature-256`
-against exact raw webhook bytes under a trusted server-owned App Secret.
-The signed-text parser extracts one strictly bounded inbound text event
-only after signature verification. Unsupported, mixed and batched payloads
-fail closed; status-only events produce no text turn. Neither function
-establishes account ownership, freshness, replay permission, Mind admission
-or sending. See `docs/v0.16-whatsapp-signature-foundation.md` and
-`docs/v0.16-whatsapp-signed-text-shape.md`.
+against exact raw webhook bytes using a trusted server-owned App Secret.
+The signed-text parser extracts exactly one bounded inbound text event,
+refusing mixed, malformed, media or batched payloads; status-only events
+produce no text turn. The inert projection derives keyed pseudonymous
+WABA/phone/sender/thread/message identities under an **independent Core
+identity secret**, producing only an unverified `ChannelTextIngress`.
+These offline functions grant no provider account ownership, freshness,
+replay, Mind admission or sending authority. See
+`docs/v0.16-whatsapp-signature-foundation.md`,
+`docs/v0.16-whatsapp-signed-text-shape.md` and
+`docs/v0.16-whatsapp-opaque-ingress.md`.
 
 This foundation has no provider credentials or connected transports.
 A separately qualified adapter must authenticate provider origin,
