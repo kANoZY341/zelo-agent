@@ -28,6 +28,7 @@ from app.tasks import (
     CAPACITY_BACKOFF_INITIAL_SECONDS,
     CAPACITY_BACKOFF_MAX_SECONDS,
     TaskService,
+    capacity_backoff_seconds,
 )
 from app.worker_authority import AUTHORITY_POLICY_VERSION
 from tests.developer_helpers import FakeWorker
@@ -503,40 +504,67 @@ def test_real_runtime_slot_contention_defers_with_bounded_backoff_and_retries(
         runner = Runner(service, developer_runtime=developer_case)
         runner.start()
         try:
-            for _ in range(50):
+            # Backoff starts at 0.25s. A slow CI runner can observe multiple
+            # bounded capacity deferrals while the lock remains held. Do not
+            # assert exactly one attempt during a 0.5s polling window.
+            deadline = asyncio.get_running_loop().time() + 12
+            while asyncio.get_running_loop().time() < deadline:
                 current = service.get(task.id)
                 if (
                     current.status == State.PENDING
-                    and len(current.attempts) == 1
-                    and current.attempts[0].outcome == State.INTERRUPTED
+                    and len(current.attempts) >= 2
+                    and all(attempt.outcome == State.INTERRUPTED for attempt in current.attempts)
                 ):
                     break
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.02)
+            else:
+                pytest.fail("runner did not defer two attempts while capacity was exhausted")
+
             current = service.get(task.id)
             assert current.status == State.PENDING
             assert current.error is None
             assert current.approvals[0].status == "approved"
-            assert len(current.attempts) == 1
-            assert current.attempts[0].error == "developer_worker_capacity_exhausted"
+            assert len(current.attempts) >= 2
+            assert all(
+                attempt.outcome == State.INTERRUPTED
+                and attempt.error == "developer_worker_capacity_exhausted"
+                for attempt in current.attempts
+            )
+            interrupted_count = len(current.attempts)
             deferred = [
                 event
                 for event in service.events(task.id, 100, 0)
                 if event.event == "execution_deferred"
             ]
-            assert len(deferred) == 1
+            assert len(deferred) >= 2
             assert deferred[0].details["retry_after_seconds"] == CAPACITY_BACKOFF_INITIAL_SECONDS
+            assert deferred[1].details["retry_after_seconds"] == min(
+                CAPACITY_BACKOFF_INITIAL_SECONDS * 2, CAPACITY_BACKOFF_MAX_SECONDS
+            )
+            for event in deferred:
+                consecutive = event.details["consecutive_deferrals"]
+                assert event.details["retry_after_seconds"] == capacity_backoff_seconds(consecutive)
+                assert 1 <= consecutive
+                assert (
+                    CAPACITY_BACKOFF_INITIAL_SECONDS
+                    <= event.details["retry_after_seconds"]
+                    <= CAPACITY_BACKOFF_MAX_SECONDS
+                )
 
             lock.close()
-            for _ in range(200):
+            deadline = asyncio.get_running_loop().time() + 15
+            while asyncio.get_running_loop().time() < deadline:
                 current = service.get(task.id)
-                if current.status == State.SUCCEEDED and len(current.attempts) >= 2:
+                if current.status == State.SUCCEEDED and len(current.attempts) > interrupted_count:
                     break
                 await asyncio.sleep(0.05)
             current = service.get(task.id)
             assert current.status == State.SUCCEEDED
-            assert current.attempts[0].outcome == State.INTERRUPTED
+            assert all(attempt.outcome == State.INTERRUPTED for attempt in current.attempts[:-1])
             assert current.attempts[-1].outcome == State.SUCCEEDED
-            assert len(current.attempts) <= 3
+            # A single in-flight claim may be re-deferred as the lock is
+            # released, but the next bounded retry must succeed.
+            assert len(current.attempts) <= interrupted_count + 2
         finally:
             if not lock.closed:
                 lock.close()
