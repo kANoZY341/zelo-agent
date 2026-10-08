@@ -36,6 +36,7 @@ from app.skill_learning import (
 from app.skill_learning_store import SkillLearningProposalStore
 from tests import test_skill_learning_store as skill_learning_store_tests
 from tests.conftest import AUTH
+from tests.test_skill_learning import revision as make_revision
 from tests.test_skill_learning_store import accepted
 
 
@@ -909,6 +910,34 @@ def test_promotion_link_records_are_append_only(database, proposal_case):
             )
     with database.read() as session:
         assert session.scalar(select(SkillLearningPromotionLinkRecord)).id == link.link_id
+
+
+def test_operator_api_refuses_preaccepted_competing_promoted_head(client, database, proposal_case):
+    base, agent, _task, _attempt, first_revision, ref = proposal_case
+    first = accepted(base, agent, first_revision, ref)
+    competing_revision = make_revision(
+        title="Preapproved conflicting first revision",
+        instructions=(
+            "Gather only authorized evidence using another reviewed "
+            "first revision before either candidate is linked."
+        ),
+        space_permissions=(),
+    )
+    competing = accepted(base, agent, competing_revision, ref)
+    store = promotion_store(database, base)
+    first_merge = successful_lineage(database, first_revision)
+    other_merge = successful_lineage(database, competing_revision)
+    store.record_promotion_link(first.proposal.proposal_id, first_merge, OperatorPrincipal())
+    client.app.state.skill_learning_store = store
+
+    response = client.post(
+        f"/skill-learning/proposals/{competing.proposal.proposal_id}/promotion-link",
+        headers=AUTH,
+        json={"merge_task_id": other_merge},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "skill_learning_promoted_head_advanced"
+    assert store.get_promotion_link(competing.proposal.proposal_id) is None
 
 
 def test_operator_api_records_existing_merge_only(client, database, proposal_case):
