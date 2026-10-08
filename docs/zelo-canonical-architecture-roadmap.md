@@ -636,14 +636,23 @@ Zelo-owned interfaces.
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
 channel text envelopes, keyed opaque provider/thread/message identities
-and reserved channel-turn idempotency keys. The WhatsApp signature
-follow-up verifies Meta's
-`X-Hub-Signature-256` against the exact raw webhook bytes using a trusted
-server-owned App Secret. Signature validity alone is **not** proof of
-account ownership, freshness, replay permission, Mind admission or sending.
-This pure offline verifier is not connected to HTTP or messaging APIs;
-see `docs/v0.16-whatsapp-signature-foundation.md`.
-This foundation has no provider credentials or connected transports.
+and reserved channel-turn idempotency keys.
+
+The WhatsApp signature verifier checks Meta's X-Hub-Signature-256 against
+the exact raw webhook bytes using a trusted server-owned App Secret.
+The signed-text parser extracts exactly one bounded inbound text event,
+refusing mixed, malformed, media or batched payloads; status-only events
+produce no text turn. The inert projection derives keyed pseudonymous
+WABA/phone/sender/thread/message identities under an independent Core
+identity secret, producing only an unverified ChannelTextIngress.
+These offline functions grant no provider account ownership, freshness,
+replay, Mind admission or sending authority. See the signature, parser
+and ingress documentation:
+docs/v0.16-whatsapp-signature-foundation.md,
+docs/v0.16-whatsapp-signed-text-shape.md and
+docs/v0.16-whatsapp-opaque-ingress.md.
+
+This foundation has no connected providers, live credentials or transport.
 A separately qualified adapter must authenticate provider origin,
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
