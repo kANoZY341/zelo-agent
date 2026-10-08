@@ -61,6 +61,7 @@ from app.promotion_release import PromotionReleaseRuntime
 from app.promotion_review import PromotionReviewer
 from app.python_worker import PythonRuntime
 from app.rea_candidate_api import router as rea_candidate_router
+from app.rea_operator_targets_api import router as rea_operator_targets_router
 from app.research import ResearchRuntime
 from app.runner import Runner
 from app.scheduler import CampaignScheduler
@@ -427,6 +428,7 @@ def create_app(
     application.include_router(task_router)
     application.include_router(capability_router)
     application.include_router(rea_candidate_router)
+    application.include_router(rea_operator_targets_router)
     application.include_router(skill_router)
     application.include_router(skill_learning_router)
     application.include_router(agent_activation_router)

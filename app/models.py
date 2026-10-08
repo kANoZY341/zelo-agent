@@ -1057,3 +1057,63 @@ class SkillLearningPromotionLinkRecord(Base):
     link_json: Mapped[str] = mapped_column(Text)
     runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class ReaOperatorTargetSelectionRecord(Base):
+    """Operator-asserted inert target identity; NOT verified bytes or tool authority."""
+
+    __tablename__ = "rea_operator_target_selections"
+    __table_args__ = (
+        CheckConstraint(
+            "length(snapshot_id)=39 AND substr(snapshot_id,1,7)='target-' "
+            "AND substr(snapshot_id,8) NOT GLOB '*[^0-9a-f]*'",
+            name="ck_rea_target_selection_snapshot_id",
+        ),
+        *(
+            CheckConstraint(
+                f"length({field})=64 AND {field} NOT GLOB '*[^0-9a-f]*'",
+                name=f"ck_rea_target_selection_{field}",
+            )
+            for field in ("receipt_sha256", "content_sha256", "review_fingerprint")
+        ),
+        CheckConstraint("file_count BETWEEN 1 AND 128", name="ck_rea_target_selection_file_count"),
+        CheckConstraint(
+            "total_bytes BETWEEN 0 AND 4194304", name="ck_rea_target_selection_total_bytes"
+        ),
+        CheckConstraint("operator_id='ahmad'", name="ck_rea_target_selection_operator"),
+        CheckConstraint("execution_authority=0", name="ck_rea_target_selection_no_execution"),
+        CheckConstraint("worker_authority=0", name="ck_rea_target_selection_no_worker"),
+        CheckConstraint("approval_authority=0", name="ck_rea_target_selection_no_approval"),
+    )
+
+    snapshot_id: Mapped[str] = mapped_column(String(39), primary_key=True)
+    receipt_sha256: Mapped[str] = mapped_column(String(64))
+    content_sha256: Mapped[str] = mapped_column(String(64))
+    review_fingerprint: Mapped[str] = mapped_column(String(64))
+    file_count: Mapped[int] = mapped_column(Integer)
+    total_bytes: Mapped[int] = mapped_column(Integer)
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    selected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    execution_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    worker_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ReaOperatorTargetRevocationRecord(Base):
+    """Append-only, terminal refusal; cannot reselect the same snapshot identity."""
+
+    __tablename__ = "rea_operator_target_revocations"
+    __table_args__ = (
+        CheckConstraint(
+            "length(snapshot_id)=39 AND substr(snapshot_id,1,7)='target-' "
+            "AND substr(snapshot_id,8) NOT GLOB '*[^0-9a-f]*'",
+            name="ck_rea_target_revocation_snapshot_id",
+        ),
+        CheckConstraint("operator_id='ahmad'", name="ck_rea_target_revocation_operator"),
+    )
+
+    snapshot_id: Mapped[str] = mapped_column(
+        ForeignKey("rea_operator_target_selections.snapshot_id"), primary_key=True
+    )
+    operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
+    revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

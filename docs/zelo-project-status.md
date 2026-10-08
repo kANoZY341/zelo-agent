@@ -60,6 +60,13 @@ source and catalog; emit a deterministic inert review fingerprint. It does not
 add a live Core API route or import target files into the runtime. This
 still grants no Worker, Task, lease, approval, tool or analyzer execution.
 
+The next Core selection/revocation increment adds append-only operator-asserted
+review metadata and terminal refusal by snapshot identity. Core never imports
+admitted targets or uses a selection as proof of validated target bytes. Its
+execution, Tool, Worker, approval and task privileges remain permanently false
+in both service state and SQLite check constraints. This is explicitly not a
+working REA general-purpose Worker.
+
 
 ## REA source-owned candidate preparation
 

@@ -594,6 +594,12 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "channel_operator_account_revocations_no_delete",
             "channel_operator_account_revocations_no_update",
             "channel_operator_account_revocations_no_duplicate_insert",
+            "rea_operator_target_selections_no_delete",
+            "rea_operator_target_selections_no_update",
+            "rea_operator_target_selections_no_duplicate_insert",
+            "rea_operator_target_revocations_no_delete",
+            "rea_operator_target_revocations_no_update",
+            "rea_operator_target_revocations_no_duplicate_insert",
         }
     finally:
         db.close()
