@@ -37,6 +37,7 @@ _SHA1 = re.compile(r"[0-9a-f]{40}\Z", re.ASCII)
 _ALLOWED_MODES = frozenset({"100644", "100755"})
 _MAX_TOTAL_BYTES = 30 * 1024 * 1024
 _MAX_FILE_BYTES = 8 * 1024 * 1024
+_MAX_MANIFEST_BYTES = 512 * 1024
 
 
 class ReaVendorRefusal(ValueError):
@@ -132,7 +133,7 @@ def verify_vendored_rea_source(
     """Verify all 2082 copied Git blobs, explicit notices and optional gitlink pins."""
 
     try:
-        raw = manifest_path.read_bytes()
+        raw, _mode = _read_bounded_regular_file(manifest_path, _MAX_MANIFEST_BYTES)
         if hashlib.sha256(raw).hexdigest() != EXPECTED_MANIFEST_SHA256:
             raise ReaVendorRefusal("rea_vendor_manifest_changed")
         manifest = json.loads(raw)
@@ -200,7 +201,16 @@ def verify_vendored_rea_source(
             raise ReaVendorRefusal("rea_vendor_file_modified")
         expected.add(posix_path)
 
-    # Also refuse FIFOs, sockets, devices and symlinks: not just extra regular files.
+    # Git does not track empty directories, so even unexpected empty directories
+    # must fail the exact inventory. Empty optional gitlink roots are permitted.
+    allowed_directories: set[str] = set(expected_links)
+    for rel in (*expected, *expected_links):
+        directory = Path(rel).parent
+        while str(directory) != ".":
+            allowed_directories.add(directory.as_posix())
+            directory = directory.parent
+
+    # Refuse FIFOs, sockets, devices, symlinks and untracked empty directories.
     for path in vendor_root.rglob("*"):
         rel = path.relative_to(vendor_root).as_posix()
         _safe_relative_path(rel)
@@ -209,6 +219,8 @@ def verify_vendored_rea_source(
         except OSError:
             raise ReaVendorRefusal("rea_vendor_inventory_unavailable") from None
         if stat.S_ISDIR(mode):
+            if rel not in allowed_directories:
+                raise ReaVendorRefusal("rea_vendor_directory_inventory_mismatch")
             continue
         if stat.S_ISLNK(mode):
             raise ReaVendorRefusal("rea_vendor_symlink_forbidden")

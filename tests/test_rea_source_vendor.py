@@ -92,3 +92,26 @@ def test_extra_symlink_cannot_escape_source_inventory(tmp_path):
             verify_vendored_rea_source()
     finally:
         alias.unlink()
+
+
+def test_oversized_manifest_refuses_before_json_load(tmp_path):
+    from qualification.rea_source_vendor import _MAX_MANIFEST_BYTES
+
+    manifest = tmp_path / "untrusted-manifest.json"
+    with manifest.open("wb") as stream:
+        stream.truncate(_MAX_MANIFEST_BYTES + 1)
+    with pytest.raises(ReaVendorRefusal, match="rea_vendor_byte_limit"):
+        verify_vendored_rea_source(manifest_path=manifest)
+
+
+def test_untracked_empty_directory_cannot_hide_from_exact_inventory():
+    from qualification.rea_source_vendor import VENDOR_ROOT
+
+    new_dir = VENDOR_ROOT / "_zelo_unlisted_empty_directory"
+    assert not new_dir.exists()
+    new_dir.mkdir(mode=0o700)
+    try:
+        with pytest.raises(ReaVendorRefusal, match="rea_vendor_directory_inventory_mismatch"):
+            verify_vendored_rea_source()
+    finally:
+        new_dir.rmdir()
