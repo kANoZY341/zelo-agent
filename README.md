@@ -81,6 +81,14 @@ computer, network connection or execution authority**. See
 
 ## Structure and scope
 
+REA's source-owned v6 Specialist is available to authenticated operators
+as a read-only draft candidate at GET /integration-candidates/rea.
+Its instructions, capability and skill remain outside live registries.
+The candidate references the local pinned REA v6 source and all 139
+upstream observed MCP tool names, but grants no execution, tools,
+computer, secrets, network or Task/Worker authority. See
+docs/v0.15-rea-integration.md and docs/v0.15-rea-v6-source-import.md.
+
 - `app/application.py`: reusable explicitly configured application factory/lifespan.
 - `app/main.py`: normal environment-backed ASGI entry point.
 - `app/api.py`: typed HTTP responses and routes.

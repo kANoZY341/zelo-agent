@@ -218,3 +218,17 @@ def default_capability_registry() -> CapabilityRegistry:
             ),
         )
     )
+
+
+def rea_reverse_engineering_capability_spec() -> CapabilitySpec:
+    """Declare candidate REA capability without changing the live registry."""
+
+    return CapabilitySpec(
+        capability_id="reverse_engineering",
+        description=(
+            "Investigate approved shipped artifacts through a separately qualified "
+            "REA analysis worker; candidate metadata only."
+        ),
+        subjects=("agent",),
+        lifecycle="draft",
+    )

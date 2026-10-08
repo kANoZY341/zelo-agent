@@ -1,0 +1,28 @@
+{
+  "schema": "zelo-source-owned-rea-integration-v1",
+  "integration_id": "rea",
+  "source_repository": "https://github.com/morluto/rea",
+  "license": "MIT",
+  "source": {
+    "tag": "rea-agents-6.0.0",
+    "commit": "6fee42689ae6e95a0182e0d4d0f55644e73e72be",
+    "path": "third_party/rea",
+    "integrity_manifest": "integrations/rea/source-v6.0.0.manifest.json",
+    "mcp_tool_catalog": "integrations/rea/tool-catalog-v6.0.0.json",
+    "observed_mcp_version": "6.0.0",
+    "observed_mcp_protocol": "2025-11-25",
+    "observed_tools": 139
+  },
+  "lifecycle": "draft",
+  "execution_enabled": false,
+  "managed_install_enabled": false,
+  "workspace_access_enabled": false,
+  "target_execution_enabled": false,
+  "runtime_capture_enabled": false,
+  "network_access_enabled": false,
+  "credential_access_enabled": false,
+  "core_task_kind": null,
+  "worker_authority_profile": null,
+  "mcp_tool_grants": [],
+  "source_integrity_qualified": true
+}

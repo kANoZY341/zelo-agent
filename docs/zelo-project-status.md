@@ -47,6 +47,18 @@ remain parked while Core-controlled source build and later per-tool
 authority gates are planned.
 
 
+## REA source-owned candidate preparation
+
+Draft PR #119 pins the full upstream REA v6 source and its 139-tool
+catalog; no REA Worker or agent execution is enabled. PR #116 migrates
+its draft Specialist/Capability/Skill metadata and read-only operator
+candidate view from v5 npm references to that Zelo-owned source.
+PR #118 now qualifies its exact REA v6 source-built, fixed-fixture MCP
+static reader inside an isolated no-network Docker guest. This proves a
+local-source bridge, not generalized REA Worker execution. Neither PR
+grants runtime host, user-target, network or secret access;
+Media refusal history and UI PR #61 remain preserved.
+
 ## Checkpoint history
 
 The sections below preserve prior releases and implementation checkpoints. Their

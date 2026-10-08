@@ -646,6 +646,18 @@ Agent/model context.
 Integrate useful ECC, Open Code Review, Archify and similar patterns behind
 Zelo-owned interfaces.
 
+The REA v6 full-source import is kept in-tree. Its separate, operator-visible
+draft reverse_engineering Specialist Agent, reverse_engineering Capability,
+and rea_investigation Skill are pinned to this imported source. The source
+advertises 139 observed tools but none is granted to Core or to an Agent.
+The existing active Agent/Capability/Skill registry versions stay unchanged.
+No Worker, task, computer, host/target/browser/network/credential permission
+is enabled by the candidate. The plan in
+[REA integration](v0.15-rea-integration.md) retains Core's original
+approval/claim-time authority and source qualification. Runtime activation
+must separately pass review; earlier v0.15, v0.16 and later milestones
+retain their existing priority.
+
 ### v0.16 — Channels and presence
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
