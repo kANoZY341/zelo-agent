@@ -34,6 +34,11 @@ def test_rea_candidate_defines_zero_authority():
     agent = candidate.agent
     assert candidate.integration_id == "rea"
     assert candidate.lifecycle == "draft"
+    assert candidate.source_tag == "rea-agents-6.0.0"
+    assert candidate.source_commit == "6fee42689ae6e95a0182e0d4d0f55644e73e72be"
+    assert candidate.source_path == "third_party/rea"
+    assert candidate.tools_available == 139
+    assert candidate.tool_grants == ()
     assert candidate.execution_enabled is False
     assert agent == reverse_engineering_agent_spec()
     assert agent.agent_id == "reverse_engineering"
@@ -69,10 +74,13 @@ def test_rea_manifest_never_admits_execution():
     assert manifest["lifecycle"] == "draft"
     assert manifest["source_repository"] == "https://github.com/morluto/rea"
     assert manifest["license"] == "MIT"
-    assert manifest["package"]["name"] == "rea-agents"
-    assert manifest["package"]["version"] == "5.0.0"
-    assert manifest["package"]["transport"] == "stdio"
-    assert manifest["source_integrity_qualified"] is False
+    assert manifest["schema"] == "zelo-source-owned-rea-integration-v1"
+    assert manifest["source"]["tag"] == "rea-agents-6.0.0"
+    assert manifest["source"]["commit"] == "6fee42689ae6e95a0182e0d4d0f55644e73e72be"
+    assert manifest["source"]["path"] == "third_party/rea"
+    assert manifest["source"]["observed_tools"] == 139
+    assert manifest["mcp_tool_grants"] == []
+    assert manifest["source_integrity_qualified"] is True
     assert manifest["core_task_kind"] is None
     assert manifest["worker_authority_profile"] is None
     for key, value in manifest.items():
@@ -89,6 +97,10 @@ def test_rea_candidate_requires_operator_and_stays_out_of_live_surfaces(client):
     assert payload["capability"]["lifecycle"] == "draft"
     assert payload["skill"]["lifecycle"] == "draft"
     assert payload["execution_enabled"] is False
+    assert payload["source_tag"] == "rea-agents-6.0.0"
+    assert payload["source_path"] == "third_party/rea"
+    assert payload["tools_available"] == 139
+    assert payload["tool_grants"] == []
 
     denied = client.get("/integration-candidates/rea", headers={"Authorization": "Bearer invalid"})
     assert denied.status_code == 401

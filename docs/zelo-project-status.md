@@ -1,47 +1,63 @@
 # Zelo live project status
 
-Latest checkpoint verified: 7 October 2026
+Latest checkpoint verified: 8 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger
+## Active increment: v0.15 publication refusal and inert v0.16 channels
 
-Core-first work remains on Core v0.15. Merged PR #107 established the
-governed learned-skill proposal admission guard. Merged PR #108 at
-bc6f50c94b7d42c25a32462a8657606534dff457 added bounded inert channel:
-text envelopes, HMAC pseudonymous identities and prepared-only replies;
-4,965 tests passed, 2 skipped.
-
+Core-first work remains on Core v0.15. Merged PR #107 established learned-skill
+proposal admission. Merged PR #108 at
+bc6f50c94b7d42c25a32462a8657606534dff457 added channel: text
+envelopes and HMAC pseudonymous identities (4,965 tests passed, 2 skipped).
 PR #109 merged at bd586aa702d2b8b414db8bd22ac2676575c194f4 with
-4,985 tests passed, 2 skipped; its merged tree exactly matches the
-reviewed source. It adds operator-selected opaque thread bindings and
-append-only unverified inbound replay observations. These records store no
-original message body and cannot claim provider authentication, account
-ownership, Mind admission, execution, delivery, voice or calling authority.
+4,985 tests passed, 2 skipped: operator-selected opaque thread bindings
+and append-only unverified observations never admit Mind turns or delivery.
 
-PR #110 is the active unmerged v0.15 local promotion-link exclusivity
-gate. Competing previously accepted skill revisions cannot both receive
-new local promotion links. Historical reviewed decisions remain valid.
-The separate PR #111 still provides the proposed generic GitHub
-pre-merge publication refusal; a future identity-bound publication
-reservation remains necessary. There is no automatic learned skill
-runtime activation or expansion of Agent/Worker/Tool permissions.
+PR #110 merged at b8a963462a926e24517c884c7ceb0af454f9fa10:
+4,988 tests passed, 2 skipped, with an identical reviewed and merged
+tree. Competing previously accepted skill revisions cannot gain a second
+local promotion link. Exact historical proof retries remain idempotent.
 
 Media native-reader qualification remains refused after four authorized
 attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
-The separately proposed v0.15 REA catalog is a **draft-only** reverse-engineering
-Specialist/Capability/Skill definition exposed only as an authenticated,
-non-authoritative candidate snapshot plus pinned disabled external-tool
-manifest. A separate fixed-fixture manual REA MCP proof now exists with pinned
-npm/Node identities and a restricted Docker guest; it is not a Core task or
-activated REA Worker. Live registry fingerprints remain unchanged, so active
-agent instances do not become stale. This does not authorize REA execution,
-install external packages,
-change the active v0.15 merge queue, or unblock any worker/sandbox gate.
+PR #111 has merged the generic pre-merge publication refusal for protected
+learned-skill files. PR #117 also merged an inert identity-bound publication
+intent contract. These gates do not authorize runtime skill activation,
+external GitHub publication or new Tool/Worker permissions.
 
+The v0.16 channel security stack is now merged through PRs #112, #113,
+#114 and #115: offline exact raw-body WhatsApp HMAC verification, strict
+single text-event extraction, unverified pseudonymous ingress, and an
+append-only operator-selected/revocable WABA-plus-receiving-phone identity
+ledger. All default permissions for Mind admission, provider authenticity
+and outbound delivery remain false. No real Meta account/credential,
+network webhook listener, Mind turn, sending, voice or calling is enabled.
+
+Draft PR #119 stages the complete, pinned REA 6.0.0 source snapshot
+(2,082 upstream-tracked files plus five separately pinned optional Git
+submodule identities) in Zelo instead of an npm-backed external MCP
+dependency. Its source manifest and integrity verifier remain inert:
+no REA Worker, Tool, Agent activation, native engine, host access or
+network execution is authorized. The older REA drafts #116 and #118
+remain parked while Core-controlled source build and later per-tool
+authority gates are planned.
+
+
+## REA source-owned candidate preparation
+
+Draft PR #119 pins the full upstream REA v6 source and its 139-tool
+catalog; no REA Worker or agent execution is enabled. PR #116 migrates
+its draft Specialist/Capability/Skill metadata and read-only operator
+candidate view from v5 npm references to that Zelo-owned source.
+PR #118 now qualifies its exact REA v6 source-built, fixed-fixture MCP
+static reader inside an isolated no-network Docker guest. This proves a
+local-source bridge, not generalized REA Worker execution. Neither PR
+grants runtime host, user-target, network or secret access;
+Media refusal history and UI PR #61 remain preserved.
 
 ## Checkpoint history
 

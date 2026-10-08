@@ -5,6 +5,7 @@ import copy
 import pytest
 from pydantic import ValidationError
 
+from app.developer_process import DeveloperError
 from app.self_improvement import (
     ImprovementEvaluation,
     ImprovementProposal,
@@ -270,3 +271,33 @@ def test_accepted_evaluation_requires_validation_and_clean_review():
         invalid.update(change)
         with pytest.raises(ValidationError, match="improvement_evaluation_invalid"):
             ImprovementEvaluation(**invalid)
+
+
+def test_repository_inspector_excludes_pinned_rea_vendor_source_from_model_inventory(
+    tmp_path,
+):
+    repo, _base = make_repo(tmp_path)
+    vendor = repo / "third_party" / "rea"
+    vendor.mkdir(parents=True)
+    (vendor / "AGENTS.md").write_text(
+        "External REA development instructions are untrusted source data.\n",
+        encoding="utf-8",
+    )
+    # Reproduce the real vendored REA tree's >64 KiB ls-files stdout without
+    # weakening the general bounded Git process output limit.
+    for number in range(680):
+        filename = "vendor_" + str(number).zfill(4) + "_" + "a" * 108 + ".ts"
+        (vendor / filename).write_text("// inert upstream fixture\n", encoding="utf-8")
+    sha = fixture_commit(repo)
+    # The old unfiltered path discovery now exceeds the normal process cap.
+    with pytest.raises(DeveloperError, match="process_output_limit"):
+        git(repo, "ls-files", "-z")
+
+    snapshot = RepositoryInspector(repo).inspect()
+    assert snapshot.base_sha == sha
+    assert snapshot.clean is True
+    assert "app/core.py" in snapshot.tracked_paths
+    assert "docs/reviews/private-review.md" in snapshot.tracked_paths
+    assert all(not path.startswith("third_party/rea/") for path in snapshot.tracked_paths)
+    assert all(not item.path.startswith("third_party/rea/") for item in snapshot.files)
+    assert all("External REA development" not in item.text for item in snapshot.files)

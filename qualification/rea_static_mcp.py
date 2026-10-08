@@ -23,9 +23,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "integrations" / "rea" / "integration.json"
-LOCK = ROOT / "integrations" / "rea" / "npm" / "package-lock.json"
-NATIVE_RUNTIME = ROOT / "workspaces" / "rea-qualification" / "runtime"
-NATIVE_TARBALL = ROOT / "workspaces" / "rea-qualification" / "artifacts" / "rea-agents-5.0.0.tgz"
+PROFILE = ROOT / "integrations" / "rea" / "static-mcp-v6-profile.json"
+SOURCE_LOCK = ROOT / "third_party" / "rea" / "package-lock.json"
+SOURCE_ENTRYPOINT = ROOT / "third_party" / "rea" / "scripts" / "rea.mjs"
+NATIVE_RUNTIME = ROOT / "workspaces" / "rea-qualification" / "runtime-v6"
+SOURCE_CATALOG = ROOT / "integrations" / "rea" / "tool-catalog-v6.0.0.json"
 NATIVE_FIXTURE_ROOT = ROOT / "workspaces" / "rea-qualification"
 DOCKER_BIN = Path("/usr/bin/docker")
 DOCKER_SOCKET = "unix:///var/run/docker.sock"
@@ -113,46 +115,67 @@ def fingerprint_modules(root: Path) -> str:
 
 
 def trusted_profile(runtime: Path) -> dict[str, Any]:
-    """Refuse unpinned or mutable dependency/runtime identities before any launch."""
+    """Verify source ownership, exact offline build and inert Core authority."""
+
+    from qualification.rea_source_vendor import (  # local source; no external client
+        EXPECTED_COMMIT,
+        EXPECTED_MANIFEST_SHA256,
+        verify_vendored_rea_source,
+    )
 
     try:
         config = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        profile = config["qualification_profile"]
-        locked = json.loads(LOCK.read_text(encoding="utf-8"))
-        package = json.loads(
-            (runtime / "node_modules" / "rea-agents" / "package.json").read_text(encoding="utf-8")
-        )
-        if any(
-            config[field] is not False
-            for field in (
-                "execution_enabled",
-                "managed_install_enabled",
-                "workspace_access_enabled",
-                "target_execution_enabled",
-                "runtime_capture_enabled",
-                "network_access_enabled",
-                "credential_access_enabled",
-            )
-        ):
-            raise ReaStaticRefusal("rea_authority_not_inert")
-        if profile["execution_auto_enabled"] is not False:
-            raise ReaStaticRefusal("rea_auto_execution_forbidden")
+        profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+        catalog = json.loads(SOURCE_CATALOG.read_text(encoding="utf-8"))
+        package = json.loads((runtime / "package.json").read_text(encoding="utf-8"))
+        locked = json.loads(SOURCE_LOCK.read_text(encoding="utf-8"))
         if (
-            config["package"]["version"] != "5.0.0"
-            or package["version"] != "5.0.0"
-            or profile["allowable_tool"] != TOOL
+            config["source"]["commit"] != EXPECTED_COMMIT
+            or config["source"]["tag"] != "rea-agents-6.0.0"
+            or config["source"]["path"] != "third_party/rea"
+            or config["source_integrity_qualified"] is not True
+            or config["execution_enabled"] is not False
+            or config["managed_install_enabled"] is not False
+            or config["network_access_enabled"] is not False
+            or config["target_execution_enabled"] is not False
+            or config["runtime_capture_enabled"] is not False
+            or config["credential_access_enabled"] is not False
+            or config["workspace_access_enabled"] is not False
+            or config["mcp_tool_grants"] != []
+            or config["core_task_kind"] is not None
+            or config["worker_authority_profile"] is not None
+            or profile["source_commit"] != EXPECTED_COMMIT
+            or profile["source_manifest_sha256"] != EXPECTED_MANIFEST_SHA256
+            or profile["schema"] != "zelo-rea-source-v6-static-mcp-proof-v1"
             or profile["mcp_protocol_version"] != PROTOCOL
-            or profile["mcp_server_version"] != "5.0.0"
+            or profile["mcp_server_version"] != "6.0.0"
+            or profile["allowed_tool"] != TOOL
+            or profile["manual_fixed_fixture_only"] is not True
+            or profile["execution_auto_enabled"] is not False
+            or profile["network_enabled"] is not False
+            or profile["target_execution_enabled"] is not False
+            or profile["zelo_runtime_worker_enabled"] is not False
+            or package["name"] != "rea-agents"
+            or package["version"] != "6.0.0"
+            or locked["packages"][""]["version"] != "6.0.0"
+            or catalog["execution_enabled"] is not False
+            or catalog["zelo_tool_grants"] != []
+            or catalog["upstream_source_commit"] != EXPECTED_COMMIT
+            or catalog["mcp_server"] != {"name": "rea", "version": "6.0.0"}
+            or catalog["tool_count"] != 139
+            or TOOL not in catalog["tool_names"]
+            or _sha256_file(SOURCE_LOCK) != profile["package_lock_sha256"]
+            or _sha256_file(SOURCE_ENTRYPOINT) != profile["entrypoint_sha256"]
+            or _sha256_file(runtime / "package-lock.json") != profile["package_lock_sha256"]
+            or _sha256_file(runtime / "scripts" / "rea.mjs") != profile["entrypoint_sha256"]
+            or fingerprint_modules(runtime / "node_modules") != profile["node_modules_sha256"]
+            or fingerprint_modules(runtime / "dist") != profile["dist_sha256"]
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", profile["node_image_id"])
-            or _sha256_file(LOCK) != config["package"]["lockfile_sha256"]
-            or locked["packages"]["node_modules/rea-agents"]["integrity"]
-            != config["package"]["npm_integrity"]
-            or _sha256_file(NATIVE_TARBALL) != config["package"]["tarball_sha256"]
-            or _sha256_file(runtime / "node_modules" / "rea-agents" / "scripts" / "rea.mjs")
-            != profile["rea_entry_sha256"]
-            or fingerprint_modules(runtime / "node_modules") != profile["node_runtime_sha256"]
         ):
-            raise ReaStaticRefusal("rea_runtime_identity_mismatch")
+            raise ReaStaticRefusal("rea_source_runtime_identity_mismatch")
+        source_identity = verify_vendored_rea_source()
+        if source_identity.upstream_commit != EXPECTED_COMMIT:
+            raise ReaStaticRefusal("rea_source_runtime_identity_mismatch")
     except (OSError, KeyError, ValueError, TypeError) as error:
         if isinstance(error, ReaStaticRefusal):
             raise
@@ -320,7 +343,7 @@ def docker_args(
         "--hostname=rea-static",
         "--entrypoint=/usr/local/bin/node",
         image_id,
-        "/rea/node_modules/rea-agents/scripts/rea.mjs",
+        "/rea/scripts/rea.mjs",
         "mcp",
     )
 
@@ -581,7 +604,10 @@ def analyze_static_fixture() -> ReaStaticReceipt:
     """Manual, fixed-fixture proof only; never call from Mind/Task/Worker routes."""
 
     source = NATIVE_FIXTURE_ROOT / "fixtures" / "tiny-app"
-    runtime = NATIVE_RUNTIME
+    try:
+        runtime = NATIVE_RUNTIME.resolve(strict=True)
+    except OSError:
+        raise ReaStaticRefusal("rea_source_runtime_unavailable") from None
     state_root = NATIVE_FIXTURE_ROOT
     if os.geteuid() == 0 or os.getegid() == 0:
         raise ReaStaticRefusal("rea_root_execution_forbidden")
@@ -656,7 +682,7 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             if (
                 not isinstance(initialized, dict)
                 or initialized.get("protocolVersion") != PROTOCOL
-                or initialized.get("serverInfo") != {"name": "rea", "version": "5.0.0"}
+                or initialized.get("serverInfo") != {"name": "rea", "version": "6.0.0"}
             ):
                 raise ReaStaticRefusal("rea_mcp_identity_mismatch")
             transport.call(

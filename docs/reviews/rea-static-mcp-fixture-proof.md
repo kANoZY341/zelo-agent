@@ -109,3 +109,37 @@ cleanup was proven. The code now defaults to retaining stage ownership
 before Docker Popen, and releases that retention only after the exact
 owned cleanup completes successfully. The new KeyboardInterrupt
 regression verifies private stage, owner token and CID survive interruption.
+
+## REA 6.0.0 source-owned MCP proof (8 October 2026)
+
+The above original v5 static proof is now **historical** and not the
+runtime dependency for PR #118. The source-owned REA v6 proof uses:
+
+- Upstream full source pinned to commit
+  6fee42689ae6e95a0182e0d4d0f55644e73e72be, 2,082 verified files
+  and original MIT attribution, imported in PR #119;
+- Source package lock SHA256:
+  7296c105b0ee331d613edd79639cea1493568cfdad7ed8077866f7451f920dac;
+- Source script SHA256:
+  51c10d06c6c277a7c482001096e4c35ba341246977cb9097920d2268a0270b22;
+- Source-build dependency-tree SHA256:
+  8afb45131e0b026fd1574065e4f5209d5798d9467b3b3c30e420bb368e86486c;
+- Compiled dist-tree SHA256:
+  0bf80a0de2199577dd65e412b99cbd1dc091527e753dcfd66bf368d1126c4bbb;
+- Pinned Node base ID:
+  sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c;
+- REA v6 MCP protocol 2025-11-25, source-owned observed catalog 139
+  distinct upstream tool names, **zero** Zelo execution/tool permissions;
+- Qualified exact manual benign fixture, two files and 130 bytes.
+  Result: provider rea-javascript-application, one parsed JS file, one
+  finding; evidence ID
+  ev_3a1e14b9e66b641ff1701d895f69cd2849e5d849be0de4d574cc21a4c1e8ca5e.
+  The identical evidence ID is expected for identical inert syntax/input.
+- The locally source-built v6 runtime was fully verified before launch.
+  REA MCP initialize returned rea v6.0.0. Source execution was isolated
+  in a temporary, no-network, read-only Docker guest, and owned
+  container cleanup was verified before reporting success.
+
+This is a strict **one-tool static qualification only**, not installed
+user tooling or a live Core authority grant. Preserve the old v5 evidence
+for audit but use this v6 profile for any subsequent qualifications.

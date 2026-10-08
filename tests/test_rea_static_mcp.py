@@ -117,7 +117,7 @@ def test_docker_contract_exactly_denies_network_and_write_authority(tmp_path):
     assert "--privileged" not in args
     assert "--network=host" not in args
     assert args[-2:] == (
-        "/rea/node_modules/rea-agents/scripts/rea.mjs",
+        "/rea/scripts/rea.mjs",
         "mcp",
     )
     with pytest.raises(ReaStaticRefusal, match="rea_root_execution_forbidden"):
@@ -208,7 +208,7 @@ def test_installed_modules_fingerprint_rejects_symlink_escape(tmp_path):
         fingerprint_modules(modules)
 
 
-def test_package_identity_has_no_network_or_runtime_fallback(tmp_path):
+def test_source_owned_runtime_has_no_network_or_external_package_fallback(tmp_path):
     with pytest.raises(ReaStaticRefusal, match="rea_runtime_identity_unavailable"):
         trusted_profile(tmp_path)
     manifest = json.loads(
@@ -216,9 +216,22 @@ def test_package_identity_has_no_network_or_runtime_fallback(tmp_path):
             Path(__file__).resolve().parents[1] / "integrations" / "rea" / "integration.json"
         ).read_text(encoding="utf-8")
     )
-    assert manifest["qualification_profile"]["allowable_tool"] == TOOL
-    assert manifest["qualification_profile"]["mcp_protocol_version"] == PROTOCOL
-    assert manifest["qualification_profile"]["execution_auto_enabled"] is False
+    profile = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "integrations"
+            / "rea"
+            / "static-mcp-v6-profile.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["source"]["tag"] == "rea-agents-6.0.0"
+    assert manifest["source"]["commit"] == profile["source_commit"]
+    assert manifest["mcp_tool_grants"] == []
+    assert profile["allowed_tool"] == TOOL
+    assert profile["mcp_protocol_version"] == PROTOCOL
+    assert profile["mcp_server_version"] == "6.0.0"
+    assert profile["execution_auto_enabled"] is False
+    assert profile["zelo_runtime_worker_enabled"] is False
     assert manifest["execution_enabled"] is False
     assert manifest["network_access_enabled"] is False
 
@@ -327,21 +340,22 @@ def test_mcp_transport_rejects_bad_responses(tmp_path, case, monkeypatch):
             os.close(write_fd)
 
 
-def test_rea_pinned_lockfile_matches_canonical_candidate_manifest():
+def test_source_owned_locked_runtime_identity_is_pinned():
     import hashlib
 
     from qualification import rea_static_mcp as module
 
-    manifest = json.loads(module.MANIFEST.read_text(encoding="utf-8"))
-    lock_bytes = module.LOCK.read_bytes()
-    locked = json.loads(lock_bytes)
-    assert hashlib.sha256(lock_bytes).hexdigest() == manifest["package"]["lockfile_sha256"]
+    profile = json.loads(module.PROFILE.read_text(encoding="utf-8"))
+    source_lock = module.SOURCE_LOCK.read_bytes()
+    locked = json.loads(source_lock)
+    assert hashlib.sha256(source_lock).hexdigest() == profile["package_lock_sha256"]
     assert locked["lockfileVersion"] == 3
-    assert locked["packages"]["node_modules/rea-agents"]["version"] == "5.0.0"
+    assert locked["packages"][""]["version"] == "6.0.0"
     assert (
-        locked["packages"]["node_modules/rea-agents"]["integrity"]
-        == manifest["package"]["npm_integrity"]
+        hashlib.sha256(module.SOURCE_ENTRYPOINT.read_bytes()).hexdigest()
+        == (profile["entrypoint_sha256"])
     )
+    assert profile["source_commit"] == "6fee42689ae6e95a0182e0d4d0f55644e73e72be"
 
 
 def test_fixture_setup_refuses_symlinked_ancestor_before_writing(tmp_path, monkeypatch):
@@ -406,7 +420,7 @@ def test_stage_retention_is_tied_to_exact_owned_container_cleanup(
             if message["id"] == 1:
                 return {
                     "protocolVersion": PROTOCOL,
-                    "serverInfo": {"name": "rea", "version": "5.0.0"},
+                    "serverInfo": {"name": "rea", "version": "6.0.0"},
                 }
             return _valid_mcp_result()
 
@@ -604,7 +618,7 @@ def test_keyboard_interrupt_during_cleanup_preserves_owned_recovery_state(tmp_pa
             if message["id"] == 1:
                 return {
                     "protocolVersion": PROTOCOL,
-                    "serverInfo": {"name": "rea", "version": "5.0.0"},
+                    "serverInfo": {"name": "rea", "version": "6.0.0"},
                 }
             return _valid_mcp_result()
 
