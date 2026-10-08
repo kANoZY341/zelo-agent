@@ -93,6 +93,10 @@ not target verification or analyzer execution authority. A separate
 [read-only REA analysis plan](docs/v0.15-rea-analysis-plan-preview.md)
 shows why the draft Specialist and selected target cannot execute. It never
 registers an analyzer Worker, grants a Tool or creates a Task.
+A separately gated [offline manual sealed-target static probe](docs/v0.15-rea-manual-static-target-qualification.md)
+prepares exact copied bytes under a no-network, read-only Docker policy. It
+cannot run without explicit local opt-in and prebuilt reviewed runtime assets;
+it does not authorize Zelo Core to analyze selected targets or create Workers.
 
 ## Structure and scope
 

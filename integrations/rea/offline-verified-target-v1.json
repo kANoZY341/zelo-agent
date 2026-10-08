@@ -1,0 +1,20 @@
+{
+  "core_approval": false,
+  "core_task_registered": false,
+  "core_tool_grants": [],
+  "core_worker_registered": false,
+  "manual_operator_opt_in_only": true,
+  "maximum_files": 128,
+  "maximum_seconds": 45,
+  "maximum_total_bytes": 4194304,
+  "network_enabled": false,
+  "only_fixed_fixture_is_prior_qualified": true,
+  "require_independently_retained_receipt": true,
+  "require_sealed_target_and_exact_copied_bytes": true,
+  "schema": "zelo-rea-offline-verified-target-static-v1",
+  "source_commit": "6fee42689ae6e95a0182e0d4d0f55644e73e72be",
+  "source_manifest_sha256": "6f593ce98506d319cce71acbc975b0c150360d371845f1634966c5dc254a19b9",
+  "source_runtime_profile_sha256": "fd5c512ceabe123553baeeec50ecdeb68931315661a3b1a85359dcb970ea67d8",
+  "target_code_execution_enabled": false,
+  "tool": "analyze_javascript_application"
+}

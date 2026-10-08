@@ -62,10 +62,20 @@ Core-verified, REA target identities. Its exact-head full CI passed; the new
 post-merge `main` CI must still pass before claiming that merged baseline green.
 All execution, Worker, Tool, Task and approval permissions remain false.
 
-The next read-only analysis-plan projection displays a non-authoritative
-selected target, the draft REA Specialist and current WorkerAuthority policy
-fingerprints together with five fixed refusal reasons. It never reads target
-bytes, creates a Task, invokes an analyzer or grants execution authority.
+The read-only analysis-plan projection (PR #128) displays a non-authoritative
+selected target, draft REA Specialist and current WorkerAuthority policy
+fingerprints with five fixed refusal reasons. It never reads target bytes,
+creates a Task, invokes an analyzer or grants execution authority. Its
+post-merge CI and release remain separate verification gates.
+
+A subsequent strictly manual **offline sealed-target static qualification**
+codepath is prepared behind an explicit local CLI switch and its own pinned
+no-network sandbox policy. It verifies copied target contents against the
+independently retained receipt before allowing exactly one source-owned static
+REA MCP operation in an isolated Docker guest. No general-target native proof
+has yet been run or claimed successful. This is not Core execution, approval,
+Worker registration, permission propagation or Evidence admission; those
+remain future separately reviewed gates.
 
 
 ## REA source-owned candidate preparation
