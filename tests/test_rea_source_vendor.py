@@ -115,3 +115,45 @@ def test_untracked_empty_directory_cannot_hide_from_exact_inventory():
             verify_vendored_rea_source()
     finally:
         new_dir.rmdir()
+
+
+def test_fixed_rea_v6_source_owned_mcp_catalog_is_inert():
+    import hashlib
+    import json
+    import re
+
+    from qualification.rea_source_vendor import EXPECTED_COMMIT, ROOT
+
+    catalog_path = ROOT / "integrations" / "rea" / "tool-catalog-v6.0.0.json"
+    raw = catalog_path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == (
+        "82fb67571758c177d1eecac72efac152772cccc753442a77ef9418edc69be6a0"
+    )
+    catalog = json.loads(raw)
+    assert catalog["schema"] == "zelo-rea-mcp-tool-inventory-v1"
+    assert catalog["upstream_source_commit"] == EXPECTED_COMMIT
+    assert catalog["upstream_source_tag"] == "rea-agents-6.0.0"
+    assert catalog["mcp_server"] == {"name": "rea", "version": "6.0.0"}
+    assert catalog["mcp_protocol"] == "2025-11-25"
+    assert catalog["source_build"] is True
+    assert catalog["observed_no_network"] is True
+    assert catalog["execution_enabled"] is False
+    assert catalog["zelo_tool_grants"] == []
+    names = catalog["tool_names"]
+    assert catalog["tool_count"] == len(names) == 139
+    assert names == sorted(set(names))
+    assert all(
+        isinstance(name, str) and re.fullmatch(r"[a-z][a-z0-9_]{1,79}", name) for name in names
+    )
+    for expected in (
+        "open_binary",
+        "analyze_javascript_application",
+        "capture_process_scenario",
+        "inspect_android_package",
+        "inspect_web_page",
+        "extract_firmware",
+        "export_evidence_bundle",
+        "verify_reconstruction",
+        "set_comment",
+    ):
+        assert expected in names
