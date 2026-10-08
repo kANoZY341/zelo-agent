@@ -157,7 +157,12 @@ def test_creation_cancellation_closes_and_reaps_owned_child(monkeypatch):
     asyncio.run(exercise())
 
 
-def test_group_cleanup_handles_background_child_after_leader_exit():
+@pytest.mark.parametrize(
+    "proc_read_error",
+    [None, FileNotFoundError, ProcessLookupError],
+    ids=("real-proc", "disappeared-enoent", "disappeared-esrch"),
+)
+def test_group_cleanup_handles_background_child_after_leader_exit(monkeypatch, proc_read_error):
     from pathlib import Path
 
     code = """import os,signal,time
@@ -190,7 +195,22 @@ else:
             assert not process.reaped and process._child.returncode is None
             await processes.stop_process(process)
             status = Path(f"/proc/{child}/stat")
-            assert not status.exists() or status.read_text().rsplit(")", 1)[1].split()[0] == "Z"
+            if proc_read_error is not None:
+                # Deterministically reproduce both real /proc disappearance
+                # errors observed after group cleanup under runner load.
+                def disappear(_path, *args, **kwargs):
+                    raise proc_read_error("process disappeared")
+
+                monkeypatch.setattr(Path, "read_text", disappear)
+            # /proc can disappear between exists() and read_text(). Treat a
+            # fully reaped child as success, and any readable live entry must
+            # already be a zombie. Do not mask other filesystem errors.
+            try:
+                state = status.read_text().rsplit(")", 1)[1].split()[0]
+            except (FileNotFoundError, ProcessLookupError):
+                pass
+            else:
+                assert state == "Z"
             assert process.reaped
         finally:
             if not process.reaped:
