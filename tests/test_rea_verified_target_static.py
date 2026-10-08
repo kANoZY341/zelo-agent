@@ -400,3 +400,36 @@ def test_runtime_symlink_escape_refuses_before_any_target_or_docker(
             result["snapshot_id"], result["receipt_sha256"], operator_opt_in=True
         )
     assert not list(proof_root.glob("rea-target-*-*"))
+
+
+def test_trusted_source_runtime_alias_is_canonicalized_before_proof(
+    admitted, tmp_path, monkeypatch
+):
+    """A local alias must resolve before digest checks or Docker mount construction."""
+
+    result, _, proof_root, _ = admitted
+    commands = _fake_native(monkeypatch, tmp_path, proof_root)
+    physical = tmp_path / "prebuilt-rea-source"
+    physical.mkdir(mode=0o700)
+    alias = tmp_path / "runtime-v6"
+    alias.symlink_to(physical, target_is_directory=True)
+    monkeypatch.setattr(proof, "RUNTIME", alias)
+    verified = []
+
+    def verify_physical(path):
+        verified.append(path)
+        assert path == physical.resolve(strict=True)
+        assert not path.is_symlink()
+        return {"node_image_id": IMAGE_ID}
+
+    monkeypatch.setattr(fixed, "trusted_profile", verify_physical)
+    report = proof.analyze_verified_static_target(
+        result["snapshot_id"], result["receipt_sha256"], operator_opt_in=True
+    )
+    assert report.core_worker_registered is False
+    assert len(verified) == 1
+    assert len(commands) == 1
+    assert any(
+        f"source={physical.resolve(strict=True)},target=/rea,readonly" in argument
+        for argument in commands[0]
+    )
