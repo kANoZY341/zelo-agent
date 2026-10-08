@@ -87,6 +87,9 @@ rechecks an admitted snapshot against the unchanged pinned REA source and
 catalog and returns a content-bound *inert* review fingerprint through
 `python -m scripts.preflight_rea_target --allow-offline-rea-preflight`.
 There is no live Core API route, analyzer execution, Task, approval or Tool grant.
+A separate [Core operator target selection ledger](docs/v0.15-rea-operator-target-selection.md)
+records authenticated, operator-asserted metadata and terminal revocations,
+not target verification or analyzer execution authority.
 
 ## Structure and scope
 

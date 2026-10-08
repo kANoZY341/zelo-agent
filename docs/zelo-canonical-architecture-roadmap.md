@@ -618,7 +618,11 @@ fixed benign fixture ONLY, not for user-selected targets. Next add durable
 Core operator selection, revocation, approval and claim-time snapshot/source/
 WorkerAuthority/Task/Agent/Space identity binding before a carefully isolated
 real target analysis and untrusted Evidence admission. No preflight fingerprint
-may be used as execution authority.
+may be used as execution authority. A separate
+[Core operator-target ledger](v0.15-rea-operator-target-selection.md) can
+store a single authenticated, operator-asserted inert review per snapshot ID
+and terminal revocation, but cannot verify target bytes, grant an analyzer
+Worker, create a Task/lease or approve an execution.
 Importing MIT source does not grant host/browser/credential access and
 preserves original legal notices. Complete current Core and v0.16 gates
 before REA execution integration.
