@@ -635,38 +635,53 @@ Zelo-owned interfaces.
 
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
-channel text envelopes, keyed opaque provider/thread/message identities,
+channel text envelopes, keyed opaque provider/thread/message identities
 and reserved channel-turn idempotency keys.
 
-The WhatsApp signature verifier checks Meta's `X-Hub-Signature-256`
-against exact raw webhook bytes using a trusted server-owned App Secret.
+The WhatsApp signature verifier checks Meta's X-Hub-Signature-256 against
+the exact raw webhook bytes using a trusted server-owned App Secret.
 The signed-text parser extracts exactly one bounded inbound text event,
 refusing mixed, malformed, media or batched payloads; status-only events
 produce no text turn. The inert projection derives keyed pseudonymous
-WABA/phone/sender/thread/message identities under an **independent Core
-identity secret**, producing only an unverified `ChannelTextIngress`.
+WABA/phone/sender/thread/message identities under an independent Core
+identity secret, producing only an unverified ChannelTextIngress.
 These offline functions grant no provider account ownership, freshness,
-replay, Mind admission or sending authority. See
-`docs/v0.16-whatsapp-signature-foundation.md`,
-`docs/v0.16-whatsapp-signed-text-shape.md` and
-`docs/v0.16-whatsapp-opaque-ingress.md`.
+replay, Mind admission or sending authority. See the signature, parser
+and ingress documentation:
+docs/v0.16-whatsapp-signature-foundation.md,
+docs/v0.16-whatsapp-signed-text-shape.md and
+docs/v0.16-whatsapp-opaque-ingress.md.
 
-This foundation has no provider credentials or connected transports.
+This foundation has no connected providers, live credentials or transport.
 A separately qualified adapter must authenticate provider origin,
-
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
 data, never permission to execute a Core task. Live calling remains a separate
 authority and transport qualification.
 
-Merged PR #109 (bd586aa, 4,985 passed and 2 skipped) adds the separate
-operator-selected opaque thread and append-only unverified message ledger.
+Merged PR #109 (bd586aa, 4,985 passed and 2 skipped) provides the
+separate Core binding/observation ledger: an Ahmad-selected opaque thread
+may map to an existing Mind conversation, but that mapping is not provider
+authentication. Only message ID, text digest and UTC metadata are retained
+with append-only replay checks; no external webhook, message-to-Mind admission,
+delivery receipt or send authority is granted.
+
 Merged PR #110 (b8a9634, 4,988 passed and 2 skipped) closes local
-promotion-link exclusivity. Neither the ledger nor a valid provider HMAC
-authenticates a WhatsApp account; no external webhook, Mind admission,
-delivery receipt or send authority is granted. Provider verification,
-replay/freshness and outbound approval remain independent later gates.
+learned-skill promotion-link exclusivity. Neither the thread ledger nor a
+valid provider HMAC authenticates a WhatsApp account.
+
+The distinct operator-selected WhatsApp account ledger is a later, **inert**
+Core gate. It records a chosen opaque WABA+receiving-phone identity bound to
+an opaque trusted Meta App Secret identity, supports exact idempotent selection
+and append-only irreversible revocation, but permanently denies claiming
+provider authenticity, Mind admission or delivery authority. No secrets,
+plaintext account IDs, ingress adapter, worker or API route are connected.
+See `docs/v0.16-channel-operator-account-selection.md`. A future separately
+qualified provider adapter must compare the signed, parsed provider facts
+against a still-current operator choice and live trusted secret/registry
+binding before any replay or Mind admission. Replay freshness and outbound
+approval remain independent later gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
