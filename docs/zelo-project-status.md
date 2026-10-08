@@ -52,20 +52,20 @@ explicitly selected, bounded, sealed text-only target snapshots under a fixed
 private inbox. Neither target admission nor the preflight review proposal
 approves or runs that target. PR #125, merged at `3d1c8bad4dedffa4289e177112f53ccdc1797076`,
 fixes two independent test-only Core CI scheduling/procfs observation races.
-Its exact-head full CI passed (5,281 tests passed, 2 skipped). Post-merge
-`main` CI remains a separate gate.
-The next isolated REA step is an explicitly opted-in, **offline local** target
-preflight CLI: reverify independently retained snapshot digest, pinned vendored
-source and catalog; emit a deterministic inert review fingerprint. It does not
-add a live Core API route or import target files into the runtime. This
-still grants no Worker, Task, lease, approval, tool or analyzer execution.
+Its exact-head full CI and post-merge `main` CI both passed.
+Merged #126 (main 492f6c8) delivers an explicitly opted-in offline local
+target preflight CLI that rechecks sealed content, source and catalog hashes
+and emits an inert preview checksum. No Core API imports admitted files.
+Merged #127 (main 2b0610e) adds a Core-owned, append-only, authenticated
+operator selection and irreversible revocation ledger for **asserted**, not
+Core-verified, REA target identities. Its exact-head full CI passed; the new
+post-merge `main` CI must still pass before claiming that merged baseline green.
+All execution, Worker, Tool, Task and approval permissions remain false.
 
-The next Core selection/revocation increment adds append-only operator-asserted
-review metadata and terminal refusal by snapshot identity. Core never imports
-admitted targets or uses a selection as proof of validated target bytes. Its
-execution, Tool, Worker, approval and task privileges remain permanently false
-in both service state and SQLite check constraints. This is explicitly not a
-working REA general-purpose Worker.
+The next read-only analysis-plan projection displays a non-authoritative
+selected target, the draft REA Specialist and current WorkerAuthority policy
+fingerprints together with five fixed refusal reasons. It never reads target
+bytes, creates a Task, invokes an analyzer or grants execution authority.
 
 
 ## REA source-owned candidate preparation
