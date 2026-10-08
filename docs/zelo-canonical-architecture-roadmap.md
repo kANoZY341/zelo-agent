@@ -629,7 +629,10 @@ target/process access, network/credential grant, or skill activation. The
 dedicated security/qualification sequence is in
 [REA integration](v0.15-rea-integration.md). The v0.15 promotion/publication
 gates and prior Core priorities still precede REA runtime activation; neither
-v0.16 channels nor v0.17/0.18 milestones are reordered.
+v0.16 channels nor v0.17/0.18 milestones are reordered. A separate manual
+JS fixture-only MCP bridge now proves pinned REA stdio communication with no
+network and bounded outputs. It adds no Core task, Worker or Agent authority.
+See the review witness at reviews/rea-static-mcp-fixture-proof.md.
 
 ### v0.16 — Channels and presence
 

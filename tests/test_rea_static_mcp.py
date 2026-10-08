@@ -1,0 +1,335 @@
+"""Offline regression gates for the unregistered REA static-only MCP qualifier."""
+
+import copy
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from qualification.rea_static_mcp import (
+    MAX_FILE_BYTES,
+    PROTOCOL,
+    TOOL,
+    ReaStaticRefusal,
+    _receipt,
+    docker_args,
+    fingerprint_modules,
+    stage_source,
+    trusted_profile,
+)
+
+IMAGE_ID = "sha256:" + "a" * 64
+
+
+def _prepared_fixture(tmp_path):
+    source = tmp_path / "approved"
+    source.mkdir()
+    (source / "package.json").write_text('{"main":"index.js"}', encoding="utf-8")
+    (source / "index.js").write_text("module.exports = { ok: true };\n", encoding="utf-8")
+    return source
+
+
+def test_static_snapshot_is_deterministic_without_mutating_original(tmp_path):
+    source = _prepared_fixture(tmp_path)
+    stage_a = tmp_path / "stage-a"
+    stage_b = tmp_path / "stage-b"
+    stage_a.mkdir()
+    stage_b.mkdir()
+    digest_a, files_a, bytes_a = stage_source(source, stage_a)
+    digest_b, files_b, bytes_b = stage_source(source, stage_b)
+    assert digest_a == digest_b
+    assert len(digest_a) == 64
+    assert files_a == files_b == 2
+    assert bytes_a == bytes_b
+    assert (stage_a / "target" / "index.js").read_bytes() == (source / "index.js").read_bytes()
+    (source / "index.js").write_text("different", encoding="utf-8")
+    assert (stage_a / "target" / "index.js").read_text() != "different"
+
+
+@pytest.mark.parametrize("bad_name", [".env", "secret.pem", "malicious.exe"])
+def test_snapshot_rejects_unapproved_file_types(tmp_path, bad_name):
+    source = _prepared_fixture(tmp_path)
+    (source / bad_name).write_text("secret", encoding="utf-8")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    with pytest.raises(ReaStaticRefusal, match="rea_source_(name|extension)_not_allowed"):
+        stage_source(source, stage)
+
+
+def test_snapshot_refuses_symlink_and_oversized_input(tmp_path):
+    source = _prepared_fixture(tmp_path)
+    outside = tmp_path / "outside.js"
+    outside.write_text("do not inspect", encoding="utf-8")
+    (source / "linked.js").symlink_to(outside)
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    with pytest.raises(ReaStaticRefusal):
+        stage_source(source, stage)
+    (source / "linked.js").unlink()
+    (source / "index.js").write_bytes(b"x" * (MAX_FILE_BYTES + 1))
+    stage_2 = tmp_path / "stage-2"
+    stage_2.mkdir()
+    with pytest.raises(ReaStaticRefusal, match="rea_source_file_limit"):
+        stage_source(source, stage_2)
+
+
+def test_snapshot_refuses_hardlinks_and_source_parent_symlinks(tmp_path):
+    source = _prepared_fixture(tmp_path)
+    os.link(source / "index.js", source / "dup.js")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    with pytest.raises(ReaStaticRefusal, match="rea_source_hardlink_forbidden"):
+        stage_source(source, stage)
+    alias = tmp_path / "alias"
+    alias.symlink_to(source, target_is_directory=True)
+    with pytest.raises(ReaStaticRefusal, match="rea_source_symlink_ancestor"):
+        stage_source(alias, stage)
+
+
+def test_docker_contract_exactly_denies_network_and_write_authority(tmp_path):
+    runtime = tmp_path / "runtime"
+    staging = tmp_path / "staging"
+    cid = staging / "owned.cid"
+    args = docker_args(runtime, staging, cid, IMAGE_ID, uid=1000, gid=1000)
+    for required in (
+        "run",
+        "-i",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges",
+        "--pids-limit=64",
+        "--memory=384m",
+        "--memory-swap=384m",
+        "--cpus=1",
+        "--user=1000:1000",
+        "mcp",
+    ):
+        assert required in args
+    assert f"--cidfile={cid}" in args
+    assert any("--mount=type=bind" in arg and "target=/rea,readonly" in arg for arg in args)
+    assert any("--mount=type=bind" in arg and "target=/target,readonly" in arg for arg in args)
+    assert "--privileged" not in args
+    assert "--network=host" not in args
+    assert args[-2:] == (
+        "/rea/node_modules/rea-agents/scripts/rea.mjs",
+        "mcp",
+    )
+    with pytest.raises(ReaStaticRefusal, match="rea_root_execution_forbidden"):
+        docker_args(runtime, staging, cid, IMAGE_ID, uid=0, gid=1000)
+    with pytest.raises(ReaStaticRefusal, match="rea_unpinned_image"):
+        docker_args(runtime, staging, cid, "node:latest", uid=1000, gid=1000)
+
+
+def _valid_mcp_result():
+    subject_sha = "a" * 64
+    ident = "ev_" + "b" * 64
+    body = {
+        "input_path": "/target",
+        "root_artifact_sha256": subject_sha,
+        "statistics": {"parsed_javascript_files": 1, "findings": 2},
+    }
+    evidence = {
+        "evidence_id": ident,
+        "operation": TOOL,
+        "normalized_result": body,
+        "subject": {
+            "local_path": "/target",
+            "format": "directory",
+            "digest": {"sha256": subject_sha},
+        },
+        "provider": {"id": "rea-javascript-application", "version": "1"},
+        "limitations": ["Static evidence cannot prove runtime behavior."],
+    }
+    return {"structuredContent": {"result": body, "evidence_id": ident, "evidence": evidence}}
+
+
+def test_receipt_binds_one_fixed_static_tool_and_untrusted_evidence():
+    response = _valid_mcp_result()
+    receipt = _receipt(response, "c" * 64, 2, 120)
+    assert receipt.evidence_id == response["structuredContent"]["evidence_id"]
+    assert receipt.source_snapshot_sha256 == "c" * 64
+    assert receipt.rea_subject_sha256 == "a" * 64
+    assert receipt.provider_id == "rea-javascript-application"
+    assert receipt.module_stats == (("findings", 2), ("parsed_javascript_files", 1))
+    assert receipt.input_files == 2
+    assert receipt.input_bytes == 120
+    assert len(receipt.evidence_sha256) == 64
+
+
+@pytest.mark.parametrize(
+    ("mutate", "error"),
+    [
+        (lambda x: x.update(isError=True), "rea_analysis_failed"),
+        (
+            lambda x: x["structuredContent"]["evidence"].update(operation="capture_process"),
+            "rea_evidence_identity_invalid",
+        ),
+        (
+            lambda x: x["structuredContent"]["evidence"]["subject"].update(local_path="/etc"),
+            "rea_evidence_binding_invalid",
+        ),
+        (
+            lambda x: x["structuredContent"]["evidence"]["provider"].update(id="other"),
+            "rea_evidence_binding_invalid",
+        ),
+        (
+            lambda x: x["structuredContent"]["result"]["statistics"].update(findings=-1),
+            "rea_evidence_bounds_invalid",
+        ),
+        (
+            lambda x: x["structuredContent"]["evidence"].update(limitations=["X" * 513]),
+            "rea_evidence_bounds_invalid",
+        ),
+    ],
+)
+def test_refuses_malformed_or_untrusted_mcp_results(mutate, error):
+    payload = copy.deepcopy(_valid_mcp_result())
+    mutate(payload)
+    with pytest.raises(ReaStaticRefusal, match=error):
+        _receipt(payload, "c" * 64, 2, 120)
+
+
+def test_installed_modules_fingerprint_rejects_symlink_escape(tmp_path):
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (modules / "one.js").write_text("one")
+    digest = fingerprint_modules(modules)
+    assert len(digest) == 64
+    outside = tmp_path / "secret.js"
+    outside.write_text("secret")
+    (modules / "external.js").symlink_to(outside)
+    with pytest.raises(ReaStaticRefusal, match="rea_runtime_symlink_escape"):
+        fingerprint_modules(modules)
+
+
+def test_package_identity_has_no_network_or_runtime_fallback(tmp_path):
+    with pytest.raises(ReaStaticRefusal, match="rea_runtime_identity_unavailable"):
+        trusted_profile(tmp_path)
+    manifest = json.loads(
+        (
+            Path(__file__).resolve().parents[1] / "integrations" / "rea" / "integration.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["qualification_profile"]["allowable_tool"] == TOOL
+    assert manifest["qualification_profile"]["mcp_protocol_version"] == PROTOCOL
+    assert manifest["qualification_profile"]["execution_auto_enabled"] is False
+    assert manifest["execution_enabled"] is False
+    assert manifest["network_access_enabled"] is False
+
+
+def test_container_mount_paths_refuse_docker_option_injection(tmp_path):
+    from qualification.rea_static_mcp import docker_args
+
+    staging = tmp_path / "staging"
+    with pytest.raises(ReaStaticRefusal, match="rea_untrusted_paths"):
+        docker_args(
+            tmp_path / "runtime,bind-propagation=shared",
+            staging,
+            staging / "owned.cid",
+            IMAGE_ID,
+            uid=1000,
+            gid=1000,
+        )
+
+
+def test_evidence_subject_malformed_digest_fails_closed():
+    response = _valid_mcp_result()
+    response["structuredContent"]["evidence"]["subject"]["digest"] = "fake"
+    with pytest.raises(ReaStaticRefusal, match="rea_evidence_digest_invalid"):
+        _receipt(response, "c" * 64, 2, 120)
+
+
+def test_cleanup_refuses_when_owned_container_remains(tmp_path, monkeypatch):
+    import subprocess
+
+    from qualification import rea_static_mcp as module
+
+    class FinishedProcess:
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return 0
+
+    cidfile = tmp_path / "owned.cid"
+    cidfile.write_text("f" * 64)
+    commands = []
+
+    def fake_run(argv, **_kwargs):
+        commands.append(argv)
+        if "ps" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout=b"f" * 64 + b"\n")
+        return subprocess.CompletedProcess(argv, 0, stdout=b"")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+        module._close_owned_process(FinishedProcess(), cidfile, {"PATH": "/usr/bin"})
+    assert len(commands) == 2
+    assert commands[0][-3:] == ["rm", "-f", "f" * 64]
+    assert commands[1][-3:] == ["--no-trunc", "--filter", "id=" + "f" * 64]
+    assert not cidfile.exists()
+
+
+@pytest.mark.parametrize("case", ["bad-json", "unmatched-id", "oversize", "timeout"])
+def test_mcp_transport_rejects_bad_responses(tmp_path, case, monkeypatch):
+    import io
+    import time
+
+    from qualification import rea_static_mcp as module
+
+    if case == "bad-json":
+        response = b"{invalid}\n"
+    elif case == "unmatched-id":
+        response = b'{"jsonrpc":"2.0","id":99,"result":{}}\n'
+    elif case == "oversize":
+        monkeypatch.setattr(module, "MAX_RPC_BYTES", 20)
+        response = b'{"jsonrpc":"2.0","id":1,"result":{}}\n'
+    else:
+        response = b""
+
+    read_fd, write_fd = os.pipe()
+    try:
+        if response:
+            os.write(write_fd, response)
+        os.close(write_fd)
+        write_fd = -1
+
+        class DummyProcess:
+            stdin = io.BytesIO()
+            stdout = os.fdopen(read_fd, "rb", buffering=0)
+            stderr = None
+
+        instance = DummyProcess()
+        deadline = time.monotonic() - 1 if case == "timeout" else time.monotonic() + 2
+        transport = module._McpTransport(instance, deadline)
+        with pytest.raises(ReaStaticRefusal):
+            transport.call({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+        instance.stdout.close()
+        read_fd = -1
+    finally:
+        if read_fd >= 0:
+            os.close(read_fd)
+        if write_fd >= 0:
+            os.close(write_fd)
+
+
+def test_rea_pinned_lockfile_matches_canonical_candidate_manifest():
+    import hashlib
+
+    from qualification import rea_static_mcp as module
+
+    manifest = json.loads(module.MANIFEST.read_text(encoding="utf-8"))
+    lock_bytes = module.LOCK.read_bytes()
+    locked = json.loads(lock_bytes)
+    assert hashlib.sha256(lock_bytes).hexdigest() == manifest["package"]["lockfile_sha256"]
+    assert locked["lockfileVersion"] == 3
+    assert locked["packages"]["node_modules/rea-agents"]["version"] == "5.0.0"
+    assert (
+        locked["packages"]["node_modules/rea-agents"]["integrity"]
+        == manifest["package"]["npm_integrity"]
+    )

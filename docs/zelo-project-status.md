@@ -35,8 +35,10 @@ attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 The separately proposed v0.15 REA catalog is a **draft-only** reverse-engineering
 Specialist/Capability/Skill definition exposed only as an authenticated,
 non-authoritative candidate snapshot plus pinned disabled external-tool
-manifest. Live registry fingerprints remain unchanged, so active agent
-instances do not become stale. This does not authorize REA execution,
+manifest. A separate fixed-fixture manual REA MCP proof now exists with pinned
+npm/Node identities and a restricted Docker guest; it is not a Core task or
+activated REA Worker. Live registry fingerprints remain unchanged, so active
+agent instances do not become stale. This does not authorize REA execution,
 install external packages,
 change the active v0.15 merge queue, or unblock any worker/sandbox gate.
 

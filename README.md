@@ -71,7 +71,10 @@ pinned manifest under `integrations/rea/`. It is intentionally **not** part
 of live Agent, Capability or Skill registries; their version fingerprints
 and existing execution bindings remain intact. See
 `docs/v0.15-rea-integration.md`. No REA dependency, MCP server, host process,
-new tool or task authority is enabled by this candidate.
+new tool or task authority is enabled by this candidate. A separate
+manual-only REA MCP JS-fixture proof uses qualification/rea_static_mcp.py
+and scripts/qualify_rea_static_mcp.py with pinned npm closure and Docker.
+No live Agent, Worker or Task execution route is added.
 
 - `app/application.py`: reusable explicitly configured application factory/lifespan.
 - `app/main.py`: normal environment-backed ASGI entry point.

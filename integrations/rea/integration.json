@@ -8,7 +8,10 @@
     "version": "5.0.0",
     "mcp_name": "io.github.morluto/rea",
     "transport": "stdio",
-    "command_hint": "rea mcp"
+    "command_hint": "rea mcp",
+    "npm_integrity": "sha512-H5z7irOKw0L60TksrW34ELJ9JZkRlgRVUaLX6N+yqHP45Vg+BiM/TMZHhLxJQqYNGeHBXnK2TvQepO2X7WzW+w==",
+    "tarball_sha256": "1879bcd2e5c83644d437363afda12dc0c45ec0491e3836e507d4ff4d05f4624b",
+    "lockfile_sha256": "6209f46f3f9e69be8e2f418e019957cbb039a5fb2e4110c7734ae23d4762b342"
   },
   "lifecycle": "draft",
   "execution_enabled": false,
@@ -20,5 +23,15 @@
   "credential_access_enabled": false,
   "core_task_kind": null,
   "worker_authority_profile": null,
-  "source_integrity_qualified": false
+  "source_integrity_qualified": false,
+  "qualification_profile": {
+    "status": "operator_only_manual_proof",
+    "execution_auto_enabled": false,
+    "allowable_tool": "analyze_javascript_application",
+    "mcp_protocol_version": "2025-11-25",
+    "mcp_server_version": "5.0.0",
+    "node_image_id": "sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c",
+    "node_runtime_sha256": "bee491ce5e4ff4196e1e96f06584dafb77342e4987eb45888f578602894ee1f0",
+    "rea_entry_sha256": "0ff8bab075bd0bfe1fca783b49e296324308dda50a4ba2c859e1760734659107"
+  }
 }
