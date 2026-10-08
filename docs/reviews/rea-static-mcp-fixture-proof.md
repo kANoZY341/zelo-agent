@@ -62,3 +62,20 @@ The dependency lockfile was also checked with npm audit on 8 October 2026:
 zero low/moderate/high/critical advisories reported for the installed
 production dependency closure. This is one timestamped advisory database
 check, not proof that the dependencies contain no vulnerabilities.
+
+## Independent review corrections
+
+Read-only Codex Astra Medium review of the stacked REA bridge identified two
+P2 source issues: fixture creation could follow a symlinked parent before the
+reader's later refusal; and an uncertain Docker cleanup removed the CID file
+before an operator could reconcile a potentially surviving container.
+
+Both were corrected before qualification rerun. Fixture creation now uses
+directory-descriptor-relative NOFOLLOW opens/mkdirs and rejects symlinked
+ancestors before any writes. A proven cleanup erases the private staging
+directory; on unproven cleanup the exact CID and private owned stage are
+retained under the ignored qualification workspace for operator recovery,
+with no success receipt. New offline tests exercise symlinked-parent refusal,
+exact fixture content, successful cleanup and retained-CID failure. The
+corrected fixed-fixture native Docker/MCP proof passed and left zero
+owned staging directories in the success case.

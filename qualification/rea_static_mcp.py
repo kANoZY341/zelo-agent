@@ -10,6 +10,7 @@ import json
 import os
 import re
 import select
+import shutil
 import signal
 import stat
 import subprocess
@@ -381,7 +382,8 @@ def _close_owned_process(
             except (OSError, subprocess.TimeoutExpired, UnicodeError):
                 cleanup_uncertain = True
     finally:
-        cidfile.unlink(missing_ok=True)
+        if not cleanup_uncertain:
+            cidfile.unlink(missing_ok=True)
         for stream in (process.stdin, process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
@@ -544,8 +546,9 @@ def analyze_static_fixture() -> ReaStaticReceipt:
     state_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if state_root.is_symlink():
         raise ReaStaticRefusal("rea_state_symlink")
-    with tempfile.TemporaryDirectory(prefix="rea-mcp-", dir=state_root) as owned:
-        stage = Path(owned)
+    stage = Path(tempfile.mkdtemp(prefix="rea-mcp-", dir=state_root))
+    retained_for_recovery = False
+    try:
         source_sha, count, total = stage_source(source, stage)
         cidfile = stage / "owned.cid"
         env = _clean_env(stage)
@@ -617,3 +620,15 @@ def analyze_static_fixture() -> ReaStaticReceipt:
             return _receipt(analyzed, source_sha, count, total)
         finally:
             _close_owned_process(process, cidfile, env)
+    except ReaStaticRefusal as error:
+        if str(error) == "rea_owned_container_cleanup_unproven":
+            # Preserve the private directory AND exact owned CID for operator
+            # reconciliation. Never erase the ownership record on uncertainty.
+            retained_for_recovery = True
+        raise
+    finally:
+        if not retained_for_recovery:
+            try:
+                shutil.rmtree(stage)
+            except OSError:
+                raise ReaStaticRefusal("rea_owned_staging_cleanup_unproven") from None

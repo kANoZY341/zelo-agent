@@ -272,7 +272,7 @@ def test_cleanup_refuses_when_owned_container_remains(tmp_path, monkeypatch):
     assert len(commands) == 2
     assert commands[0][-3:] == ["rm", "-f", "f" * 64]
     assert commands[1][-3:] == ["--no-trunc", "--filter", "id=" + "f" * 64]
-    assert not cidfile.exists()
+    assert cidfile.read_text() == "f" * 64
 
 
 @pytest.mark.parametrize("case", ["bad-json", "unmatched-id", "oversize", "timeout"])
@@ -333,3 +333,91 @@ def test_rea_pinned_lockfile_matches_canonical_candidate_manifest():
         locked["packages"]["node_modules/rea-agents"]["integrity"]
         == manifest["package"]["npm_integrity"]
     )
+
+
+def test_fixture_setup_refuses_symlinked_ancestor_before_writing(tmp_path, monkeypatch):
+    from scripts import qualify_rea_static_mcp as script
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (workspace / "fixtures").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(script, "NATIVE_FIXTURE_ROOT", workspace)
+    with pytest.raises(ReaStaticRefusal, match="rea_fixture_path_unavailable"):
+        script._prepare_fixture()
+    assert not list(outside.iterdir())
+
+
+def test_fixture_setup_creates_only_exact_bytes_and_never_overwrites(tmp_path, monkeypatch):
+    from scripts import qualify_rea_static_mcp as script
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setattr(script, "NATIVE_FIXTURE_ROOT", workspace)
+    script._prepare_fixture()
+    script._prepare_fixture()  # Identical retry is safe.
+    application = workspace / "fixtures" / "tiny-app"
+    assert (application / "index.js").read_bytes() == script.INDEX_JS
+    (application / "index.js").write_bytes(b"modified")
+    with pytest.raises(ReaStaticRefusal, match="rea_fixture_modified"):
+        script._prepare_fixture()
+    assert (application / "index.js").read_bytes() == b"modified"
+
+
+@pytest.mark.parametrize("fail_cleanup", [True, False])
+def test_stage_retention_is_tied_to_exact_owned_container_cleanup(
+    tmp_path, monkeypatch, fail_cleanup
+):
+    from qualification import rea_static_mcp as module
+    from scripts.qualify_rea_static_mcp import INDEX_JS, PACKAGE_JSON
+
+    workspace = tmp_path / "qualification"
+    source = workspace / "fixtures" / "tiny-app"
+    source.mkdir(parents=True)
+    (source / "index.js").write_bytes(INDEX_JS)
+    (source / "package.json").write_bytes(PACKAGE_JSON)
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    docker_bin = tmp_path / "docker"
+    docker_bin.write_text("fake")
+    monkeypatch.setattr(module, "NATIVE_FIXTURE_ROOT", workspace)
+    monkeypatch.setattr(module, "NATIVE_RUNTIME", runtime)
+    monkeypatch.setattr(module, "DOCKER_BIN", docker_bin)
+    monkeypatch.setattr(module, "trusted_profile", lambda _runtime: {"node_image_id": IMAGE_ID})
+    monkeypatch.setattr(module.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    class FakeTransport:
+        def __init__(self, _process, _deadline):
+            pass
+
+        def call(self, message):
+            if "id" not in message:
+                return {}
+            if message["id"] == 1:
+                return {
+                    "protocolVersion": PROTOCOL,
+                    "serverInfo": {"name": "rea", "version": "5.0.0"},
+                }
+            return _valid_mcp_result()
+
+    monkeypatch.setattr(module, "_McpTransport", FakeTransport)
+
+    def fake_cleanup(_process, cidfile, _env):
+        cidfile.write_text("f" * 64)
+        if fail_cleanup:
+            raise ReaStaticRefusal("rea_owned_container_cleanup_unproven")
+        cidfile.unlink()
+
+    monkeypatch.setattr(module, "_close_owned_process", fake_cleanup)
+    if fail_cleanup:
+        with pytest.raises(ReaStaticRefusal, match="rea_owned_container_cleanup_unproven"):
+            module.analyze_static_fixture()
+        retained = list(workspace.glob("rea-mcp-*"))
+        assert len(retained) == 1
+        assert (retained[0] / "owned.cid").read_text() == "f" * 64
+        assert (retained[0] / "target" / "index.js").is_file()
+    else:
+        receipt = module.analyze_static_fixture()
+        assert receipt.input_files == 2
+        assert not list(workspace.glob("rea-mcp-*"))
