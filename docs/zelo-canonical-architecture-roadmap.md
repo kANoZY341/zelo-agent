@@ -627,6 +627,12 @@ A distinct [read-only analysis-plan projection](v0.15-rea-analysis-plan-preview.
 binds the selected target, draft Specialist, pinned source manifest and worker
 authority policy fingerprints with fixed refusal reasons. It must never
 create a Task, approval, Worker registration, target file read or execution grant.
+An isolated, [separately opt-in source-built manual static-target proof](v0.15-rea-manual-static-target-qualification.md)
+may qualify a benign operator-selected sealed snapshot *only after* independently
+pinned source/runtime/target verification and exact container cleanup. It is
+not an active Core Worker, Tool grant, approval or agent capability; a passing
+mock/test suite is not a successful live native qualification. Do not infer
+per-tool Core execution authority from a local probe receipt.
 Importing MIT source does not grant host/browser/credential access and
 preserves original legal notices. Complete current Core and v0.16 gates
 before REA execution integration.

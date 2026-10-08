@@ -58,14 +58,33 @@ target preflight CLI that rechecks sealed content, source and catalog hashes
 and emits an inert preview checksum. No Core API imports admitted files.
 Merged #127 (main 2b0610e) adds a Core-owned, append-only, authenticated
 operator selection and irreversible revocation ledger for **asserted**, not
-Core-verified, REA target identities. Its exact-head full CI passed; the new
-post-merge `main` CI must still pass before claiming that merged baseline green.
-All execution, Worker, Tool, Task and approval permissions remain false.
+Core-verified, REA target identities. Its exact-head full CI and post-merge
+`main` CI both passed. All execution, Worker, Tool, Task and approval
+permissions remain false.
 
-The next read-only analysis-plan projection displays a non-authoritative
-selected target, the draft REA Specialist and current WorkerAuthority policy
-fingerprints together with five fixed refusal reasons. It never reads target
-bytes, creates a Task, invokes an analyzer or grants execution authority.
+Merged PR #128 (main `4a8d4c2ebb3c10e3c6851194d8ead2b5b882bdcf`)
+delivers the read-only, denied analysis-plan projection for the selected
+asserted target, draft REA Specialist and current WorkerAuthority identity.
+It emits all five fixed refusal reasons; it never reads target bytes, creates
+a Task, invokes an analyzer or grants execution authority. Its exact-head
+full CI passed; post-merge `main` CI remains a separate pending gate.
+
+A subsequent strictly manual **offline sealed-target static qualification**
+codepath is prepared behind an explicit local CLI switch and its own pinned
+no-network sandbox policy. It verifies copied target contents against the
+independently retained receipt before allowing exactly one source-owned static
+REA MCP operation in an isolated Docker guest. No general-target native proof
+has yet been run or claimed successful. An initial read-only runtime diagnostic
+used the unresolved `runtime-v6` symlink path and misleadingly reported
+`rea_runtime_symlink_escape`. The normal runtime qualification uses the
+canonical resolved physical path; an independent check with that same path
+**passed** all pinned REA 6.0.0 source, module, and dist hashes, and confirmed
+no network or Core Worker authority. The symlink escape guard remains intact
+for any links escaping that canonical root. No selected-target Docker proof was
+run. The offline operator qualifier now also enforces an exclusive local lock;
+unreconciled private stage directories block subsequent probes. This is not
+Core execution, approval, Worker registration, permission propagation or
+Evidence admission; those remain future separately reviewed gates.
 
 
 ## REA source-owned candidate preparation
