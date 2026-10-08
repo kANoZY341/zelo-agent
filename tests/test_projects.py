@@ -92,7 +92,7 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
     assert active_status.startswith(
-        "## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger"
+        "## Active increment: v0.15 publication refusal and inert v0.16 channels"
     )
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
     for pr in ("#107", "#108", "#109", "#110", "#111"):
@@ -100,9 +100,11 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "bc6f50c94b7d42c25a32462a8657606534dff457" in active_status
     assert "bd586aa702d2b8b414db8bd22ac2676575c194f4" in active_status
     assert "4,985 tests passed, 2 skipped" in active_compact
+    assert "b8a963462a926e24517c884c7ceb0af454f9fa10" in active_status
+    assert "4,988 tests passed, 2 skipped" in active_compact
     assert "HMAC" in active_status
-    assert "competing" in active_compact.lower()
-    assert "local promotion links" in active_compact
+    assert "Competing" in active_status
+    assert "second local promotion link" in active_compact
     assert "pre-merge publication" in active_compact
     assert "unverified" in active_compact
     assert "four authorized attempts" in active_compact

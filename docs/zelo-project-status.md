@@ -1,33 +1,36 @@
 # Zelo live project status
 
-Latest checkpoint verified: 7 October 2026
+Latest checkpoint verified: 8 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger
+## Active increment: v0.15 publication refusal and inert v0.16 channels
 
-Core-first work remains on Core v0.15. Merged PR #107 established the
-governed learned-skill proposal admission guard. Merged PR #108 at
-bc6f50c94b7d42c25a32462a8657606534dff457 added bounded inert channel:
-text envelopes, HMAC pseudonymous identities and prepared-only replies;
-4,965 tests passed, 2 skipped.
-
+Core-first work remains on Core v0.15. Merged PR #107 established learned-skill
+proposal admission. Merged PR #108 at
+bc6f50c94b7d42c25a32462a8657606534dff457 added channel: text
+envelopes and HMAC pseudonymous identities (4,965 tests passed, 2 skipped).
 PR #109 merged at bd586aa702d2b8b414db8bd22ac2676575c194f4 with
-4,985 tests passed, 2 skipped; its merged tree exactly matches the
-reviewed source. It adds operator-selected opaque thread bindings and
-append-only unverified inbound replay observations. These records store no
-original message body and cannot claim provider authentication, account
-ownership, Mind admission, execution, delivery, voice or calling authority.
+4,985 tests passed, 2 skipped: operator-selected opaque thread bindings
+and append-only unverified observations never admit Mind turns or delivery.
 
-PR #110 is the active unmerged v0.15 local promotion-link exclusivity
-gate. Competing previously accepted skill revisions cannot both receive
-new local promotion links. Historical reviewed decisions remain valid.
-The separate PR #111 still provides the proposed generic GitHub
-pre-merge publication refusal; a future identity-bound publication
-reservation remains necessary. There is no automatic learned skill
-runtime activation or expansion of Agent/Worker/Tool permissions.
+PR #110 merged at b8a963462a926e24517c884c7ceb0af454f9fa10:
+4,988 tests passed, 2 skipped, with an identical reviewed and merged
+tree. Competing previously accepted skill revisions cannot gain a second
+local promotion link. Exact historical proof retries remain idempotent.
+
+PR #111 is the active **unmerged** v0.15 generic pre-merge publication
+refusal, following merged #110. Until a future identity-bound exclusive
+publication protocol is qualified, it refuses generic external promotion of
+learned skill files. It is not global GitHub branch protection. Historical
+promotion proof is not runtime skill activation and grants no Tool/Worker
+authority.
+
+PRs #112 through #115 are offline/inert v0.16 WhatsApp security and
+account-selection drafts. No provider account is connected or authenticated;
+no webhook, Mind admission, sending, voice, calls, or delivery is enabled.
 
 Media native-reader qualification remains refused after four authorized
 attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.

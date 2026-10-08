@@ -529,6 +529,9 @@ not merge it wholesale.
 
 ### v0.15 — Capability and skills ecosystem
 
+The four previously consumed Media native-reader qualification attempts
+remain refused; no fifth attempt is authorized by a skills merge.
+
 Core-first checkpoint (8 October 2026): merged PRs #93, #98, #99, #100,
 including #102, #103, #104, #105, #106 and #107. PR #107 adds the
 new-proposal admission guard. It refuses a brand-new learned procedure
@@ -541,13 +544,17 @@ Core refuses a brand-new learned skill proposal at or below the latest
 promoted version for the same AgentInstance/Skill/procedure. Historical
 identical proposal retries stay idempotent and accepted reviews survive.
 
-PR #110 is the unmerged **local promotion-link recording exclusivity** gate.
-It serializes verified head checks before storing new promotion proof;
-previously accepted competing heads cannot both acquire local links.
-Historical divergent heads still cause the resolver to refuse ambiguity.
-This does NOT implement an external GitHub pre-merge publication lock:
-a separate trusted learned-skill identity and promotion-time exclusivity
-gate are required before merging a competing external PR.
+Merged PR #110 at b8a9634 (4,988 passed, 2 skipped) adds
+**local promotion-link recording exclusivity**: under a serialized SQLite
+writer, previously accepted competing skill revision heads cannot gain a
+second local promotion link. Historical divergent heads remain fail-closed.
+PR #111 is the next draft **generic pre-merge publication refusal**:
+until trusted skill identity/exclusive publication reservations exist, the
+generic GitHub merger must refuse protected learned-procedure files.
+Neither gate adds runtime skill activation, and this refusal is not global
+GitHub branch protection or proof that a separate GitHub client is blocked.
+A trusted, skill-specific promotion-time exclusivity reservation is still
+required for publication; this is not runtime skill activation.
 
 Merged PR #108 starts non-authoritative v0.16 channel contracts; merged PR #109
 (bd586aa7) adds operator-selected opaque bindings and unverified replay metadata.
@@ -555,11 +562,10 @@ These are not runtime skill activation, provider authentication or new
 AgentSpec/worker/tool authority. The four previously consumed native-reader
 qualification attempts remain preserved as refusals. UI PR #61 stays parked.
 
-Earlier PR #107 admission/ambiguity tests passed 3 focused and 177
-integrated cases. PR #110 local validation passed 108 skill-learning
-regressions, an HTTP conflict test, a concurrent writer test and five
-context tests before the new main integration. Exact-head CI remains
-required for the updated PR #110.
+The exact-head #110 CI passed 4,988 tests and 2 skips, Ruff and format,
+and its reviewed tree exactly matched merged main. The still-open PR #111
+requires independent exact-head full CI after retargeting to merged main,
+and no unreviewed publication or worker/tool permission is enabled.
 
 **Latest delivery decision, 2 October 2026:** Core first. The user reports that
 the UI needs major rework and has parked UI implementation until the end of the
@@ -623,19 +629,20 @@ Zelo-owned interfaces.
 Merged PR #108 (bc6f50c, 4,965 tests passed and 2 skipped) provides the
 contract-only v0.16 foundation: transport-neutral, **non-authoritative**
 channel text envelopes, keyed opaque provider/thread/message identities,
-and reserved channel turn idempotency keys.
+and reserved channel-turn idempotency keys.
 
 The WhatsApp signature verifier checks Meta's `X-Hub-Signature-256`
-against exact webhook bytes under a trusted server-owned App Secret.
-The separately staged signed-text-shape parser extracts exactly one
-strictly bounded inbound text event after HMAC verification. Unsupported,
-mixed and batched messages fail closed; status-only notifications produce no
-text turn. These are pure, offline checks, not account ownership, freshness,
-replay authority, Mind admission or sending. See
-`docs/v0.16-whatsapp-signature-foundation.md` and
+against exact raw webhook bytes under a trusted server-owned App Secret.
+The signed-text parser extracts one strictly bounded inbound text event
+only after signature verification. Unsupported, mixed and batched payloads
+fail closed; status-only events produce no text turn. Neither function
+establishes account ownership, freshness, replay permission, Mind admission
+or sending. See `docs/v0.16-whatsapp-signature-foundation.md` and
 `docs/v0.16-whatsapp-signed-text-shape.md`.
- This foundation has no provider credentials or connected
-transports. A separately qualified adapter must authenticate provider origin,
+
+This foundation has no provider credentials or connected transports.
+A separately qualified adapter must authenticate provider origin,
+
 bind Ahmad-approved accounts to existing Mind conversations, persist inbound
 replay/edits and outbound delivery receipts, and enforce send approval before
 any WhatsApp/email/voice action is enabled. Provider text is always untrusted
