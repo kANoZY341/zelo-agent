@@ -596,6 +596,21 @@ Add controlled:
 - selected MCP/plugin adapters;
 - optional Ruflo swarm adapter.
 
+REA full-source reuse decision (8 October 2026): copy the complete upstream
+REA 6.0.0 Git-tracked source into Zelo under `third_party/rea/`, pinned to
+commit `6fee42689ae6e95a0182e0d4d0f55644e73e72be`, rather than
+depending on an external MCP installation. This is inert provenance-only
+source adoption, recorded in `docs/v0.15-rea-v6-source-import.md` and
+draft PR #119. The optional five independent engine Git submodules remain
+pinned by commit but not included as copied source. The earlier REA catalog
+#116 and npm-backed MCP proof #118 are parked, not alternate activation
+routes. First build a Zelo-owned source artifact, then qualify exact per-tool
+Core WorkerAuthority/Task/Agent/Space permissions, source identity,
+evidence, sandbox cleanup and approvals before any REA execution by Zelo.
+Importing MIT source does not grant host/browser/credential access and
+preserves original legal notices. Complete current Core and v0.16 gates
+before REA execution integration.
+
 For Computer Worker infrastructure, prefer reuse over rebuilding container and
 browser lifecycle from zero. The first candidate is the exact OpenBot revision
 already consumed by OpenDots, wrapped by a Zelo-owned fail-closed adapter. The

@@ -21,16 +21,27 @@ PR #110 merged at b8a963462a926e24517c884c7ceb0af454f9fa10:
 tree. Competing previously accepted skill revisions cannot gain a second
 local promotion link. Exact historical proof retries remain idempotent.
 
-PR #111 is the active **unmerged** v0.15 generic pre-merge publication
-refusal, following merged #110. Until a future identity-bound exclusive
-publication protocol is qualified, it refuses generic external promotion of
-learned skill files. It is not global GitHub branch protection. Historical
-promotion proof is not runtime skill activation and grants no Tool/Worker
-authority.
+PR #111 has merged the generic pre-merge publication refusal for protected
+learned-skill files. PR #117 also merged an inert identity-bound publication
+intent contract. These gates do not authorize runtime skill activation,
+external GitHub publication or new Tool/Worker permissions.
 
-PRs #112 through #115 are offline/inert v0.16 WhatsApp security and
-account-selection drafts. No provider account is connected or authenticated;
-no webhook, Mind admission, sending, voice, calls, or delivery is enabled.
+The v0.16 channel security stack is now merged through PRs #112, #113,
+#114 and #115: offline exact raw-body WhatsApp HMAC verification, strict
+single text-event extraction, unverified pseudonymous ingress, and an
+append-only operator-selected/revocable WABA-plus-receiving-phone identity
+ledger. All default permissions for Mind admission, provider authenticity
+and outbound delivery remain false. No real Meta account/credential,
+network webhook listener, Mind turn, sending, voice or calling is enabled.
+
+Draft PR #119 stages the complete, pinned REA 6.0.0 source snapshot
+(2,082 upstream-tracked files plus five separately pinned optional Git
+submodule identities) in Zelo instead of an npm-backed external MCP
+dependency. Its source manifest and integrity verifier remain inert:
+no REA Worker, Tool, Agent activation, native engine, host access or
+network execution is authorized. The older REA drafts #116 and #118
+remain parked while Core-controlled source build and later per-tool
+authority gates are planned.
 
 Media native-reader qualification remains refused after four authorized
 attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
