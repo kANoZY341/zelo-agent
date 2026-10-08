@@ -216,6 +216,16 @@ def test_deadline_retains_validation_thread_and_admission(runtime, monkeypatch):
     bound = binding(runtime, 0.01)
     monkeypatch.setattr("app.shell_worker.verify_sources", verify)
 
+    # Under CI load a 10 ms deadline can expire before the executor launches
+    # a thread. A test-only startup handshake ensures the real timeout fires
+    # while validation owns its lease, without changing production deadlines.
+    async def started_to_thread(callback):
+        future = asyncio.get_running_loop().run_in_executor(None, callback)
+        assert started.wait(5), "validation_thread_did_not_start"
+        return await future
+
+    monkeypatch.setattr("app.shell_worker.asyncio.to_thread", started_to_thread)
+
     async def exercise():
         try:
             with pytest.raises(ShellRuntimeError, match="cleanup_pending"):
