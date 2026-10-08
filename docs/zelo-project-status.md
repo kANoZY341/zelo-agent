@@ -6,36 +6,31 @@ This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
 in `docs/zelo-workspace-decision.md`.
 
-## Active increment: Core v0.15 and inert v0.16 channel foundation
+## Active increment: v0.15 promotion exclusivity and v0.16 channel ledger
 
-Core-first development continues. Merged PRs #93, #98, #99, #100,
-including #102, #103, #104, #105, #106 and #107. PR #107 merge
-b3e665ab76768d6a14d16cdf1d799f8783c8f6c4 passed exact-head CI
-with 4,913 tests and 2 skips; its merged tree matches the reviewed source.
+Core-first work remains on Core v0.15. Merged PR #107 established the
+governed learned-skill proposal admission guard. Merged PR #108 at
+bc6f50c94b7d42c25a32462a8657606534dff457 added bounded inert channel:
+text envelopes, HMAC pseudonymous identities and prepared-only replies;
+4,965 tests passed, 2 skipped.
 
-Governed learned-procedure proposals now refuse newly competing versions at
-or below the latest promoted revision. An existing exact proposal can replay
-idempotently; the trusted historical resolver refuses ambiguous promoted
-heads. Historical proof is NOT activation. A separate promotion-time
-exclusivity gate remains necessary for competing proposals created before
-either was promoted.
+PR #109 merged at bd586aa702d2b8b414db8bd22ac2676575c194f4 with
+4,985 tests passed, 2 skipped; its merged tree exactly matches the
+reviewed source. It adds operator-selected opaque thread bindings and
+append-only unverified inbound replay observations. These records store no
+original message body and cannot claim provider authentication, account
+ownership, Mind admission, execution, delivery, voice or calling authority.
 
-PR #108 is the active contract-only v0.16 channel foundation on current
-main. It defines bounded inbound text envelopes, channel/thread/message
-fingerprints, keyed HMAC pseudonyms and prepared-only delivery intents.
-The operator-facing Mind turn route reserves the channel: namespace
-against caller-supplied idempotency keys. Execution_authority and
-transport_authority remain false.
+PR #110 is the active unmerged v0.15 local promotion-link exclusivity
+gate. Competing previously accepted skill revisions cannot both receive
+new local promotion links. Historical reviewed decisions remain valid.
+The separate PR #111 still provides the proposed generic GitHub
+pre-merge publication refusal; a future identity-bound publication
+reservation remains necessary. There is no automatic learned skill
+runtime activation or expansion of Agent/Worker/Tool permissions.
 
-There is no webhook, provider authentication, WhatsApp/email/call/voice
-transport, account binding, message delivery, new task/worker/tool grant or
-runtime learned-skill loader. Local integration on merged PR #106 passed
-113 channel/Mind/scheduler/context tests after Unicode hardening.
-Fresh exact-head CI/review on the merged PR #107 baseline is required.
-
-Media native-reader proof remains refused after four authorized attempts;
-do not reset its ledger or perform an unauthorized fifth qualification.
-The redesigned UI PR #61 remains parked. Continue Core-first work.
+Media native-reader qualification remains refused after four authorized
+attempts; no fifth attempt is authorized. UI PR #61 remains draft and parked.
 
 ## Checkpoint history
 
