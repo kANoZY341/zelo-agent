@@ -119,6 +119,12 @@ Agents or grants publishing, trading, Tool, Worker, Task or Space access. See
 v0.15-harness-specialist-team-drafts.md.
 UI PR #61 remains parked until the Core-first development priority changes.
 
+Context Mode concept continuation: a separate operator-only, private SQLite
+archive now supports digest-bound explicit windows and manual purge, with
+project/operator scope isolation and no automatic ContextResolver or model
+prompt admission. This code is Zelo-authored, not copied Elastic-2.0 source.
+See v0.15-context-mode-explicit-archive.md.
+
 ## REA source-owned candidate preparation
 
 Main now contains the REA v6 source and its observed 139-tool catalog,
