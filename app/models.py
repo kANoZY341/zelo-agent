@@ -1156,3 +1156,51 @@ class CommunityContextArchiveRecord(Base):
     excerpt_is_partial: Mapped[bool] = mapped_column(Boolean)
     raw_data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentSpaceIntentRecord(Base):
+    """Immutable owner-reviewed Space intent; no Worker or resource authorization."""
+
+    __tablename__ = "agent_space_intents"
+    __table_args__ = (
+        CheckConstraint("agent_version >= 1", name="ck_space_intent_agent_version"),
+        CheckConstraint("length(registry_version)=64", name="ck_space_intent_registry"),
+        CheckConstraint(
+            "length(spec_sha256)=64 AND spec_sha256 NOT GLOB '*[^0-9a-f]*'",
+            name="ck_space_intent_spec_hash",
+        ),
+        CheckConstraint(
+            "length(intent_sha256)=64 AND intent_sha256 NOT GLOB '*[^0-9a-f]*'",
+            name="ck_space_intent_hash",
+        ),
+        CheckConstraint(
+            "resource_kind IN ('files','browser','terminal','memory')", name="ck_space_intent_kind"
+        ),
+        CheckConstraint(
+            "length(operations_json) BETWEEN 8 AND 32", name="ck_space_intent_operations_size"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agent_instance_id: Mapped[str] = mapped_column(ForeignKey("agent_instances.id"), index=True)
+    agent_id: Mapped[str] = mapped_column(String(64))
+    agent_version: Mapped[int] = mapped_column(Integer)
+    registry_version: Mapped[str] = mapped_column(String(64))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    space_id: Mapped[str] = mapped_column(String(64))
+    resource_kind: Mapped[str] = mapped_column(String(16))
+    resource_id: Mapped[str] = mapped_column(String(64))
+    operations_json: Mapped[str] = mapped_column(Text)
+    spec_sha256: Mapped[str] = mapped_column(String(64))
+    intent_sha256: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentSpaceIntentRevocation(Base):
+    """Irreversible revocation; one terminal row for each recorded Space intent."""
+
+    __tablename__ = "agent_space_intent_revocations"
+
+    intent_id: Mapped[str] = mapped_column(ForeignKey("agent_space_intents.id"), primary_key=True)
+    revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

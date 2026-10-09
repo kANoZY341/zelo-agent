@@ -129,6 +129,11 @@ project/operator scope isolation and no automatic ContextResolver or model
 prompt admission. This code is Zelo-authored, not copied Elastic-2.0 source.
 See v0.15-context-mode-explicit-archive.md.
 
+OpenDots Space continuation is staged in a stacked worktree: short-lived
+operator-reviewed, AgentInstance/spec/project-bound grant intents are append-only
+and revocable. They cannot grant effective Worker, Tool, Computer or model
+context access. See v0.15-opendots-space-grant-intent-foundation.md.
+
 ## REA source-owned candidate preparation
 
 Main now contains the REA v6 source and its observed 139-tool catalog,
