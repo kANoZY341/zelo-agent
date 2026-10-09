@@ -2,12 +2,13 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 
 from app.auth import require_operator
 from app.community_archify import export_archify_json, export_mermaid, zelo_architecture_draft
+from app.community_archify_registry import RegistryArchitectureView, agent_registry_architecture
 from app.community_ecc_playbooks import (
     EccManualPlaybook,
     EccPlaybookRefusal,
@@ -113,6 +114,13 @@ def get_archify_architecture_candidate() -> Response:
         content=export_archify_json(zelo_architecture_draft()),
         media_type="application/json",
     )
+
+
+@router.get("/architecture/agent-registry", response_model=RegistryArchitectureView)
+def get_agent_registry_architecture_candidate(request: Request) -> RegistryArchitectureView:
+    """Inspect Core-owned registry templates, never live AgentInstances or grants."""
+
+    return agent_registry_architecture(request.app.state.agent_registry)
 
 
 @router.get("/architecture/mermaid")
