@@ -63,6 +63,8 @@ def test_migration_from_empty_database(settings) -> None:
             "organization_assignments",
             "agent_child_creations",
             "community_context_archives",
+            "agent_space_intents",
+            "agent_space_intent_revocations",
         }
         assert not any(
             table.startswith("_alembic_tmp_")

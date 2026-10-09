@@ -601,6 +601,10 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "rea_operator_target_revocations_no_update",
             "rea_operator_target_revocations_no_duplicate_insert",
             "context_archive_no_update",
+            "agent_space_intents_no_update",
+            "agent_space_intents_no_delete",
+            "agent_space_intent_revocations_no_update",
+            "agent_space_intent_revocations_no_delete",
         }
     finally:
         db.close()
