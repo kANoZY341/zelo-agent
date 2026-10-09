@@ -1,0 +1,106 @@
+"""Owner-only view of pinned, inert Zelo community integration candidates."""
+
+from typing import Literal
+
+from fastapi import APIRouter, Depends
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
+
+from app.auth import require_operator
+from app.community_archify import export_archify_json, export_mermaid, zelo_architecture_draft
+from app.community_harness import TeamBlueprint, propose_team
+from app.community_skill_catalog import community_skill_candidates
+from app.skills import SkillSpec
+from qualification.community_sources import verify_community_sources
+
+router = APIRouter(
+    prefix="/integration-candidates/community",
+    dependencies=[Depends(require_operator)],
+)
+
+
+class SourceReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    name: str
+    repository: str
+    commit: str
+    license: str
+    source_files: int
+    auto_activation: Literal[False] = False
+    tool_grants: tuple[()] = ()
+
+
+class CommunityReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["zelo-curated-community-readiness-v1"] = (
+        "zelo-curated-community-readiness-v1"
+    )
+    sources: tuple[SourceReadiness, ...]
+    context_mode_source_imported: Literal[False] = False
+    worker_registered: Literal[False] = False
+    license_review_required_before_activation: Literal[True] = True
+
+
+class DraftSkillView(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    skill: SkillSpec
+    repository: str
+    path: str
+    commit: str
+    reviewed_steps: tuple[str, ...]
+    ready_for_promotion: Literal[False] = False
+    tool_grants: tuple[()] = ()
+
+
+@router.get("", response_model=CommunityReadiness)
+def community_source_candidates() -> CommunityReadiness:
+    verified = verify_community_sources()
+    return CommunityReadiness(
+        sources=tuple(
+            SourceReadiness(
+                name=item.name,
+                repository=item.repository,
+                commit=item.commit,
+                license=item.license,
+                source_files=item.file_count,
+            )
+            for item in verified
+        )
+    )
+
+
+@router.get("/skills", response_model=tuple[DraftSkillView, ...])
+def read_community_skill_drafts() -> tuple[DraftSkillView, ...]:
+    return tuple(
+        DraftSkillView(
+            skill=candidate.skill,
+            repository=candidate.upstream,
+            path=candidate.upstream_path,
+            commit=candidate.upstream_commit,
+            reviewed_steps=candidate.reviewed_steps,
+        )
+        for candidate in community_skill_candidates()
+    )
+
+
+@router.get("/teams/{template}", response_model=TeamBlueprint)
+def get_community_team_draft(
+    template: Literal["engineering_quality", "business_research"],
+) -> TeamBlueprint:
+    return propose_team(template)
+
+
+@router.get("/architecture")
+def get_archify_architecture_candidate() -> Response:
+    return Response(
+        content=export_archify_json(zelo_architecture_draft()),
+        media_type="application/json",
+    )
+
+
+@router.get("/architecture/mermaid")
+def get_archify_mermaid_preview() -> Response:
+    return Response(
+        content=export_mermaid(zelo_architecture_draft()),
+        media_type="text/plain; charset=utf-8",
+    )

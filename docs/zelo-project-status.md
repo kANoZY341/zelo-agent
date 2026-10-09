@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Latest checkpoint verified: 8 October 2026
+Latest checkpoint verified: 9 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -86,6 +86,23 @@ unreconciled private stage directories block subsequent probes. This is not
 Core execution, approval, Worker registration, permission propagation or
 Evidence admission; those remain future separately reviewed gates.
 
+
+## Community reuse / engineering integration program
+
+The Managing Director selected a six-stage reuse order for Open Code Review,
+ECC, Harness, Archify, Context Mode *concepts*, and unfinished OpenDots
+Computer Panel/Spaces/learning. The first isolated Core slice snapshots 19
+reviewed upstream source/license files at exact commits (and **no** Context
+Mode source), builds a read-only OCR finding-to-Zelo-review adapter grounded in
+Core-approved changed lines, six draft skill candidates, two draft four-tier
+specialist teams, an Archify-compatible static architecture projection,
+an independently written bounded tool-output index, and a read-only Core
+Computer Panel data projection. See `v0.15-curated-community-import-program.md`.
+No borrowed instructions execute automatically; these preview features grant
+no Worker, Task, Agent, tool, Space, publication or CI merge permission.
+The actual React Computer Panel, executable code-review Worker, skill promotion,
+full Archify renderer and Space/skill-learning enforcement remain separate gates.
+UI PR #61 remains parked until the Core-first development priority changes.
 
 ## REA source-owned candidate preparation
 

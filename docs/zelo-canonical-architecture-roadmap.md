@@ -356,6 +356,17 @@ A newly discovered repository must first be mapped to a box in the canonical
 architecture. Zelo must not be reshaped around whichever repository was most
 recently discovered.
 
+**Curated integration program (9 October 2026):** The Managing Director
+selected Open Code Review → ECC → Harness → Archify → Context Mode **concepts**
+→ the remaining OpenDots Computer Panel, Space permission and skill-learning
+integration. See [the pinned reuse and exact authority gates](v0.15-curated-community-import-program.md).
+The first Core slice imports narrow source assets with full notices, exposes
+operator-only draft/evidence/projection contracts, and preserves original
+Worker, Skill, Agent, Task and Space authority. Source snapshots are not a
+runtime plugin installation. Finish independent evaluation and promotion
+before activating each capability. UI PR #61 remains parked; the imported
+OpenDots React panel is a reference, not production UI.
+
 ## Workspace and conversational direction
 
 The workspace is one product with three connected views:

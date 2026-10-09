@@ -1,0 +1,175 @@
+{
+  "auto_activation": false,
+  "context_mode": {
+    "approach": "independent conceptual implementation; no source copy",
+    "commit": "a6c43765d26bb196d3b9c77752d1a8c855e6e074",
+    "copied_files": [],
+    "license": "Elastic-2.0",
+    "repository": "mksglu/context-mode"
+  },
+  "granted_tools": [],
+  "granted_workers": [],
+  "schema": "zelo-curated-community-sources-v1",
+  "source_evidence_only": true,
+  "sources": {
+    "archify": {
+      "commit": "bb990b17b886e83d633e273221615eb259a92c78",
+      "execution_enabled": false,
+      "files": [
+        {
+          "bytes": 1102,
+          "path": "LICENSE",
+          "sha256": "b799ab081703e7821ae5096d2c1abdf14bbdc75e8ea1c4045998c36ed6db9706",
+          "upstream_git_blob": "0f9f9397a0496ef63c7d555d36b40c3f932aff84"
+        },
+        {
+          "bytes": 5248,
+          "path": "THIRD_PARTY_NOTICES.md",
+          "sha256": "0b7fb59365dc21c93b0f62526d74ee913aeec9ae532c112bc76afa7edcd56e14",
+          "upstream_git_blob": "3c15e20a0ac9452d8dac46beb92a672e1973cad4"
+        },
+        {
+          "bytes": 11647,
+          "path": "archify/SKILL.md",
+          "sha256": "cf348309c5350c285714151a409d7451669fe00f4537824c38038a6e18767b6d",
+          "upstream_git_blob": "dc1e94c1d24a6ff7ebc0f64540ff47ef06623922"
+        },
+        {
+          "bytes": 6024,
+          "path": "archify/schemas/architecture.schema.json",
+          "sha256": "aef992b585a18a4016b8207254fe43a6227b0d45322a1ba95e0f69a80fc8f8c1",
+          "upstream_git_blob": "5fe3b8ecec4c76b7229bef83a13cb170fcc3fed5"
+        },
+        {
+          "bytes": 5755,
+          "path": "archify/schemas/common.schema.json",
+          "sha256": "60912458e44224647a147a4dfccf0b40e0ea9c631767aabdeb5e82456f27c4e6",
+          "upstream_git_blob": "2fe0c7560926977b8763210e369c197d3ce74817"
+        },
+        {
+          "bytes": 10165,
+          "path": "archify/schemas/workflow.schema.json",
+          "sha256": "e13a1ce3b841376c8c6f6b9cb8152f8c0c7d70a77a2960fecdfe9025de83dc25",
+          "upstream_git_blob": "dad1457f275645ba441157de52e28f126744d929"
+        }
+      ],
+      "license": "MIT",
+      "repository": "tt-a1i/archify",
+      "tool_grants": []
+    },
+    "ecc": {
+      "commit": "ef648e01899ba3e8dc6371642deaaf64b4477775",
+      "execution_enabled": false,
+      "files": [
+        {
+          "bytes": 1071,
+          "path": "LICENSE",
+          "sha256": "326146379f01bb137c0a5d3c54770c1aa31076705c8b88a7f6b26a460f6221b2",
+          "upstream_git_blob": "b832b6f642312312367c07688dc7426db40a82ed"
+        },
+        {
+          "bytes": 12955,
+          "path": "skills/security-review/SKILL.md",
+          "sha256": "b9eb6416eebc8dda046674f0a2dbb3be88aff526d182b60a0f55998d3d6d0d8d",
+          "upstream_git_blob": "3f26b0df65661425de4e5c40c295e04edcad7a83"
+        },
+        {
+          "bytes": 4696,
+          "path": "skills/agent-eval/SKILL.md",
+          "sha256": "57fa683e356b6f5612bc6d7dc101ae39c126e6edf9a48f4ec53afea3e80d7e5d",
+          "upstream_git_blob": "c082704f19ad58e8f0aa986a25f1da0b29809922"
+        },
+        {
+          "bytes": 11659,
+          "path": "skills/ai-regression-testing/SKILL.md",
+          "sha256": "83f2f5c4083af5762dd658f742d4a390eb3a6f969d835f69e8f47efba296c127",
+          "upstream_git_blob": "e8dac65b1792ead1289090e3db0326ec00c26fbf"
+        },
+        {
+          "bytes": 7182,
+          "path": "skills/architecture-decision-records/SKILL.md",
+          "sha256": "263b20e81801aa5fa7e75eaec6c38345c0ac028ca0edbd67b1b9071c5fcbe11f",
+          "upstream_git_blob": "84f2dd608b4589f7e74e876927ddce866e12a3d1"
+        }
+      ],
+      "license": "MIT",
+      "repository": "affaan-m/ECC",
+      "tool_grants": []
+    },
+    "harness": {
+      "commit": "92d9f1b29e7af81acebf51a9fcd1832e739a1414",
+      "execution_enabled": false,
+      "files": [
+        {
+          "bytes": 10756,
+          "path": "LICENSE",
+          "sha256": "bae1caa988a742c5a756faa45e33b6c72f21f9873b8e7f1e0ce87fcf0a4c747b",
+          "upstream_git_blob": "6a16d30b65304de0a4593d9610efcce2817c1237"
+        },
+        {
+          "bytes": 35683,
+          "path": "skills/harness/SKILL.md",
+          "sha256": "2d941632cc3cceedc33317334fc43e4c2f8c5c834a35b8e745fe0f2368ddf039",
+          "upstream_git_blob": "b65b956030f0dcf5fc2947e178e026a386b03855"
+        },
+        {
+          "bytes": 3062,
+          "path": "docs/quickstart.md",
+          "sha256": "9a5146a752f319887e6977ef7907839708a62ca87d2dd9f0df5e8abffc13d57a",
+          "upstream_git_blob": "24a5b8cba5b96062f03d9171244cd32d2655eb54"
+        }
+      ],
+      "license": "Apache-2.0",
+      "repository": "revfactory/harness",
+      "tool_grants": []
+    },
+    "open_code_review": {
+      "commit": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
+      "execution_enabled": false,
+      "files": [
+        {
+          "bytes": 11356,
+          "path": "LICENSE",
+          "sha256": "1945665fdb6968a66ea29438ddee0aee23035365c862e5c4a75b62b303340acf",
+          "upstream_git_blob": "5db038258492ce47a5f3d27d78562c90d3f78331"
+        },
+        {
+          "bytes": 1166,
+          "path": "internal/model/review.go",
+          "sha256": "a5e4761346ce38d300b1492dc8055602fde793db09228dbe4e1599c7db8509aa",
+          "upstream_git_blob": "f91891464f856f5f086685476954a045bda03c9e"
+        },
+        {
+          "bytes": 12632,
+          "path": "skills/open-code-review/SKILL.md",
+          "sha256": "be45ee1303e5106cd36f20bd7854ea1a5bb41b0d6ae045953cb643201bcd715e",
+          "upstream_git_blob": "01317b749e475294236fc85999a4f277c88bbc5a"
+        }
+      ],
+      "license": "Apache-2.0",
+      "repository": "alibaba/open-code-review",
+      "tool_grants": []
+    },
+    "opendots": {
+      "commit": "625452e06cde74cb25b0ce319e2c1be0488f5a5f",
+      "execution_enabled": false,
+      "files": [
+        {
+          "bytes": 1067,
+          "path": "LICENSE",
+          "sha256": "15a0e5343aea872c0573ad72feb6044b336f162d724cc1673c608e6b37ea071b",
+          "upstream_git_blob": "b3bf13ded443fa46a3fbbf69c42d2150c21f4cda"
+        },
+        {
+          "bytes": 24923,
+          "path": "src/client/ComputerPanel.tsx",
+          "sha256": "1af307d898760c9442033aff873efe57b3a858a81401c4f8736edaa8f98a9bc8",
+          "upstream_git_blob": "ff769e85bdf486e4955dc7f85b29b944941b16c4"
+        }
+      ],
+      "license": "MIT",
+      "repository": "CopilotKit/OpenDots",
+      "tool_grants": []
+    }
+  }
+}
