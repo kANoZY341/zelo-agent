@@ -109,7 +109,14 @@ special files, mutable attribute overrides, stale revisions and unsupported Git.
 The resulting checksum-bound reviewer evidence grants no new authority; no
 Coding Specialist or CI integration is activated. See
 `v0.15-curated-ocr-trusted-git-review.md`.
-Four reviewed ECC manual playbooks now describe operator procedures for security review, agent evaluation, AI regression and architecture decisions. They remain draft, checksum-bound references with no Worker, Tool, Task or Skill Registry activation. See v0.15-ecc-manual-engineering-playbooks.md.
+Four reviewed ECC manual playbooks now describe operator procedures for security
+review, agent evaluation, AI regression and architecture decisions. They remain
+draft, checksum-bound references with no Worker, Tool, Task or Skill Registry
+activation. See v0.15-ecc-manual-engineering-playbooks.md.
+Harness now also offers operator-only YouTube content and Trading research draft
+teams, each with four VP-to-Specialist levels. Neither template registers live
+Agents or grants publishing, trading, Tool, Worker, Task or Space access. See
+v0.15-harness-specialist-team-drafts.md.
 UI PR #61 remains parked until the Core-first development priority changes.
 
 ## REA source-owned candidate preparation

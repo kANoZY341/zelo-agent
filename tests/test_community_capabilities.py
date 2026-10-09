@@ -46,7 +46,9 @@ def test_ecc_and_partner_skill_library_is_draft_only():
     assert all(active.get(item.skill.skill_id) is None for item in candidates)
 
 
-@pytest.mark.parametrize("template", ("engineering_quality", "business_research"))
+@pytest.mark.parametrize(
+    "template", ("engineering_quality", "business_research", "youtube_content", "trading_research")
+)
 def test_harness_team_is_strict_immutable_draft_with_no_grants(template):
     proposed = propose_team(template)
     assert proposed == propose_team(template)
