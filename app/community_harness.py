@@ -46,8 +46,16 @@ class TeamBlueprint(BaseModel):
             or x.permissions
             or x.space_permissions
             or x.computer is not None
+            or x.worker_requirement is not None
+            or x.skill_ids
+            or x.procedures
+            or x.instructions
+            or not x.review_required
+            or x.version != 1
+            or x.max_active_instances != 1
             or x.skill_learning != "disabled"
             or x.allow_subagents
+            or x.max_subagents != 0
             for x in self.roles
         ):
             raise ValueError("harness_blueprint_execution_forbidden")
