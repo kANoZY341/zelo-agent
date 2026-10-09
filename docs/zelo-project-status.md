@@ -123,6 +123,12 @@ deterministic JSON/Mermaid and digest. It never claims that templates are runnin
 Agents or that edges grant authority. See v0.15-archify-agent-registry-projection.md.
 UI PR #61 remains parked until the Core-first development priority changes.
 
+Context Mode concept continuation: a separate operator-only, private SQLite
+archive now supports digest-bound explicit windows and manual purge, with
+project/operator scope isolation and no automatic ContextResolver or model
+prompt admission. This code is Zelo-authored, not copied Elastic-2.0 source.
+See v0.15-context-mode-explicit-archive.md.
+
 ## REA source-owned candidate preparation
 
 Main now contains the REA v6 source and its observed 139-tool catalog,

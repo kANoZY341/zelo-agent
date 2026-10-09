@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -1117,3 +1118,41 @@ class ReaOperatorTargetRevocationRecord(Base):
     )
     operator_id: Mapped[str] = mapped_column(String(32), default="ahmad")
     revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class CommunityContextArchiveRecord(Base):
+    """Manual, untrusted context source bytes; never promoted to model instructions."""
+
+    __tablename__ = "community_context_archives"
+    __table_args__ = (
+        UniqueConstraint("scope_key", "source_ref", name="uq_context_archive_source"),
+        CheckConstraint(
+            "scope_kind IN ('operator', 'project')", name="ck_context_archive_scope_kind"
+        ),
+        CheckConstraint(
+            "(scope_kind='operator' AND scope_id IS NULL AND scope_key='operator') OR "
+            "(scope_kind='project' AND scope_id IS NOT NULL AND scope_key='project:' || scope_id)",
+            name="ck_context_archive_scope",
+        ),
+        CheckConstraint(
+            "length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^0-9a-f]*'",
+            name="ck_context_archive_sha",
+        ),
+        CheckConstraint("total_bytes BETWEEN 1 AND 1048576", name="ck_context_archive_bytes"),
+        CheckConstraint("length(raw_data)=total_bytes", name="ck_context_archive_data_length"),
+        CheckConstraint("line_count BETWEEN 1 AND 15000", name="ck_context_archive_lines"),
+        CheckConstraint("length(excerpt) <= 2048", name="ck_context_archive_excerpt"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    scope_kind: Mapped[str] = mapped_column(String(16))
+    scope_id: Mapped[str | None] = mapped_column(String(36))
+    scope_key: Mapped[str] = mapped_column(String(48))
+    source_ref: Mapped[str] = mapped_column(String(128))
+    source_sha256: Mapped[str] = mapped_column(String(64))
+    total_bytes: Mapped[int] = mapped_column(Integer)
+    line_count: Mapped[int] = mapped_column(Integer)
+    excerpt: Mapped[str] = mapped_column(Text)
+    excerpt_is_partial: Mapped[bool] = mapped_column(Boolean)
+    raw_data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

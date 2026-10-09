@@ -33,6 +33,7 @@ from app.campaigns import CampaignService
 from app.capabilities import default_capability_registry
 from app.capability_api import router as capability_router
 from app.community_candidates_api import router as community_candidates_router
+from app.community_context_archive_api import router as community_context_archive_router
 from app.computer_egress import ComputerEgressPolicy
 from app.computer_egress_proxy import ComputerEgressProxy
 from app.computer_worker import ComputerRuntime
@@ -430,6 +431,7 @@ def create_app(
     application.include_router(capability_router)
     application.include_router(rea_candidate_router)
     application.include_router(community_candidates_router)
+    application.include_router(community_context_archive_router)
     application.include_router(rea_operator_targets_router)
     application.include_router(skill_router)
     application.include_router(skill_learning_router)

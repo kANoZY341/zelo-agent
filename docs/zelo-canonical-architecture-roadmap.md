@@ -360,6 +360,10 @@ recently discovered.
 selected Open Code Review → ECC → Harness → Archify → Context Mode **concepts**
 → the remaining OpenDots Computer Panel, Space permission and skill-learning
 integration. See [the pinned reuse and exact authority gates](v0.15-curated-community-import-program.md).
+The next Context Mode concept slice stores explicitly submitted, untrusted
+text in a bounded project/operator-scoped archive with SHA-256-anchored narrow
+windows; it never automatically admits retrieved text to Zelo Mind. See
+`v0.15-context-mode-explicit-archive.md`. This is not a Space/Agent grant.
 The first Core slice imports narrow source assets with full notices, exposes
 operator-only draft/evidence/projection contracts, and preserves original
 Worker, Skill, Agent, Task and Space authority. Source snapshots are not a
