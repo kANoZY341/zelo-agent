@@ -8,7 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.agent_factory import AgentRegistry, AgentSpec, DepartmentSpec, default_agent_registry
-from app.community_archify import CommunityArchifyRefusal
+from app.community_archify import (
+    CommunityArchifyRefusal,
+    _validate_exact_archify_schema,
+    export_archify_json,
+    zelo_architecture_draft,
+)
 from app.community_archify_registry import (
     RegistryArchitectureView,
     agent_registry_architecture,
@@ -132,3 +137,38 @@ def test_pinned_source_refusal_is_generic_unavailable_and_never_reveals_path(cli
     assert response.status_code == 503
     assert response.json() == {"detail": "archify_registry_unavailable"}
     assert "community_source_bytes_changed" not in response.text
+
+
+def test_full_pinned_archify_json_schema_refuses_extra_fields_and_unsafe_output():
+    payload = json.loads(export_archify_json(zelo_architecture_draft()))
+    _validate_exact_archify_schema(payload)
+    payload["components"][0]["new_authority"] = "write"
+    with pytest.raises(CommunityArchifyRefusal, match="archify_schema_validation_failed"):
+        _validate_exact_archify_schema(payload)
+    payload = json.loads(export_archify_json(zelo_architecture_draft()))
+    payload["meta"]["output"] = "../unsafe.html"
+    with pytest.raises(CommunityArchifyRefusal, match="archify_schema_validation_failed"):
+        _validate_exact_archify_schema(payload)
+
+
+def test_unknown_remote_schema_reference_fails_without_network_retrieval():
+    from unittest.mock import patch
+
+    from app.community_sources import read_pinned_reference
+
+    valid = json.loads(export_archify_json(zelo_architecture_draft()))
+    arch_schema = json.loads(
+        read_pinned_reference("archify", "archify/schemas/architecture.schema.json")
+    )
+    arch_schema["properties"]["components"]["items"]["properties"]["type"] = {
+        "$ref": "https://untrusted.invalid/schema.json"
+    }
+
+    def patched_source(repository: str, path: str) -> bytes:
+        if path.endswith("architecture.schema.json"):
+            return json.dumps(arch_schema).encode("utf-8")
+        return read_pinned_reference(repository, path)
+
+    with patch("app.community_archify.read_pinned_reference", side_effect=patched_source):
+        with pytest.raises(CommunityArchifyRefusal, match="archify_schema_validation_failed"):
+            _validate_exact_archify_schema(valid)
