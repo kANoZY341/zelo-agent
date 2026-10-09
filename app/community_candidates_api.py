@@ -13,7 +13,7 @@ from app.community_ecc_playbooks import (
     EccPlaybookRefusal,
     ecc_manual_playbook,
 )
-from app.community_harness import TeamBlueprint, propose_team
+from app.community_harness import TeamBlueprint, TeamTemplate, propose_team
 from app.community_skill_catalog import community_skill_candidates
 from app.community_sources import CommunitySourceRefusal, verify_community_sources
 from app.skills import SkillSpec
@@ -102,7 +102,7 @@ def read_ecc_reviewed_manual_playbook(skill_id: str) -> EccManualPlaybook:
 
 @router.get("/teams/{template}", response_model=TeamBlueprint)
 def get_community_team_draft(
-    template: Literal["engineering_quality", "business_research"],
+    template: TeamTemplate,
 ) -> TeamBlueprint:
     return propose_team(template)
 

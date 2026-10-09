@@ -372,6 +372,9 @@ or grant any CI/merge permission (see
 `v0.15-curated-ocr-trusted-git-review.md`). Four ECC manual playbook
 candidates expose Zelo-authored reviewed procedures without activating
 Skills, Workers or Tools (see v0.15-ecc-manual-engineering-playbooks.md).
+Harness proposal templates additionally cover permissionless YouTube content
+and Trading research hierarchies under Managing Director → Zelo CEO (see
+v0.15-harness-specialist-team-drafts.md).
 
 ## Workspace and conversational direction
 

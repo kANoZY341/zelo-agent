@@ -11,12 +11,15 @@ from app.community_sources import verify_community_sources
 
 BLUEPRINT_SCHEMA = "zelo-community-team-blueprint-v1"
 _HARNESS = "revfactory/harness"
+TeamTemplate = Literal[
+    "engineering_quality", "business_research", "youtube_content", "trading_research"
+]
 
 
 class TeamBlueprint(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
     schema_version: Literal["zelo-community-team-blueprint-v1"] = BLUEPRINT_SCHEMA
-    template: Literal["engineering_quality", "business_research"]
+    template: TeamTemplate
     source_repository: Literal["revfactory/harness"] = _HARNESS
     source_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     roles: tuple[AgentSpec, ...] = Field(min_length=4, max_length=4)
@@ -43,8 +46,16 @@ class TeamBlueprint(BaseModel):
             or x.permissions
             or x.space_permissions
             or x.computer is not None
+            or x.worker_requirement is not None
+            or x.skill_ids
+            or x.procedures
+            or x.instructions
+            or not x.review_required
+            or x.version != 1
+            or x.max_active_instances != 1
             or x.skill_learning != "disabled"
             or x.allow_subagents
+            or x.max_subagents != 0
             for x in self.roles
         ):
             raise ValueError("harness_blueprint_execution_forbidden")
@@ -65,10 +76,15 @@ def _hash(value: object) -> str:
     ).hexdigest()
 
 
-def propose_team(template: Literal["engineering_quality", "business_research"]) -> TeamBlueprint:
+def propose_team(template: TeamTemplate) -> TeamBlueprint:
     """No live organization changes, only checked draft AgentSpec records."""
 
-    if template not in ("engineering_quality", "business_research"):
+    if template not in (
+        "engineering_quality",
+        "business_research",
+        "youtube_content",
+        "trading_research",
+    ):
         raise ValueError("harness_template_unknown")
     source = next(x for x in verify_community_sources() if x.name == "harness")
     if template == "engineering_quality":
@@ -80,13 +96,41 @@ def propose_team(template: Literal["engineering_quality", "business_research"]) 
             "Examine code evidence and propose findings for independent review",
         )
         capabilities = ("code_planning", "code_planning", "code_review", "code_review")
-    else:
+    elif template == "business_research":
         names = ("business", "business_intelligence", "business_research", "market_analyst")
         objectives = (
             "Coordinate bounded business research strategy",
             "Develop research scope and evidence standards",
             "Manage specialist investigations and source quality",
             "Summarize market evidence without placing orders or commitments",
+        )
+        capabilities = (
+            "code_planning",
+            "evidence_synthesis",
+            "evidence_synthesis",
+            "evidence_synthesis",
+        )
+    elif template == "youtube_content":
+        names = ("youtube", "youtube_content", "youtube_research", "youtube_script_writer")
+        objectives = (
+            "Coordinate research and content plans without channel publishing authority",
+            "Design YouTube content workflow proposals under Core approval boundaries",
+            "Manage source-grounded topics, editorial review and originality checks",
+            "Draft a source-grounded script proposal without external uploads",
+        )
+        capabilities = (
+            "code_planning",
+            "evidence_synthesis",
+            "evidence_synthesis",
+            "evidence_synthesis",
+        )
+    else:  # trading_research only; no portfolio or order execution rights
+        names = ("trading", "trading_intelligence", "trading_risk", "market_researcher")
+        objectives = (
+            "Coordinate financial market research without orders or account access",
+            "Analyze public market evidence and document data uncertainty",
+            "Manage risk-analysis questions and human-only escalation boundaries",
+            "Prepare sourced research notes without investing or trading actions",
         )
         capabilities = (
             "code_planning",
