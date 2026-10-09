@@ -1,0 +1,18 @@
+flowchart TD
+    managingDirector["Managing Director"]
+    zeloMind["Zelo Mind / CEO"]
+    zeloCore["Zelo Core Authority"]
+    agentFactory["Agent Factory"]
+    specialists["Specialist Agents"]
+    workers["Qualified Workers"]
+    tools["Approved Tools"]
+    storage["Scoped Memory and State"]
+    operatorUI["Talk / Control Desk / Company World"]
+    managingDirector --> zeloMind
+    zeloMind --> zeloCore
+    operatorUI --> zeloCore
+    zeloCore --> agentFactory
+    agentFactory --> specialists
+    specialists --> workers
+    workers --> tools
+    zeloCore --> storage

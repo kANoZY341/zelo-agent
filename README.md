@@ -98,6 +98,26 @@ prepares exact copied bytes under a no-network, read-only Docker policy. It
 cannot run without explicit local opt-in and prebuilt reviewed runtime assets;
 it does not authorize Zelo Core to analyze selected targets or create Workers.
 
+## Curated community integrations (non-authoritative foundation)
+
+The ordered [Open Code Review / ECC / Harness / Archify / Context Mode concepts /
+OpenDots import program](docs/v0.15-curated-community-import-program.md)
+retains 19 pinned source-and-license files for five permissively licensed
+projects, with a separate no-code-copy Context Mode design. Run the offline
+integrity check with:
+
+    .venv/bin/python -m scripts.verify_curated_community_sources
+
+Authenticated operator candidate views are available under
+`GET /integration-candidates/community` (sources), `/skills`,
+`/teams/{template}`, `/architecture`, `/architecture/mermaid`. A read-only
+OpenDots-inspired Computer Panel data projection is available at
+`GET /agents/{instance_id}/computer/panel` using Zelo's existing permission
+and service boundaries. Deterministic architecture examples are in
+`examples/curated/`. The imported upstream documents are reference data,
+not active runtime plugins or Agent/Tool grants. The actual UI, reviewer-worker
+qualification, skill promotion and Space authorization remain future gates.
+
 ## Structure and scope
 
 REA's source-owned v6 Specialist is available to authenticated operators

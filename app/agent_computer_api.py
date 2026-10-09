@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.agent_computer_service import AgentComputerService
 from app.auth import require_operator
+from app.community_computer_panel import ComputerPanelContract, project_computer_panel
 from app.schemas import (
     AgentComputerEventPage,
     AgentComputerPermissionPatch,
@@ -33,6 +34,16 @@ async def get_agent_computer(
     computers: Computers,
 ) -> AgentComputerStatusResponse:
     return await computers.status(instance_id)
+
+
+@router.get("/{instance_id}/computer/panel", response_model=ComputerPanelContract)
+async def get_computer_panel_preview(
+    instance_id: str,
+    computers: Computers,
+) -> ComputerPanelContract:
+    """Read-only OpenDots-compatible panel metadata; no new Computer authority."""
+
+    return await project_computer_panel(computers, instance_id)
 
 
 @router.patch(
