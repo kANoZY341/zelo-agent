@@ -2,15 +2,20 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 
 from app.auth import require_operator
 from app.community_archify import export_archify_json, export_mermaid, zelo_architecture_draft
+from app.community_ecc_playbooks import (
+    EccManualPlaybook,
+    EccPlaybookRefusal,
+    ecc_manual_playbook,
+)
 from app.community_harness import TeamBlueprint, propose_team
 from app.community_skill_catalog import community_skill_candidates
-from app.community_sources import verify_community_sources
+from app.community_sources import CommunitySourceRefusal, verify_community_sources
 from app.skills import SkillSpec
 
 router = APIRouter(
@@ -81,6 +86,18 @@ def read_community_skill_drafts() -> tuple[DraftSkillView, ...]:
         )
         for candidate in community_skill_candidates()
     )
+
+
+@router.get("/skills/{skill_id}/playbook", response_model=EccManualPlaybook)
+def read_ecc_reviewed_manual_playbook(skill_id: str) -> EccManualPlaybook:
+    """Return only Zelo-authored steps for a verified draft ECC skill."""
+
+    try:
+        return ecc_manual_playbook(skill_id)
+    except (EccPlaybookRefusal, CommunitySourceRefusal) as exc:
+        if isinstance(exc, EccPlaybookRefusal) and str(exc) == "ecc_playbook_unknown":
+            raise HTTPException(status_code=404, detail="ecc_playbook_unknown") from None
+        raise HTTPException(status_code=503, detail="ecc_playbook_unavailable") from None
 
 
 @router.get("/teams/{template}", response_model=TeamBlueprint)
