@@ -121,6 +121,10 @@ Archify now has a second operator-only view grounded in the trusted Agent Factor
 registry: exact AgentSpec/DepartmentSpec templates, version fingerprint,
 deterministic JSON/Mermaid and digest. It never claims that templates are running
 Agents or that edges grant authority. See v0.15-archify-agent-registry-projection.md.
+The separate OpenDots Specialist profile candidate exposes only trust-bound,
+operator-visible AgentSpec instructions, memory namespace, eligible skill
+metadata, declared Spaces and tools; no new authority (see
+v0.15-opendots-specialist-profile.md and issue #131).
 UI PR #61 remains parked until the Core-first development priority changes.
 
 Context Mode concept continuation: a separate operator-only, private SQLite
