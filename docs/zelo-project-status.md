@@ -129,10 +129,16 @@ project/operator scope isolation and no automatic ContextResolver or model
 prompt admission. This code is Zelo-authored, not copied Elastic-2.0 source.
 See v0.15-context-mode-explicit-archive.md.
 
-OpenDots Space continuation is staged in a stacked worktree: short-lived
+OpenDots Space intent bookkeeping is merged in PR #138: short-lived
 operator-reviewed, AgentInstance/spec/project-bound grant intents are append-only
 and revocable. They cannot grant effective Worker, Tool, Computer or model
 context access. See v0.15-opendots-space-grant-intent-foundation.md.
+
+Computer Worker hardening additionally rechecks the exact permission/backend/
+endpoint binding immediately before dispatch, after the control-state await
+and started-event callback. It prevents the reproduced post-revocation access
+window; it does not activate Space grants or make remote access atomic.
+See v0.15-computer-dispatch-revalidation.md.
 
 ## REA source-owned candidate preparation
 

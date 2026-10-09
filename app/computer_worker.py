@@ -493,6 +493,12 @@ class ComputerRuntime:
         )
         try:
             async with asyncio.timeout(timeout_seconds):
+                # The control lookup above suspends, and the started-event
+                # callback can change Core state. Recheck the exact permission,
+                # backend and endpoint binding before dispatching any operation;
+                # a post-result refusal alone is too late to prevent access.
+                if not self.matches(spec):
+                    raise ComputerRuntimeError("computer_execution_spec_stale")
                 if action == "browser_navigate":
                     if spec.endpoint is None:
                         raise ComputerRuntimeError("computer_execution_spec_stale")
