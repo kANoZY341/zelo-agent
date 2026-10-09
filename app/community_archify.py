@@ -9,6 +9,10 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from jsonschema import Draft202012Validator, SchemaError, ValidationError
+from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
+
 from app.community_sources import read_pinned_reference
 
 ARCHIFY_SCHEMA = "zelo-archify-architecture-export-v1"
@@ -55,6 +59,26 @@ def _validate_sources() -> None:
         != ["frontend", "backend", "database", "cloud", "security", "messagebus", "external"]
     ):
         raise CommunityArchifyRefusal("archify_source_schema_changed")
+
+
+def _validate_exact_archify_schema(payload: dict) -> None:
+    """Resolve only pinned local schema resources; never fetch remote $ref URIs."""
+
+    common = json.loads(read_pinned_reference("archify", "archify/schemas/common.schema.json"))
+    schema = json.loads(
+        read_pinned_reference("archify", "archify/schemas/architecture.schema.json")
+    )
+    try:
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(
+            schema,
+            registry=Registry().with_resource(common["$id"], Resource.from_contents(common)),
+        )
+        # The schema is exact-source pinned, and all external references fail
+        # closed rather than being fetched from GitHub or another origin.
+        validator.validate(payload)
+    except (ValidationError, SchemaError, Unresolvable, KeyError, TypeError, ValueError):
+        raise CommunityArchifyRefusal("archify_schema_validation_failed") from None
 
 
 def zelo_architecture_draft() -> ArchitectureDraft:
@@ -129,6 +153,7 @@ def export_archify_json(draft: ArchitectureDraft) -> bytes:
         ],
         "connections": [{"from": e.source, "to": e.target} for e in draft.connections],
     }
+    _validate_exact_archify_schema(payload)
     return json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":")).encode(
         "ascii"
     )

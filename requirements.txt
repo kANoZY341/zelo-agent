@@ -4,6 +4,8 @@ uvicorn==0.53.0
 pydantic-settings==2.15.0
 SQLAlchemy>=2.0,<2.1
 alembic>=1.13,<2
+# Pin local-only Draft 2020-12 validation of imported Archify JSON schemas.
+jsonschema==4.25.1
 # API pinning/SNI transport semantics verified by tests/test_api_worker.py.
 httpx==0.28.1
 httpcore==1.0.9
