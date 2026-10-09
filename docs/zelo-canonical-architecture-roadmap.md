@@ -365,7 +365,11 @@ operator-only draft/evidence/projection contracts, and preserves original
 Worker, Skill, Agent, Task and Space authority. Source snapshots are not a
 runtime plugin installation. Finish independent evaluation and promotion
 before activating each capability. UI PR #61 remains parked; the imported
-OpenDots React panel is a reference, not production UI.
+OpenDots React panel is a reference, not production UI. The separate
+read-only OCR trusted-Git-diff scope strengthens evidence anchoring to
+immutable Git commits; it does not register or authorize a reviewer Worker
+or grant any CI/merge permission (see
+`v0.15-curated-ocr-trusted-git-review.md`).
 
 ## Workspace and conversational direction
 
