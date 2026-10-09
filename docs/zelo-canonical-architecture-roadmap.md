@@ -360,6 +360,11 @@ recently discovered.
 selected Open Code Review → ECC → Harness → Archify → Context Mode **concepts**
 → the remaining OpenDots Computer Panel, Space permission and skill-learning
 integration. See [the pinned reuse and exact authority gates](v0.15-curated-community-import-program.md).
+OpenDots Space authority follows as a separate default-deny stage:
+operator-only, per-AgentInstance scoped and version-bound grant *intents*
+are recorded with revocation but are never usable for Worker, Tool, File,
+Browser or Shell actions until the independent enforcement gates pass.
+See `v0.15-opendots-space-grant-intent-foundation.md`.
 The next Context Mode concept slice stores explicitly submitted, untrusted
 text in a bounded project/operator-scoped archive with SHA-256-anchored narrow
 windows; it never automatically admits retrieved text to Zelo Mind. See

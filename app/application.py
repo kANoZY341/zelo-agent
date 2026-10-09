@@ -22,6 +22,7 @@ from app.agent_execution_api import router as agent_execution_router
 from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
 from app.agent_instance_api import router as agent_instance_router
 from app.agent_instances import AgentInstanceService
+from app.agent_space_intents_api import router as agent_space_intents_router
 from app.api import router
 from app.api_contracts import ApiEndpointRegistry
 from app.api_worker import ApiRuntime
@@ -441,6 +442,7 @@ def create_app(
     application.include_router(agent_child_creation_router)
     application.include_router(agent_delegation_router)
     application.include_router(agent_execution_router)
+    application.include_router(agent_space_intents_router)
     application.include_router(organization_router)
     application.include_router(project_router)
     application.include_router(memory_router)
