@@ -102,6 +102,13 @@ No borrowed instructions execute automatically; these preview features grant
 no Worker, Task, Agent, tool, Space, publication or CI merge permission.
 The actual React Computer Panel, executable code-review Worker, skill promotion,
 full Archify renderer and Space/skill-learning enforcement remain separate gates.
+The follow-up OCR trusted-Git-scope candidate independently derives reviewable
+added-line anchors from pinned Git commits using read-only bounded commands.
+It rejects deleted files, deletion-only hunks, custom diff drivers, binary or
+special files, mutable attribute overrides, stale revisions and unsupported Git.
+The resulting checksum-bound reviewer evidence grants no new authority; no
+Coding Specialist or CI integration is activated. See
+`v0.15-curated-ocr-trusted-git-review.md`.
 UI PR #61 remains parked until the Core-first development priority changes.
 
 ## REA source-owned candidate preparation
