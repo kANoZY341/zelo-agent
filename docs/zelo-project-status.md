@@ -117,6 +117,10 @@ Harness now also offers operator-only YouTube content and Trading research draft
 teams, each with four VP-to-Specialist levels. Neither template registers live
 Agents or grants publishing, trading, Tool, Worker, Task or Space access. See
 v0.15-harness-specialist-team-drafts.md.
+Archify now has a second operator-only view grounded in the trusted Agent Factory
+registry: exact AgentSpec/DepartmentSpec templates, version fingerprint,
+deterministic JSON/Mermaid and digest. It never claims that templates are running
+Agents or that edges grant authority. See v0.15-archify-agent-registry-projection.md.
 UI PR #61 remains parked until the Core-first development priority changes.
 
 Context Mode concept continuation: a separate operator-only, private SQLite
