@@ -7,7 +7,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 
 from app.auth import require_operator
-from app.community_archify import export_archify_json, export_mermaid, zelo_architecture_draft
+from app.community_archify import (
+    CommunityArchifyRefusal,
+    export_archify_json,
+    export_mermaid,
+    zelo_architecture_draft,
+)
 from app.community_archify_registry import RegistryArchitectureView, agent_registry_architecture
 from app.community_ecc_playbooks import (
     EccManualPlaybook,
@@ -120,7 +125,10 @@ def get_archify_architecture_candidate() -> Response:
 def get_agent_registry_architecture_candidate(request: Request) -> RegistryArchitectureView:
     """Inspect Core-owned registry templates, never live AgentInstances or grants."""
 
-    return agent_registry_architecture(request.app.state.agent_registry)
+    try:
+        return agent_registry_architecture(request.app.state.agent_registry)
+    except (CommunityArchifyRefusal, CommunitySourceRefusal):
+        raise HTTPException(status_code=503, detail="archify_registry_unavailable") from None
 
 
 @router.get("/architecture/mermaid")

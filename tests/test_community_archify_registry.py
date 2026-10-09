@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -12,6 +13,7 @@ from app.community_archify_registry import (
     RegistryArchitectureView,
     agent_registry_architecture,
 )
+from app.community_sources import CommunitySourceRefusal
 from tests.conftest import AUTH
 
 ROUTE = "/integration-candidates/community/architecture/agent-registry"
@@ -119,3 +121,14 @@ def test_operator_only_read_route_does_not_grant_actions(client):
     assert data["worker_or_tool_grants"] == []
     assert client.get(ROUTE, headers={"Authorization": "Bearer incorrect"}).status_code == 401
     assert client.post(ROUTE, headers=AUTH, json={}).status_code == 405
+
+
+def test_pinned_source_refusal_is_generic_unavailable_and_never_reveals_path(client):
+    with patch(
+        "app.community_archify.read_pinned_reference",
+        side_effect=CommunitySourceRefusal("community_source_bytes_changed"),
+    ):
+        response = client.get(ROUTE, headers=AUTH)
+    assert response.status_code == 503
+    assert response.json() == {"detail": "archify_registry_unavailable"}
+    assert "community_source_bytes_changed" not in response.text
