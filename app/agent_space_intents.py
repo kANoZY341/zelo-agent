@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
 from app.models import (
     AgentInstance,
+    AgentInstanceEvent,
     AgentSpaceIntentRecord,
     AgentSpaceIntentRevocation,
     Project,
@@ -265,8 +266,22 @@ class AgentSpaceIntentService:
                 try:
                     spec = _snapshot(instance, self.factory)
                     project = session.get(Project, instance.project_id)
+                    # A lifecycle interruption must terminally invalidate
+                    # old review eligibility, even if the agent resumes with
+                    # exactly the same AgentSpec and registry fingerprint.
+                    # Only a new operator intent after resume can be eligible.
+                    lifecycle_changed = session.scalar(
+                        select(AgentInstanceEvent.id)
+                        .where(
+                            AgentInstanceEvent.agent_instance_id == record.agent_instance_id,
+                            AgentInstanceEvent.event.in_(("paused", "resumed", "retired")),
+                            AgentInstanceEvent.created_at >= record.created_at,
+                        )
+                        .limit(1)
+                    )
                     current = (
-                        project is not None
+                        lifecycle_changed is None
+                        and project is not None
                         and project.status == "active"
                         and record.agent_id == instance.agent_id
                         and record.agent_version == instance.agent_version

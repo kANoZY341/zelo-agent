@@ -144,7 +144,13 @@ def test_pause_spec_revision_change_project_pause_and_expiry_revoke_eligibility(
     agents.transition(instance.id, AgentInstanceTransition(action="pause"))
     assert service.get(instance_id=instance.id, intent_id=intent.id).current_spec is False
     agents.transition(instance.id, AgentInstanceTransition(action="resume"))
-    assert service.get(instance_id=instance.id, intent_id=intent.id).current_spec is True
+    old_intent = service.get(instance_id=instance.id, intent_id=intent.id)
+    assert old_intent.current_spec is False
+    assert old_intent.eligible_for_review is False
+    assert old_intent.effective_resource_access is False
+    new_intent = _create(service, instance.id, resource_id="post_resume")
+    assert new_intent.eligible_for_review is True
+    assert service.get(instance_id=instance.id, intent_id=intent.id).eligible_for_review is False
     next_spec = spec.model_copy(update={"version": 2})
     stale = AgentSpaceIntentService(database, AgentFactory(AgentRegistry([next_spec])))
     assert stale.get(instance_id=instance.id, intent_id=intent.id).current_spec is False
