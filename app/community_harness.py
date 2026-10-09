@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_factory import AgentSpec
-from qualification.community_sources import verify_community_sources
+from app.community_sources import verify_community_sources
 
 BLUEPRINT_SCHEMA = "zelo-community-team-blueprint-v1"
 _HARNESS = "revfactory/harness"

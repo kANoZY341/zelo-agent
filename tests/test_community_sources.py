@@ -5,7 +5,7 @@ import shutil
 
 import pytest
 
-from qualification import community_sources as sources
+from app import community_sources as sources
 
 
 def test_selected_sources_verified_inert_with_licenses():

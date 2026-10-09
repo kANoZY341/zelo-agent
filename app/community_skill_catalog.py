@@ -8,8 +8,8 @@ candidate definitions, not learned-skill promotions or active grants.
 from dataclasses import dataclass
 from typing import Literal
 
+from app.community_sources import verify_community_sources
 from app.skills import SkillSpec
-from qualification.community_sources import verify_community_sources
 
 
 @dataclass(frozen=True, slots=True)

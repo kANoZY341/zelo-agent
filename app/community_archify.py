@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from qualification.community_sources import read_pinned_reference
+from app.community_sources import read_pinned_reference
 
 ARCHIFY_SCHEMA = "zelo-archify-architecture-export-v1"
 

@@ -13,8 +13,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.community_sources import verify_community_sources
 from app.developer_contracts import ReviewerReport, ReviewFinding
-from qualification.community_sources import verify_community_sources
 
 MAX_BYTES = 131072
 SOURCE = "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4"

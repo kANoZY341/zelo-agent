@@ -10,8 +10,8 @@ from app.auth import require_operator
 from app.community_archify import export_archify_json, export_mermaid, zelo_architecture_draft
 from app.community_harness import TeamBlueprint, propose_team
 from app.community_skill_catalog import community_skill_candidates
+from app.community_sources import verify_community_sources
 from app.skills import SkillSpec
-from qualification.community_sources import verify_community_sources
 
 router = APIRouter(
     prefix="/integration-candidates/community",

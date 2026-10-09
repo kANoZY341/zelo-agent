@@ -2,7 +2,7 @@
 
 import json
 
-from qualification.community_sources import CommunitySourceRefusal, verify_community_sources
+from app.community_sources import CommunitySourceRefusal, verify_community_sources
 
 
 def main() -> int:

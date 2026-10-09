@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent_computer_service import AgentComputerService
-from qualification.community_sources import verify_community_sources
+from app.community_sources import verify_community_sources
 
 
 class ComputerPanelContract(BaseModel):
