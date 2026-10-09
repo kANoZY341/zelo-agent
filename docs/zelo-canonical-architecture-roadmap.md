@@ -369,7 +369,9 @@ OpenDots React panel is a reference, not production UI. The separate
 read-only OCR trusted-Git-diff scope strengthens evidence anchoring to
 immutable Git commits; it does not register or authorize a reviewer Worker
 or grant any CI/merge permission (see
-`v0.15-curated-ocr-trusted-git-review.md`).
+`v0.15-curated-ocr-trusted-git-review.md`). Four ECC manual playbook
+candidates expose Zelo-authored reviewed procedures without activating
+Skills, Workers or Tools (see v0.15-ecc-manual-engineering-playbooks.md).
 
 ## Workspace and conversational direction
 
