@@ -47,6 +47,12 @@ async def project_computer_panel(
     verify_community_sources()
     status = await computer_service.status(agent_instance_id)
     events = computer_service.events(agent_instance_id, limit=10, offset=0)
+    # Core events are ordered by ascending sequence. A first-page-only
+    # preview becomes permanently stale once the agent has >10 events.
+    # Re-read the bounded tail through the same operator-owned service;
+    # two independent read snapshots may differ but grant no authority.
+    if events.total > 10:
+        events = computer_service.events(agent_instance_id, limit=10, offset=events.total - 10)
     # Tabs may display existing status; permissions remain enforced by Core
     # at action dispatch and cannot be fabricated by this UI projection.
     active = bool(status.configured and status.state == "running" and status.permissions.enabled)
