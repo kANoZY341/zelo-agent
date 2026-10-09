@@ -62,6 +62,7 @@ def test_migration_from_empty_database(settings) -> None:
             "organization_units",
             "organization_assignments",
             "agent_child_creations",
+            "community_context_archives",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
