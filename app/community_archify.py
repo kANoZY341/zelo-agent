@@ -50,6 +50,7 @@ def _validate_sources() -> None:
         arch["properties"]["diagram_type"].get("const") != "architecture"
         or arch["properties"]["schema_version"].get("const") != 1
         or set(arch["required"]) != {"schema_version", "diagram_type", "meta", "components"}
+        or arch["properties"]["components"].get("minItems") != 1
         or common["$defs"]["componentType"].get("enum")
         != ["frontend", "backend", "database", "cloud", "security", "messagebus", "external"]
     ):
@@ -88,6 +89,8 @@ def export_archify_json(draft: ArchitectureDraft) -> bytes:
     _validate_sources()
     if type(draft) is not ArchitectureDraft:
         raise CommunityArchifyRefusal("archify_draft_invalid")
+    if not draft.components:
+        raise CommunityArchifyRefusal("archify_components_required")
     identifiers = [c.identifier for c in draft.components]
     if len(draft.components) > 32 or len(set(identifiers)) != len(identifiers):
         raise CommunityArchifyRefusal("archify_duplicate_or_excessive_components")

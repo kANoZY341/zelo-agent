@@ -122,6 +122,12 @@ def test_archify_refuses_untrusted_graph_edges_and_duplicate_ids():
         )
 
 
+def test_archify_rejects_empty_graph_required_by_pinned_schema():
+    draft = zelo_architecture_draft()
+    with pytest.raises(CommunityArchifyRefusal, match="archify_components_required"):
+        export_archify_json(replace(draft, components=(), connections=()))
+
+
 def test_context_mode_independent_concepts_index_and_explicit_retrieval():
     raw = b"\n".join(f"Line {i}: untrusted data".encode() for i in range(1, 103))
     entry = index_tool_output(raw)
