@@ -100,8 +100,12 @@ an independently written bounded tool-output index, and a read-only Core
 Computer Panel data projection. See `v0.15-curated-community-import-program.md`.
 No borrowed instructions execute automatically; these preview features grant
 no Worker, Task, Agent, tool, Space, publication or CI merge permission.
-The actual React Computer Panel, executable code-review Worker, skill promotion,
-full Archify renderer and Space/skill-learning enforcement remain separate gates.
+A detached Zelo-owned React read-only Computer Panel is now prepared against
+the existing Core panel endpoint, with four projected tabs and no mutation
+handlers or production UI mount. Interactive takeover/navigation, live screen
+capture and file/terminal reads remain separately gated. The executable code-
+review Worker, skill promotion, full Archify renderer and Space/skill-learning
+enforcement remain separate gates.
 UI PR #61 remains parked until the Core-first development priority changes.
 
 ## REA source-owned candidate preparation

@@ -365,7 +365,10 @@ operator-only draft/evidence/projection contracts, and preserves original
 Worker, Skill, Agent, Task and Space authority. Source snapshots are not a
 runtime plugin installation. Finish independent evaluation and promotion
 before activating each capability. UI PR #61 remains parked; the imported
-OpenDots React panel is a reference, not production UI.
+OpenDots React panel is a reference, not production UI. An isolated
+[read-only Zelo React Computer Panel adapter](v0.15-opendots-readonly-computer-panel-port.md)
+can consume the Zelo-owned panel projection without granting any new runtime
+permission; mounting interactive controls remains a later UI decision.
 
 ## Workspace and conversational direction
 

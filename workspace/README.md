@@ -50,3 +50,11 @@ URL with `ZELO_CORE_URL` only when using another local port.
 
 Not in this slice: a second database, task mutation outside Core, visual agent
 world, durable goals/campaigns, memory, voice or external channels.
+
+## OpenDots Computer Panel read-only adaptation
+
+The detached `components/AgentComputerPanel.tsx` consumes only Zelo's existing
+Core-owned `/api/agents/[id]/computer/panel` read endpoint. Its Browser, Files,
+Terminal and Activity tabs are projections, not new mutation controls.
+The component is intentionally not mounted in production; see
+`docs/v0.15-opendots-readonly-computer-panel-port.md` before future UI work.
