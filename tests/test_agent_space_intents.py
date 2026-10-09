@@ -87,6 +87,32 @@ def test_intent_revocation_is_terminal_and_does_not_ungrant_live_authority(datab
             )
 
 
+def test_insert_or_replace_cannot_resurrect_revoked_intent_or_revoke_history(database):
+    service, _, _, _, _, instance = _fixture(database)
+    intent = _create(service, instance.id)
+    service.revoke(instance_id=instance.id, intent_id=intent.id)
+
+    # SQLite defaults to recursive_triggers=OFF: UPDATE/DELETE triggers alone
+    # do not prevent REPLACE's implicit delete. Duplicate INSERT must abort.
+    for table, key in (
+        ("agent_space_intents", "id"),
+        ("agent_space_intent_revocations", "intent_id"),
+    ):
+        with pytest.raises(IntegrityError):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        f"INSERT OR REPLACE INTO {table} SELECT * FROM {table} "
+                        f"WHERE {key}=:intent_id"
+                    ),
+                    {"intent_id": intent.id},
+                )
+    persisted = service.get(instance_id=instance.id, intent_id=intent.id)
+    assert persisted.revoked is True
+    assert persisted.eligible_for_review is False
+    assert persisted.effective_resource_access is False
+
+
 def test_cross_agent_and_invalid_path_or_unsafe_operation_refused(database):
     service, _, _, _, _, instance = _fixture(database)
     receipt = _create(service, instance.id)

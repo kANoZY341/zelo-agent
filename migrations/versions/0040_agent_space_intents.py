@@ -59,7 +59,18 @@ def upgrade() -> None:
         ),
         sa.Column("revoked_at", sa.DateTime(), nullable=False),
     )
-    for table in ("agent_space_intents", "agent_space_intent_revocations"):
+    for table, key in (
+        ("agent_space_intents", "id"),
+        ("agent_space_intent_revocations", "intent_id"),
+    ):
+        # SQLite REPLACE can silently delete a conflicting row without firing
+        # DELETE triggers when recursive_triggers is off (the default).
+        # Refuse the duplicate BEFORE INSERT, including INSERT OR REPLACE.
+        op.execute(
+            f"CREATE TRIGGER {table}_no_duplicate_insert BEFORE INSERT ON {table} "
+            f"WHEN EXISTS (SELECT 1 FROM {table} WHERE {key}=NEW.{key}) "
+            "BEGIN SELECT RAISE(ABORT, 'Space intent is append-only'); END"
+        )
         for action in ("UPDATE", "DELETE"):
             op.execute(
                 f"CREATE TRIGGER {table}_no_{action.lower()} BEFORE {action} ON {table} "
@@ -69,6 +80,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     for table in ("agent_space_intent_revocations", "agent_space_intents"):
+        op.execute(f"DROP TRIGGER IF EXISTS {table}_no_duplicate_insert")
         for action in ("UPDATE", "DELETE"):
             op.execute(f"DROP TRIGGER IF EXISTS {table}_no_{action.lower()}")
     op.drop_table("agent_space_intent_revocations")
