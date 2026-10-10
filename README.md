@@ -163,7 +163,11 @@ Authenticated operator candidate views are available under
 available to authenticated operators at `GET /integration-candidates/community/ecc/{skill_id}/cases`
 and `POST /integration-candidates/community/ecc/{skill_id}/evaluate`.
 These score submitted decisions on fixed Zelo-authored scenarios only; no model
-is run and no Skill, Task, Tool, promotion or runtime authority is granted. An
+is run and no Skill, Task, Tool, promotion or runtime authority is granted.
+A separate [explicit local Ollama ECC probe](docs/v0.15-ecc-local-model-probe.md)
+can observe only three synthetic-case responses from one already installed
+local model, using Zelo's existing ModelProvider. It requires an opt-in CLI
+flag, never grants permissions, and does not qualify a real Agent or Skill. An
 [authenticated OCR evidence preview](docs/v0.15-ocr-operator-evidence-preview.md)
 is available through the operator-only POST
 `/integration-candidates/community/open-code-review/evidence/{base_sha}/{head_sha}`.
