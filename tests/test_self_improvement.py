@@ -59,6 +59,62 @@ def test_repository_inspector_builds_deterministic_bounded_snapshot(tmp_path):
     assert first.total_content_bytes == sum(len(item.text.encode("utf-8")) for item in first.files)
 
 
+def test_repository_inspector_accepts_real_registered_linked_worktree(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "linked-worktree"
+    git(repo, "worktree", "add", "--quiet", "-b", "linked-demo", str(linked), sha)
+    assert (linked / ".git").is_file() and not (linked / ".git").is_symlink()
+
+    inspection = RepositoryInspector(linked).inspect()
+    assert inspection.base_sha == sha
+    assert inspection.branch == "linked-demo"
+    assert inspection.clean is True
+    assert "README.md" in inspection.tracked_paths
+    assert {item.path: item.text for item in inspection.files}["app/core.py"] == "VALUE = 1\n"
+    assert "docs/reviews/private-review.md" not in {item.path for item in inspection.files}
+
+
+def test_repository_inspector_refuses_dirty_linked_worktree(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "linked-dirty"
+    git(repo, "worktree", "add", "--quiet", "-b", "linked-dirty", str(linked), sha)
+    (linked / "app" / "core.py").write_text("VALUE = 5\n")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_dirty"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_rejects_forged_gitfile_pointing_to_other_repository(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    forged = tmp_path / "forged"
+    forged.mkdir()
+    (forged / ".git").write_text(f"gitdir: {repo / '.git'}\n")
+    (forged / "README.md").write_text("unrelated files\n")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(forged).inspect()
+
+
+def test_repository_inspector_rejects_copied_linked_pointer_not_registered(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "registered"
+    git(repo, "worktree", "add", "--quiet", "-b", "registered", str(linked), sha)
+    fake = tmp_path / "copied"
+    fake.mkdir()
+    (fake / ".git").write_bytes((linked / ".git").read_bytes())
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(fake).inspect()
+
+
+def test_repository_inspector_refuses_symlinked_git_metadata(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "registered"
+    git(repo, "worktree", "add", "--quiet", "-b", "registered", str(linked), sha)
+    fake = tmp_path / "git-symlink"
+    fake.mkdir()
+    (fake / ".git").symlink_to(linked / ".git")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(fake).inspect()
+
+
 def test_repository_inspector_ignores_untracked_private_review_evidence(tmp_path):
     repo, sha = make_repo(tmp_path)
     review = repo / "docs" / "reviews" / "untracked-adversarial-review.md"
