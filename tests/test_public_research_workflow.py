@@ -27,6 +27,7 @@ from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
     MANIFEST_SHA256,
     MODEL,
+    MODEL_REQUEST_SETTINGS,
     RUN_SCHEMA,
     EvidenceError,
     canonical,
@@ -196,6 +197,7 @@ def public_fixture(tmp_path, *, changed_body=False, truncated=False, oversized=F
             "source_bundle_manifest_digest": BROWSER_SOURCE_MANIFEST_DIGEST,
             "post_run_image_payload_digest": receipt_value["image_payload_digest"],
             "model": MODEL,
+            "model_request_settings": dict(MODEL_REQUEST_SETTINGS),
             "model_digest_before": MODEL_DIGEST,
             "model_digest_after": MODEL_DIGEST,
             "budgets": BUDGETS,
@@ -492,5 +494,83 @@ def test_mind_gateway_failure_retains_only_allowlisted_code(
                 assert session.scalar(select(func.count()).select_from(MemoryRecord)) == 0
                 kinds = session.scalars(select(Task.kind)).all()
                 assert kinds == ["browser_run"] * 3
+        finally:
+            db.close()
+
+
+def test_mind_invalid_action_exhaustion_retains_bounded_reason(tmp_path):
+    from app.models import ConversationTurn
+    from app.policy import DomainError
+
+    malformed = (
+        '{"type":"core_task","content":"DO_NOT_PERSIST_INVALID_RESPONSE",'
+        '"kind":"research_run","timeout_seconds":48-than-480}'
+    )
+    with public_fixture(tmp_path, actions=[malformed, malformed]) as case:
+        with pytest.raises(DomainError) as caught:
+            asyncio.run(
+                exercise(
+                    case.settings,
+                    case.report,
+                    runtime=case.runtime,
+                    provider=case.provider,
+                    manifest=case.manifest,
+                )
+            )
+        assert caught.value.message == "Zelo Mind returned an invalid action"
+        assert caught.value.status_code == 502
+        assert isinstance(caught.value.__context__, json.JSONDecodeError)
+        assert len(case.provider.requests) == case.settings.max_model_parse_retries + 1
+        assert case.report["failure_phase"] == "mind_turn"
+        assert case.report["failure_type"] == "DomainError"
+        assert case.report["runtime_cleanup_confirmed"] is True
+        assert case.report["setup_cleanup_errors"] == []
+        assert case.report["memory_written"] is False
+        assert "mind_turn_id" not in case.report
+        assert "research_task_id" not in case.report
+        case.report["status"] = "failed"
+        raw = save_report(case.run_root, case.report).read_bytes()
+        assert b"DO_NOT_PERSIST" not in raw
+        assert b"Zelo Mind returned an invalid action" not in raw
+        db = Database(case.settings.database_path)
+        try:
+            with db.read() as session:
+                assert session.scalar(select(func.count()).select_from(ConversationTurn)) == 0
+                assert session.scalar(select(func.count()).select_from(MemoryRecord)) == 0
+                kinds = session.scalars(select(Task.kind)).all()
+                assert kinds == ["browser_run"] * 3
+        finally:
+            db.close()
+        assert json.loads(raw)["failure_code"] == "public_mind_invalid_action"
+
+
+def test_mind_default_timeout_is_cancelled_before_research_dispatch(tmp_path):
+    actions = [
+        {"type": "core_task", "content": "Investigate the evidence.", "kind": "research_run"},
+        {"kind": "research_run", "payload": {"query": "Read the staged evidence."}},
+    ]
+    with public_fixture(tmp_path, actions=actions) as case:
+        with pytest.raises(EvidenceError, match="public_mind_task_contract_mismatch"):
+            asyncio.run(
+                exercise(
+                    case.settings,
+                    case.report,
+                    runtime=case.runtime,
+                    provider=case.provider,
+                    manifest=case.manifest,
+                )
+            )
+        assert len(case.provider.requests) == 2
+        assert case.report["runtime_cleanup_confirmed"] is True
+        assert case.report["setup_cleanup_errors"] == []
+        assert case.report["memory_written"] is False
+        db = Database(case.settings.database_path)
+        try:
+            task = TaskService(db, case.settings).get(case.report["research_task_id"])
+            assert task.kind == "research_run" and task.status == "cancelled"
+            assert task.timeout_seconds == 120
+            assert task.attempts == []
+            with db.read() as session:
+                assert session.scalar(select(func.count()).select_from(MemoryRecord)) == 0
         finally:
             db.close()

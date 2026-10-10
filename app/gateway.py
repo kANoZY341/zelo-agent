@@ -72,8 +72,16 @@ class ModelRouter:
 
 
 class OllamaProvider:
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        use_json_schema: bool = False,
+        num_ctx: int | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.use_json_schema = use_json_schema
+        self.num_ctx = num_ctx
 
     async def models(self) -> list[str]:
         try:
@@ -95,12 +103,14 @@ class OllamaProvider:
             ],
         }
         if request.output_schema is not None:
-            # The provider enforces JSON syntax; Zelo validates the full action union.
+            # Schema guidance is opt-in; Core still validates every returned action.
             body.update(
-                format="json",
+                format=request.output_schema if self.use_json_schema else "json",
                 think=False,
                 options={"temperature": 0, "num_predict": 2048},
             )
+        if self.num_ctx is not None:
+            body.setdefault("options", {})["num_ctx"] = self.num_ctx
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url, timeout=request.timeout_seconds

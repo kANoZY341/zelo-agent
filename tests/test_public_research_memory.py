@@ -265,6 +265,30 @@ def test_an_explicitly_reviewed_but_ineligible_report_is_refused(reviewed_case, 
     assert memory_ids(reviewed_case) == []
 
 
+@pytest.mark.parametrize("settings_change", ["missing", "changed_context"])
+def test_model_request_settings_are_verified_before_database_open(
+    reviewed_case, monkeypatch, settings_change
+):
+    case = reviewed_case
+    if settings_change == "missing":
+        case.report.pop("model_request_settings")
+    else:
+        case.report["model_request_settings"] = {
+            **evidence.MODEL_REQUEST_SETTINGS,
+            "num_ctx": 8192,
+        }
+    replace_report(case)
+
+    def database_must_not_open(_path):
+        pytest.fail("ineligible model request settings reached Database construction")
+
+    monkeypatch.setattr(command, "Database", database_must_not_open)
+    with pytest.raises(EvidenceError, match="memory_report_not_eligible"):
+        record(case)
+    assert memory_ids(case) == []
+    assert not (case.run_root / "memory-receipt.json").exists()
+
+
 @pytest.mark.parametrize("binding", ["goal_project", "conversation_task"])
 def test_persisted_project_and_conversation_must_bind_the_report(reviewed_case, binding):
     case = reviewed_case

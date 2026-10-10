@@ -31,6 +31,7 @@ from app.models import Campaign, Conversation, ConversationTurn, Goal, MemoryRec
 from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
     MODEL,
+    MODEL_REQUEST_SETTINGS,
     RUN_SCHEMA,
     EvidenceError,
     canonical,
@@ -151,6 +152,7 @@ def _reviewed_report(paths: RunPaths, expected_sha256: str) -> dict:
         or report.get("run_id") != paths.root.name.removeprefix("proof-")
         or report.get("status") != "passed"
         or report.get("model") != MODEL
+        or canonical(report.get("model_request_settings")) != canonical(MODEL_REQUEST_SETTINGS)
         or report.get("model_digest_before") != MODEL_DIGEST
         or report.get("model_digest_after") != MODEL_DIGEST
         or report.get("mind_selected_alias") != "local_mind"

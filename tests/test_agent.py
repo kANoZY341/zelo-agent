@@ -625,7 +625,31 @@ def test_cancellation_stops_agent_model_loop(settings, database):
         assert events[-1]["details"]["reason"] == "cancelled_by_operator"
 
 
-def test_ollama_action_request_has_schema_roles_and_no_thinking(monkeypatch):
+@pytest.mark.parametrize(
+    "provider_kwargs,expected_format,expected_options",
+    [
+        ({}, "json", {"temperature": 0, "num_predict": 2048}),
+        (
+            {"use_json_schema": True},
+            ACTION.json_schema(),
+            {"temperature": 0, "num_predict": 2048},
+        ),
+        (
+            {"num_ctx": 16384},
+            "json",
+            {"temperature": 0, "num_predict": 2048, "num_ctx": 16384},
+        ),
+        (
+            {"use_json_schema": True, "num_ctx": 16384},
+            ACTION.json_schema(),
+            {"temperature": 0, "num_predict": 2048, "num_ctx": 16384},
+        ),
+    ],
+    ids=["defaults", "schema", "context", "schema-and-context"],
+)
+def test_ollama_action_request_has_schema_roles_and_no_thinking(
+    monkeypatch, provider_kwargs, expected_format, expected_options
+):
     captured = []
 
     def handle(request):
@@ -656,10 +680,13 @@ def test_ollama_action_request_has_schema_roles_and_no_thinking(monkeypatch):
         ),
         ACTION.json_schema(),
     )
-    result = asyncio.run(OllamaProvider("http://127.0.0.1:11434").generate(request))
+    result = asyncio.run(
+        OllamaProvider("http://127.0.0.1:11434", **provider_kwargs).generate(request)
+    )
+    assert captured[0]["stream"] is False
     assert captured[0]["think"] is False
-    assert captured[0]["format"] == "json"
-    assert captured[0]["options"] == {"temperature": 0, "num_predict": 2048}
+    assert captured[0]["format"] == expected_format
+    assert captured[0]["options"] == expected_options
     assert [m["role"] for m in captured[0]["messages"]] == ["system", "user", "assistant", "tool"]
     assert "private reasoning" not in str(result)
 
@@ -715,3 +742,74 @@ def test_ollama_failures_are_normalized_without_download_or_fallback(monkeypatch
     ):
         asyncio.run(OllamaProvider("http://127.0.0.1:11434").generate(request))
     assert len(requests) == 1 and requests[0].url.path == "/api/chat"
+
+
+@pytest.mark.parametrize(
+    "provider_kwargs,expected_options",
+    [
+        ({}, None),
+        ({"use_json_schema": True}, None),
+        ({"num_ctx": 16384}, {"num_ctx": 16384}),
+        ({"use_json_schema": True, "num_ctx": 16384}, {"num_ctx": 16384}),
+    ],
+    ids=["defaults", "schema-without-schema", "context", "schema-and-context"],
+)
+def test_ollama_unstructured_request_keeps_only_explicit_context(
+    monkeypatch, provider_kwargs, expected_options
+):
+    captured = []
+
+    def handle(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Hello."}})
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.gateway.httpx.AsyncClient",
+        lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handle)),
+    )
+    request = ModelRequest("qwen3:4b-instruct", "system", ["hello"], 1)
+    result = asyncio.run(
+        OllamaProvider("http://127.0.0.1:11434", **provider_kwargs).generate(request)
+    )
+    assert result.text == "Hello."
+    assert len(captured) == 1
+    assert captured[0]["stream"] is False
+    assert "format" not in captured[0] and "think" not in captured[0]
+    if expected_options is None:
+        assert "options" not in captured[0]
+    else:
+        assert captured[0]["options"] == expected_options
+
+
+def test_ollama_schema_request_preserves_core_mind_validation(monkeypatch, settings, database):
+    from sqlalchemy import func, select
+
+    from app.mind import MIND_ROUTE, MindService
+    from app.models import ConversationTurn
+    from app.policy import DomainError
+
+    captured = []
+    invalid_action = {"type": "core_task", "content": "Untrusted proposal.", "kind": "release_run"}
+
+    def handle(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": json.dumps(invalid_action)}})
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.gateway.httpx.AsyncClient",
+        lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handle)),
+    )
+    gateway = models(OllamaProvider("http://127.0.0.1:11434", use_json_schema=True, num_ctx=16384))
+    mind = MindService(database, settings, gateway, TaskService(database, settings, gateway))
+    conversation = mind.create("Schema validation fixture")
+    with pytest.raises(DomainError, match="Zelo Mind returned an invalid action") as caught:
+        asyncio.run(mind.send_turn(conversation.id, "Do the requested work.", "schema-refusal"))
+    assert caught.value.status_code == 502
+    assert isinstance(caught.value.__context__, ValidationError)
+    assert len(captured) == settings.max_model_parse_retries + 1
+    assert all(request["format"] == MIND_ROUTE.json_schema() for request in captured)
+    with database.read() as session:
+        assert session.scalar(select(func.count()).select_from(ConversationTurn)) == 0
+        assert session.scalar(select(func.count()).select_from(Task)) == 0

@@ -19,7 +19,16 @@ from app.schemas import ApiPayload, BrowserRunResult, ResearchRunResult, StrictM
 from app.tools import ToolGateway
 
 RUN_SCHEMA = "zelo-public-research-v1"
-MODEL = "qwen3:4b-instruct-16k"
+MODEL = "qwen2.5-coder:3b-instruct-8k"
+MODEL_CONTEXT_TOKENS = 16384
+MODEL_REQUEST_SETTINGS = {
+    "format": "json_schema",
+    "num_ctx": MODEL_CONTEXT_TOKENS,
+    "temperature": 0,
+    "num_predict": 2048,
+    "think": False,
+}
+RESEARCH_TIMEOUT = 480.0
 TOOL_RESULT_LIMIT = 16384
 MANIFEST_SHA256 = "2b47d26853b4d7ce57521a410099fd99a2d5864b2ebc1a654d02b2e27878f4d6"
 BROWSER_SOURCE_MANIFEST_DIGEST = "5cd2da1e5d84d268dbe7c46e6a95f82d640babed410ffd1f31c681de37f424ca"
@@ -338,6 +347,7 @@ def validate_candidate(
     task = tasks.get(report["research_task_id"])
     if (
         task.kind != "research_run"
+        or task.timeout_seconds != RESEARCH_TIMEOUT
         or task.status != "succeeded"
         or task.result is None
         or task.campaign_id != report["campaign_id"]

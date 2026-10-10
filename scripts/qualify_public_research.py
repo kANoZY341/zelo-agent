@@ -30,6 +30,9 @@ from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
     MANIFEST_SHA256,
     MODEL,
+    MODEL_CONTEXT_TOKENS,
+    MODEL_REQUEST_SETTINGS,
+    RESEARCH_TIMEOUT,
     RUN_SCHEMA,
     TOOL_RESULT_LIMIT,
     EvidenceError,
@@ -58,10 +61,9 @@ from scripts.qualify_browser_operator import admission_clear, reinspect_image, r
 from scripts.qualify_browser_renderer import LABEL, cleanup_owned_setup, command
 
 DOCKER = "/usr/bin/docker"
-MODEL_DIGEST = "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445"
+MODEL_DIGEST = "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712"
 BROWSER_TIMEOUT = 30.0
 MODEL_TIMEOUT = 120.0
-RESEARCH_TIMEOUT = 480.0
 DISPATCH_GRACE = 15.0
 REPORT_LIMIT = 262144
 BUDGETS = {
@@ -145,6 +147,18 @@ def progress(report: dict, phase: str, **identity) -> None:
 def failure(report: dict, error: BaseException) -> None:
     report.setdefault("failure_phase", report.get("phase", "initialization"))
     code = getattr(error, "code", "public_workflow_failed")
+    if isinstance(error, DomainError):
+        # Compare known service reasons without retaining their text in the report.
+        code = {
+            (502, "Zelo Mind returned an invalid action"): "public_mind_invalid_action",
+            (502, "Zelo Mind returned no action"): "public_mind_no_action",
+            (503, "Zelo Mind model route unavailable"): "public_mind_route_unavailable",
+            (503, "Zelo Mind capacity reached; try again later"): "public_mind_capacity_reached",
+            (
+                409,
+                "Zelo Mind task attempted to change Campaign ownership",
+            ): "public_mind_campaign_mismatch",
+        }.get((error.status_code, error.message), "public_workflow_failed")
     # Mind suppresses the gateway traceback with "from None" but retains its
     # immediate context. Preserve only known codes, never exception text or args.
     context = error.__context__
@@ -184,10 +198,8 @@ async def inspect_model() -> str:
 def research_request(manifest: SourceManifest) -> str:
     artifacts = ", ".join(source.artifact for source in manifest.sources)
     return (
-        "Delegate to Core research_run; do not solve the assignment in Mind or invent citations. "
-        "Routing uses type=core_task, kind=research_run, with acknowledgement <=12 words. "
-        "Task construction uses timeout_seconds=480 and copies only ASSIGNMENT into payload.query. "
-        "\n\nASSIGNMENT:\n"
+        "Create a Research task for this project with timeout_seconds=480 "
+        "to carry out the following assignment.\n\n"
         f"Read all three complete files directly with read_workspace_file: {artifacts}. "
         "Compare Agent-Reach web, RSS/Atom and YouTube: implemented retrieval versus readiness "
         "checks, prerequisites, and failure states. Cite observed [S#] evidence from all three. "
@@ -375,7 +387,7 @@ async def exercise(
         if (
             task.kind != "research_run"
             or task.campaign_id != campaign.id
-            or task.timeout_seconds > RESEARCH_TIMEOUT
+            or task.timeout_seconds != RESEARCH_TIMEOUT
             or turn.selected_alias != "local_mind"
             or turn.selected_model != MODEL
         ):
@@ -446,6 +458,7 @@ def qualify(source: Path, expected_digest: str) -> tuple[Path, bool]:
         "source_manifest_sha256": MANIFEST_SHA256,
         "source_bundle_manifest_digest": expected_digest,
         "model": MODEL,
+        "model_request_settings": dict(MODEL_REQUEST_SETTINGS),
         "budgets": BUDGETS,
         "execution_mode": "live_local_model",
         "external_network_attempted": False,
@@ -486,7 +499,11 @@ def qualify(source: Path, expected_digest: str) -> tuple[Path, bool]:
                 settings,
                 report,
                 runtime=runtime,
-                provider=OllamaProvider(settings.ollama_url),
+                provider=OllamaProvider(
+                    settings.ollama_url,
+                    use_json_schema=True,
+                    num_ctx=MODEL_CONTEXT_TOKENS,
+                ),
                 manifest=manifest,
             )
         )

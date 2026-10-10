@@ -1,0 +1,145 @@
+{
+  "diagnostics": [
+    {
+      "artifacts_sha256": {
+        "protocol.json": "730f0430e6a02d8f6fedc5ff24b35c31a44bfac9ad0c720f3c4df23f771af86b",
+        "result.json": "8c619be2b298d800e94b9a55740a25c71c979a5249c78b222c59da3f19b7d447"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/diagnostic-8854fb302cbd469cbe6a2bee2f15f6f9",
+      "elapsed_seconds": 109.583,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "retained_status": "completed",
+      "route_valid": false,
+      "semantic_outcome": "invalid_route_and_ungrounded_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "ff1331a78251b4e017584bcc0825b5e54427841c1697543d3a79c05147d3782a",
+        "call-02.json": "c1f2a6253b636ba790f9acabe5dfc4bb50a9d81004aa1d63e753fc579b660f3a",
+        "protocol.json": "bb9a9fa6889164c086e8652ed26bbaf245e9cc4f6c313d31b6edf3d9f32a2faa",
+        "result.json": "9ddecf8d3c71f44fc7c706fdc71d55a6b569fafa81f88d1449909c2ae112a2d6"
+      },
+      "calls": 2,
+      "complete_workflow": false,
+      "context_type": "JSONDecodeError",
+      "directory": "runtime/public-research/mind-diagnostic-37c3f51c6e8446cbbd9fb86ac249916e",
+      "domain_status": 502,
+      "elapsed_seconds": 17.199,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "retained_status": "rejected",
+      "semantic_outcome": "malformed_routing_json"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "8f3174f38b12fd644c632c15cb7205542970f09c3ccdb900bda0b43bd51b07de",
+        "protocol.json": "0046f7a230e69671e9f8fb592cd638ee197158280c6aa95c865c5840f37954e5",
+        "result.json": "1e6f73a886381a7929a37d02b55c29782bd6bbb96785df9a98202eb8b0f36914"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/schema-diagnostic-16e7fae4c81541fcb5b37693b5cf75ff",
+      "elapsed_seconds": 6.133,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "parsed_action_type": "reply",
+      "parsed_task_timeout_seconds": null,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "valid_reply_without_delegation"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "8faad0f4bc5971451da78988a7609ba4b9300757897a8bc63251a921b1e0b847",
+        "protocol.json": "e854653a125b848f9474676f1d2d44675fea353dffa81eee00f0a3cf4715ecaf",
+        "result.json": "673c6fa7125d208e756b9056cf5b75d63066f4b2b79400ea08b4bf99bb32af3e"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/natural-request-diagnostic-07e8a7b3f20e4e419ef772607804248d",
+      "elapsed_seconds": 30.562,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "parsed_action_type": "reply",
+      "parsed_task_timeout_seconds": null,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "valid_reply_with_ungrounded_findings"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "bfdc255046683a4c285fd8c418c9889f2f122b12bf4fef5f3c7055a14afb3c1c",
+        "call-02.json": "12bbb21d69b8c0e054075b540cecd7ebfc9c20fa2ccb9e0e6387118e27071ef7",
+        "protocol.json": "b2295045ccdb368a8e8abf3162564d92bb7d4b57e035f9a41ea089c0d8eb9005",
+        "result.json": "f94be2cbe9979a80ecb8260180ff7d554ea7438431100766c802ddcb3e7cf407"
+      },
+      "calls": 2,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/coder-model-diagnostic-c2804874b14b4ad1971bdb54a39d42f5",
+      "elapsed_seconds": 45.548,
+      "loaded_model": [
+        {
+          "context_length": 16384,
+          "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+          "name": "qwen2.5-coder:3b-instruct-8k",
+          "size": 2730921819,
+          "size_vram": 0
+        }
+      ],
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "parsed_action_type": "core_task",
+      "parsed_task_timeout_seconds": 120.0,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "research_action_with_complete_assignment_but_default_timeout"
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "23516e8a6a1774b0a44f824dd3ddfedfd62c706201dc8be076205c8cf97055d3",
+        "result.json": "8dd1cdd15a92a47c826401841c01d2593e45e25c839d22155a008ea2b35c5e1b"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 196,
+      "directory": "runtime/public-research/coder-timeout-diagnostic-f7390602461c42eb9ecb9d6a06e1cc33",
+      "elapsed_seconds": 14.912,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "parsed_task_timeout_seconds": 480.0,
+      "requested_timeout_honored": true,
+      "retained_status": "parsed_task_only",
+      "semantic_outcome": "strict_research_task_with_requested_timeout_only"
+    }
+  ],
+  "full_workflow_attempts": [
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "public_workflow_failed",
+      "failure_phase": "mind_turn",
+      "failure_type": "DomainError",
+      "git_commit": "6a3b358472610b75d663a4b5a2955e7627ed72bb",
+      "memory_written": false,
+      "precise_failure_not_retrospectively_proven": true,
+      "report": "runtime/public-research/proof-3c4a47257f7941cfa7be8930f99d6a84/report.json",
+      "report_sha256": "a2d2cb3e50128b394c49916cb758c6bfa67e82ccce1a886ad29517fa649bcd73",
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "public_workflow_failed",
+      "failure_phase": "mind_turn",
+      "failure_type": "DomainError",
+      "git_commit": "4307573bac6a3b949f62a85c955a78bcbb4a2786",
+      "memory_written": false,
+      "precise_failure_not_retrospectively_proven": true,
+      "report": "runtime/public-research/proof-f8f32cb116ad4f08ad7f2ad0bf574930/report.json",
+      "report_sha256": "c8acfb4816034059c304b882b73aee502a1767a21d06c5950f8ed16f35b5b02a",
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    }
+  ],
+  "schema": "zelo-public-research-diagnostics-v1",
+  "scope": "Retained operator diagnostics; no diagnostic persisted a Mind turn, dispatched a Core task, or wrote memory. Parsed actions are not completed workflows."
+}
