@@ -350,6 +350,21 @@ def _zip_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
     return members
 
 
+def _flashrank_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    result = []
+    # Validate every member before ignoring macOS metadata in this pinned ZIP.
+    for item in _zip_members(archive):
+        relative = PurePosixPath(item.filename)
+        if relative.parts and relative.parts[0] == "__MACOSX":
+            continue
+        if relative == PurePosixPath(FLASHRANK_MODEL, ".DS_Store"):
+            continue
+        if not relative.parts or relative.parts[0] != FLASHRANK_MODEL:
+            raise RuntimeRefusal("runtime_flashrank_layout")
+        result.append(item)
+    return result
+
+
 def verify_runtime_assets(protocol: RuntimeProtocol, *, staged: bool = True) -> dict[str, Any]:
     paths = runtime_paths(protocol)
     for name, (size, digest) in ASSET_PINS.items():
@@ -362,12 +377,10 @@ def verify_runtime_assets(protocol: RuntimeProtocol, *, staged: bool = True) -> 
         raise RuntimeRefusal("runtime_license_changed")
     members = {}
     with zipfile.ZipFile(paths.inputs / "ms-marco-MiniLM-L-12-v2.zip") as archive:
-        for item in _zip_members(archive):
+        for item in _flashrank_members(archive):
             if item.is_dir():
                 continue
             relative = PurePosixPath(item.filename)
-            if relative.parts[0] != FLASHRANK_MODEL:
-                raise RuntimeRefusal("runtime_flashrank_layout")
             value = archive.read(item)
             digest = hashlib.sha256(value).hexdigest()
             members[str(relative)] = digest
@@ -419,6 +432,7 @@ def _wheel_manifest(protocol: RuntimeProtocol) -> list[dict[str, Any]]:
         )
         for package in locked["package"]
         for wheel in package.get("wheels", [])
+        if {"url", "hash", "size"} <= wheel.keys()
     }
     seen = set()
     for row in rows:
@@ -766,7 +780,7 @@ def prepare_runtime_files(protocol: RuntimeProtocol) -> dict[str, Any]:
             raise RuntimeRefusal("runtime_uv_layout")
         _write_once(paths.root / "bootstrap/uv", binary, 0o500)
     with zipfile.ZipFile(paths.inputs / "ms-marco-MiniLM-L-12-v2.zip") as archive:
-        for item in _zip_members(archive):
+        for item in _flashrank_members(archive):
             target = paths.cache / "flashrank" / item.filename
             if item.is_dir():
                 target.mkdir(mode=0o700, parents=True, exist_ok=True)

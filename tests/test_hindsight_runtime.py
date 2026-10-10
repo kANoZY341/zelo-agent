@@ -6,7 +6,9 @@ import hashlib
 import json
 import os
 import pwd
+import stat
 import sys
+import zipfile
 from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
@@ -522,9 +524,92 @@ def test_startup_failure_keeps_bounded_class_and_phase_without_error_text(
     assert not paths.extraction_audit.exists()
 
 
-def test_untrusted_zip_member_is_refused_before_extract(tmp_path):
-    import zipfile
+@pytest.mark.parametrize("missing_model", [False, True])
+def test_flashrank_metadata_is_preserved_only_in_archive(protocol, monkeypatch, missing_model):
+    paths = runtime.runtime_paths(protocol)
+    files = {
+        "flashrank-MiniLM-L-12-v2_Q.onnx": b"synthetic ONNX",
+        "tokenizer_config.json": b'{"tokenizer_class":"fixture"}',
+        "special_tokens_map.json": b'{"unk_token":"[UNK]"}',
+        "config.json": b'{"model_type":"fixture"}',
+        "tokenizer.json": b'{"fixture":true}',
+    }
+    model = "ms-marco-MiniLM-L-12-v2"
+    archive_path = paths.inputs / (model + ".zip")
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(model + "/", b"")
+        archive.writestr("__MACOSX/._" + model, b"metadata")
+        archive.writestr(model + "/.DS_Store", b"finder metadata")
+        archive.writestr("__MACOSX/" + model + "/._.DS_Store", b"metadata")
+        for name, content in files.items():
+            if missing_model and name == "tokenizer.json":
+                continue
+            archive.writestr(model + "/" + name, content)
+            archive.writestr("__MACOSX/" + model + "/._" + name, b"metadata")
+    original_archive = archive_path.read_bytes()
+    uv_path = paths.inputs / "uv-0.13.0.whl"
+    with zipfile.ZipFile(uv_path, "w") as archive:
+        archive.writestr("uv.data/purelib/uv/uv", b"\x7fELFsynthetic; never executed")
+    paths.source.mkdir()
+    (paths.source / "fixture.py").write_text("# inert source fixture\n")
+    monkeypatch.setattr(runtime, "SLIM_TREE_SHA1", runtime._git_tree(paths.source))
+    for name, constant in [
+        ("uv.lock", "LOCK_BLOB_SHA1"),
+        ("LICENSE.Hindsight", "LICENSE_BLOB_SHA1"),
+    ]:
+        path = paths.inputs / name
+        path.write_text("synthetic pinned input\n")
+        monkeypatch.setattr(runtime, constant, runtime._git_blob(path))
+    monkeypatch.setattr(
+        runtime,
+        "ASSET_PINS",
+        {
+            path.name: (path.stat().st_size, runtime.sha256_file(path))
+            for path in [archive_path, uv_path]
+        },
+    )
+    # Installation/dependency planning is outside this archive-staging contract.
+    monkeypatch.setattr(
+        runtime, "build_runtime_plan", lambda _: {"requirements": {"build": "", "runtime": ""}}
+    )
+    (paths.root / "postgres.env").unlink()  # Remove only the fixture's dummy configuration.
+    if missing_model:
+        with pytest.raises(runtime.RuntimeRefusal, match="runtime_flashrank_incomplete"):
+            runtime.prepare_runtime_files(protocol)
+        assert not paths.cache.exists()
+    else:
+        result = runtime.prepare_runtime_files(protocol)
+        expected_names = {model + "/" + name for name in files}
+        assert set(result["flashrank_members"]) == expected_names
+        actual_files = {
+            str(path.relative_to(paths.cache / "flashrank"))
+            for path in (paths.cache / "flashrank").rglob("*")
+            if path.is_file()
+        }
+        assert actual_files == expected_names
+        for name, content in files.items():
+            assert (paths.flashrank / name).read_bytes() == content
+        assert not (paths.cache / "flashrank" / "__MACOSX").exists()
+        assert not (paths.flashrank / ".DS_Store").exists()
+    assert archive_path.read_bytes() == original_archive
 
+
+@pytest.mark.parametrize("kind", ["traversal", "symlink"])
+def test_ignored_flashrank_metadata_keeps_path_and_link_checks(tmp_path, kind):
+    path = tmp_path / "archive.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        info = zipfile.ZipInfo(
+            "__MACOSX/../escape" if kind == "traversal" else "__MACOSX/._ms-marco-MiniLM-L-12-v2"
+        )
+        if kind == "symlink":
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+        archive.writestr(info, b"untrusted")
+    with zipfile.ZipFile(path) as archive:
+        with pytest.raises(runtime.RuntimeRefusal, match="runtime_archive_path"):
+            runtime._flashrank_members(archive)
+
+
+def test_untrusted_zip_member_is_refused_before_extract(tmp_path):
     target = tmp_path / "archive.zip"
     with zipfile.ZipFile(target, "w") as archive:
         archive.writestr("../outside", b"untrusted")
@@ -543,13 +628,12 @@ def test_missing_offline_wheel_blocks_plan_before_commands(protocol):
     assert not (paths.root / "offline-plan.json").exists()
 
 
-@pytest.mark.parametrize("forbidden_name", ["triton", "onnxruntime-gpu", "mlx"])
-def test_cpu_plan_rejects_accelerator_wheel_even_when_lock_and_bytes_match(
-    protocol, monkeypatch, forbidden_name
+def _wheelhouse_fixture(
+    protocol, monkeypatch, *, extra_name=None, extra_lock="", missing_size=None
 ):
     paths = runtime.runtime_paths(protocol)
     (paths.inputs / "wheels").mkdir(mode=0o700)
-    rows, packages, build_pins = [], [], {}
+    rows, packages, build_pins = [], [extra_lock], {}
     roles = {
         "build": list(runtime.BUILD_WHEELS),
         "runtime": [
@@ -558,8 +642,8 @@ def test_cpu_plan_rejects_accelerator_wheel_even_when_lock_and_bytes_match(
             "transformers",
             "tokenizers",
             "numpy",
-            forbidden_name,
-        ],
+        ]
+        + ([extra_name] if extra_name else []),
     }
     for role, names in roles.items():
         for name in names:
@@ -590,9 +674,8 @@ def test_cpu_plan_rejects_accelerator_wheel_even_when_lock_and_bytes_match(
                     + json.dumps(url)
                     + '\nhash="sha256:'
                     + digest
-                    + '"\nsize='
-                    + str(len(body))
-                    + "\n"
+                    + '"\n'
+                    + ("" if name == missing_size else "size=" + str(len(body)) + "\n")
                 )
     lock = paths.inputs / "uv.lock"
     lock.write_text("\n".join(packages))
@@ -606,10 +689,53 @@ def test_cpu_plan_rejects_accelerator_wheel_even_when_lock_and_bytes_match(
     fixture_protocol = runtime.RuntimeProtocol(
         **{**asdict(protocol), "wheel_manifest_sha256": runtime.sha256_file(manifest)}
     )
+    return fixture_protocol
+
+
+@pytest.mark.parametrize("forbidden_name", ["triton", "onnxruntime-gpu", "mlx"])
+def test_cpu_plan_rejects_accelerator_wheel_even_when_lock_and_bytes_match(
+    protocol, monkeypatch, forbidden_name
+):
+    fixture_protocol = _wheelhouse_fixture(protocol, monkeypatch, extra_name=forbidden_name)
+    paths = runtime.runtime_paths(protocol)
     with pytest.raises(runtime.RuntimeRefusal, match="^runtime_wheel_manifest$"):
         runtime.build_runtime_plan(fixture_protocol)
     assert not paths.venv.exists()
     assert not (paths.root / "offline-plan.json").exists()
+
+
+@pytest.mark.parametrize("missing_size", [None, "onnxruntime"])
+def test_unselected_lock_wheels_may_omit_size_but_selected_wheels_must_match(
+    protocol, monkeypatch, missing_size
+):
+    # These two entries reproduce the exact omitted-size shape in the pinned
+    # uv.lock. They are outside the selected CPU-only closure.
+    unselected = """
+[[package]]
+name = "torch"
+version = "2.13.0"
+[[package.wheels]]
+url = "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp311-cp311-macosx_14_0_arm64.whl"
+hash = "sha256:e76f9bcecc52b8ff711239a2f7547d5353df95878ab232f0773c1d95928b92f8"
+upload-time = "2026-07-08T12:26:13Z"
+[[package]]
+name = "torch"
+version = "2.13.0+cpu"
+[[package.wheels]]
+url = "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-linux_s390x.whl"
+hash = "sha256:6e9817dbdf5ea76789babd46e457eac5bf14ff566cf85f8addbfdff2d56601ce"
+upload-time = "2026-07-08T19:27:52Z"
+"""
+    fixture_protocol = _wheelhouse_fixture(
+        protocol, monkeypatch, extra_lock=unselected, missing_size=missing_size
+    )
+    if missing_size:
+        with pytest.raises(runtime.RuntimeRefusal, match="^runtime_wheel_unpinned$"):
+            runtime.build_runtime_plan(fixture_protocol)
+    else:
+        plan = runtime.build_runtime_plan(fixture_protocol)
+        assert "torch" not in plan["requirements"]["runtime"]
+        assert "onnxruntime==1.0 --hash=sha256:" in plan["requirements"]["runtime"]
 
 
 def test_offline_plan_uses_separate_environments_and_exact_local_inputs(protocol, monkeypatch):
