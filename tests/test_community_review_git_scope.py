@@ -90,6 +90,18 @@ def test_committed_changed_lines_only_with_exact_head_and_digest(revisions):
         bind_ocr_review_from_git(raw(path="removed.py"), repo, base_sha=base, head_sha=head)
 
 
+def test_unrelated_root_commit_cannot_mint_line_anchor_evidence(revisions):
+    repo, base, head = revisions
+    # Forge a root commit containing identical base-tree bytes but no actual
+    # ancestry relationship to the reviewed HEAD.
+    tree = git(repo, "rev-parse", f"{base}^{{tree}}")
+    unrelated = git(repo, "commit-tree", tree, "-m", "unrelated history")
+    assert unrelated != base
+    assert git(repo, "rev-parse", "HEAD") == head
+    with pytest.raises(CommunityGitScopeRefusal, match="ocr_git_review_base_unrelated"):
+        verified_git_review_scope(repo, base_sha=unrelated, head_sha=head)
+
+
 def test_checkout_head_change_invalidates_pending_review(revisions):
     repo, base, head = revisions
     assert verified_git_review_scope(repo, base_sha=base, head_sha=head)

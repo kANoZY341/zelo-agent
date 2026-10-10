@@ -265,6 +265,15 @@ def verified_git_review_scope(
     for commit in (base_sha, head_sha):
         if _git(root, "cat-file", "-t", commit, limit=64).strip() != b"commit":
             raise CommunityGitScopeRefusal("ocr_git_revision_not_commit")
+    # A matching tree in an unrelated history is not the submitted change's
+    # trusted base. Require an actual ancestry relationship, not Git's
+    # permissive ability to diff any two unrelated commit objects.
+    try:
+        ancestor = _git(root, "merge-base", base_sha, head_sha, limit=64).strip()
+    except CommunityGitScopeRefusal:
+        raise CommunityGitScopeRefusal("ocr_git_review_base_unrelated") from None
+    if ancestor != os.fsencode(base_sha):
+        raise CommunityGitScopeRefusal("ocr_git_review_base_unrelated")
 
     name_list = _git(
         root,

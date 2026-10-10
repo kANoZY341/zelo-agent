@@ -158,7 +158,13 @@ integrity check with:
 
 Authenticated operator candidate views are available under
 `GET /integration-candidates/community` (sources), `/skills`,
-`/teams/{template}`, `/architecture`, `/architecture/mermaid`. A read-only
+`/teams/{template}`, `/architecture`, `/architecture/mermaid`. An
+[authenticated OCR evidence preview](docs/v0.15-ocr-operator-evidence-preview.md)
+is available through the operator-only POST
+`/integration-candidates/community/open-code-review/evidence/{base_sha}/{head_sha}`.
+It binds raw untrusted review JSON to exact committed Git changed lines and
+returns non-authoritative, content-bounded evidence without running reviewers
+or granting Tasks, approvals, GitHub writes or merge authority. A read-only
 OpenDots-inspired Computer Panel data projection is available at
 `GET /agents/{instance_id}/computer/panel` using Zelo's existing permission
 and service boundaries. Deterministic architecture examples are in
