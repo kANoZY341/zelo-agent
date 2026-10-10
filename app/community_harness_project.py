@@ -7,11 +7,13 @@ must NEVER be treated as authorization to activate Agents or Workers.
 
 import hashlib
 import json
+from contextlib import nullcontext
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.agent_factory import AgentFactory
 from app.community_harness import TeamTemplate, propose_team
@@ -131,13 +133,21 @@ class HarnessProjectReviewService:
         self.factory = factory
 
     def preview(
-        self, template: TeamTemplate, request: TeamProjectPlanningRequest
+        self,
+        template: TeamTemplate,
+        request: TeamProjectPlanningRequest,
+        *,
+        policy_session: Session | None = None,
     ) -> HarnessProjectReviewPlan:
         blueprint = propose_team(template)
         if blueprint.fingerprint != request.expected_blueprint_sha256:
             raise TeamProjectPlanningRefusal("harness_project_blueprint_stale")
         role_ids = tuple(item.agent_id for item in blueprint.roles)
-        with self.store.read() as session:
+        # Durable operator design reviews supply an already-serialized writer
+        # session, so the exact proposal is rechecked under the same lock.
+        with (
+            self.store.read() if policy_session is None else nullcontext(policy_session)
+        ) as session:
             project = session.get(Project, request.project_id)
             if project is None:
                 raise DomainError("Project not found", 404)

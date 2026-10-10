@@ -441,6 +441,11 @@ role identities and explicitly proposed four-role planning ceilings. Its SHA
 is a checksum, never an activation ticket; no AgentInstances, Workers, Tasks,
 Skill promotion, tools, Spaces or execution budgets are granted. See
 v0.15-harness-project-review-plan.md.
+A separate immutable, operator-only Harness design-review ledger records the
+exact current Project/Registry/blueprint/budget plan and human design decision
+under a serialized transaction. Its SHA-bound historical receipt is never a
+team-activation token; no AgentInstance, Task, org unit, runtime budget or
+Tool/Space grant is created. See `v0.15-harness-durable-design-review.md`.
 The separate Archify projection of the trusted Agent Factory registry makes
 registered template hierarchy inspectable without live instance or grant claims
 (see v0.15-archify-agent-registry-projection.md).
