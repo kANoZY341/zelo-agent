@@ -1,0 +1,756 @@
+{
+  "diagnostics": [
+    {
+      "artifacts_sha256": {
+        "protocol.json": "730f0430e6a02d8f6fedc5ff24b35c31a44bfac9ad0c720f3c4df23f771af86b",
+        "result.json": "8c619be2b298d800e94b9a55740a25c71c979a5249c78b222c59da3f19b7d447"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/diagnostic-8854fb302cbd469cbe6a2bee2f15f6f9",
+      "elapsed_seconds": 109.583,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "retained_status": "completed",
+      "route_valid": false,
+      "semantic_outcome": "invalid_route_and_ungrounded_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "ff1331a78251b4e017584bcc0825b5e54427841c1697543d3a79c05147d3782a",
+        "call-02.json": "c1f2a6253b636ba790f9acabe5dfc4bb50a9d81004aa1d63e753fc579b660f3a",
+        "protocol.json": "bb9a9fa6889164c086e8652ed26bbaf245e9cc4f6c313d31b6edf3d9f32a2faa",
+        "result.json": "9ddecf8d3c71f44fc7c706fdc71d55a6b569fafa81f88d1449909c2ae112a2d6"
+      },
+      "calls": 2,
+      "complete_workflow": false,
+      "context_type": "JSONDecodeError",
+      "directory": "runtime/public-research/mind-diagnostic-37c3f51c6e8446cbbd9fb86ac249916e",
+      "domain_status": 502,
+      "elapsed_seconds": 17.199,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "retained_status": "rejected",
+      "semantic_outcome": "malformed_routing_json"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "8f3174f38b12fd644c632c15cb7205542970f09c3ccdb900bda0b43bd51b07de",
+        "protocol.json": "0046f7a230e69671e9f8fb592cd638ee197158280c6aa95c865c5840f37954e5",
+        "result.json": "1e6f73a886381a7929a37d02b55c29782bd6bbb96785df9a98202eb8b0f36914"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/schema-diagnostic-16e7fae4c81541fcb5b37693b5cf75ff",
+      "elapsed_seconds": 6.133,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "parsed_action_type": "reply",
+      "parsed_task_timeout_seconds": null,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "valid_reply_without_delegation"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "8faad0f4bc5971451da78988a7609ba4b9300757897a8bc63251a921b1e0b847",
+        "protocol.json": "e854653a125b848f9474676f1d2d44675fea353dffa81eee00f0a3cf4715ecaf",
+        "result.json": "673c6fa7125d208e756b9056cf5b75d63066f4b2b79400ea08b4bf99bb32af3e"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/natural-request-diagnostic-07e8a7b3f20e4e419ef772607804248d",
+      "elapsed_seconds": 30.562,
+      "model_digest_after": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "model_digest_before": "8b939f12b0f9fcea23fc6b3d4b387e76fd2314f66a755119a4b8246c4991f445",
+      "parsed_action_type": "reply",
+      "parsed_task_timeout_seconds": null,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "valid_reply_with_ungrounded_findings"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01.json": "bfdc255046683a4c285fd8c418c9889f2f122b12bf4fef5f3c7055a14afb3c1c",
+        "call-02.json": "12bbb21d69b8c0e054075b540cecd7ebfc9c20fa2ccb9e0e6387118e27071ef7",
+        "protocol.json": "b2295045ccdb368a8e8abf3162564d92bb7d4b57e035f9a41ea089c0d8eb9005",
+        "result.json": "f94be2cbe9979a80ecb8260180ff7d554ea7438431100766c802ddcb3e7cf407"
+      },
+      "calls": 2,
+      "complete_workflow": false,
+      "directory": "runtime/public-research/coder-model-diagnostic-c2804874b14b4ad1971bdb54a39d42f5",
+      "elapsed_seconds": 45.548,
+      "loaded_model": [
+        {
+          "context_length": 16384,
+          "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+          "name": "qwen2.5-coder:3b-instruct-8k",
+          "size": 2730921819,
+          "size_vram": 0
+        }
+      ],
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "parsed_action_type": "core_task",
+      "parsed_task_timeout_seconds": 120.0,
+      "retained_status": "accepted_action_only",
+      "semantic_outcome": "research_action_with_complete_assignment_but_default_timeout"
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "23516e8a6a1774b0a44f824dd3ddfedfd62c706201dc8be076205c8cf97055d3",
+        "result.json": "8dd1cdd15a92a47c826401841c01d2593e45e25c839d22155a008ea2b35c5e1b"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 196,
+      "directory": "runtime/public-research/coder-timeout-diagnostic-f7390602461c42eb9ecb9d6a06e1cc33",
+      "elapsed_seconds": 14.912,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "parsed_task_timeout_seconds": 480.0,
+      "requested_timeout_honored": true,
+      "retained_status": "parsed_task_only",
+      "semantic_outcome": "strict_research_task_with_requested_timeout_only"
+    },
+    {
+      "artifacts_sha256": {
+        "observation.json": "ee34efe8b24175dcfb0f1bbdace5a0b6718f26fb94ebedab6ab8e1f279ea931d",
+        "ollama-public-run-timing.log": "7ca6c49f0a491528cd2b9ae05a54f12ff1301f70c7a74375549a2e153a57c135"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timeout-observation-9b1eae9a815c43ea82515b0269973bc5",
+      "generated_text_retained": false,
+      "semantic_outcome": "first_research_generation_cancelled_after_at_least_1115_tokens"
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "8c1d17ea94cbbc6e93d4d3678dda92fec970e5a005d738659d1dfd27d1f22b7a",
+        "streaming-request.json": "cc3655c9cc611337986d3aeb12b7d4f09b868cf31b6de3f77f647a55f44d82ab",
+        "wire-request.json": "e5c9c06ffaaeaf5cf3dd38fdd12155ce3e778ef61c71b9d3b6bf9b3efd298f2c"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-first-request-diagnostic-9766927c25024b4fa94faeaed24b22b1",
+      "semantic_outcome": "actual_first_request_values_captured_without_inference",
+      "serialization_note": "These canonical artifacts recursively sort keys and do not preserve the original provider JSON-schema property order. Replaying them changes serialization order."
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "86262763d438c5869ca6d5ae2152bdc7b63af9dd4fe9053e3422a5f6f4565d62",
+        "protocol.json": "e522890601dc3eeee65acf3d95bf7ae63aae97486e676455480a5fd7656d1012",
+        "result.json": "dc59b1baec346592f777dcdd5cd2f917a71c1311c7a0d1c92fa5bc8b10122c07"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 265,
+      "directory": "runtime/public-research/research-stream-diagnostic-568befccf77541daacf2e455cfc315c9",
+      "elapsed_seconds": 31.296,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_failure_reproduced": false,
+      "semantic_outcome": "premature_final_with_invented_claims_and_source_ids",
+      "serialization_note": "The request changed stream and JSON-schema key order because the input artifact was canonicalized. The original protocol records only stream as a changed field; this later qualification corrects that interpretation."
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "5da97b4d8ad5955a43e2c73278c7d3e957aa5379bfe6ed7c7f0a4afe3a438f27",
+        "serialization-addendum.json": "0a48457884ff4a637df982077f60c02b2d0b7d500f7d6cf26321342338189b84",
+        "streaming-request.json": "f6148d19e09ac2a463756c151b212899e9b2a086694f2af4186fd2fcaf6cce73",
+        "wire-request.json": "e7b0b5b0f31a9da6125e55b8f653cc9f90998c8ba6f134ad38911ac7d5b2e890"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-first-request-diagnostic-20cbe7da702f403e93266d9552dfa7cc",
+      "semantic_outcome": "actual_first_request_recaptured_as_original_order_HTTPX_bytes_without_inference"
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "4b76190349695ca73c12d13b6bb0850ef21343dd3c0bd44d693eb793c1d145ca",
+        "protocol.json": "f21a340c3ecd87f3ee58cac2d251b9c1065ac202d3369664ee6d4918c8397e79",
+        "result.json": "d033f0e589e22f623143b0692c52119a2115cb4bd817cd146c7496523bc7d4ba"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 24,
+      "directory": "runtime/public-research/research-original-order-stream-12e8acfb47244f0c96480677f5b22325",
+      "elapsed_seconds": 1.491,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_timeout_reproduced": false,
+      "selected_path": "agent-reach-rss.txt",
+      "semantic_outcome": "valid_first_read_workspace_file_action_without_dispatch"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01-request.json": "51f5babdc62ef56f3490acd5cedf5722e4faf5dd07e54ec2ba6c55de3c536ac4",
+        "protocol.json": "3dde24b0bb7b468d671ce716d0a72886c7d763fb123ac860706718b022306602",
+        "result.json": "5f761e3225b36fcd6bbde55824395f8e485019367c56423a8cf03a7991cf71d3",
+        "run_component.py": "3805de32e0156e4e053a7184d34f75bdd2f70e936908f897e857daddad0fae07",
+        "task-evidence.json": "77de1ad2813189e75e8d4f2b2ae1e7d673092cf53522fec0508541013dcfca4a"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-6cecd4e68204423fbb8805f7816209a0",
+      "elapsed_seconds": 120.114,
+      "failure_code": "model_timeout",
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_resident_before": false,
+      "reply_complete": false,
+      "research_tool_calls": 0,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "first_nonstream_component_call_timed_out_without_complete_response",
+      "serialization_note": "Exact original HTTPX request bytes observed; stream remains false. File archival adds diagnostic observation overhead."
+    },
+    {
+      "all_three_exact_source_results_in_final_request": true,
+      "artifacts_sha256": {
+        "call-01-request.json": "78e5769eda3c2079b6898f5bc6dfaa46956fbf7434b7522dd88f46d5de6db608",
+        "call-03-response.json": "86c4460d40f194bb594a6f5c1b90a732744827d2fc526a9fc52a4cedebdc3e60",
+        "call-04-request.json": "7181d333db7d373fd2984c0e0aa074be94ecfffc8af4acc7fdd8cc63b4abb550",
+        "protocol.json": "de33f165fd2820fcead77ff6067ead9d3d1817db2f99bb5de5d27e0d61f8f8c7",
+        "result.json": "c1a50a4f445daa801f0d892f9f6c3ec059376522a643eee7b6e6678eca20bca0",
+        "run_component.py": "3805de32e0156e4e053a7184d34f75bdd2f70e936908f897e857daddad0fae07",
+        "task-evidence.json": "77de1ad2813189e75e8d4f2b2ae1e7d673092cf53522fec0508541013dcfca4a"
+      },
+      "call_seconds": [
+        17.846,
+        23.462,
+        65.097,
+        120.06
+      ],
+      "calls": 4,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-cf868ad807fb4a6a8c4552a818d9d9ac",
+      "elapsed_seconds": 226.656,
+      "failed_call": 4,
+      "failure_code": "model_timeout",
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_resident_before": false,
+      "reply_complete": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "research_tool_calls": 3,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "three_complete_reads_then_fourth_call_timeout_without_complete_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "journal-timing.json": "66433062ce93801d090bac881cf8af4f4a42102d30f0477cd75b5256ca3dce9b",
+        "observation.json": "3fe0cce910fdd48c7056bf9ccaf0fc29d1be3a50f79d8afa3119ed9b7e92fc76"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timing-observation-45ca17677f154e66a07a39601b4c5bf8",
+      "exact_phase_at_client_cancellation_known": false,
+      "generation_count_known": false,
+      "new_inference": false,
+      "original_inputs_modified": false,
+      "prefill_progress": [
+        {
+          "elapsed_seconds": 44.81,
+          "new_tokens": 1024,
+          "progress": 0.69
+        },
+        {
+          "elapsed_seconds": 93.36,
+          "new_tokens": 2048,
+          "progress": 0.86
+        }
+      ],
+      "prior_context_tokens": 3359,
+      "prompt_tokens": 6322,
+      "semantic_outcome": "expensive_partial_prefill_observed_without_complete_final_reply"
+    },
+    {
+      "all_three_exact_source_results_in_final_request": true,
+      "artifacts_sha256": {
+        "call-04-request.json": "7181d333db7d373fd2984c0e0aa074be94ecfffc8af4acc7fdd8cc63b4abb550",
+        "protocol.json": "f0e453b76d2188bb4e06dae35f2f6c9983eb8ac2c6ad5ad968a4da39123e5687",
+        "result.json": "66335768030ca280917a3cfa4f211e4db57413cf94501581915c494fdf048c21",
+        "run_component.py": "91de72d58298ccc15aed11da0de6ec24774a7acaa4ce916c716208ce53ed1e9c"
+      },
+      "call_seconds": [
+        18.70863287593238,
+        24.34241022192873,
+        59.19235110189766,
+        240.04897901881486
+      ],
+      "calls": 4,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-acc94133853e44f29770400f0fb8a2e0",
+      "elapsed_seconds": 342.49303367198445,
+      "failed_call": 4,
+      "failure_code": "model_timeout",
+      "model_resident_before": false,
+      "reply_complete": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "research_tool_calls": 3,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "three_complete_reads_then_fourth_call_timeout_without_complete_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "journal-timing.json": "44925c6b5ab1d9ffdf18eaeeffc7f3fe5f025482d9bee38fc8e6d314ed156730",
+        "observation.json": "5c4a629880885decee95a5fbcf870b49d69b9757371f5611730aecf1c087b9a2"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timing-observation-316f0f8fbef0465c8eeeb2ca7d423708",
+      "exact_generation_total_known": false,
+      "explicit_generation_updates": 28,
+      "first_observed_generation": {
+        "elapsed_seconds": 155.863606,
+        "tokens": 100
+      },
+      "generation_before_cancellation_observed": true,
+      "independent_numeric_records_matched": true,
+      "last_observed_generation": {
+        "elapsed_seconds": 239.314549,
+        "tokens": 579
+      },
+      "new_inference": false,
+      "original_answer_retained": false,
+      "original_inputs_modified": false,
+      "prompt_tokens": 6322,
+      "raw_journal_rerender_byte_equality": false,
+      "requested_context_tokens": 16384,
+      "semantic_outcome": "actual_generation_observed_before_240_second_cancellation_without_answer_or_terminal_usage"
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "65f486ef1371ca7b36189d0a18310c57daf8738c76e51a54fbb7be09e0c5f4e2",
+        "protocol.json": "02086f9419014ab1e174af1ccb76232164c9c61510d4dd29ffde2d1d0622a1f0",
+        "request.json": "f78f10cfc5a2df41ec596f1fd910d2925bcda82e139a92be24c77eb348235f87",
+        "response.ndjson": "2cf1c46d77a1b1ae1dcbc21c22f7206f2ed3f0c27f8457875563bd1a45f44247",
+        "result.json": "65149912e02d7f586987de6aae8008c725c7a6576464eb80ad7921e593ffbf8c",
+        "run_stream.py": "7b22c4e9ec5cfdbdc0787f8483560a2ac7c5c59f01c38ea563e29f067b3dc41e"
+      },
+      "cache_controlled": false,
+      "complete_workflow": false,
+      "core_task_dispatches": 0,
+      "database_opens": 0,
+      "diagnostic_status": "timeout",
+      "directory": "runtime/public-research/research-final-stream-diagnostic-84c9dc59c3e24b20911d4424999c813d",
+      "generation": {
+        "capture_capped": false,
+        "captured_bytes": 207924,
+        "content": {
+          "bytes": 8326,
+          "sha256": "65f486ef1371ca7b36189d0a18310c57daf8738c76e51a54fbb7be09e0c5f4e2"
+        },
+        "content_characters": 8326,
+        "content_trailing_whitespace_characters": 0,
+        "decoded_frames": 1387,
+        "done_observed": false,
+        "elapsed_seconds": 480.0102688870393,
+        "finished_at": "2026-10-10T05:49:57.809002+00:00",
+        "first_content_seconds": 230.2767686790321,
+        "first_response_bytes_seconds": 230.2767686790321,
+        "first_thinking_seconds": null,
+        "message_tool_calls_observed": false,
+        "raw_response": {
+          "bytes": 207924,
+          "sha256": "2cf1c46d77a1b1ae1dcbc21c22f7206f2ed3f0c27f8457875563bd1a45f44247"
+        },
+        "response_complete": false,
+        "response_eof": false,
+        "started_at": "2026-10-10T05:41:03.939531+00:00",
+        "status": "timeout",
+        "status_code": 200,
+        "strict_core_action_parse": {
+          "valid": false
+        },
+        "terminal_metrics": null,
+        "thinking": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "undecoded_tail": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wall_limit_seconds": 480.0
+      },
+      "memory_writes": 0,
+      "model": "qwen2.5-coder:3b-instruct-8k",
+      "model_after": {
+        "cache_controlled": false,
+        "identity_valid": true,
+        "recorded_at": "2026-10-10T05:49:58.367171+00:00",
+        "requested_context_tokens": 16384,
+        "responses": {
+          "/api/ps": {
+            "models": [
+              {
+                "context_length": 16384,
+                "details": {
+                  "families": [
+                    "qwen2"
+                  ],
+                  "family": "qwen2",
+                  "format": "gguf",
+                  "parameter_size": "3.1B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+                "expires_at": "2026-10-10T09:54:57.801328328+04:00",
+                "model": "qwen2.5-coder:3b-instruct-8k",
+                "name": "qwen2.5-coder:3b-instruct-8k",
+                "size": 2730921819,
+                "size_vram": 0
+              }
+            ],
+            "status": "ok"
+          },
+          "/api/tags": {
+            "models": [
+              {
+                "details": {
+                  "context_length": 32768,
+                  "embedding_length": 2048,
+                  "families": [
+                    "qwen2"
+                  ],
+                  "family": "qwen2",
+                  "format": "gguf",
+                  "parameter_size": "3.1B",
+                  "parent_model": "qwen2.5-coder:3b-instruct",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+                "model": "qwen2.5-coder:3b-instruct-8k",
+                "name": "qwen2.5-coder:3b-instruct-8k",
+                "size": 1929912271
+              }
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "model_digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_output_reconstructed": false,
+      "request_changes_from_original": [
+        "stream",
+        "observational_timeout"
+      ],
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "unfinished_uncited_repetitive_output_with_cross_channel_source_errors",
+      "semantic_pass": false,
+      "tool_dispatches": 0
+    },
+    {
+      "answer_words": 240,
+      "artifacts_sha256": {
+        "content.txt": "76f8bbb8413a4856c93a90f6798a698ada2aaa19605fc9162a27de26f08cbd25",
+        "protocol.json": "4c66e0b2a5782fd9cfa3bfe076040df0b07542500787c403558e4d80ab143947",
+        "request.json": "d3e6047ef1911e6b928e5f13a569aee7cd9f9da750b6702a0614dd42df45fd8e",
+        "response.ndjson": "178b4c286d99ff62e078176e11b1fbc08cded309032bd6f0e32e4de95d28ac0d",
+        "result.json": "dd96773a150a3f2946607e0e771d879d0d1632d6986e68aee40bbff5c3e1659a",
+        "run_stream.py": "d5faeb38f5eef17e9b846e211dd6c256d078763a68d6ed66de8b4ee23bf037ca"
+      },
+      "cache_controlled": false,
+      "complete_workflow": false,
+      "core_task_dispatches": 0,
+      "database_opens": 0,
+      "diagnostic_status": "completed",
+      "directory": "runtime/public-research/research-final-stream-diagnostic-bd177f11a3aa458bb75ae4c4dcd0efcc",
+      "generation": {
+        "capture_capped": false,
+        "captured_bytes": 57890,
+        "content": {
+          "bytes": 1871,
+          "sha256": "76f8bbb8413a4856c93a90f6798a698ada2aaa19605fc9162a27de26f08cbd25"
+        },
+        "content_characters": 1865,
+        "content_trailing_whitespace_characters": 0,
+        "decoded_frames": 443,
+        "done_observed": true,
+        "elapsed_seconds": 369.37645670212805,
+        "finished_at": "2026-10-10T06:04:16.703725+00:00",
+        "first_content_seconds": 288.9167386610061,
+        "first_response_bytes_seconds": 288.9167386610061,
+        "first_thinking_seconds": null,
+        "message_tool_calls_observed": false,
+        "raw_response": {
+          "bytes": 57890,
+          "sha256": "178b4c286d99ff62e078176e11b1fbc08cded309032bd6f0e32e4de95d28ac0d"
+        },
+        "response_complete": true,
+        "response_eof": true,
+        "started_at": "2026-10-10T05:57:24.240163+00:00",
+        "status": "completed",
+        "status_code": 200,
+        "strict_core_action_parse": {
+          "source_ids": [
+            "S1",
+            "S2",
+            "S3"
+          ],
+          "type": "final",
+          "valid": true
+        },
+        "terminal_metrics": {
+          "created_at": "2026-10-10T06:04:16.694245527Z",
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 449,
+          "eval_duration": 80457902000,
+          "load_duration": 7551558411,
+          "model": "qwen3.5:4b",
+          "prompt_eval_count": 6322,
+          "prompt_eval_duration": 281286245000,
+          "total_duration": 369353925642
+        },
+        "thinking": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "undecoded_tail": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wall_limit_seconds": 480.0
+      },
+      "memory_writes": 0,
+      "model": "qwen3.5:4b",
+      "model_after": {
+        "cache_controlled": false,
+        "identity_valid": true,
+        "recorded_at": "2026-10-10T06:04:17.080973+00:00",
+        "requested_context_tokens": 16384,
+        "responses": {
+          "/api/ps": {
+            "models": [
+              {
+                "context_length": 16384,
+                "details": {
+                  "families": [
+                    "qwen35"
+                  ],
+                  "family": "qwen35",
+                  "format": "gguf",
+                  "parameter_size": "4.7B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+                "expires_at": "2026-10-10T10:09:16.69486776+04:00",
+                "model": "qwen3.5:4b",
+                "name": "qwen3.5:4b",
+                "size": 3638663576,
+                "size_vram": 0
+              }
+            ],
+            "status": "ok"
+          },
+          "/api/tags": {
+            "models": [
+              {
+                "details": {
+                  "context_length": 262144,
+                  "embedding_length": 2560,
+                  "families": [
+                    "qwen35"
+                  ],
+                  "family": "qwen35",
+                  "format": "gguf",
+                  "parameter_size": "4.7B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+                "model": "qwen3.5:4b",
+                "name": "qwen3.5:4b",
+                "size": 3389983735
+              }
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "model_digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "original_output_reconstructed": false,
+      "request_changes_from_original": [
+        "model",
+        "stream",
+        "sampling_options",
+        "output_token_cap",
+        "observational_timeout"
+      ],
+      "retained_inputs_unchanged": true,
+      "self_reported_answer_words": 198,
+      "semantic_outcome": "valid_cited_final_but_false_web_readiness_claim_and_invalid_research_authority_recommendation",
+      "semantic_pass": false,
+      "tool_dispatches": 0
+    }
+  ],
+  "full_workflow_attempts": [
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "public_workflow_failed",
+      "failure_phase": "mind_turn",
+      "failure_type": "DomainError",
+      "git_commit": "6a3b358472610b75d663a4b5a2955e7627ed72bb",
+      "memory_written": false,
+      "precise_failure_not_retrospectively_proven": true,
+      "report": "runtime/public-research/proof-3c4a47257f7941cfa7be8930f99d6a84/report.json",
+      "report_sha256": "a2d2cb3e50128b394c49916cb758c6bfa67e82ccce1a886ad29517fa649bcd73",
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "public_workflow_failed",
+      "failure_phase": "mind_turn",
+      "failure_type": "DomainError",
+      "git_commit": "4307573bac6a3b949f62a85c955a78bcbb4a2786",
+      "memory_written": false,
+      "precise_failure_not_retrospectively_proven": true,
+      "report": "runtime/public-research/proof-f8f32cb116ad4f08ad7f2ad0bf574930/report.json",
+      "report_sha256": "c8acfb4816034059c304b882b73aee502a1767a21d06c5950f8ed16f35b5b02a",
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "model_timeout",
+      "failure_phase": "research_run",
+      "failure_type": "EvidenceError",
+      "git_commit": "00459c627bd68933ce12708c12b0713d659dadb2",
+      "memory_written": false,
+      "mind_turn_persisted": true,
+      "parent_monotonic_seconds": 177.591,
+      "report": "runtime/public-research/proof-fd5a9edfac5246759588f3a76d70fce0/report.json",
+      "report_sha256": "4ad44bc4f35f80f9ba992db1c17fad68cd77bb5cc84060280b3a1de36d310a7f",
+      "research_model_steps": 1,
+      "research_task_id": "4b788bab-4aa7-4441-8a27-4cb562761574",
+      "research_tool_calls": 0,
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "model_timeout",
+      "failure_phase": "research_run",
+      "failure_type": "EvidenceError",
+      "git_commit": "6112e40e8ca05fd96c07425bf08d64caf2cdb344",
+      "memory_written": false,
+      "mind_turn_persisted": true,
+      "parent_monotonic_seconds": 178.065,
+      "report": "runtime/public-research/proof-5a0c9dd4c4c5463e9501ea656c156b7d/report.json",
+      "report_sha256": "0a38e28cff6163c7f5ef0d57c39da51569aeaf74442fe432474be0c455b6f9f2",
+      "research_model_steps": 1,
+      "research_task_id": "f4de0e5e-bb3f-4039-8acb-68e01adf2e8f",
+      "research_tool_calls": 0,
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "actual_research_timeout_seconds": 120.0,
+      "browser_tasks_succeeded": 3,
+      "database_sha256": "fced8df95a48574549dba7b9d9b3365586104b6933f12584a64fa62296a387ce",
+      "failure_code": "public_mind_task_contract_mismatch",
+      "failure_phase": "mind_turn",
+      "failure_type": "EvidenceError",
+      "git_commit": "ca678ee853c06cfe569bbcb95d85780dfeb65c13",
+      "memory_records": 0,
+      "memory_written": false,
+      "mind_turn_id": "8635a47f-c4f4-5c58-80d8-d9fc524df59f",
+      "mind_turn_persisted": true,
+      "mind_usage": {
+        "completion_tokens": 242,
+        "prompt_tokens": 864,
+        "total_tokens": 1106
+      },
+      "parent_monotonic_seconds": 91.88949742401019,
+      "raw_model_timeout_field_retained": false,
+      "report": "runtime/public-research/proof-dbdb85a8f13a42ffbd0776be40a88f6f/report.json",
+      "report_sha256": "43e88d82925841c7d79e57d75e44a711c78904b6b8a2439db11be2e0a9ff6e6c",
+      "required_research_timeout_seconds": 600.0,
+      "research_model_steps": 0,
+      "research_task_id": "f88d07be-2b18-4a42-acc7-5024ffb79f1b",
+      "research_task_status": "cancelled",
+      "research_tool_calls": 0,
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "answer_words": 183,
+      "browser_tasks_succeeded": 3,
+      "database_sha256_after_memory": "667a97cf8adee063c2c53a0418cc5c2e5b9374484fc6fe0574b961da1a7e1889",
+      "database_sha256_before_memory": "c7511e52cf171ed88393ef70fc64380178dffb846b93e972f61505930fd29b90",
+      "exact_replay_parent_monotonic_seconds": 1.1403312040492892,
+      "exact_replay_same_receipt": true,
+      "exclusion_recall_empty": true,
+      "full_summary_recalled_untruncated": true,
+      "git_commit": "f9e72873626e5ab2539511c916736c48877e5136",
+      "memory_id": "19f89fb7-8d92-4fbe-959c-13df1725d579",
+      "memory_receipt": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/memory-receipt.json",
+      "memory_receipt_sha256": "73ba4de90cae13005579526f7c09a6710f3ae04d7d4f9d285f48cdb9b734ed7e",
+      "memory_records_after_exact_replay": 1,
+      "memory_written": false,
+      "mind_turn_id": "a66d42b9-89c7-5f47-ad3e-a80582433a8a",
+      "mind_turn_persisted": true,
+      "mind_usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 924,
+        "total_tokens": 1224
+      },
+      "parent_monotonic_seconds": 471.0420387429185,
+      "published_evidence_directory": "docs/reviews/public-research-v0.15",
+      "report": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/report.json",
+      "report_sha256": "d10585450dc9f48137e107bd35446198536b4c94fe309f3b5a359df03114d3b1",
+      "research_model_steps": 4,
+      "research_result_sha256": "f2f82a8e7065d20d47d9fa5a670a8bc40c5024caa88443bcc090ccf69e659f1a",
+      "research_task_id": "778fb8b7-0a1d-49e5-9a6f-98589ce31410",
+      "research_timeout_seconds": 600.0,
+      "research_tool_calls": 3,
+      "research_usage": [
+        {
+          "completion_tokens": 23,
+          "prompt_tokens": 677,
+          "step": 1,
+          "total_tokens": 700
+        },
+        {
+          "completion_tokens": 24,
+          "prompt_tokens": 2421,
+          "step": 2,
+          "total_tokens": 2445
+        },
+        {
+          "completion_tokens": 24,
+          "prompt_tokens": 3398,
+          "step": 3,
+          "total_tokens": 3422
+        },
+        {
+          "completion_tokens": 333,
+          "prompt_tokens": 6385,
+          "step": 4,
+          "total_tokens": 6718
+        }
+      ],
+      "reviewed_memory_written_after_report": true,
+      "reviewed_summary_characters": 998,
+      "reviewed_summary_sha256": "854543cc62680c8d4ac0b4ce8c589accd3c305c478bb4e215ab7bba07b46443d",
+      "runtime_cleanup_confirmed": true,
+      "semantic_review": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/semantic-review.json",
+      "semantic_review_sha256": "6232ce6d838d2e5602d533d293119a5ee6cc10d6baeeb517e965235783dfcb42",
+      "setup_cleanup_errors": [],
+      "status": "passed",
+      "unedited_answer_semantic_status": "failed_semantic_completeness_review"
+    }
+  ],
+  "schema": "zelo-public-research-diagnostics-v1",
+  "scope": "Retained operator diagnostics; no diagnostic persisted a Mind turn, dispatched a Core task, or wrote memory. Parsed actions are not completed workflows."
+}

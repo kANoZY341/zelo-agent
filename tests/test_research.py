@@ -6,17 +6,29 @@ from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
 from app.config import ROOT
-from app.gateway import ModelGateway, ModelGatewayError, ModelResult
+from app.gateway import ModelGateway, ModelGatewayError, ModelResult, OllamaProvider
 from app.main import create_app
 from app.models import Task
 from app.research import RESEARCH_ACTION, ResearchRuntime, ResearchRuntimeError
 from app.runner import Runner
 from app.schemas import ResearchRunInput
 from app.tasks import TaskService, _project_task_result
+from app.tools import (
+    ListWorkspaceFilesTool,
+    ReadWorkspaceFileTool,
+    RepoStatusTool,
+    SystemInfoTool,
+    ToolGateway,
+    ToolRegistry,
+    ToolRisk,
+    ToolRuntimeError,
+)
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
 from tests.conftest import AUTH
 from tests.test_api import wait_for
@@ -131,7 +143,17 @@ def test_research_retrieves_real_evidence_and_persists_cited_metadata(
         assert "workspace proof is green" not in json.dumps(events)
 
         request = provider.requests[0]
-        assert request.output_schema == RESEARCH_ACTION.json_schema()
+        validator = Draft202012Validator(request.output_schema)
+        for action in (
+            call("list_workspace_files"),
+            call("read_workspace_file", path="facts.txt"),
+            call("repo_status"),
+        ):
+            validator.validate(action)
+        assert not validator.is_valid(final("No evidence yet. [S2]", "S2"))
+        Draft202012Validator(provider.requests[-1].output_schema).validate(
+            final("The workspace proof is green. [S2]", "S2")
+        )
         assert "read_workspace_file" in request.system_prompt
         assert "list_workspace_files" in request.system_prompt
         assert "repo_status" in request.system_prompt
@@ -144,6 +166,306 @@ def test_research_retrieves_real_evidence_and_persists_cited_metadata(
         assert second_source["source_id"] == "S2"
         assert first_source["untrusted"] is True
         assert second_source["untrusted"] is True
+
+
+def test_research_model_schema_matches_actual_registered_tool_inputs(research_settings):
+    tools = ToolGateway(
+        research_settings,
+        ToolRegistry((ListWorkspaceFilesTool(), ReadWorkspaceFileTool())),
+    )
+    provider = ResearchProvider(
+        call("read_workspace_file", path="facts.txt"),
+        final("The workspace proof is green. [S1]", "S1"),
+    )
+    runtime = ResearchRuntime(
+        research_settings, research_gateway(research_settings, provider), tools
+    )
+    result = asyncio.run(
+        runtime.run(
+            query="Read the workspace proof.",
+            selected_alias="local_general",
+            selected_model=research_settings.ollama_general_model,
+            timeout_seconds=research_settings.agent_timeout_seconds,
+            emit=lambda *_: None,
+        )
+    )
+    assert result["tool_calls"] == 1
+    schema = provider.requests[0].output_schema
+    Draft202012Validator.check_schema(schema)
+    validator = Draft202012Validator(schema)
+    for action in (
+        call("list_workspace_files"),
+        call("list_workspace_files", path="."),
+        call("read_workspace_file", path="facts.txt"),
+        call("read_workspace_file", path="a" * 512),
+    ):
+        tools.validate(action["tool"], action["arguments"])
+        assert validator.is_valid(action), action
+    assert not validator.is_valid(final("An answer needs observed evidence. [S1]", "S1"))
+    for action in (
+        call("read_workspace_file"),
+        call("read_workspace_file", path=""),
+        call("read_workspace_file", path="a" * 513),
+        call("read_workspace_file", path={"path": "facts.txt"}),
+        call("read_workspace_file", path="facts.txt", unexpected={"nested": {}}),
+        call("list_workspace_files", unexpected="value"),
+    ):
+        with pytest.raises(ToolRuntimeError, match="invalid_tool_arguments"):
+            tools.validate(action["tool"], action["arguments"])
+        assert not validator.is_valid(action), action
+    assert not validator.is_valid(call("system_info"))
+    assert not validator.is_valid(call("repo_status"))
+
+
+@pytest.mark.parametrize("all_denied", [False, True], ids=["listing-only", "no-tools"])
+def test_research_schema_omits_denied_and_non_research_tools(research_settings, all_denied):
+    listing = ListWorkspaceFilesTool()
+    read = ReadWorkspaceFileTool()
+    read.risk = ToolRisk.SENSITIVE_READ
+    repo = RepoStatusTool()
+    repo.approval_required = True
+    if all_denied:
+        listing.approval_required = True
+    tools = ToolGateway(
+        research_settings,
+        ToolRegistry((listing, read, repo, SystemInfoTool())),
+    )
+    answer = final("Observed workspace listing. [S1]", "S1")
+    provider = ResearchProvider(
+        *([answer, answer] if all_denied else [call("list_workspace_files"), answer])
+    )
+    runtime = ResearchRuntime(
+        research_settings, research_gateway(research_settings, provider), tools
+    )
+    run = runtime.run(
+        query="Inspect workspace evidence.",
+        selected_alias="local_general",
+        selected_model=research_settings.ollama_general_model,
+        timeout_seconds=research_settings.agent_timeout_seconds,
+        emit=lambda *_: None,
+    )
+    if all_denied:
+        with pytest.raises(ResearchRuntimeError, match="research_tool_unavailable"):
+            asyncio.run(run)
+        assert provider.requests == []
+        return
+    assert asyncio.run(run)["tool_calls"] == 1
+    validator = Draft202012Validator(provider.requests[0].output_schema)
+    assert not validator.is_valid(answer)
+    assert Draft202012Validator(provider.requests[1].output_schema).is_valid(answer)
+    assert validator.is_valid(call("list_workspace_files"))
+    assert not validator.is_valid(call("read_workspace_file", path="facts.txt"))
+    assert not validator.is_valid(call("repo_status"))
+    assert not validator.is_valid(call("system_info"))
+    assert "read_workspace_file" not in provider.requests[0].system_prompt
+    assert "repo_status" not in provider.requests[0].system_prompt
+    assert "system_info" not in provider.requests[0].system_prompt
+
+
+@pytest.mark.parametrize(
+    "response,error_code",
+    [
+        (call("system_info"), "research_tool_not_allowed"),
+        (call("repo_status"), "research_tool_unavailable"),
+        (
+            call("read_workspace_file", path="facts.txt", extra="value"),
+            "invalid_tool_arguments",
+        ),
+        (
+            call("read_workspace_file", path={"path": "facts.txt"}),
+            "invalid_tool_arguments",
+        ),
+        (
+            {**call("read_workspace_file", path="facts.txt"), "extra": "value"},
+            "research_parse_retries_exhausted",
+        ),
+        (
+            '{"type":"tool_call","tool":"read_workspace_file",'
+            '"tool":"list_workspace_files","arguments":{}}',
+            "research_parse_retries_exhausted",
+        ),
+    ],
+    ids=[
+        "non-research-tool",
+        "unregistered-tool",
+        "extra-input",
+        "nested-input",
+        "extra-action",
+        "duplicate-key",
+    ],
+)
+def test_research_still_rejects_schema_violating_provider_responses(
+    research_settings, monkeypatch, response, error_code
+):
+    captured = []
+    executions = []
+    tools = ToolGateway(
+        research_settings,
+        ToolRegistry((ListWorkspaceFilesTool(), ReadWorkspaceFileTool())),
+    )
+    real_execute = tools.execute
+
+    def execute(name, arguments):
+        executions.append((name, arguments))
+        return real_execute(name, arguments)
+
+    monkeypatch.setattr(tools, "execute", execute)
+
+    def handle(request):
+        captured.append(json.loads(request.content))
+        text = response if isinstance(response, str) else json.dumps(response)
+        return httpx.Response(200, json={"message": {"content": text}})
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.gateway.httpx.AsyncClient",
+        lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handle)),
+    )
+    provider = OllamaProvider("http://127.0.0.1:11434", use_json_schema=True)
+    runtime = ResearchRuntime(
+        research_settings, research_gateway(research_settings, provider), tools
+    )
+    with pytest.raises(ResearchRuntimeError, match=error_code):
+        asyncio.run(
+            runtime.run(
+                query="Read the workspace proof.",
+                selected_alias="local_general",
+                selected_model=research_settings.ollama_general_model,
+                timeout_seconds=research_settings.agent_timeout_seconds,
+                emit=lambda *_: None,
+            )
+        )
+    assert executions == []
+    expected_calls = (
+        research_settings.max_model_parse_retries + 1
+        if error_code == "research_parse_retries_exhausted"
+        else 1
+    )
+    assert len(captured) == expected_calls
+    schema = captured[0]["format"]
+    alternatives = [schema["$defs"][choice["$ref"].rsplit("/", 1)[1]] for choice in schema["anyOf"]]
+    assert {action["properties"]["type"]["const"] for action in alternatives} == {"tool_call"}
+    assert {action["properties"]["tool"]["const"] for action in alternatives} == {
+        "list_workspace_files",
+        "read_workspace_file",
+    }
+    for action in alternatives:
+        assert list(action["properties"]) == ["type", "tool", "arguments"]
+        assert action["required"] == ["type", "tool", "arguments"]
+    assert all(request["format"] == schema for request in captured)
+
+
+@pytest.mark.parametrize("truncated_listing", [False, True], ids=["listing", "truncated-listing"])
+def test_research_schemas_follow_observed_sources_without_mutating_requests(
+    research_settings, truncated_listing
+):
+    if truncated_listing:
+        (research_settings.workspace_root / "second.txt").write_text("second public fixture")
+        research_settings = research_settings.model_copy(update={"workspace_max_entries": 1})
+
+    class RecordingProvider(ResearchProvider):
+        def __init__(self, *actions):
+            super().__init__(*actions)
+            self.schemas_at_send = []
+
+        async def generate(self, request):
+            self.schemas_at_send.append(json.dumps(request.output_schema))
+            return await super().generate(request)
+
+    provider = RecordingProvider(
+        call("list_workspace_files"),
+        call("read_workspace_file", path="facts.txt"),
+        final("The listing [S1] and file [S2] provide evidence.", "S1", "S2"),
+    )
+    tools = ToolGateway(
+        research_settings, ToolRegistry((ListWorkspaceFilesTool(), ReadWorkspaceFileTool()))
+    )
+    runtime = ResearchRuntime(
+        research_settings, research_gateway(research_settings, provider), tools
+    )
+    result = asyncio.run(
+        runtime.run(
+            query="Inspect the workspace proof.",
+            selected_alias="local_general",
+            selected_model=research_settings.ollama_general_model,
+            timeout_seconds=research_settings.agent_timeout_seconds,
+            emit=lambda *_: None,
+        )
+    )
+    assert result["tool_calls"] == 2
+    assert [source["id"] for source in result["sources"]] == ["S1", "S2"]
+    assert result["sources"][0]["truncated"] is truncated_listing
+    schemas = [request.output_schema for request in provider.requests]
+    assert [json.dumps(schema) for schema in schemas] == provider.schemas_at_send
+    before, after_listing, after_file = [Draft202012Validator(schema) for schema in schemas]
+    assert not before.is_valid(final("No evidence yet. [S1]", "S1"))
+    assert before.is_valid(call("list_workspace_files"))
+    assert before.is_valid(call("read_workspace_file", path="facts.txt"))
+    assert after_listing.is_valid(final("Observed listing. [S1]", "S1"))
+    assert not after_listing.is_valid(final("Unobserved file. [S2]", "S2"))
+    assert after_file.is_valid(final("Both sources. [S1] [S2]", "S1", "S2"))
+    assert not after_file.is_valid(final("Invented source. [S9]", "S9"))
+    for validator in (after_listing, after_file):
+        assert validator.is_valid(call("list_workspace_files"))
+        assert validator.is_valid(call("read_workspace_file", path="facts.txt"))
+    baseline_final = RESEARCH_ACTION.json_schema()["$defs"]["ResearchFinalAction"]
+    for schema, known_ids in zip(schemas[1:], (["S1"], ["S1", "S2"]), strict=True):
+        final_schema = schema["$defs"]["ResearchFinalAction"]
+        assert schema["anyOf"][0] == {"$ref": "#/$defs/ResearchFinalAction"}
+        expected = json.loads(json.dumps(baseline_final))
+        expected["properties"]["source_ids"]["items"]["enum"] = known_ids
+        assert final_schema == expected
+        assert list(final_schema["properties"]) == ["type", "content", "source_ids"]
+
+
+def test_research_final_only_schema_keeps_original_bounds_and_observed_ids():
+    schema = ResearchRuntime._action_schema([], ("S1",))
+    expected = RESEARCH_ACTION.json_schema()["$defs"]["ResearchFinalAction"]
+    expected["properties"]["source_ids"]["items"]["enum"] = ["S1"]
+    assert schema == expected
+    assert list(schema["properties"]) == ["type", "content", "source_ids"]
+    validator = Draft202012Validator(schema)
+    assert validator.is_valid(final("Observed evidence. [S1]", "S1"))
+    assert not validator.is_valid(final("Invented evidence. [S2]", "S2"))
+    assert not validator.is_valid(final("No IDs."))
+    assert not validator.is_valid(final("", "S1"))
+    assert not validator.is_valid(final("a" * 16385, "S1"))
+    assert not validator.is_valid(final("Too many IDs. [S1]", *(["S1"] * 17)))
+
+
+@pytest.mark.parametrize(
+    "answer,schema_accepts",
+    [
+        (final("An unknown source. [S9]", "S9"), False),
+        (final("A duplicated source. [S1]", "S1", "S1"), True),
+    ],
+    ids=["unknown-source", "duplicate-source"],
+)
+def test_research_keeps_independent_final_validation(research_settings, answer, schema_accepts):
+    provider = ResearchProvider(call("read_workspace_file", path="facts.txt"), answer, answer)
+    tools = ToolGateway(
+        research_settings, ToolRegistry((ListWorkspaceFilesTool(), ReadWorkspaceFileTool()))
+    )
+    runtime = ResearchRuntime(
+        research_settings, research_gateway(research_settings, provider), tools
+    )
+    events = []
+    with pytest.raises(ResearchRuntimeError, match="research_citation_invalid"):
+        asyncio.run(
+            runtime.run(
+                query="Read the workspace proof.",
+                selected_alias="local_general",
+                selected_model=research_settings.ollama_general_model,
+                timeout_seconds=research_settings.agent_timeout_seconds,
+                emit=lambda event, details: events.append(event),
+            )
+        )
+    assert len(provider.requests) == 3
+    assert events.count("research_tool_completed") == 1
+    assert events.count("research_evidence_rejected") == 2
+    assert (
+        Draft202012Validator(provider.requests[1].output_schema).is_valid(answer) is schema_accepts
+    )
 
 
 def test_research_source_locator_accepts_maximum_workspace_path():

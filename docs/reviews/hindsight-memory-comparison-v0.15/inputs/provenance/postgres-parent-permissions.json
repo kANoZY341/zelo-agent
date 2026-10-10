@@ -1,0 +1,68 @@
+{
+  "actions_performed": [
+    "read stopped container entrypoint via docker cp stdout",
+    "read owned directory metadata",
+    "write this diagnostic and exact entrypoint copy"
+  ],
+  "container_id": "b7c540db06a7d12b44196aeb74038195ac08fc08944639151517ccd0fb05bba3",
+  "container_started": false,
+  "credentials_read": false,
+  "entrypoint": {
+    "bytes": 14577,
+    "container_path": "/usr/local/bin/docker-entrypoint.sh",
+    "retained_file": "postgres-entrypoint.sh",
+    "sha256": "9c440299ae04a0a79d55b8bf03307036d890a40979d2fb698073c9050d4b20a5"
+  },
+  "entrypoint_lines": {
+    "pgdata_mkdir_and_mode": [
+      39,
+      41
+    ],
+    "pgdata_only_chown": [
+      57,
+      59
+    ],
+    "root_then_gosu": [
+      338,
+      343
+    ]
+  },
+  "finding": "The root entrypoint creates and chowns only PGDATA. Its gosu postgres rerun cannot traverse the uid1000 mode0700 bind parent to the uid999 mode0700 PGDATA child.",
+  "old_mount_changed": false,
+  "owned_bind": {
+    "destination": "/var/lib/postgresql",
+    "source": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/429f17c6f3cb47bfb38687f49f3a867a/postgres"
+  },
+  "owned_directory_modes": [
+    {
+      "gid": 1000,
+      "mode": "0700",
+      "relative_to_run": ".",
+      "uid": 1000
+    },
+    {
+      "gid": 1000,
+      "mode": "0700",
+      "relative_to_run": "postgres",
+      "uid": 1000
+    },
+    {
+      "gid": 0,
+      "mode": "0755",
+      "relative_to_run": "postgres/18",
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "mode": "0700",
+      "relative_to_run": "postgres/18/docker",
+      "uid": 999
+    }
+  ],
+  "proposed_change": "Create only the postgres mount parent as0711, retaining the run root0700 and native PGDATA0700.",
+  "recorded_at": "2026-10-10T07:39:07.299099+00:00",
+  "run_id": "429f17c6f3cb47bfb38687f49f3a867a",
+  "runtime_protocol_sha256": "c77d60f1e33fbbf5903141db4408df2937df8407670e8728c3ec71f9cccbabeb",
+  "schema": "zelo-hindsight-postgres-permission-diagnostic-v1",
+  "source_commit": "7e3c630541725771efb92030661b0f0be7578bd3"
+}

@@ -1,0 +1,34 @@
+{
+  "packages": [
+    {
+      "commit": "a4f92a3462303c1402c8c55e3b5a45fa3bc2fa37",
+      "declaration_url": "http://opensource.org/licenses/BSD-2-Clause",
+      "declared_license": "2-Clause BSD",
+      "limitation": "The wheel metadata and version-tagged README declare/link BSD-2-Clause; no standalone full license/copyright notice was supplied in the wheel, pinned sdist, or tagged repository root. No copyright text was invented.",
+      "name": "cobble",
+      "notices": [
+        {
+          "bytes": 1770,
+          "git_blob_sha1": "29b84ad2608e433214b75574589db92262c57846",
+          "kind": "exact README license declaration",
+          "path": "licenses/cobble/0.1.4/upstream/README.rst",
+          "sha256": "d6d46202db973b560d2f521dced9110b3e0a46d9a75e1428dade8b7608dd0cca",
+          "url": "https://raw.githubusercontent.com/mwilliamson/python-cobble/a4f92a3462303c1402c8c55e3b5a45fa3bc2fa37/README.rst"
+        }
+      ],
+      "repository": "mwilliamson/python-cobble",
+      "tag": "0.1.4",
+      "version": "0.1.4",
+      "wheel_python_notice_lines": [
+        {
+          "file": "cobble/inflection.py",
+          "lines": [
+            "    :copyright: (c) 2012-2015 by Janne Vanhala",
+            "    :license: MIT, see LICENSE for more details."
+          ]
+        }
+      ]
+    }
+  ],
+  "schema": "zelo-hindsight-notice-carriers-v1"
+}

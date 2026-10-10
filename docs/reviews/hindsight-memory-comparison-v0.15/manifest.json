@@ -1,0 +1,2252 @@
+{
+  "schema": "zelo-hindsight-review-export-v1",
+  "run_id": "5c5eae20c40a4a26a9915e7ca63ecf50",
+  "exported_at": "2026-10-10T08:52:11.318413+00:00",
+  "frozen_code_commit": "8768b7637a7d0b3ef9129ea30cab04ea51d0be87",
+  "frozen_code_tree": "a1b776c2f4b9df984d6cf8420055262c1dc8f9be",
+  "comparison_protocol_sha256": "734b9c5cb832345415f4902618eb791910eddfe6af4dfedf96bb9a9aa8a004bc",
+  "runtime_protocol_sha256": "0e1c8d7b3dac3690641952d6ea95a18a7bdeb61620d2d55921e06e0fe4e483a5",
+  "comparison_result_sha256": "7f4decb37b8de16d8d7da741a7a26ffb173b3995efd1d5129a653492db1889c6",
+  "operator_review_sha256": "8c9a018ded164cfba83c6cff24b6c03666c6503e08e06539c421d3678bedaec6",
+  "graded_result_sha256": "b8ae67bf087b2915df92e2fdc37960ec5f487ba167877cdaf2f654c29b12de35",
+  "source_run_root": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50",
+  "exact_copy": true,
+  "files": [
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/comparison-protocol.json",
+      "export_path": "comparison-protocol.json",
+      "bytes": 17793,
+      "sha256": "734b9c5cb832345415f4902618eb791910eddfe6af4dfedf96bb9a9aa8a004bc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/comparison-started.json",
+      "export_path": "comparison-started.json",
+      "bytes": 229,
+      "sha256": "8acc6bc2d717573aa1d7687018523baafecec9565f38d01c46acb63b3ad34c50"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution-launch-receipt.json",
+      "export_path": "execution-launch-receipt.json",
+      "bytes": 470,
+      "sha256": "aec9d19c0c99f48dfc2e3072c98a5fa0bb00528e9992c83d4ead97c2e0d17c82"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-absent-finished.json",
+      "export_path": "execution/bank-agent-absent-finished.json",
+      "bytes": 981,
+      "sha256": "3baced9aca48d06b2d0d151aa2b3759e2314c20aed58645451aadc0e6dd8eb92"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-absent-request.json",
+      "export_path": "execution/bank-agent-absent-request.json",
+      "bytes": 973,
+      "sha256": "bc33aef95b9e492dd1b42f859242a554c344eac04d238a1026c594e852ddef7b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-absent-response.body",
+      "export_path": "execution/bank-agent-absent-response.body",
+      "bytes": 73,
+      "sha256": "d890acf2946785ce63a8a854a5efcae56c48c48f0da7676d4f58d0c281f190bd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-create-finished.json",
+      "export_path": "execution/bank-agent-create-finished.json",
+      "bytes": 982,
+      "sha256": "81a37ac3a3bdaffc0ffda1c34e10d2e22839ead9bf13aa151b7bf991667d6e42"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-create-request.json",
+      "export_path": "execution/bank-agent-create-request.json",
+      "bytes": 963,
+      "sha256": "b1501fd27efc8ef5dc85500d5e0fd14ea0f1613fa612737cc0a16ab8449d9542"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-agent-create-response.body",
+      "export_path": "execution/bank-agent-create-response.body",
+      "bytes": 197,
+      "sha256": "157f352b7481fe66d021cfe215dc4546a6aa55c77d0d7ad243e71f912b9166ef"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-absent-finished.json",
+      "export_path": "execution/bank-alpha-absent-finished.json",
+      "bytes": 981,
+      "sha256": "e3c0acf2efefc8441fcdff26fd393720ebdc9c09c20649cb5432104cfe7a2630"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-absent-request.json",
+      "export_path": "execution/bank-alpha-absent-request.json",
+      "bytes": 973,
+      "sha256": "665fc48f4f7111955d8a6a72c4c821811a268cd5490b4d9be7311b8e26f88a89"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-absent-response.body",
+      "export_path": "execution/bank-alpha-absent-response.body",
+      "bytes": 73,
+      "sha256": "e996aed38d2ac5f9611d2fa3a2e7b697475b5986e9cebc72044c620d6a2f8717"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-create-finished.json",
+      "export_path": "execution/bank-alpha-create-finished.json",
+      "bytes": 981,
+      "sha256": "ad76e5e00e343a8239ef82169b6e914213a339221e7e769394da3d948a08e97a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-create-request.json",
+      "export_path": "execution/bank-alpha-create-request.json",
+      "bytes": 963,
+      "sha256": "c336c264877dc943e1e6265d6603d3c9a07af2f018a2514478a6297f6121bd20"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-alpha-create-response.body",
+      "export_path": "execution/bank-alpha-create-response.body",
+      "bytes": 197,
+      "sha256": "495f946e0421e030338b681c8b8630c7ebdebf246ed1f39d950849bc1e4fe775"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-absent-finished.json",
+      "export_path": "execution/bank-beta-absent-finished.json",
+      "bytes": 980,
+      "sha256": "42aafe923d76cc379769a2783eae65bf558d00214f9ae121d7d98834ef396c3e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-absent-request.json",
+      "export_path": "execution/bank-beta-absent-request.json",
+      "bytes": 983,
+      "sha256": "b827b57e24fd4b014ea45aff6379fd7760936d20d6896f1317715e53a65fa2a5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-absent-response.body",
+      "export_path": "execution/bank-beta-absent-response.body",
+      "bytes": 72,
+      "sha256": "26f2b460a5207978f44742403e1e94c3bbf1d3e2aca90773fe3ffdafd74a634b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-create-finished.json",
+      "export_path": "execution/bank-beta-create-finished.json",
+      "bytes": 1002,
+      "sha256": "491db5786471fdfc7a7cc52b53bda7db40f7bcf30af55c4261c04ac5225e7066"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-create-request.json",
+      "export_path": "execution/bank-beta-create-request.json",
+      "bytes": 973,
+      "sha256": "062343382992ae1f071a61f25ba639f60389b7e6f2f690588d528b01a661d2e9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-beta-create-response.body",
+      "export_path": "execution/bank-beta-create-response.body",
+      "bytes": 195,
+      "sha256": "49f517ed21d353c5baa77398e51d71595194c183befd11bde0131b9e66b9e757"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-absent-finished.json",
+      "export_path": "execution/bank-public-absent-finished.json",
+      "bytes": 1000,
+      "sha256": "d47c3d5275eb8227acaf078f6d9a73bcacd246b21f728de9441db9e0ce36a36e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-absent-request.json",
+      "export_path": "execution/bank-public-absent-request.json",
+      "bytes": 985,
+      "sha256": "93a87f2654d738d340141435406910c7f66a4be190009315b0d6bd07370c7e47"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-absent-response.body",
+      "export_path": "execution/bank-public-absent-response.body",
+      "bytes": 74,
+      "sha256": "ebabc5a0c9c641436edb639cd6941a98fa8eaa19e20457c17229526eb45a8204"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-create-finished.json",
+      "export_path": "execution/bank-public-create-finished.json",
+      "bytes": 993,
+      "sha256": "5922e68c12a1a1528402f4334e80b245abe9f4946f3ad6a56f2180b979e36973"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-create-request.json",
+      "export_path": "execution/bank-public-create-request.json",
+      "bytes": 975,
+      "sha256": "113fdc6bec38781b25359f6d22f2b56f9959d83b7894a9ff77e186d3f09800df"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/bank-public-create-response.body",
+      "export_path": "execution/bank-public-create-response.body",
+      "bytes": 199,
+      "sha256": "abbd9cdb14393f1e2e9b8e8d01bade79db21cb1bdd9f9647049c1d99e769ffa6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/comparison-result.json",
+      "export_path": "execution/comparison-result.json",
+      "bytes": 45879,
+      "sha256": "7f4decb37b8de16d8d7da741a7a26ffb173b3995efd1d5129a653492db1889c6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/core-registry.json",
+      "export_path": "execution/core-registry.json",
+      "bytes": 15294,
+      "sha256": "922dc40ff5f127661643bca09d28e5002b369a34310f72e3b83a46211f7fc1c1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/graded-result.json",
+      "export_path": "execution/graded-result.json",
+      "bytes": 18799,
+      "sha256": "b8ae67bf087b2915df92e2fdc37960ec5f487ba167877cdaf2f654c29b12de35"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/health.json",
+      "export_path": "execution/health.json",
+      "bytes": 154,
+      "sha256": "fc96dfb85a7ffd985615e5d893c4eb2a75b1cf07f2b2a2b29340157b61a69286"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/hindsight-ingestion.json",
+      "export_path": "execution/hindsight-ingestion.json",
+      "bytes": 116746,
+      "sha256": "4983009af45764c0f3a19e2705af56622491536fa01f556f3d23ba0c9b26416d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/model-after.json",
+      "export_path": "execution/model-after.json",
+      "bytes": 289,
+      "sha256": "6b713ccd0faca171d7cc07712bde8f51d82c70f2a9da222d384a5b834b0d190d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/model-before.json",
+      "export_path": "execution/model-before.json",
+      "bytes": 137,
+      "sha256": "32847e56a2e0abed2b70b456d00b0fe10bff961434085639c344b2de1df02f72"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/operator-review.json",
+      "export_path": "execution/operator-review.json",
+      "bytes": 17846,
+      "sha256": "8c9a018ded164cfba83c6cff24b6c03666c6503e08e06539c421d3678bedaec6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-core-retrieval.json",
+      "export_path": "execution/q01-core-retrieval.json",
+      "bytes": 5007,
+      "sha256": "f49c9e45b69fe913202d497f6999309d5680a0c0a5171c63e61f38edd3377764"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight-recall-finished.json",
+      "export_path": "execution/q01-hindsight-recall-finished.json",
+      "bytes": 995,
+      "sha256": "7db99906968ea8255fb56d7cdb67ef328b271ca9d80f3d49b9dccb168260becd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight-recall-request.json",
+      "export_path": "execution/q01-hindsight-recall-request.json",
+      "bytes": 1244,
+      "sha256": "9847fa91e0c16265a9cffc7d6f0d6123be1cf4313a11293ccda72abd089482ae"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight-recall-response.body",
+      "export_path": "execution/q01-hindsight-recall-response.body",
+      "bytes": 125476,
+      "sha256": "29ff62a9521c5f80079260432cf17d492688a710a19c15b33becfbd832eb88a7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q01-hindsight_core_filtered-answer.json",
+      "bytes": 3166,
+      "sha256": "2b07e12c4fe67d4440a3442d48aee5d0a74fd0da3988e9a45022335fc0a5e66e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_core_filtered-input.json",
+      "export_path": "execution/q01-hindsight_core_filtered-input.json",
+      "bytes": 6632,
+      "sha256": "3adb87c5fd63d691096c61bc178a062f36aade07d069e1d05e99cb968d5ced6b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q01-hindsight_core_filtered-model-result.json",
+      "bytes": 738,
+      "sha256": "4101da53ffcfeb747f46745710e90525d49258731ba9cbd32c1a28ceff41f248"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_raw-answer.json",
+      "export_path": "execution/q01-hindsight_raw-answer.json",
+      "bytes": 3188,
+      "sha256": "2586213885b293b4b8903926ed7c14a3a94d0871b926b17ba1dd81956e05d4b8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_raw-input.json",
+      "export_path": "execution/q01-hindsight_raw-input.json",
+      "bytes": 6622,
+      "sha256": "5e91b3bc28ebe7b012a647f4f84f3ca4107677f2c4ec93820588e44ae118c9d2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-hindsight_raw-model-result.json",
+      "export_path": "execution/q01-hindsight_raw-model-result.json",
+      "bytes": 729,
+      "sha256": "1991ca159b15ed28b9317645cf71709ea2685088bd398699c38fcf822e29b10e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-mapped-evidence.json",
+      "export_path": "execution/q01-mapped-evidence.json",
+      "bytes": 16167,
+      "sha256": "a5d6ec72f665f6aff6a01305e13d44fc53d5f8ea348c7f981613045c3c7237ba"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-zelo_eligible-answer.json",
+      "export_path": "execution/q01-zelo_eligible-answer.json",
+      "bytes": 2953,
+      "sha256": "f8642a21dd30e21ca6e9d138ef3c48530777fb67e9064b8beba1d5e7f8a3439f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-zelo_eligible-input.json",
+      "export_path": "execution/q01-zelo_eligible-input.json",
+      "bytes": 3848,
+      "sha256": "1dead46eeefa84445f3f369cea10e965e6aee5c7f18583d31aa55fc819ad8b94"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q01-zelo_eligible-model-result.json",
+      "export_path": "execution/q01-zelo_eligible-model-result.json",
+      "bytes": 621,
+      "sha256": "5fd1aa30f61161dcc75ab59c57b2d528d56ef9e7eed164a5ae336f5de6057434"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-core-retrieval.json",
+      "export_path": "execution/q02-core-retrieval.json",
+      "bytes": 3169,
+      "sha256": "6ac6d30c6ce85471d327c7a3a8cb1a396022ea6826620339b12c04a46356ae9f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight-recall-finished.json",
+      "export_path": "execution/q02-hindsight-recall-finished.json",
+      "bytes": 996,
+      "sha256": "a9b576a862fdd20bba51a2773540a1016f9559e23894384eabe46c9893e6387b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight-recall-request.json",
+      "export_path": "execution/q02-hindsight-recall-request.json",
+      "bytes": 1274,
+      "sha256": "e6f9f26962eaaaf3829c7eb4a5eef8f4f849797bfa018f24b79930165215d316"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight-recall-response.body",
+      "export_path": "execution/q02-hindsight-recall-response.body",
+      "bytes": 124128,
+      "sha256": "b59f7eb31df99a12cdb727d59adc758431d72db069afa719e982ccff9fea865e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q02-hindsight_core_filtered-answer.json",
+      "bytes": 3230,
+      "sha256": "a2baab3adcec91e9ea6a0c348927430049a69e29c235a85143d3f5ba5db7996c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_core_filtered-input.json",
+      "export_path": "execution/q02-hindsight_core_filtered-input.json",
+      "bytes": 6534,
+      "sha256": "715aaf432636c02b4572fffee8c1db28fa40762219ce2eaf75fe4eeb4653e685"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q02-hindsight_core_filtered-model-result.json",
+      "bytes": 771,
+      "sha256": "9d5f46b42a0b27206bdf8de2201c2aef982385596b0485ee77574b24772bfd90"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_raw-answer.json",
+      "export_path": "execution/q02-hindsight_raw-answer.json",
+      "bytes": 3210,
+      "sha256": "4b2f6bb3495acd0d66d4ac0a76ed3ba15b0ce9846ccc2ec5e61fc85f119939c7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_raw-input.json",
+      "export_path": "execution/q02-hindsight_raw-input.json",
+      "bytes": 6524,
+      "sha256": "b32154101dba0c9f389817fd0d5c66a326d68973b48b1735c2af11e9c6e5af0e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-hindsight_raw-model-result.json",
+      "export_path": "execution/q02-hindsight_raw-model-result.json",
+      "bytes": 761,
+      "sha256": "a7835fac6e6d0f8ba2f532f934f84659cf389b4b452af900c6a519f3a0643433"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-mapped-evidence.json",
+      "export_path": "execution/q02-mapped-evidence.json",
+      "bytes": 15526,
+      "sha256": "b9549d5e3f710cfc73a6ecebbb258b39d517edf7667a13938548f4e3b3e76a5e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-zelo_eligible-answer.json",
+      "export_path": "execution/q02-zelo_eligible-answer.json",
+      "bytes": 3109,
+      "sha256": "013a69879afb7d9f29a8bfcac7304170a06bd9730b71a0249285b5b20e5fc29d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-zelo_eligible-input.json",
+      "export_path": "execution/q02-zelo_eligible-input.json",
+      "bytes": 3010,
+      "sha256": "2f5aa09f9149aef250cdd3fa2530fdef85b063170281f20dc4e092f93728d850"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q02-zelo_eligible-model-result.json",
+      "export_path": "execution/q02-zelo_eligible-model-result.json",
+      "bytes": 703,
+      "sha256": "8dc0743023f2ecaa255ec5f83f78e598636bbc12e12ee48f33ddf80e18c85887"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-core-retrieval.json",
+      "export_path": "execution/q03-core-retrieval.json",
+      "bytes": 5086,
+      "sha256": "3722ab360c6bbf21d8621f474c115cd3e286d9d7814e47f4296ec6e74dc3d22d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight-recall-finished.json",
+      "export_path": "execution/q03-hindsight-recall-finished.json",
+      "bytes": 984,
+      "sha256": "d8635bddd73f63d98dc419842de3e78fa1bbf4990c7e99e47a0aaaa3b7cf330b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight-recall-request.json",
+      "export_path": "execution/q03-hindsight-recall-request.json",
+      "bytes": 1264,
+      "sha256": "5e7376c79b15146b2d65af73368fb2fb79d054abb966b1e7939527ff1f09a6e6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight-recall-response.body",
+      "export_path": "execution/q03-hindsight-recall-response.body",
+      "bytes": 126320,
+      "sha256": "bb91a5eece1334cff6789d985674edb3b2291bc5431bb8c9eb5358fce2e4f886"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q03-hindsight_core_filtered-answer.json",
+      "bytes": 3100,
+      "sha256": "85c77029a0268424945cbe81133ab511830071bc210a549ca0ebd721092c9da2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_core_filtered-input.json",
+      "export_path": "execution/q03-hindsight_core_filtered-input.json",
+      "bytes": 6667,
+      "sha256": "29c704ae9b3bf7531043fe1513edc46ad67a9c88b00e2e308135646c6f64a3eb"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q03-hindsight_core_filtered-model-result.json",
+      "bytes": 695,
+      "sha256": "a1b72e5dcc1213b36f75f43895aa9d995c8c0682ae65c8b612d20e4e78765312"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_raw-answer.json",
+      "export_path": "execution/q03-hindsight_raw-answer.json",
+      "bytes": 3057,
+      "sha256": "0af88072454ab807a7d2b12814f28c049d529a130a5d331dcad92f5bf805105b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_raw-input.json",
+      "export_path": "execution/q03-hindsight_raw-input.json",
+      "bytes": 6657,
+      "sha256": "5d0da5d5add3c874f93e7112a0d8005c08e27366e5ffd018fdc5fbcb045e0066"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-hindsight_raw-model-result.json",
+      "export_path": "execution/q03-hindsight_raw-model-result.json",
+      "bytes": 684,
+      "sha256": "fd36ab582a88017cd9607c17fd3f5837126bb27fad35f596e996e9e578180dd8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-mapped-evidence.json",
+      "export_path": "execution/q03-mapped-evidence.json",
+      "bytes": 16167,
+      "sha256": "e8a32e1d6dce7f19b48961af9ba3a69cffbe705a0bea32d7657375f0f18f468e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-zelo_eligible-answer.json",
+      "export_path": "execution/q03-zelo_eligible-answer.json",
+      "bytes": 2960,
+      "sha256": "e8f6521cddb022a7fa75e6eb070ab6bb207f704fb3bef50f36b9ffee7384c27a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-zelo_eligible-input.json",
+      "export_path": "execution/q03-zelo_eligible-input.json",
+      "bytes": 3868,
+      "sha256": "5e063769116c3fa053cda1004fad2f78e97ff4d119387cde9718a86d7ffcb12b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q03-zelo_eligible-model-result.json",
+      "export_path": "execution/q03-zelo_eligible-model-result.json",
+      "bytes": 625,
+      "sha256": "c9e7f3e4a5d9360a3acca663d8f44c3ac42c7604b316d2d9fce9fab34a214152"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-core-retrieval.json",
+      "export_path": "execution/q04-core-retrieval.json",
+      "bytes": 6458,
+      "sha256": "90e6d7d1f1a904b346cf3c6c2eb4dcd7a95df1d08fe11e7c0744cc1037d2ad3f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight-recall-finished.json",
+      "export_path": "execution/q04-hindsight-recall-finished.json",
+      "bytes": 984,
+      "sha256": "980f4c97221d62bed131905163303ed27a25de406d13f2ddf418298f66ae211e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight-recall-request.json",
+      "export_path": "execution/q04-hindsight-recall-request.json",
+      "bytes": 1307,
+      "sha256": "22715059f23c7a75c2c9dfb96e3d925ea3212e78cc0c3bd6ceafa2b544182670"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight-recall-response.body",
+      "export_path": "execution/q04-hindsight-recall-response.body",
+      "bytes": 125706,
+      "sha256": "c5fae07b73890a0ba07d71bf3f5303bf7d9b8ebb25f0cdd0a205254fe7591d07"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q04-hindsight_core_filtered-answer.json",
+      "bytes": 3336,
+      "sha256": "2674fdea0cd95bc10c1821d98c3b57319d3a95570fa547d6b54ca7a865e03c59"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_core_filtered-input.json",
+      "export_path": "execution/q04-hindsight_core_filtered-input.json",
+      "bytes": 6710,
+      "sha256": "7d28f6535a37e6714dffc57d830753f36cb8503471096f51e0c936b28c730205"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q04-hindsight_core_filtered-model-result.json",
+      "bytes": 829,
+      "sha256": "c41b2e35f2681233eda4336f23f5cd8c5255672ddc09223bfcd0f94bcdd56665"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_raw-answer.json",
+      "export_path": "execution/q04-hindsight_raw-answer.json",
+      "bytes": 3328,
+      "sha256": "59f75ea94e0c67d2bc21abd99b265c4e59a5b1ca53d94f3c7627096c3e786c70"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_raw-input.json",
+      "export_path": "execution/q04-hindsight_raw-input.json",
+      "bytes": 6700,
+      "sha256": "8a7f7e0c7fc6bb1932b972225be7562fb9fd155c22f29fc0acf38e02ffc85d1f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-hindsight_raw-model-result.json",
+      "export_path": "execution/q04-hindsight_raw-model-result.json",
+      "bytes": 820,
+      "sha256": "9e1f2eae0d7afb35a26acc0a66cd9d85bf9a02209eda8499b8a8b1b4e47f0ae3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-mapped-evidence.json",
+      "export_path": "execution/q04-mapped-evidence.json",
+      "bytes": 16779,
+      "sha256": "83362b9ec9e63c3b83e9b14c4fe0bf4903f688e4a415a133236ed66957f62cf8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-zelo_eligible-answer.json",
+      "export_path": "execution/q04-zelo_eligible-answer.json",
+      "bytes": 3233,
+      "sha256": "6575d08873848f2e6df026cb2104b68a336ed69284ceb72c80c1f5e4c8583afd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-zelo_eligible-input.json",
+      "export_path": "execution/q04-zelo_eligible-input.json",
+      "bytes": 4930,
+      "sha256": "25daa515e77d26dc2ce8361f9e365ab8c1821149d24cd1e79932447c3390f905"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q04-zelo_eligible-model-result.json",
+      "export_path": "execution/q04-zelo_eligible-model-result.json",
+      "bytes": 778,
+      "sha256": "234399319632d30ec3673208d5acea34e05c8f63db30ecc0508d05cbc152d849"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-core-retrieval.json",
+      "export_path": "execution/q05-core-retrieval.json",
+      "bytes": 3835,
+      "sha256": "4041c29369b30e5501b9c760bbe12ff05db3f535ed9a1615e87e21d98a997ac6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight-recall-finished.json",
+      "export_path": "execution/q05-hindsight-recall-finished.json",
+      "bytes": 984,
+      "sha256": "5b02b637c12f1b632fd2b2fd6df83587994467d4e5b4a9fd05650c35885a6743"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight-recall-request.json",
+      "export_path": "execution/q05-hindsight-recall-request.json",
+      "bytes": 1218,
+      "sha256": "99ea9ba42a73556570246c18b9b040d746c45c8e5e3f6d15835d598f01fa766b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight-recall-response.body",
+      "export_path": "execution/q05-hindsight-recall-response.body",
+      "bytes": 50622,
+      "sha256": "5d5570c46ad5c5e59aa695bcb97a23334992da1918f85a6522aa6789ff56519e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q05-hindsight_core_filtered-answer.json",
+      "bytes": 3049,
+      "sha256": "0d97eba6aa89aa62ff94ce1130cd35f2ca7e2f463b06b6be4fe5d702b1a27dfc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_core_filtered-input.json",
+      "export_path": "execution/q05-hindsight_core_filtered-input.json",
+      "bytes": 3823,
+      "sha256": "4a0fcb4cf16af3a3db0d7ee232d67f09b735bf66b9006c4e860f435b9212f5e9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q05-hindsight_core_filtered-model-result.json",
+      "bytes": 672,
+      "sha256": "28b2a2e76bc33e2d06697296792f19643e05abd3e8b887985f6f5e94d453c725"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_raw-answer.json",
+      "export_path": "execution/q05-hindsight_raw-answer.json",
+      "bytes": 3439,
+      "sha256": "50d79308649061afd5c6749956f92506ad8184cf819afc1f781f8bb6fd094666"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_raw-input.json",
+      "export_path": "execution/q05-hindsight_raw-input.json",
+      "bytes": 5038,
+      "sha256": "d0f70a1a3f9f87607b2ea13559c39fc2d8236de125f0eae2cebc2c9ab0ec85e7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-hindsight_raw-model-result.json",
+      "export_path": "execution/q05-hindsight_raw-model-result.json",
+      "bytes": 869,
+      "sha256": "e138a74572fab127856fa0331ec683345e6b2e75ae4c2ed1219ab67f2cc25a6e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-mapped-evidence.json",
+      "export_path": "execution/q05-mapped-evidence.json",
+      "bytes": 4846,
+      "sha256": "192414a9e6995a9b4eacedf48c7ad0e8fd6db5dd0d72f591eda23a71f4f4cb8d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-zelo_eligible-answer.json",
+      "export_path": "execution/q05-zelo_eligible-answer.json",
+      "bytes": 2864,
+      "sha256": "8244e1154600933dac71c54222cc0a9b53f2db265f4b2dbab8eb0565b938bc0d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-zelo_eligible-input.json",
+      "export_path": "execution/q05-zelo_eligible-input.json",
+      "bytes": 3051,
+      "sha256": "96acbb5be97ff8a7242135f5e93fc68294a19c73a97f634b42a97c301d8ce4db"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q05-zelo_eligible-model-result.json",
+      "export_path": "execution/q05-zelo_eligible-model-result.json",
+      "bytes": 582,
+      "sha256": "3484a23e4393bf076f26ef8426532107b282b673a695917bca520bde112a6471"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-core-retrieval.json",
+      "export_path": "execution/q06-core-retrieval.json",
+      "bytes": 2720,
+      "sha256": "e936ac8b71584fe39936f4ad5eadc09e4f593923a2a2a974020cef00d2de8df6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight-recall-finished.json",
+      "export_path": "execution/q06-hindsight-recall-finished.json",
+      "bytes": 983,
+      "sha256": "a302b7b0d70d21d422cdcafde93f61d2805cdf858dfd1ceb7eb1599a75bf7a43"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight-recall-request.json",
+      "export_path": "execution/q06-hindsight-recall-request.json",
+      "bytes": 1208,
+      "sha256": "2727b0ea51d50270ead77e907644707587d26e6da0eb34489fa335422f92d8f0"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight-recall-response.body",
+      "export_path": "execution/q06-hindsight-recall-response.body",
+      "bytes": 21506,
+      "sha256": "1272386c650bbb627ed357f8eaba7f72d48731025861f67eb0f7881239be226c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q06-hindsight_core_filtered-answer.json",
+      "bytes": 2839,
+      "sha256": "0f5d59bc67b6cafda4594665022d885dace2851751729a361a390df43a402f8c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_core_filtered-input.json",
+      "export_path": "execution/q06-hindsight_core_filtered-input.json",
+      "bytes": 2742,
+      "sha256": "7d67b849fd802767e1fc271ec1f32fa092e00e030e404591227b472489c4a8c4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q06-hindsight_core_filtered-model-result.json",
+      "bytes": 577,
+      "sha256": "5726c22ee4a44b94cfd0a8bdf520b4188483a9e9dec8c6c3ff47b9006ed671bb"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_raw-answer.json",
+      "export_path": "execution/q06-hindsight_raw-answer.json",
+      "bytes": 2839,
+      "sha256": "3fb3a5af3639c330016c5471f79ed56bfa2ba154f0389f7bd8eef3330b6b9787"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_raw-input.json",
+      "export_path": "execution/q06-hindsight_raw-input.json",
+      "bytes": 2732,
+      "sha256": "21e0cac32a9d45f587017eafa5c6d4b963321f85cf8907545f0504afbca99eac"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-hindsight_raw-model-result.json",
+      "export_path": "execution/q06-hindsight_raw-model-result.json",
+      "bytes": 567,
+      "sha256": "4129d2547b024dfe33c61d1a95f456c81514d7e48d81e5840571c3e47069cd9c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-mapped-evidence.json",
+      "export_path": "execution/q06-mapped-evidence.json",
+      "bytes": 1737,
+      "sha256": "b2fc79520f812495a2010f6e9b354667073b899b6f8fa1fcf3012c9f7413f433"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-zelo_eligible-answer.json",
+      "export_path": "execution/q06-zelo_eligible-answer.json",
+      "bytes": 2840,
+      "sha256": "1e1a1e8fc54fa03fb760d33c865af6f14c250af5b47d71f3d2119b8fb69fe1bc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-zelo_eligible-input.json",
+      "export_path": "execution/q06-zelo_eligible-input.json",
+      "bytes": 2318,
+      "sha256": "8d143d2e6aaa09bca75ef4f7cc950e7e09f5b0fba1a2f447b30f3e1f714735c6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q06-zelo_eligible-model-result.json",
+      "export_path": "execution/q06-zelo_eligible-model-result.json",
+      "bytes": 567,
+      "sha256": "336faf53f10e4376b9704cad97afadb1f4cb9a0848480cb23320eec4f425d6be"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-core-retrieval.json",
+      "export_path": "execution/q07-core-retrieval.json",
+      "bytes": 2797,
+      "sha256": "6d1804fad1fd717ef949394547f0d2597530f53e05a007de6adee1e8b3f75812"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight-recall-finished.json",
+      "export_path": "execution/q07-hindsight-recall-finished.json",
+      "bytes": 993,
+      "sha256": "31697fd6228059f9e4aa19fb506df09f93918070259128e644803b9b6d3fbdac"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight-recall-request.json",
+      "export_path": "execution/q07-hindsight-recall-request.json",
+      "bytes": 1211,
+      "sha256": "0737d7b9741392e3535ca025ab8a33f731e0803ba01b63d5265b8a1c453c2858"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight-recall-response.body",
+      "export_path": "execution/q07-hindsight-recall-response.body",
+      "bytes": 48863,
+      "sha256": "da542719e9391efd264337d561542b50b2e8e72f244b778ad15ed63d42f32a53"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q07-hindsight_core_filtered-answer.json",
+      "bytes": 2848,
+      "sha256": "08b456d61f12085098a4a16c7c5a3ddf1453e8c80ae9fb608328d85f5b995a3f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_core_filtered-input.json",
+      "export_path": "execution/q07-hindsight_core_filtered-input.json",
+      "bytes": 3816,
+      "sha256": "3fe038f2e6a9fcb2c3815d2db4ba05327f7d149c41111a4b95320f4f4d8c8c42"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q07-hindsight_core_filtered-model-result.json",
+      "bytes": 585,
+      "sha256": "292f7e6a0836d67fef74f73edca5ee068bfe3c3c75958c4025be1b9ee1d9ed23"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_raw-answer.json",
+      "export_path": "execution/q07-hindsight_raw-answer.json",
+      "bytes": 2844,
+      "sha256": "9c21fa0991da0526e1c9f47935413dbe6ca8d40522e7890161337263e8671377"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_raw-input.json",
+      "export_path": "execution/q07-hindsight_raw-input.json",
+      "bytes": 5031,
+      "sha256": "3b8ee4988c9c13ba5ab6a15a50e742ae6463129b790256d973f866636690af41"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-hindsight_raw-model-result.json",
+      "export_path": "execution/q07-hindsight_raw-model-result.json",
+      "bytes": 570,
+      "sha256": "ce5534a12e7fa46f722bd3318008a2dd3d47097242e4a56806d119993c1771a9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-mapped-evidence.json",
+      "export_path": "execution/q07-mapped-evidence.json",
+      "bytes": 4429,
+      "sha256": "a29a34ee23ea4c6eb2748cff6f3fb26981fabdba8fe5fd9d73be44e4fb909280"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-zelo_eligible-answer.json",
+      "export_path": "execution/q07-zelo_eligible-answer.json",
+      "bytes": 2839,
+      "sha256": "d51c5c2f340c2dc4d0f1f257e91f3773be542289d91fd9b3684c10806994ff67"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-zelo_eligible-input.json",
+      "export_path": "execution/q07-zelo_eligible-input.json",
+      "bytes": 2412,
+      "sha256": "2d918bb5459c308962dd879d60adc6b6b89f791a41e7abea97d8e45d10025594"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q07-zelo_eligible-model-result.json",
+      "export_path": "execution/q07-zelo_eligible-model-result.json",
+      "bytes": 575,
+      "sha256": "c37eb989eeacd226d83df1b5cd83d13aa19ad8311eb03cf98616d77e4feeb848"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-core-retrieval.json",
+      "export_path": "execution/q08-core-retrieval.json",
+      "bytes": 3821,
+      "sha256": "6a6742c04a8ef4276f955a35e430b66310116407ccc434dea5a8ea9f0ee514af"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight-recall-finished.json",
+      "export_path": "execution/q08-hindsight-recall-finished.json",
+      "bytes": 982,
+      "sha256": "0ffc9c3f1aa7e1a4312bc780228544342151ba2586acd324491c36ff258d6ecf"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight-recall-request.json",
+      "export_path": "execution/q08-hindsight-recall-request.json",
+      "bytes": 1210,
+      "sha256": "5cee40443491e452ab46fb42ff11391726798d8b74692a2bfe0718f404ca0020"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight-recall-response.body",
+      "export_path": "execution/q08-hindsight-recall-response.body",
+      "bytes": 50707,
+      "sha256": "f76035dbecfd78ebe796e7b7c1b80311c754fb85b069ad3eb403fe8b4bf2d45c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q08-hindsight_core_filtered-answer.json",
+      "bytes": 3350,
+      "sha256": "c50cd602d6919b0cdcfc29779a6268d2c212fe24774762da9e5530b8747720c1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_core_filtered-input.json",
+      "export_path": "execution/q08-hindsight_core_filtered-input.json",
+      "bytes": 3816,
+      "sha256": "f163ab3c73ff75af1b628109aad2dd81ce7177a58a5647f2df8c9bc4575f12cd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q08-hindsight_core_filtered-model-result.json",
+      "bytes": 831,
+      "sha256": "71db0d34b814620f3b2c1779a3e82693f8a1ec87763396fe3ae84316672545d4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_raw-answer.json",
+      "export_path": "execution/q08-hindsight_raw-answer.json",
+      "bytes": 3009,
+      "sha256": "289cf38be6e8ae7f1e2046251eeff045ecb04407805c5f8c21d099695269d530"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_raw-input.json",
+      "export_path": "execution/q08-hindsight_raw-input.json",
+      "bytes": 5031,
+      "sha256": "b2d32ef97121e5e06550ecf85dbeec32759945031f9649b747fa0287ea6b97c6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-hindsight_raw-model-result.json",
+      "export_path": "execution/q08-hindsight_raw-model-result.json",
+      "bytes": 657,
+      "sha256": "38929f289cb12ced932db7c0b85f2ed51bbe52e7ba1e263f122a4e9bf35fb509"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-mapped-evidence.json",
+      "export_path": "execution/q08-mapped-evidence.json",
+      "bytes": 4845,
+      "sha256": "20f84f8b4d92509397c1428a544697628770a3e07986ab40d8a3988051c25243"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-zelo_eligible-answer.json",
+      "export_path": "execution/q08-zelo_eligible-answer.json",
+      "bytes": 3348,
+      "sha256": "303c98b3f472e909f17280e4f2e8dac2b2f291a31f62db45a7e3317283bd3c2d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-zelo_eligible-input.json",
+      "export_path": "execution/q08-zelo_eligible-input.json",
+      "bytes": 3044,
+      "sha256": "9e043175ba422c1706f52b325d2eea40104bfcf1cbfe050b029ca8c1ecc5da23"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q08-zelo_eligible-model-result.json",
+      "export_path": "execution/q08-zelo_eligible-model-result.json",
+      "bytes": 831,
+      "sha256": "773756012f6be725e2602e49d61b626251ca0a2d9211c1c2c06703329a3ad2b6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-core-retrieval.json",
+      "export_path": "execution/q09-core-retrieval.json",
+      "bytes": 3816,
+      "sha256": "87aa20398fd55f9c43fa75b9f76e799b777e6cdc00c25d438ea4b7fb3b5403db"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight-recall-finished.json",
+      "export_path": "execution/q09-hindsight-recall-finished.json",
+      "bytes": 982,
+      "sha256": "df2a0f8c4da3fc705e76b7b4c3e97e50377feb8a2f18ecba7fb0767dca32b9f6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight-recall-request.json",
+      "export_path": "execution/q09-hindsight-recall-request.json",
+      "bytes": 1208,
+      "sha256": "2b5ef0a07e8495d9dbe4a031874075cc35ecfb84fbd6980f860148323e192f50"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight-recall-response.body",
+      "export_path": "execution/q09-hindsight-recall-response.body",
+      "bytes": 50686,
+      "sha256": "aa8259e1459d1bafe960647fab68e99ecee2bb88b45233e2e0ef3b9e0a9af1ab"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q09-hindsight_core_filtered-answer.json",
+      "bytes": 3104,
+      "sha256": "845111f6391670777cbdf3b7b4becffbe5cf97e7bff4ac5250437f38f10d7039"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_core_filtered-input.json",
+      "export_path": "execution/q09-hindsight_core_filtered-input.json",
+      "bytes": 3814,
+      "sha256": "0baeba08eff2eecba1ee04b734b9b4ac7bf400c0d72ba4b9e84140cca10d9faf"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q09-hindsight_core_filtered-model-result.json",
+      "bytes": 709,
+      "sha256": "b6c20c9f2893be7b8013ea7314564e4a997f9285b546884728f88748103e13b3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_raw-answer.json",
+      "export_path": "execution/q09-hindsight_raw-answer.json",
+      "bytes": 3247,
+      "sha256": "e48e3c7cbc8ef27d540877abc7800b43574e39a2ae46d197029630cadcf56d23"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_raw-input.json",
+      "export_path": "execution/q09-hindsight_raw-input.json",
+      "bytes": 5029,
+      "sha256": "eee1697fcd4e135fc498b550f118ac453d4537a068e7e6aa4b0a11439a5bb161"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-hindsight_raw-model-result.json",
+      "export_path": "execution/q09-hindsight_raw-model-result.json",
+      "bytes": 776,
+      "sha256": "00d07c8abe8e287c10143f4319e35e7e7d71b9fa78ea226c7a067cb2e7616297"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-mapped-evidence.json",
+      "export_path": "execution/q09-mapped-evidence.json",
+      "bytes": 4847,
+      "sha256": "dd2c7215a620f50523609284f711fdea5c32858c29d4d5655db16969739b9b03"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-zelo_eligible-answer.json",
+      "export_path": "execution/q09-zelo_eligible-answer.json",
+      "bytes": 2751,
+      "sha256": "60bb57d4c5d9998ae8a52b0b12ddf2a8ec1d1cc77f8fabf714a1b18cd60d33ad"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-zelo_eligible-input.json",
+      "export_path": "execution/q09-zelo_eligible-input.json",
+      "bytes": 3042,
+      "sha256": "50c22864f2ddd7ad73dec68524bca28008868a8c7bc5eaf2e23f42d0d372dff3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q09-zelo_eligible-model-result.json",
+      "export_path": "execution/q09-zelo_eligible-model-result.json",
+      "bytes": 522,
+      "sha256": "1aec9985ffa62d1449043efcd359b51e447d3db17ff2035e77d7ddd753c6c9b7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-core-retrieval.json",
+      "export_path": "execution/q10-core-retrieval.json",
+      "bytes": 3955,
+      "sha256": "2d04bc0912ce0d7087c077db9158699c4c9ccdd3984e0e9768cdddff6cc9518d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight-recall-finished.json",
+      "export_path": "execution/q10-hindsight-recall-finished.json",
+      "bytes": 984,
+      "sha256": "eb8a4161f1b78c7afe3797a4e7660c02d8ba91245f06c1be2186a73931074319"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight-recall-request.json",
+      "export_path": "execution/q10-hindsight-recall-request.json",
+      "bytes": 1270,
+      "sha256": "7f0e5fa698e8675cc0d6ce533ca87e789bb73f256bf31e56d3f28be5afa13f64"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight-recall-response.body",
+      "export_path": "execution/q10-hindsight-recall-response.body",
+      "bytes": 50747,
+      "sha256": "923a395bc4143cb5a45229526b66d64f5c2107599e5bcb5b068bfc1d49f2d19e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_core_filtered-answer.json",
+      "export_path": "execution/q10-hindsight_core_filtered-answer.json",
+      "bytes": 3312,
+      "sha256": "0ed175f7c8033e988b0ed0625bdbee035ad3c13c34bb243b2e7e28b640748069"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_core_filtered-input.json",
+      "export_path": "execution/q10-hindsight_core_filtered-input.json",
+      "bytes": 3876,
+      "sha256": "71ceacb11435edf31a055458bbaed23dc711628e44d19a353e165ec5e4d9fbf1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_core_filtered-model-result.json",
+      "export_path": "execution/q10-hindsight_core_filtered-model-result.json",
+      "bytes": 806,
+      "sha256": "1f2f4a5ee2c331087eafec59ea34276ab52d44b6bacea73196baa3f5eacf69ba"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_raw-answer.json",
+      "export_path": "execution/q10-hindsight_raw-answer.json",
+      "bytes": 3336,
+      "sha256": "93473a6f3b4d4a86dc5885049ae04f82faec482d63795ebe82601ff94b5c55b7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_raw-input.json",
+      "export_path": "execution/q10-hindsight_raw-input.json",
+      "bytes": 5091,
+      "sha256": "dacc96fb0d45a12475befdfc4949abde8874c8ce706c1027bd197e605ab58127"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-hindsight_raw-model-result.json",
+      "export_path": "execution/q10-hindsight_raw-model-result.json",
+      "bytes": 805,
+      "sha256": "fa89d031d3431ce20d2b0303a2af5de923e873cdf97eb1312f0c87f5b22212f6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-mapped-evidence.json",
+      "export_path": "execution/q10-mapped-evidence.json",
+      "bytes": 4847,
+      "sha256": "1333e43e78d6f84868a93e5b7687f53ff3dd93cad2deeb983266b5eb27b2913f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-zelo_eligible-answer.json",
+      "export_path": "execution/q10-zelo_eligible-answer.json",
+      "bytes": 3315,
+      "sha256": "62ae532677f5a312889a3b805c5c6c7e68e1522452d622f307fe40e5f28cc14d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-zelo_eligible-input.json",
+      "export_path": "execution/q10-zelo_eligible-input.json",
+      "bytes": 3104,
+      "sha256": "2681b0cdf7ae27d646fb9fde28bd867781dc0f4a096d1cfda1d145d566c07763"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/q10-zelo_eligible-model-result.json",
+      "export_path": "execution/q10-zelo_eligible-model-result.json",
+      "bytes": 807,
+      "sha256": "9f14016ba2de2aa2d7e626ec6dda2b397567525a162ede6f25725d2bd321259b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-admission.json",
+      "export_path": "execution/r01-admission.json",
+      "bytes": 7609,
+      "sha256": "9e2a8253452541a2c3aa91e743c9b8fe3a4eefb3297761f677c2578d14279928"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-document-finished.json",
+      "export_path": "execution/r01-document-finished.json",
+      "bytes": 983,
+      "sha256": "476ae1a2251c2ad841f1b46247e5c9061a47e1002a954e7b48c77230951dd3e7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-document-request.json",
+      "export_path": "execution/r01-document-request.json",
+      "bytes": 1013,
+      "sha256": "fde21fcc3943aff715198cb14c5824f430a3417cf65f5dc46a5d8dd631e80900"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-document-response.body",
+      "export_path": "execution/r01-document-response.body",
+      "bytes": 2111,
+      "sha256": "fd120ba14ea1d624ab57dd8df4a874da839223493434bd03cc88ed036f3731cc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-extraction-audit.jsonl",
+      "export_path": "execution/r01-extraction-audit.jsonl",
+      "bytes": 1085,
+      "sha256": "c914b75c6be47c3cec957a7cedaa56438931de1b0e51fc146bc3486a14cb155d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-facts-page-0-finished.json",
+      "export_path": "execution/r01-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "e6e5ae8f5db713849593d6391e302f8127198822e7094346146a998f3c05265e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-facts-page-0-request.json",
+      "export_path": "execution/r01-facts-page-0-request.json",
+      "bytes": 1054,
+      "sha256": "08f5d06f6dccbcfd53173e12251879e15cd4990ad93fc0b5ebcf5b253cfddd57"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-facts-page-0-response.body",
+      "export_path": "execution/r01-facts-page-0-response.body",
+      "bytes": 2959,
+      "sha256": "764fa0a7238358cba1902d50ca497cd2111c7f729463451d51899ea4a77502f4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-retain-finished.json",
+      "export_path": "execution/r01-retain-finished.json",
+      "bytes": 992,
+      "sha256": "4430b783fdf7ed33192ca93a23f1b8c16cb31d586a057dd772bde2bc74418589"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-retain-request.json",
+      "export_path": "execution/r01-retain-request.json",
+      "bytes": 2054,
+      "sha256": "88c2387733e49f037c1daeb46fe0261135c79eaf099d647c0a725ded169a15d1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r01-retain-response.body",
+      "export_path": "execution/r01-retain-response.body",
+      "bytes": 252,
+      "sha256": "1cd584652a87c0486859b9b45e28d3305b1461bf57ede0d94998278884733e0e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-admission.json",
+      "export_path": "execution/r02-admission.json",
+      "bytes": 6195,
+      "sha256": "73c5f72394536fa53c63bc37a4987f1d58461d120f2bde3ad1127034b183f73c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-document-finished.json",
+      "export_path": "execution/r02-document-finished.json",
+      "bytes": 995,
+      "sha256": "0435b92781274796b3414389d9dc1025e01ea6f95b5a85041bb87610dcca951c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-document-request.json",
+      "export_path": "execution/r02-document-request.json",
+      "bytes": 1025,
+      "sha256": "e946c4ee926c0d5e848ddffbbcee540fe83317cda204339c6feed421f7f5a01e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-document-response.body",
+      "export_path": "execution/r02-document-response.body",
+      "bytes": 2109,
+      "sha256": "85531dedb84972bc8bc1b9fa2e251f12fabfa5227e687d2247d041194663ca9b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-extraction-audit.jsonl",
+      "export_path": "execution/r02-extraction-audit.jsonl",
+      "bytes": 1080,
+      "sha256": "0ba22790a6887063a604144a0fee4b2e30509294fc858a41fed23cb6db577a08"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-facts-page-0-finished.json",
+      "export_path": "execution/r02-facts-page-0-finished.json",
+      "bytes": 994,
+      "sha256": "9106fb15d0a6b529ca1633b6485f8f8f21ff834ba104591ffc822dab662d3057"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-facts-page-0-request.json",
+      "export_path": "execution/r02-facts-page-0-request.json",
+      "bytes": 1054,
+      "sha256": "2737080d6ad310774ccd5e0ffe71645e699d4bdc6e7cacd474f18da9d4422db1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-facts-page-0-response.body",
+      "export_path": "execution/r02-facts-page-0-response.body",
+      "bytes": 1548,
+      "sha256": "27f6c654b7eecdeae494dc9ef9121f095ed07db2f46617230eb37f9e7af87832"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-retain-finished.json",
+      "export_path": "execution/r02-retain-finished.json",
+      "bytes": 979,
+      "sha256": "f167119a7600ea7f30d5f4cbc5d5f1c137cfe25659ee9d65310f411c06f4adaf"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-retain-request.json",
+      "export_path": "execution/r02-retain-request.json",
+      "bytes": 2041,
+      "sha256": "d9501a2b2dbccad51d82f601fb7a82ed1ada7e5de9662c0d7a33d28c18314ef7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r02-retain-response.body",
+      "export_path": "execution/r02-retain-response.body",
+      "bytes": 252,
+      "sha256": "2e962d5d8823e75ea72839f9630f8863d1fedbb2cbae2866fa42740fe790567a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-admission.json",
+      "export_path": "execution/r03-admission.json",
+      "bytes": 11925,
+      "sha256": "f77db269037e45b398d54b581921bd221d47aabe0b549b82659cd4cf5fa30bef"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-document-finished.json",
+      "export_path": "execution/r03-document-finished.json",
+      "bytes": 983,
+      "sha256": "a7c8fce3fae91adf048f9c0421f4a2b89fb425f917fe3a2717b1467727d53c28"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-document-request.json",
+      "export_path": "execution/r03-document-request.json",
+      "bytes": 1013,
+      "sha256": "efb9064eb201e238efe969153b1bfadd69dd2a8dcc40d51e687edeeb23be0df2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-document-response.body",
+      "export_path": "execution/r03-document-response.body",
+      "bytes": 2278,
+      "sha256": "f3205e8e29bb17c8a987005d1e66f9ef1522dc234d7abc794d35449c9b2a2fa9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-extraction-audit.jsonl",
+      "export_path": "execution/r03-extraction-audit.jsonl",
+      "bytes": 1084,
+      "sha256": "4f05e286d93df15bedb822822ee38d7de5805ea8389076884819e2dbc8e7b16e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-facts-page-0-finished.json",
+      "export_path": "execution/r03-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "e1e7b7d82d1e737b4d1d5509787c215b76cf138552ea559c5b5b8d3142131491"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-facts-page-0-request.json",
+      "export_path": "execution/r03-facts-page-0-request.json",
+      "bytes": 1054,
+      "sha256": "c2324331d0e2c2f8ee76836b312768ec89c3691a5404317719c9351a1401d5c5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-facts-page-0-response.body",
+      "export_path": "execution/r03-facts-page-0-response.body",
+      "bytes": 7108,
+      "sha256": "fc1640411b704c190d5f924ae6a0687504b6bafe6358d5341825ffe2f8d478aa"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-retain-finished.json",
+      "export_path": "execution/r03-retain-finished.json",
+      "bytes": 989,
+      "sha256": "30c5eb8b1fad2c0fe1f272733116507a0fe8db1cf2e1a5db2718105209b6b8ee"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-retain-request.json",
+      "export_path": "execution/r03-retain-request.json",
+      "bytes": 2232,
+      "sha256": "7922c89add837135e7ada43ef9fe7875614bf808c4284123f9d29e297ad7db0f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r03-retain-response.body",
+      "export_path": "execution/r03-retain-response.body",
+      "bytes": 252,
+      "sha256": "2733fcd31175ce18b66c24e0a6462b2f7335c7cb8386554f1784c09c5c12a891"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-admission.json",
+      "export_path": "execution/r04-admission.json",
+      "bytes": 6212,
+      "sha256": "c7970b7b3cf977dc20d8a4468823a4a64ba8280886e80ba090cd61aee7d4ba35"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-document-finished.json",
+      "export_path": "execution/r04-document-finished.json",
+      "bytes": 983,
+      "sha256": "5b8deced7b39215e11ac6097fc58e429aed4ef709f243bea696aa5b4cdba17e1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-document-request.json",
+      "export_path": "execution/r04-document-request.json",
+      "bytes": 1023,
+      "sha256": "9f4c85a1d0f6eece9ce103ab65e8d5f162adf1fde4a1e83ff6e87f7868eceb98"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-document-response.body",
+      "export_path": "execution/r04-document-response.body",
+      "bytes": 2100,
+      "sha256": "88ba63a72b0eb675c3d17f4c369f024fcb1992b080c9bc094c2d3f567d01ba29"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-extraction-audit.jsonl",
+      "export_path": "execution/r04-extraction-audit.jsonl",
+      "bytes": 1083,
+      "sha256": "4259c11328f10c7ac049e86bee63d4baa5922873d971cedbdf2def4193fca3d3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-facts-page-0-finished.json",
+      "export_path": "execution/r04-facts-page-0-finished.json",
+      "bytes": 993,
+      "sha256": "8f514327e3c772b653cb1c38c0c7048e29ca67633c6a753578a57478122d3bfe"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-facts-page-0-request.json",
+      "export_path": "execution/r04-facts-page-0-request.json",
+      "bytes": 1064,
+      "sha256": "7fa2e6e7f39f425e013ed6d698eebe47d4d5458f776e4fef4c6a0e461f5dc047"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-facts-page-0-response.body",
+      "export_path": "execution/r04-facts-page-0-response.body",
+      "bytes": 1574,
+      "sha256": "6a4e4b10c3d3ebb1d57394408777ce073b9ea3da96499c3df62f23a0d6bfb5c0"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-retain-finished.json",
+      "export_path": "execution/r04-retain-finished.json",
+      "bytes": 979,
+      "sha256": "292361b05f30217bed2088a3207de6f474cc14791506694e524a7ec4ce9ac684"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-retain-request.json",
+      "export_path": "execution/r04-retain-request.json",
+      "bytes": 2043,
+      "sha256": "a1a94844cbf6549b9c04a31ece02942f551180840f584716fd88cbb4c19daad7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r04-retain-response.body",
+      "export_path": "execution/r04-retain-response.body",
+      "bytes": 251,
+      "sha256": "d19bd872210c5a64711f8aed6dd100f412d122e6d08a30afcf530a9ed86e9d9e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-admission.json",
+      "export_path": "execution/r05-admission.json",
+      "bytes": 16193,
+      "sha256": "fc466a3e9a0d4d495aafdc730a5fd1d769e9062f410182414d0c632b2cf5282e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-document-finished.json",
+      "export_path": "execution/r05-document-finished.json",
+      "bytes": 982,
+      "sha256": "c149779d6adc7420a3ba409d51ddffb0aba92fc84a511b2b197ac59d0088c2f2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-document-request.json",
+      "export_path": "execution/r05-document-request.json",
+      "bytes": 1014,
+      "sha256": "293e857411855e1ec4ece2d9201b2a3d0c4fc3fa92aca307cb7f6a157fa8ca93"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-document-response.body",
+      "export_path": "execution/r05-document-response.body",
+      "bytes": 2153,
+      "sha256": "6bbba21cfc4a8fdeed4ab01c8022adbb3b07b7f3301f7245e64d3ce05f12bb64"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-extraction-audit.jsonl",
+      "export_path": "execution/r05-extraction-audit.jsonl",
+      "bytes": 1086,
+      "sha256": "5ab2e8e970e360cd39c795a73ea942f30d140c7d5628d937c0870e8da3398c51"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-facts-page-0-finished.json",
+      "export_path": "execution/r05-facts-page-0-finished.json",
+      "bytes": 984,
+      "sha256": "509d316e02bb8d87151dca23d86bb3bf8bfc9e816fca50ae46fa65bc643dc138"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-facts-page-0-request.json",
+      "export_path": "execution/r05-facts-page-0-request.json",
+      "bytes": 1053,
+      "sha256": "6271bff334986cb956a54c1481521c576bf195a405a89706825adf97b39cfd9d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-facts-page-0-response.body",
+      "export_path": "execution/r05-facts-page-0-response.body",
+      "bytes": 11495,
+      "sha256": "7e103003127bc55c502e5f7d91d82bbc886bfd6820e4d00696d877be463d10af"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-retain-finished.json",
+      "export_path": "execution/r05-retain-finished.json",
+      "bytes": 981,
+      "sha256": "b8d508447364e99450f1853e5e9ef362d4302523710f082e100f55cf0cdf2776"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-retain-request.json",
+      "export_path": "execution/r05-retain-request.json",
+      "bytes": 2092,
+      "sha256": "28ddadc4128212b544b9e734aa9442dbf9b0d3eb63c37f358dcf647193a7b0a2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r05-retain-response.body",
+      "export_path": "execution/r05-retain-response.body",
+      "bytes": 252,
+      "sha256": "e0a39788c8780eaea2b2d9160bd0a387233c837e27457f3f083bfe39bd094099"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-admission.json",
+      "export_path": "execution/r06-admission.json",
+      "bytes": 10761,
+      "sha256": "8af6f5dbebccd09d2bb06f77660ff79cc2d942b18108b4b972c22194d5d17fa2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-document-finished.json",
+      "export_path": "execution/r06-document-finished.json",
+      "bytes": 982,
+      "sha256": "9b0503b545f1bdb89bcb70218a9822ba823c5c721550dba4920bfd7e9143f688"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-document-request.json",
+      "export_path": "execution/r06-document-request.json",
+      "bytes": 1014,
+      "sha256": "e82a78caa5e90cea2e1a52ac49ecfaa0ce3956b059425fe374c58f39a12f37c7"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-document-response.body",
+      "export_path": "execution/r06-document-response.body",
+      "bytes": 2339,
+      "sha256": "50308ba6d1bd32bb024c87726829de10ef6687fca2d6058800c5739510cdd0e8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-extraction-audit.jsonl",
+      "export_path": "execution/r06-extraction-audit.jsonl",
+      "bytes": 1084,
+      "sha256": "24cf841f7b1c8cf011db13f2c18548774bde15240fabb670f57ddd6b9f2c8f42"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-facts-page-0-finished.json",
+      "export_path": "execution/r06-facts-page-0-finished.json",
+      "bytes": 992,
+      "sha256": "f8f2dedd44c596671d5012d1bcbc19191eb6aa31bce613f72d82c827d25661c4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-facts-page-0-request.json",
+      "export_path": "execution/r06-facts-page-0-request.json",
+      "bytes": 1054,
+      "sha256": "cef353818c2d014f79baa8ac2c555ee3b0671afa422bb09c88545e3a73032dc3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-facts-page-0-response.body",
+      "export_path": "execution/r06-facts-page-0-response.body",
+      "bytes": 5878,
+      "sha256": "e20e9b8d98c8a01b1b774e0a08bf9f7063f1d8b0ccd1618fcd5d3fdbe76d6f73"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-retain-finished.json",
+      "export_path": "execution/r06-retain-finished.json",
+      "bytes": 1001,
+      "sha256": "2fe22c49caf087c64da03e0192221bd9e0f87a595d32262aee545e97605a7c56"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-retain-request.json",
+      "export_path": "execution/r06-retain-request.json",
+      "bytes": 2279,
+      "sha256": "2e464db634efc4ff3121531d777505055f630cc250c8525aa866cdc7f8258f31"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r06-retain-response.body",
+      "export_path": "execution/r06-retain-response.body",
+      "bytes": 252,
+      "sha256": "b8575850d586a668db9922be84ac85ac018afac896746e8c4fe2c52848a4ef2b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-admission.json",
+      "export_path": "execution/r07-admission.json",
+      "bytes": 6373,
+      "sha256": "709bf602165f5939ce4b982d3745ac811c39960758356fd31333fc932cb80983"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-document-finished.json",
+      "export_path": "execution/r07-document-finished.json",
+      "bytes": 983,
+      "sha256": "ea0e2844bda23cd2456fcd7a1519f5dc44d4129deb87a433cb0f7fa92a46c7c9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-document-request.json",
+      "export_path": "execution/r07-document-request.json",
+      "bytes": 1014,
+      "sha256": "ee8f5e80f21404c53f8f856baba7a448fa811aa11ce219356416fbbfd75c95aa"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-document-response.body",
+      "export_path": "execution/r07-document-response.body",
+      "bytes": 2206,
+      "sha256": "84260bbd94295fd17f982a9c303a81022cde5b018d765e138ff1573da9966a41"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-extraction-audit.jsonl",
+      "export_path": "execution/r07-extraction-audit.jsonl",
+      "bytes": 1084,
+      "sha256": "c8b122ce40e77a80f1fccbfeae966d332f370804ac630ace961173327d560b46"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-facts-page-0-finished.json",
+      "export_path": "execution/r07-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "06dcd4c9a8afe994eb54684a97d6a6b04ed8c4517e3fdea7d0d2dc7c3622123d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-facts-page-0-request.json",
+      "export_path": "execution/r07-facts-page-0-request.json",
+      "bytes": 1064,
+      "sha256": "287da9ef8a129f1765e1992b4cd1dd43c11b9c14f0ce142789f8c82b560e9b02"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-facts-page-0-response.body",
+      "export_path": "execution/r07-facts-page-0-response.body",
+      "bytes": 1622,
+      "sha256": "2d14f1ee135d487c14cfe341e8544ff9b06b006d13cd4f9c1b9a788278b76b29"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-retain-finished.json",
+      "export_path": "execution/r07-retain-finished.json",
+      "bytes": 981,
+      "sha256": "b12bd3d6063a1f00faa2541ec5822cfb154ae924684a330c7035cededfefa672"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-retain-request.json",
+      "export_path": "execution/r07-retain-request.json",
+      "bytes": 2135,
+      "sha256": "127c9462dd7260ab205ae61a5a9aa4cd92fe09f24bfdea2f4b66df4e511c52a4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r07-retain-response.body",
+      "export_path": "execution/r07-retain-response.body",
+      "bytes": 252,
+      "sha256": "faa5b9bf8f83571d1e5bf9ac7e059fbd2fdf1d8fb2d486a47b215faa50c3eed1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-admission.json",
+      "export_path": "execution/r08-admission.json",
+      "bytes": 5996,
+      "sha256": "6618021d2503dc55260bb8ac293ce4e0647b928426dd00ef4245b0652ef26f76"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-document-finished.json",
+      "export_path": "execution/r08-document-finished.json",
+      "bytes": 994,
+      "sha256": "242fd0342e15d719769ca96e7ff651b9ca4a89e0e177975aeb40345f7ec1357d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-document-request.json",
+      "export_path": "execution/r08-document-request.json",
+      "bytes": 1024,
+      "sha256": "72485e6acd43f02c96e0d0b624f5898c888d0cffec04a30c4233da4ee0f49871"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-document-response.body",
+      "export_path": "execution/r08-document-response.body",
+      "bytes": 1986,
+      "sha256": "f6c5449f4aff46b9097921fc6a1a34ff4cf8c8f99d96ebdcb7a89fb43b174694"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-extraction-audit.jsonl",
+      "export_path": "execution/r08-extraction-audit.jsonl",
+      "bytes": 1082,
+      "sha256": "85c6ed6ff7b707917424d738d0c9cd7a11aa4f2313e903cad86e605182c84885"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-facts-page-0-finished.json",
+      "export_path": "execution/r08-facts-page-0-finished.json",
+      "bytes": 994,
+      "sha256": "cd5fe4504cfb8512c3f872729044972ad169b8e09aefef8212577acbf6b6598c"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-facts-page-0-request.json",
+      "export_path": "execution/r08-facts-page-0-request.json",
+      "bytes": 1064,
+      "sha256": "0ed4bc188993635634595d63c408bf7f5040b7f353997e3dd64a4b480ce0fbf1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-facts-page-0-response.body",
+      "export_path": "execution/r08-facts-page-0-response.body",
+      "bytes": 1467,
+      "sha256": "10121b62e44391c703b6bdc1d64b8b7a2f21b00b499e1c1902d3a7b9998e3ed1"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-retain-finished.json",
+      "export_path": "execution/r08-retain-finished.json",
+      "bytes": 992,
+      "sha256": "9de4387935c62e72df5b7e3352e97405914772b10e54d013a76ee1a1ff2332fd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-retain-request.json",
+      "export_path": "execution/r08-retain-request.json",
+      "bytes": 1914,
+      "sha256": "1d4c441879dcd4d67635f933bef6f523fc08b12058e8bf60178230249424fea4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r08-retain-response.body",
+      "export_path": "execution/r08-retain-response.body",
+      "bytes": 250,
+      "sha256": "e7a5dd3c3ab11d09011dc7a9ef43179e7fd6941b72af2ab4240673fd9978bcf9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-admission.json",
+      "export_path": "execution/r09-admission.json",
+      "bytes": 7806,
+      "sha256": "8346989e394676533a9552f74d3fccd6454159f2afea22e0a0cb52a2c256c4d2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-document-finished.json",
+      "export_path": "execution/r09-document-finished.json",
+      "bytes": 983,
+      "sha256": "4e83a563bcc2536dcb49f4b1487dfe349a8849b2f91ea02ead46814dcc589237"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-document-request.json",
+      "export_path": "execution/r09-document-request.json",
+      "bytes": 1013,
+      "sha256": "afa5a481132c4adf64040c9529a4fcbe1830db174c0a4c2ba8dd1a26f66785f9"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-document-response.body",
+      "export_path": "execution/r09-document-response.body",
+      "bytes": 2145,
+      "sha256": "de50df6d1977c56848fe1695455d628f28e08838bdb86991a48e2880390d30b3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-extraction-audit.jsonl",
+      "export_path": "execution/r09-extraction-audit.jsonl",
+      "bytes": 1087,
+      "sha256": "b52dee986200b22845e71605e5b73c128f14971095a72148fb85da1464e7072e"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-facts-page-0-finished.json",
+      "export_path": "execution/r09-facts-page-0-finished.json",
+      "bytes": 995,
+      "sha256": "259bc1f34b515c989b1be21f68614eaf51b9952fd2778c580909a35dac627e14"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-facts-page-0-request.json",
+      "export_path": "execution/r09-facts-page-0-request.json",
+      "bytes": 1064,
+      "sha256": "26a9c9092b478504262f3b6fa33ee554e4a848b93cbe0dcadc182768fcfe4cdf"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-facts-page-0-response.body",
+      "export_path": "execution/r09-facts-page-0-response.body",
+      "bytes": 3079,
+      "sha256": "7337d3724c8d314f1efb4446e19d1769e805e6f6aa7ab16b66a3f669c27d8019"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-retain-finished.json",
+      "export_path": "execution/r09-retain-finished.json",
+      "bytes": 991,
+      "sha256": "c8568e7e8692b5c72cb7124c625df094f7131f217ea1939522571b9158524d37"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-retain-request.json",
+      "export_path": "execution/r09-retain-request.json",
+      "bytes": 2045,
+      "sha256": "7cfb682703e799208e775cbe2fc5d7c70990debf02fd08083e377b6005e9393f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r09-retain-response.body",
+      "export_path": "execution/r09-retain-response.body",
+      "bytes": 251,
+      "sha256": "109c122758ff9516a199ae34d721f9c722d958c05eea638b267e90f8262c6f50"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-admission.json",
+      "export_path": "execution/r10-admission.json",
+      "bytes": 7689,
+      "sha256": "a41386f2ae5358a60edf24b58158005acef87fbc85d783ca9accba9c5661f140"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-document-finished.json",
+      "export_path": "execution/r10-document-finished.json",
+      "bytes": 994,
+      "sha256": "b8b0424b2e7ae48fbed4cf51f4a958ba7770dbdc72921cbbf70b220c95ab4360"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-document-request.json",
+      "export_path": "execution/r10-document-request.json",
+      "bytes": 1012,
+      "sha256": "b591b84efa7402dd97392b98a976b2b4f1dec3a248027a23d8684bc0e2a41ab8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-document-response.body",
+      "export_path": "execution/r10-document-response.body",
+      "bytes": 2136,
+      "sha256": "48a8bdeebb197344e71a5194a2887deed8e59596c01d4313695b26494c9d109b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-extraction-audit.jsonl",
+      "export_path": "execution/r10-extraction-audit.jsonl",
+      "bytes": 1090,
+      "sha256": "c1ae33ff4d040c0864e91fedf73bc8b72b1f905c48c215975408836077ffe0ee"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-facts-page-0-finished.json",
+      "export_path": "execution/r10-facts-page-0-finished.json",
+      "bytes": 982,
+      "sha256": "b442297493a37eb828eb93da8f8fa797a90345a914f17de7b248096cb33b01fd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-facts-page-0-request.json",
+      "export_path": "execution/r10-facts-page-0-request.json",
+      "bytes": 1052,
+      "sha256": "64af3201182178bc3a8751084ada96b2f40be38d56946d6f348db6ef509c7b98"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-facts-page-0-response.body",
+      "export_path": "execution/r10-facts-page-0-response.body",
+      "bytes": 2987,
+      "sha256": "c49229c556627740affdbf28d924f32d971151f243e59cdf18fb69ee3bd8bf4f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-retain-finished.json",
+      "export_path": "execution/r10-retain-finished.json",
+      "bytes": 981,
+      "sha256": "ff841367e88a56f89b7c1d7f6c827d3abf72403f7d8a39225e3ba43210903057"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-retain-request.json",
+      "export_path": "execution/r10-retain-request.json",
+      "bytes": 2043,
+      "sha256": "b1b8e646f5bb6183ff19a509272c9edb43e6457e867fd4183db5b697938b60e5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r10-retain-response.body",
+      "export_path": "execution/r10-retain-response.body",
+      "bytes": 251,
+      "sha256": "4ae312b02e5cd4771408468c31fa1ee52b1dde3b3d33cc22772e91e71378c1c3"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-admission.json",
+      "export_path": "execution/r11-admission.json",
+      "bytes": 7423,
+      "sha256": "12e2dccf86bd15d771aa0acb11be88f16338359c763e51b77a8cebf74d90af47"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-document-finished.json",
+      "export_path": "execution/r11-document-finished.json",
+      "bytes": 994,
+      "sha256": "4f2adbb57c9b436dd16bacabcec6cc3f1b753b5201f93ddc9f225989dd0b019f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-document-request.json",
+      "export_path": "execution/r11-document-request.json",
+      "bytes": 1012,
+      "sha256": "260da071e4df2292942bf9bdaf31cc179676e83b648647791eb92092bbb4f513"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-document-response.body",
+      "export_path": "execution/r11-document-response.body",
+      "bytes": 1968,
+      "sha256": "746cc277a4e749ad1242bbae32ae1c90cd88d3a637ec1a430c2e4ead37c9034a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-extraction-audit.jsonl",
+      "export_path": "execution/r11-extraction-audit.jsonl",
+      "bytes": 1090,
+      "sha256": "38c32bca33d01c72fdd82360527d92c67f110b9f9a4a7325c54d9b9d79a8b606"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-facts-page-0-finished.json",
+      "export_path": "execution/r11-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "6583a869242963a865ff741c9e5e999eed8bf57f403bd4d32685eee0cd72bc05"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-facts-page-0-request.json",
+      "export_path": "execution/r11-facts-page-0-request.json",
+      "bytes": 1051,
+      "sha256": "5fdd7136f100abcf4253617c66298f545c287224d0e3a10f6d0ad0244792391d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-facts-page-0-response.body",
+      "export_path": "execution/r11-facts-page-0-response.body",
+      "bytes": 2911,
+      "sha256": "7324ab8c4d8d9b70db504cb0521401968e5254edafa2a5895d14105c6ab7aa73"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-retain-finished.json",
+      "export_path": "execution/r11-retain-finished.json",
+      "bytes": 980,
+      "sha256": "c5f6b2bef050bae25bd1cd89349dcdd9b6ef1f6b4204999e59e8f5c633a607f5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-retain-request.json",
+      "export_path": "execution/r11-retain-request.json",
+      "bytes": 1908,
+      "sha256": "2b12463ba16e4f22991ce196980ef4a78d863d8b2e7d4e45cac18ea97392f0ba"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r11-retain-response.body",
+      "export_path": "execution/r11-retain-response.body",
+      "bytes": 250,
+      "sha256": "6f00b743931db3778fbd0752410d0e7b6f9b05ea8e363aafa5dd825d587fe8ca"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-admission.json",
+      "export_path": "execution/r12-admission.json",
+      "bytes": 6021,
+      "sha256": "777698c5bfff66e65fe2f87e97587dc8ba80c28c1626b2a0fbaed266a48dac05"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-document-finished.json",
+      "export_path": "execution/r12-document-finished.json",
+      "bytes": 983,
+      "sha256": "d83adf7ba2fb1ff09b770ba6bba55d2f2f8667892873844fb4724dc34880bfaa"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-document-request.json",
+      "export_path": "execution/r12-document-request.json",
+      "bytes": 1013,
+      "sha256": "af706083724dc78ac5d7d635a039229311c27e0f7d3a714bd4b247398123b92d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-document-response.body",
+      "export_path": "execution/r12-document-response.body",
+      "bytes": 2018,
+      "sha256": "86081ddb84118b79604fcc98c54d139bdccd1a0ab2eb3d2b7110786675cb11ad"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-extraction-audit.jsonl",
+      "export_path": "execution/r12-extraction-audit.jsonl",
+      "bytes": 1085,
+      "sha256": "23563fda9f60d146a3a2f563f1ce772b61dc0caf56181db8128d2562ce3da164"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-facts-page-0-finished.json",
+      "export_path": "execution/r12-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "0708c9e4c0199d3ecb4ac5bc92b2d6fbafe57350afa0f42cf99d96832daef719"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-facts-page-0-request.json",
+      "export_path": "execution/r12-facts-page-0-request.json",
+      "bytes": 1053,
+      "sha256": "82d0fa7ba54961bdccd15baee8abf81044fc8721ba1d7bcd443a619e440b2705"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-facts-page-0-response.body",
+      "export_path": "execution/r12-facts-page-0-response.body",
+      "bytes": 1459,
+      "sha256": "c77a1c6c67c4dc02b87ec56e3a43c093f0a0fc189b1137a8dac5b24c216dd660"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-retain-finished.json",
+      "export_path": "execution/r12-retain-finished.json",
+      "bytes": 990,
+      "sha256": "95a514c2e9e275bb1996b7ea636360c1d65e0673364555866eaa93363f7caa72"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-retain-request.json",
+      "export_path": "execution/r12-retain-request.json",
+      "bytes": 1967,
+      "sha256": "899e2ccd18218eebab8b00f95ccff4192a76116edeb15d2dd5ea6859bf6e64cc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r12-retain-response.body",
+      "export_path": "execution/r12-retain-response.body",
+      "bytes": 250,
+      "sha256": "0a2d2514f0a6e1a038a72574c1f1f583f3959cf2a8d8303ad53cdc106e37b912"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-admission.json",
+      "export_path": "execution/r13-admission.json",
+      "bytes": 10255,
+      "sha256": "e12b22e5731addb93a921146ee66bb6563a157e627298df32c084ff37b423397"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-document-finished.json",
+      "export_path": "execution/r13-document-finished.json",
+      "bytes": 995,
+      "sha256": "10cd59178b1d582184963a5c92eb8414cafbc455c4cd923f9c2774013272ef65"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-document-request.json",
+      "export_path": "execution/r13-document-request.json",
+      "bytes": 1024,
+      "sha256": "47189f66a798f7afa49f049afd4fbbf737e63536b5fc23b0dcd9d1f187efa6d8"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-document-response.body",
+      "export_path": "execution/r13-document-response.body",
+      "bytes": 1996,
+      "sha256": "75e0ff31de1452d5feab492cc9f1d78385940ef3b4de0350168f3dd71cc8b0f6"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-extraction-audit.jsonl",
+      "export_path": "execution/r13-extraction-audit.jsonl",
+      "bytes": 1087,
+      "sha256": "100cc4bb1384b0ad934e6950c916f3f286dfef3d363ad243a19dbebe6df2af4d"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-facts-page-0-finished.json",
+      "export_path": "execution/r13-facts-page-0-finished.json",
+      "bytes": 994,
+      "sha256": "0fccb2fa686898bf0c38cb76bc89ca6463d2f89cde6f4035ea0e70a92c91036a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-facts-page-0-request.json",
+      "export_path": "execution/r13-facts-page-0-request.json",
+      "bytes": 1053,
+      "sha256": "2f4c8a84da1bcf479cc698a1ee33dc5895616e405f5fa5826fbb23235e824c33"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-facts-page-0-response.body",
+      "export_path": "execution/r13-facts-page-0-response.body",
+      "bytes": 2895,
+      "sha256": "dfeb5bdd01158b65c9ccc2faa3525ea9d841ae2d22975dd9d01b8f169aaf6ad2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-retain-finished.json",
+      "export_path": "execution/r13-retain-finished.json",
+      "bytes": 981,
+      "sha256": "65bd3b40557166bee84553d9d807ef975acadea3bb32db64bb71e170f2e20c52"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-retain-request.json",
+      "export_path": "execution/r13-retain-request.json",
+      "bytes": 1965,
+      "sha256": "04f28260b0d1efbd3e07aec569589f75873b84b666c70e028dd9ebbbcba76b63"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r13-retain-response.body",
+      "export_path": "execution/r13-retain-response.body",
+      "bytes": 251,
+      "sha256": "31441b6ed3249661215aab482598a3c846255a27e8940dc63a8c3e69572ffac0"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-admission.json",
+      "export_path": "execution/r14-admission.json",
+      "bytes": 6225,
+      "sha256": "3d12fb000647e37087d80a89cda90607e492c1c6966b8541b4c5ad79aa5ad4d0"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-document-finished.json",
+      "export_path": "execution/r14-document-finished.json",
+      "bytes": 995,
+      "sha256": "0c8aae33474bdc6fd5de73e6ac159fe2246f1aa407e0d3f45dc701d2e5ed6df5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-document-request.json",
+      "export_path": "execution/r14-document-request.json",
+      "bytes": 1023,
+      "sha256": "31ffbad5a58ca0ea1b2282f9475e0c100f3159ac9055c7220450b468b2fb2c50"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-document-response.body",
+      "export_path": "execution/r14-document-response.body",
+      "bytes": 2095,
+      "sha256": "7f9cfebe1c6b5131ac61f16dd61aedcb441b72afc5aabbf2ffe24c5fc5850299"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-extraction-audit.jsonl",
+      "export_path": "execution/r14-extraction-audit.jsonl",
+      "bytes": 1087,
+      "sha256": "2c91561a7774ff38b88fdf14dd8d0248a0ac3c1d15dcde886ecf43d9fc069fb2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-facts-page-0-finished.json",
+      "export_path": "execution/r14-facts-page-0-finished.json",
+      "bytes": 983,
+      "sha256": "f7bded703eba8707ccfb5d0e158fd261d07cef80a64c32d4552cc51701a91770"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-facts-page-0-request.json",
+      "export_path": "execution/r14-facts-page-0-request.json",
+      "bytes": 1063,
+      "sha256": "b3a7354a7aca238bf62e8035ff484fd52076faaa4110479441f4a8a98c57aed4"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-facts-page-0-response.body",
+      "export_path": "execution/r14-facts-page-0-response.body",
+      "bytes": 1585,
+      "sha256": "e3356539edb5aa1fcef1173b114a0b01feda8a29bab4c0671f1aa2e63f510018"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-retain-finished.json",
+      "export_path": "execution/r14-retain-finished.json",
+      "bytes": 991,
+      "sha256": "f58906818378ca6faec715c67170f2faae8136b0b4bd706a7c8e55470dc9e548"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-retain-request.json",
+      "export_path": "execution/r14-retain-request.json",
+      "bytes": 2034,
+      "sha256": "4d95814922b1929992427d2d09dc47fbf7acabba4b87fa8be61271ab3ec83ba2"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/execution/r14-retain-response.body",
+      "export_path": "execution/r14-retain-response.body",
+      "bytes": 251,
+      "sha256": "cffb4f02fc961c7908413da8083681038bf65818eb1679abcba47f07f2049483"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/extraction-audit.jsonl",
+      "export_path": "extraction-audit.jsonl",
+      "bytes": 17844,
+      "sha256": "64ffd00e23c86dda0aeb786ad6099adf8993d77144845e74e82a5665acc23634"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/input-staging-receipt.json",
+      "export_path": "input-staging-receipt.json",
+      "bytes": 487,
+      "sha256": "d6496646accf2c9971f1647258695c5cbb8d99ed5184766d360e25bdfe7115cc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/LICENSE.Hindsight",
+      "export_path": "inputs/LICENSE.Hindsight",
+      "bytes": 1075,
+      "sha256": "01fde0bedf83bdc185065d7af524a61690efe576a67f922eaff3a1280c17b63a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/README.FlashRank-model.md",
+      "export_path": "inputs/README.FlashRank-model.md",
+      "bytes": 260,
+      "sha256": "f81f26852edfb4f277d1fb05895e104a4316f55f141b1d42eb9b2ec1b526fd06"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/asset-download-receipts.json",
+      "export_path": "inputs/asset-download-receipts.json",
+      "bytes": 3103,
+      "sha256": "537de8cb32ad5f836ebb66b56446f4d5017b2c7ffd4a7fcfd69a4acb55c7177b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/pg-image-receipt.json",
+      "export_path": "inputs/pg-image-receipt.json",
+      "bytes": 499,
+      "sha256": "07547b91c128c7805946301771705f0051b16dca97e183a52e51a877385e4e77"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/closure-report.json",
+      "export_path": "inputs/provenance/closure-report.json",
+      "bytes": 16343,
+      "sha256": "4ea04c8a21d3b682de6f72e53aa19bdb11de2c5a88eaf30b366559c29d662c62"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/final-notice-supplement.json",
+      "export_path": "inputs/provenance/final-notice-supplement.json",
+      "bytes": 3110,
+      "sha256": "629f6b80d705688ce60c95c631bc10ac08b7c9654097cc5c129d3c7753ef340b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/notice-carriers.json",
+      "export_path": "inputs/provenance/notice-carriers.json",
+      "bytes": 1364,
+      "sha256": "8f182225aef14d15de70c65733561424d7af87ef02890e54d6466eabd195d0cc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/notice-inventory.json",
+      "export_path": "inputs/provenance/notice-inventory.json",
+      "bytes": 339985,
+      "sha256": "7a469e421f898fa01dec5e2f9ebdd9eae477fc01fbfece85f919f21591596382"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/postgres-parent-permissions.json",
+      "export_path": "inputs/provenance/postgres-parent-permissions.json",
+      "bytes": 2065,
+      "sha256": "a8861129246edeb59fdef4c1bf80ac59af677d54a3099818b2d55ed926235170"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/selection-audit.json",
+      "export_path": "inputs/provenance/selection-audit.json",
+      "bytes": 160667,
+      "sha256": "4086fccc664bc41ea81ed3ead11dbe8fdf33c1ea33630e9c691a729a76a17083"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/source-inputs.json",
+      "export_path": "inputs/provenance/source-inputs.json",
+      "bytes": 1724,
+      "sha256": "4acc5a96aef05b848f9a8c74bb48c18226c927c76cfd24f9272585ba01834b69"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/source-verification.json",
+      "export_path": "inputs/provenance/source-verification.json",
+      "bytes": 442161,
+      "sha256": "53e156efa07dbbb4a6e30f7fc554afab9ecb39209472296b85ab2eedcabc3168"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/supplemental-notices.json",
+      "export_path": "inputs/provenance/supplemental-notices.json",
+      "bytes": 6638,
+      "sha256": "7300140c69a30f1bf06b276a33f839bd878e3e4b93578d13cf3f302e678a5725"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/versioned-source-notices.json",
+      "export_path": "inputs/provenance/versioned-source-notices.json",
+      "bytes": 5118,
+      "sha256": "ad5548d041d0422ec4fe94199f8683166342b4b567554b6d8f554c8a4da2a005"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/provenance/wheel-verification-v2.json",
+      "export_path": "inputs/provenance/wheel-verification-v2.json",
+      "bytes": 330895,
+      "sha256": "877520617f207f8fecaebc18db1fb18cdf5ade8c7feb01fea8a71a48cd621d08"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/inputs/wheel-manifest.json",
+      "export_path": "inputs/wheel-manifest.json",
+      "bytes": 83820,
+      "sha256": "db1f422d27a160c352c2eb07443af947e613d0a2037006d025ca7b023f51141b"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/installed-verification.json",
+      "export_path": "installed-verification.json",
+      "bytes": 272,
+      "sha256": "b232796c3ba1ec499409b070b6799bef6b554ce63c9c52f6952a8a8a1b319f82"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/native-api-contract.json",
+      "export_path": "native-api-contract.json",
+      "bytes": 4566,
+      "sha256": "8e3731bbaab2780ad088da060ee153ab2b6c7371c103a9081633713613762760"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/native-bank-absence-response.json",
+      "export_path": "native-bank-absence-response.json",
+      "bytes": 73,
+      "sha256": "d890acf2946785ce63a8a854a5efcae56c48c48f0da7676d4f58d0c281f190bd"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/native-openapi.json",
+      "export_path": "native-openapi.json",
+      "bytes": 349584,
+      "sha256": "2e733a1736d41dc241547e58d04c2c63be568be76e055e2f117d36edf81a8070"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/offline-execution-receipt.json",
+      "export_path": "offline-execution-receipt.json",
+      "bytes": 11295,
+      "sha256": "cd1f48a91ba25320ef5ada9c849be30e07aeaca29820f42da4e3771c3adceb97"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/owned-cleanup-receipt.json",
+      "export_path": "owned-cleanup-receipt.json",
+      "bytes": 1482,
+      "sha256": "3a208b830e01a75afbb3af0eb4b690ef08fb58adc2f43904f0e793bfa7d613bf"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/post-cleanup-verification.json",
+      "export_path": "post-cleanup-verification.json",
+      "bytes": 595,
+      "sha256": "5ae3f364d23528027abeb7cca220ba0fd91f24c5f9efb0aa114211fd6233a70f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/429f17c6f3cb47bfb38687f49f3a867a/preparation-failed.json",
+      "export_path": "prior-failures/429f17c6f3cb47bfb38687f49f3a867a/preparation-failed.json",
+      "bytes": 1136,
+      "sha256": "ad860d219de31eb0ea7a974f5268acdce4714cf3861f50c325d7c43e9ee66386"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/429f17c6f3cb47bfb38687f49f3a867a/runtime-protocol.json",
+      "export_path": "prior-failures/429f17c6f3cb47bfb38687f49f3a867a/runtime-protocol.json",
+      "bytes": 990,
+      "sha256": "c77d60f1e33fbbf5903141db4408df2937df8407670e8728c3ec71f9cccbabeb"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/comparison-protocol.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/comparison-protocol.json",
+      "bytes": 17793,
+      "sha256": "2012cd92aa2fd93aeb8fd3dd97a69f429bcad167f28727cd85263ca7b6f5c70a"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-finished.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-finished.json",
+      "bytes": 988,
+      "sha256": "a251c6f326d68d9ddbc4f3320115ab9b08fef400002a3cfd297648d4556a8dfc"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-request.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-request.json",
+      "bytes": 976,
+      "sha256": "d1de47d44d5d565e57d0dafd234e1044afe6816d4024838c633e7d25292a0f54"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-response.body",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/execution/bank-agent-absent-response.body",
+      "bytes": 31,
+      "sha256": "83c09ba9a8daedb136f90b17a294caa90ad471a016e430df6e229acb5a81e100"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/execution/comparison-failed.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/execution/comparison-failed.json",
+      "bytes": 702,
+      "sha256": "f9afeb9c836441d92d188b9089e3f0676b2bcce80c86d0aab6b2a97fda4be522"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/pre-inference-failed.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/pre-inference-failed.json",
+      "bytes": 1185,
+      "sha256": "b2230c668248294040dc4a414f3300327b0fe186fcb76b64491d476cfb8adb4f"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/4e16ce4556904a2d8b379278a036bbc3/runtime-protocol.json",
+      "export_path": "prior-failures/4e16ce4556904a2d8b379278a036bbc3/runtime-protocol.json",
+      "bytes": 990,
+      "sha256": "75c552419444ab6174278c36937388f5d912c6a3410815bc627ca82fe5603f67"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/readiness.json",
+      "export_path": "readiness.json",
+      "bytes": 683,
+      "sha256": "cca0ce547f3add12249b73719f498046ebd349b27d243d68aab0a23b42f37526"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/reviewed-draft-v2.json",
+      "export_path": "reviewed-draft-v2.json",
+      "bytes": 11544,
+      "sha256": "45a35bd2472d6985fd2954f807736829a84daadd01c7af27064df59d1eed2466"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/runtime-protocol.json",
+      "export_path": "runtime-protocol.json",
+      "bytes": 990,
+      "sha256": "0e1c8d7b3dac3690641952d6ea95a18a7bdeb61620d2d55921e06e0fe4e483a5"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/startup-receipt.json",
+      "export_path": "startup-receipt.json",
+      "bytes": 1315,
+      "sha256": "f41ea537bad08881416f65a768eecef7ce21f3c55499224241d20932fc2fd888"
+    },
+    {
+      "source_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-comparison/5c5eae20c40a4a26a9915e7ca63ecf50/stop-receipt.json",
+      "export_path": "stop-receipt.json",
+      "bytes": 247,
+      "sha256": "06996a3fc953c07724255ee930c22df24bf9826b9c977508c96e53150b5b9cdb"
+    }
+  ],
+  "existing_public_workflow_evidence": [
+    {
+      "repository_path": "docs/reviews/public-research-v0.15/report.json",
+      "bytes": 6662,
+      "sha256": "d10585450dc9f48137e107bd35446198536b4c94fe309f3b5a359df03114d3b1"
+    },
+    {
+      "repository_path": "docs/reviews/public-research-v0.15/semantic-review.json",
+      "bytes": 4331,
+      "sha256": "6232ce6d838d2e5602d533d293119a5ee6cc10d6baeeb517e965235783dfcb42"
+    },
+    {
+      "repository_path": "docs/reviews/public-research-v0.15/memory-receipt.json",
+      "bytes": 2366,
+      "sha256": "73ba4de90cae13005579526f7c09a6710f3ae04d7d4f9d285f48cdb9b734ed7e"
+    }
+  ],
+  "credential_scan": {
+    "actual_generated_postgres_secrets_and_encodings": "absent",
+    "private_key_and_github_token_patterns": "absent"
+  },
+  "exclusions": [
+    "postgres.env and environment-bearing launch/plan files",
+    "databases and WAL",
+    "virtual environments, binary wheels, source archives, model weights and caches",
+    "native source payload and large model card; their exact identities remain in retained input/source receipts"
+  ],
+  "historical_receipt_note": "closure-report.json records the earlier excluded-Torch missing-size preparation discovery. The committed fix preceded the scored run; this receipt is retained unchanged as history, not current readiness. Prior failure receipts are pre-inference failures and are outside the 30 scored answers."
+}

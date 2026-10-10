@@ -1,5 +1,6 @@
 """Typed local model gateway and the only provider integration point."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -71,9 +72,35 @@ class ModelRouter:
         return alias, self.aliases[alias]
 
 
+_STRUCTURED_ACTION_OPTION_NAMES = frozenset(
+    {
+        "temperature",
+        "top_p",
+        "top_k",
+        "min_p",
+        "presence_penalty",
+        "repeat_penalty",
+        "seed",
+        "num_predict",
+    }
+)
+
+
 class OllamaProvider:
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        use_json_schema: bool = False,
+        num_ctx: int | None = None,
+        structured_action_options: Mapping[str, int | float] | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.use_json_schema = use_json_schema
+        self.num_ctx = num_ctx
+        self._structured_action_options = dict(structured_action_options or {})
+        if self._structured_action_options.keys() - _STRUCTURED_ACTION_OPTION_NAMES:
+            raise ValueError("unsupported structured action option")
 
     async def models(self) -> list[str]:
         try:
@@ -95,12 +122,18 @@ class OllamaProvider:
             ],
         }
         if request.output_schema is not None:
-            # The provider enforces JSON syntax; Zelo validates the full action union.
+            # Schema guidance is opt-in; Core still validates every returned action.
             body.update(
-                format="json",
+                format=request.output_schema if self.use_json_schema else "json",
                 think=False,
-                options={"temperature": 0, "num_predict": 2048},
+                options={
+                    "temperature": 0,
+                    "num_predict": 2048,
+                    **self._structured_action_options,
+                },
             )
+        if self.num_ctx is not None:
+            body.setdefault("options", {})["num_ctx"] = self.num_ctx
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url, timeout=request.timeout_seconds

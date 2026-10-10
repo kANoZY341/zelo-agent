@@ -1,0 +1,30 @@
+{
+  "commit": "44d5340148fd47efb34e184d61f87ab5e2d8d1e2",
+  "inputs": [
+    {
+      "bytes": 1012778,
+      "git_blob_sha1": "b7fbb924a1eebb8c2869105ef5b12ae3623d21d3",
+      "local_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-preparation/wheel-closure-a4cf06f6e65445dd919ccf1fb32a3a01/inputs/uv.lock",
+      "sha256": "666a5412fc05a85c2c967c510197ec7830a9b809ccb0323f52104ca25be77ae7",
+      "upstream_path": "uv.lock",
+      "url": "https://raw.githubusercontent.com/vectorize-io/hindsight/44d5340148fd47efb34e184d61f87ab5e2d8d1e2/uv.lock"
+    },
+    {
+      "bytes": 17214,
+      "git_blob_sha1": "2c302576f0b38b99a3a6b944894c857652b2ae60",
+      "local_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-preparation/wheel-closure-a4cf06f6e65445dd919ccf1fb32a3a01/inputs/hindsight-api-slim.pyproject.toml",
+      "sha256": "ed9e75f9de18c069704c165aa34dce619bfe16d616b9a5be5724d0d2807b15d4",
+      "upstream_path": "hindsight-api-slim/pyproject.toml",
+      "url": "https://raw.githubusercontent.com/vectorize-io/hindsight/44d5340148fd47efb34e184d61f87ab5e2d8d1e2/hindsight-api-slim/pyproject.toml"
+    },
+    {
+      "bytes": 1075,
+      "git_blob_sha1": "8dce7b4d4c2632990bdf8b4101694ea19ba6ad46",
+      "local_path": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-preparation/wheel-closure-a4cf06f6e65445dd919ccf1fb32a3a01/inputs/LICENSE.Hindsight",
+      "sha256": "01fde0bedf83bdc185065d7af524a61690efe576a67f922eaff3a1280c17b63a",
+      "upstream_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/vectorize-io/hindsight/44d5340148fd47efb34e184d61f87ab5e2d8d1e2/LICENSE"
+    }
+  ],
+  "slim_tree_sha1": "b1bb4d5be99443079ba6f0eda9541ab30d52c11a"
+}

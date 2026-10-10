@@ -1,0 +1,13 @@
+{
+  "architecture": "amd64",
+  "id": "sha256:ad249f9fb9572979643a47694e59b9a8cdcdf6abc6accebf49bb80ad5f20ff9b",
+  "no_container_started": true,
+  "os": "linux",
+  "repository_digests": [
+    "pgvector/pgvector@sha256:ad249f9fb9572979643a47694e59b9a8cdcdf6abc6accebf49bb80ad5f20ff9b"
+  ],
+  "requested_image": "pgvector/pgvector:pg18@sha256:ad249f9fb9572979643a47694e59b9a8cdcdf6abc6accebf49bb80ad5f20ff9b",
+  "rootfs_layer_count": 15,
+  "size_bytes": 161646895,
+  "status": "verified_image_input"
+}

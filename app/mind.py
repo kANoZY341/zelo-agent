@@ -124,7 +124,9 @@ Prefer omitting timeout_seconds; if supplied use 0.01..600.""",
     "research_run": """Return JSON only:
 {"kind":"research_run","payload":{"query":"..."}}
 Use it for bounded evidence-backed repository/workspace research.
-Prefer omitting timeout_seconds; if supplied use 0.01..600.""",
+Preserve the user's assignment, evidence requirements, output limits and authority
+boundaries in payload.query. If the user specifies timeout_seconds, include that value;
+otherwise omit it. If supplied, timeout_seconds must be 0.01..600.""",
     "python_run": """Return JSON only:
 {"kind":"python_run","payload":{"code":"...","stdin":""}}
 Use it only for bounded isolated computation. It cannot access Zelo files, the network,

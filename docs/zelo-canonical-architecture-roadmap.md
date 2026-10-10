@@ -400,16 +400,26 @@ The separate Archify projection of the trusted Agent Factory registry makes
 registered template hierarchy inspectable without live instance or grant claims
 (see v0.15-archify-agent-registry-projection.md).
 
-**Selected continuation (10 October 2026):** After completing the repair and
-merge queue, apply the [Addy + Matt engineering pack](development/engineering-pack.md),
-complete one useful public research workflow with current Zelo memory, and
-compare Hindsight on the same bounded non-sensitive workload. The engineering
-pack serves contributors and coding workers through root `AGENTS.md`.
-Public-source text remains untrusted evidence; reviewed memory retention stays
-an explicit Core operation. A memory experiment does not replace Core's scope,
-expiry, correction, supersession, provenance or context-admission authority.
-HyperFrames and VoiceStudio follow when the corresponding production tasks begin.
-This continuation remains within the current v0.15 engineering focus.
+**Selected continuation (10 October 2026):** The repair queue is complete and the
+[Addy + Matt engineering pack](development/engineering-pack.md) merged in PR #143.
+The [public research workflow](v0.15-public-research-workflow.md#observed-result)
+completed its operational checks and separately reviewed memory admission,
+scoped recall and replay. Its unedited answer failed semantic review; the
+admitted summary was separately corrected and approved.
+
+The [bounded Hindsight comparison](v0.15-hindsight-memory-comparison.md) evaluates
+the same public-source work with a fixed synthetic lifecycle and isolation
+workload. Its retained result and operator assessment are recorded in the
+comparison guide and [live project status](zelo-project-status.md). Public-source
+text remains untrusted evidence. Core retains scope, expiry, correction,
+supersession, provenance and context-admission authority; the experiment grants
+no production backend switch or autonomous retention authority.
+
+HyperFrames and VoiceStudio follow their corresponding production tasks.
+The engineering focus remains v0.15; the published release remains v0.14.0.
+UI PR #61 stays parked, REA runtime activation remains inactive, and the
+v0.16 → v0.17 → v0.18 milestone order is unchanged. The four consumed Media
+native-reader attempts remain preserved refusals; no fifth attempt is authorized.
 
 ## Workspace and conversational direction
 
@@ -594,16 +604,16 @@ revision at or below the latest promoted version for the same
 AgentInstance, source Skill and procedure. Stored proposal retries remain
 idempotent, and historical reviews/proof links remain valid.
 
-PR #107 is the merged **promoted-head admission** gate at b3e665ab:
-Core refuses a brand-new learned skill proposal at or below the latest
-promoted version for the same AgentInstance/Skill/procedure. Historical
-identical proposal retries stay idempotent and accepted reviews survive.
+10 October 2026: the repair queue and PR #143 engineering pack are complete.
+Public Research passed operational checks; the raw answer failed review and a
+corrected summary was separately admitted and replayed. See live status for the
+bounded Hindsight result.
 
 Merged PR #110 at b8a9634 (4,988 passed, 2 skipped) adds
 **local promotion-link recording exclusivity**: under a serialized SQLite
 writer, previously accepted competing skill revision heads cannot gain a
 second local promotion link. Historical divergent heads remain fail-closed.
-PR #111 is the next draft **generic pre-merge publication refusal**:
+Merged PR #111 implements **generic pre-merge publication refusal**:
 until trusted skill identity/exclusive publication reservations exist, the
 generic GitHub merger must refuse protected learned-procedure files.
 Neither gate adds runtime skill activation, and this refusal is not global
@@ -617,10 +627,9 @@ These are not runtime skill activation, provider authentication or new
 AgentSpec/worker/tool authority. The four previously consumed native-reader
 qualification attempts remain preserved as refusals. UI PR #61 stays parked.
 
-The exact-head #110 CI passed 4,988 tests and 2 skips, Ruff and format,
-and its reviewed tree exactly matched merged main. The still-open PR #111
-requires independent exact-head full CI after retargeting to merged main,
-and no unreviewed publication or worker/tool permission is enabled.
+The exact-head #110 CI passed 4,988 tests and 2 skips, Ruff and formatting,
+and its reviewed tree matched merged main. PR #111's merged refusal does
+not grant publication or worker/tool permission.
 
 A separate, **inert** next-step publication-intent contract can freeze one
 currently accepted proposal, operator review, exact content-addressed artifact

@@ -1,0 +1,66 @@
+{
+  "assets": [
+    {
+      "bytes": 470268510,
+      "download_and_verify_seconds": 42.036396631971,
+      "path": "e5/onnx/model.onnx",
+      "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/onnx/model.onnx"
+    },
+    {
+      "bytes": 17082730,
+      "download_and_verify_seconds": 3.0456336678471416,
+      "path": "e5/tokenizer.json",
+      "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json"
+    },
+    {
+      "bytes": 655,
+      "download_and_verify_seconds": 0.4505707959178835,
+      "path": "e5/config.json",
+      "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/config.json"
+    },
+    {
+      "bytes": 443,
+      "download_and_verify_seconds": 0.310555555857718,
+      "path": "e5/tokenizer_config.json",
+      "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer_config.json"
+    },
+    {
+      "bytes": 167,
+      "download_and_verify_seconds": 0.3626625530887395,
+      "path": "e5/special_tokens_map.json",
+      "sha256": "d05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/special_tokens_map.json"
+    },
+    {
+      "bytes": 22696961,
+      "download_and_verify_seconds": 3.367425248026848,
+      "path": "ms-marco-MiniLM-L-12-v2.zip",
+      "sha256": "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a",
+      "url": "https://huggingface.co/prithivida/flashrank/resolve/858a1ac046a05663a35367eac852d7f76feeefdd/ms-marco-MiniLM-L-12-v2.zip"
+    },
+    {
+      "bytes": 17941073,
+      "download_and_verify_seconds": 1.4696608390659094,
+      "path": "uv-0.13.0.whl",
+      "sha256": "52c7da0fd9056d9551124777ec77de53f0df7017daf8f98a19e947b7837416ed",
+      "url": "https://files.pythonhosted.org/packages/c3/75/1901383808ba0d421f32060ba0e9884169b685a722e1af5d87fdd4225ba6/uv-0.13.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    },
+    {
+      "bytes": 497538,
+      "path": "README.E5.md",
+      "sha256": "0038de97aee16258cecbad7ffda4b4febd6953e747a00e0ddbc8e6ed241e9c1c",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md"
+    },
+    {
+      "bytes": 260,
+      "path": "README.FlashRank-model.md",
+      "sha256": "f81f26852edfb4f277d1fb05895e104a4316f55f141b1d42eb9b2ec1b526fd06",
+      "url": "https://huggingface.co/prithivida/flashrank/resolve/858a1ac046a05663a35367eac852d7f76feeefdd/README.md"
+    }
+  ],
+  "status": "verified"
+}

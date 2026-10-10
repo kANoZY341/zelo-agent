@@ -10,6 +10,10 @@ The canonical company chain is Managing Director -> Zelo CEO -> VP -> Director
 approval, scheduling, budget, validation, promotion, merge and release
 boundaries remain in force.
 
+The published release remains v0.14.0. Current repository engineering focuses
+on v0.15; the [live project status](docs/zelo-project-status.md) records the
+implementation, qualification and review state of those increments.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):
@@ -65,11 +69,42 @@ The development requirements add pytest and Ruff.
 
 ## Engineering development procedures
 
-The [engineering development pack](docs/development/engineering-pack.md)
-provides focused procedures for diagnosing bugs, choosing meaningful tests,
-improving diagnostics, and simplifying completed changes. Root `AGENTS.md`
-selects the relevant procedure for repository work. Its pinned MIT source
-references are retained separately under `integrations/development/`.
+The [engineering development pack](docs/development/engineering-pack.md),
+merged in PR #143, provides focused procedures for diagnosing bugs, choosing
+meaningful tests, improving diagnostics and simplifying completed changes.
+Root `AGENTS.md` selects the relevant procedure for repository work. Its pinned
+MIT source references remain under `integrations/development/`; the pack grants
+no runtime Skill Registry entry or execution authority. Merge and validation
+evidence is recorded in the [project status](docs/zelo-project-status.md).
+
+## Public research with project memory
+
+The opt-in [public research workflow](docs/v0.15-public-research-workflow.md)
+completed Browser retrieval of three pinned Agent-Reach source files, complete
+workspace evidence staging, Mind delegation, Research execution and cleanup.
+
+The unedited model answer failed semantic and completeness review. A corrected
+source-grounded operator summary was separately approved and admitted to normal
+project memory. Full scoped recall, exclusion-project isolation and replay
+without duplicate memory passed. The guide retains the exact operational report,
+semantic review and memory receipt.
+
+This source-file workflow does not establish RSS/Atom ingestion, automatic
+video-transcript retrieval or autonomous memory admission.
+
+## Local memory comparison
+
+The opt-in [Hindsight comparison](docs/v0.15-hindsight-memory-comparison.md)
+uses a frozen public/synthetic workload, fresh databases, native recall text,
+explicit Core lifecycle filtering and separate operator answer grading. The
+guide and [project status](docs/zelo-project-status.md) record its retained
+outcome, costs and limits. It runs through isolated operator scripts and does
+not change Core's memory backend.
+
+Its unmodified reranking model is credited to
+[Prithivida's FlashRank model repository](https://huggingface.co/prithivida/flashrank/tree/858a1ac046a05663a35367eac852d7f76feeefdd)
+under its retained CC-BY-SA-4.0 model notice; package licenses are recorded
+separately in the pinned dependency closure.
 
 ## Vendored REA source (inactive)
 

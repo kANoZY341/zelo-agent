@@ -1,0 +1,5 @@
+{"event":"operation_start","monotonic_ns":1323792586405636,"operation_id":"r10-retain","sequence":46,"timeout_seconds":600}
+{"call_id":10,"event":"native_start","format":"json_schema","monotonic_ns":1323792603188989,"operation_id":"r10-retain","sequence":47,"settings":{"min_p":0.0,"num_batch":512,"num_ctx":16384,"num_predict":2048,"presence_penalty":1.5,"repeat_penalty":1.0,"seed":10102026,"temperature":0.7,"top_k":20,"top_p":0.8},"think":false}
+{"call_id":10,"done_reason":"stop","eval_count":191,"eval_duration":26260993000,"event":"native_response","load_duration":2038675,"monotonic_ns":1323939728601387,"operation_id":"r10-retain","prompt_eval_count":2511,"prompt_eval_duration":120840853000,"sequence":48,"status":200,"total_duration":147121298049,"usage_known":true}
+{"call_id":10,"duration_seconds":147.128148,"event":"native_end","monotonic_ns":1323939733814916,"operation_id":"r10-retain","outcome":"http_complete","response_observed":true,"sequence":49}
+{"event":"operation_end","monotonic_ns":1323939867459442,"operation_id":"r10-retain","outcome":"complete","sequence":50}
