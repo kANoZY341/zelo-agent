@@ -578,7 +578,24 @@ def test_flashrank_metadata_is_preserved_only_in_archive(protocol, monkeypatch, 
             runtime.prepare_runtime_files(protocol)
         assert not paths.cache.exists()
     else:
-        result = runtime.prepare_runtime_files(protocol)
+        previous_umask = os.umask(0o077)
+        try:
+            result = runtime.prepare_runtime_files(protocol)
+        finally:
+            os.umask(previous_umask)
+        assert stat.S_IMODE(paths.root.stat().st_mode) == 0o700
+        assert stat.S_IMODE((paths.root / "postgres").stat().st_mode) == 0o711
+        assert not (paths.root / "postgres/18").exists()
+        for relative in (
+            "bootstrap",
+            "cache",
+            "cache/flashrank",
+            "cache/huggingface",
+            "config",
+            "tmp",
+            "built",
+        ):
+            assert stat.S_IMODE((paths.root / relative).stat().st_mode) == 0o700
         expected_names = {model + "/" + name for name in files}
         assert set(result["flashrank_members"]) == expected_names
         actual_files = {

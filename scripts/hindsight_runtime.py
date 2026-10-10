@@ -769,6 +769,9 @@ def prepare_runtime_files(protocol: RuntimeProtocol) -> dict[str, Any]:
         path = paths.root / relative
         _plain_path(path, exists=False)
         path.mkdir(mode=0o700, parents=True, exist_ok=False)
+        if relative == "postgres":
+            # The image drops privileges before traversing to its private PGDATA child.
+            path.chmod(0o711)
     with zipfile.ZipFile(paths.inputs / "uv-0.13.0.whl") as archive:
         candidates = [
             item for item in _zip_members(archive) if PurePosixPath(item.filename).name == "uv"
