@@ -730,10 +730,17 @@ def test_ingestion_checks_documents_native_canary_and_actual_attempt_audit(
         nonlocal sequence
         path = request.url.path
         bank = path.split("/")[4]
-        if request.method == "PUT":
+        bank_path = f"/v1/default/banks/{bank}"
+        if request.method == "PUT" and path == bank_path:
             return httpx.Response(200, json={"bank_id": bank})
-        if request.method == "GET" and "/memories" not in path and "/documents/" not in path:
-            return httpx.Response(404, json={"detail": "not found"})
+        if request.method == "GET" and path == bank_path:
+            return httpx.Response(405, json={"detail": "Method Not Allowed"})
+        if request.method == "GET" and path == bank_path + "/profile":
+            return httpx.Response(
+                410, json={"detail": "The bank profile endpoints have been removed."}
+            )
+        if request.method == "GET" and path == bank_path + "/aliases":
+            return httpx.Response(404, json={"detail": f"Bank '{bank}' not found"})
         if request.method == "POST":
             body = json.loads(request.content)
             assert body["async"] is False and len(body["items"]) == 1
@@ -885,3 +892,47 @@ def test_cited_checks_use_only_native_entries_shown_under_context_cap():
     assert diagnostics["unmapped_or_invalid_provenance_hits"] == 1
     assert diagnostics["ineligible_lifecycle_hits"] == 1
     assert diagnostics["context_ineligible_source_ids"] == []
+
+
+@pytest.mark.parametrize(
+    "response_case",
+    ["existing_bank", "existing_alias", "router_404", "foreign_404", "unsupported", "retired"],
+)
+def test_bank_absence_requires_exact_native_guard_before_any_write(
+    runtime_path, protocol, response_case
+):
+    bank = next(iter(protocol["banks"].values()))
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.method == "GET"
+        assert request.url.path == f"/v1/default/banks/{bank}/aliases"
+        if response_case == "existing_bank":
+            return httpx.Response(200, json={"bank_id": bank, "aliases": []})
+        if response_case == "existing_alias":
+            return httpx.Response(
+                200, json={"bank_id": "already-existing-canonical-bank", "aliases": []}
+            )
+        if response_case == "router_404":
+            return httpx.Response(404, json={"detail": "Not Found"})
+        if response_case == "foreign_404":
+            return httpx.Response(404, json={"detail": "Bank 'another-bank' not found"})
+        status = 405 if response_case == "unsupported" else 410
+        return httpx.Response(status, json={"detail": "Route unavailable"})
+
+    client = comparison.HindsightClient(runtime_path, transport=httpx.MockTransport(handler))
+    reason = (
+        "hindsight_bank_absence_unproven"
+        if response_case in {"router_404", "foreign_404"}
+        else "hindsight_http_status"
+    )
+    with pytest.raises(comparison.ComparisonError, match=reason):
+        asyncio.run(
+            comparison.ingest_hindsight(
+                protocol, None, client, runtime_path / "unused-audit", runtime_path
+            )
+        )
+    assert len(requests) == 1
+    assert all(request.method == "GET" for request in requests)
+    assert not list(runtime_path.glob("*-admission.json"))

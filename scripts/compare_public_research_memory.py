@@ -1712,12 +1712,16 @@ async def ingest_hindsight(
     from scripts.hindsight_runtime import summarize_extraction_audit
 
     for key, bank in protocol["banks"].items():
-        await client.request(
+        # At the pinned API, bare bank GET is unsupported and /profile is retired.
+        # /aliases runs the read-only existence guard, after alias resolution.
+        absent, _ = await client.request(
             f"bank-{key}-absent",
             "GET",
-            f"/v1/default/banks/{bank}",
+            f"/v1/default/banks/{bank}/aliases",
             expected_status=404,
         )
+        if absent != {"detail": f"Bank '{bank}' not found"}:
+            raise ComparisonError("hindsight_bank_absence_unproven")
         await client.request(f"bank-{key}-create", "PUT", f"/v1/default/banks/{bank}", body={})
     admissions = []
     for record in corpus():
