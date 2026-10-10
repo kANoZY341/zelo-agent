@@ -58,6 +58,21 @@ class ReaManualStaticTargetReceipt:
         return asdict(self)
 
 
+def _stable_profile_identity(info: os.stat_result) -> tuple[int, ...]:
+    """Reject substitutions and mutations without treating read-driven atime as a change."""
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_mode,
+        info.st_nlink,
+        info.st_uid,
+        info.st_gid,
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
+
+
 def _policy() -> dict[str, Any]:
     """Separately pinned manual target scope; never infer from the fixture proof."""
 
@@ -65,12 +80,13 @@ def _policy() -> dict[str, Any]:
         info = os.stat(OPERATOR_PROFILE, follow_symlinks=False)
         if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_PROFILE_BYTES:
             raise fixed.ReaStaticRefusal("rea_target_profile_invalid")
+        identity = _stable_profile_identity(info)
         fd = os.open(OPERATOR_PROFILE, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
         try:
-            if os.fstat(fd) != info:
+            if _stable_profile_identity(os.fstat(fd)) != identity:
                 raise fixed.ReaStaticRefusal("rea_target_profile_changed")
             raw = os.read(fd, MAX_PROFILE_BYTES + 1)
-            if len(raw) != info.st_size or os.fstat(fd) != info:
+            if len(raw) != info.st_size or _stable_profile_identity(os.fstat(fd)) != identity:
                 raise fixed.ReaStaticRefusal("rea_target_profile_changed")
         finally:
             os.close(fd)

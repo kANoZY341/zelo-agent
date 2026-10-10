@@ -54,6 +54,162 @@ def test_exact_manual_profile_is_pinned_and_denies_all_core_access():
     assert p["refuse_unreconciled_owned_staging"] is True
 
 
+# Keep real stat_result equality semantics and its nanosecond attributes so
+# these tests fail under the original whole-stat comparison, not due to mocks.
+_PROFILE_STAT_FIELDS = (
+    "st_mode",
+    "st_ino",
+    "st_dev",
+    "st_nlink",
+    "st_uid",
+    "st_gid",
+    "st_size",
+    "st_atime",
+    "st_mtime",
+    "st_ctime",
+)
+_PROFILE_IDENTITY_FIELDS = (
+    "st_dev",
+    "st_ino",
+    "st_mode",
+    "st_nlink",
+    "st_uid",
+    "st_gid",
+    "st_size",
+    "st_mtime_ns",
+    "st_ctime_ns",
+)
+
+
+def _stat_snapshot(info, **changes):
+    attributes = {name: getattr(info, name) for name in dir(info) if name.startswith("st_")}
+    attributes.update(changes)
+    return os.stat_result(tuple(attributes[name] for name in _PROFILE_STAT_FIELDS), attributes)
+
+
+@pytest.fixture
+def profile_file(tmp_path, monkeypatch):
+    profile = tmp_path / "profile.json"
+    profile.write_bytes(proof.OPERATOR_PROFILE.read_bytes())
+    monkeypatch.setattr(proof, "OPERATOR_PROFILE", profile)
+    return profile
+
+
+def _observe_profile_stats(monkeypatch, profile, change, *, check_number):
+    """Alter one descriptor observation; leave all real I/O and metadata intact."""
+    original_fstat, original_read = proof.os.fstat, proof.os.read
+    identity = profile.stat()
+    observed, reads = [], []
+
+    def same_file(info):
+        return (info.st_dev, info.st_ino) == (identity.st_dev, identity.st_ino)
+
+    def fstat(fd):
+        actual = original_fstat(fd)
+        if not same_file(actual):
+            return actual
+        observed.append(fd)
+        if len(observed) == check_number:
+            return change(actual)
+        return actual
+
+    def read(fd, limit):
+        if same_file(original_fstat(fd)):
+            reads.append(limit)
+        return original_read(fd, limit)
+
+    monkeypatch.setattr(proof.os, "fstat", fstat)
+    monkeypatch.setattr(proof.os, "read", read)
+    return observed, reads, original_fstat
+
+
+@pytest.mark.parametrize("check_number", (1, 2), ids=("before-read", "after-read"))
+def test_profile_read_access_time_change_preserves_pinned_identity(
+    profile_file, monkeypatch, check_number
+):
+    def access_time_only(info):
+        changed = _stat_snapshot(
+            info, st_atime=info.st_atime + 60, st_atime_ns=info.st_atime_ns + 60_000_000_000
+        )
+        assert changed != info  # The former whole-stat check would reject this.
+        assert all(
+            getattr(changed, name) == getattr(info, name) for name in _PROFILE_IDENTITY_FIELDS
+        )
+        return changed
+
+    observed, reads, original_fstat = _observe_profile_stats(
+        monkeypatch, profile_file, access_time_only, check_number=check_number
+    )
+    p = proof._policy()
+    assert p["manual_operator_opt_in_only"] is True
+    assert p["network_enabled"] is False
+    assert p["target_code_execution_enabled"] is False
+    assert p["core_worker_registered"] is False
+    assert p["core_approval"] is False and p["core_tool_grants"] == []
+    assert len(observed) == 2 and observed[0] == observed[1]
+    assert reads == [proof.MAX_PROFILE_BYTES + 1]
+    with pytest.raises(OSError):  # The accepted descriptor is closed, too.
+        original_fstat(observed[0])
+
+
+@pytest.mark.parametrize("field", _PROFILE_IDENTITY_FIELDS)
+@pytest.mark.parametrize("check_number", (1, 2), ids=("before-read", "after-read"))
+def test_profile_identity_change_still_refuses_and_closes_descriptor(
+    profile_file, monkeypatch, field, check_number
+):
+    def changed_identity(info):
+        return _stat_snapshot(info, **{field: getattr(info, field) + 1})
+
+    observed, reads, original_fstat = _observe_profile_stats(
+        monkeypatch, profile_file, changed_identity, check_number=check_number
+    )
+    with pytest.raises(fixed.ReaStaticRefusal, match="^rea_target_profile_changed$"):
+        proof._policy()
+    assert len(observed) == check_number
+    assert len(reads) == check_number - 1
+    with pytest.raises(OSError):
+        original_fstat(observed[-1])
+
+
+def test_cold_profile_read_does_not_depend_on_filesystem_atime_policy(profile_file):
+    before = profile_file.stat()
+    os.utime(profile_file, ns=(1, before.st_mtime_ns))
+    assert proof._policy()["core_worker_registered"] is False
+    assert proof._policy()["core_tool_grants"] == []
+
+
+def test_same_length_tampered_profile_still_fails_pinned_hash_with_atime_drift(
+    profile_file, monkeypatch
+):
+    raw = profile_file.read_bytes()
+    modified = raw.replace(b"false", b"true ", 1)
+    assert raw != modified and len(raw) == len(modified)
+    profile_file.write_bytes(modified)
+    _observe_profile_stats(
+        monkeypatch,
+        profile_file,
+        lambda info: _stat_snapshot(info, st_atime=info.st_atime + 60),
+        check_number=2,
+    )
+    with pytest.raises(fixed.ReaStaticRefusal, match="^rea_target_profile_identity_invalid$"):
+        proof._policy()
+
+
+def test_profile_replaced_between_stat_and_open_is_refused(profile_file, tmp_path, monkeypatch):
+    substitute = tmp_path / "substitute.json"
+    substitute.write_bytes(profile_file.read_bytes())
+    original_open = proof.os.open
+
+    def replace_then_open(path, flags, *args, **kwargs):
+        if path == proof.OPERATOR_PROFILE:
+            os.replace(substitute, profile_file)
+        return original_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(proof.os, "open", replace_then_open)
+    with pytest.raises(fixed.ReaStaticRefusal, match="^rea_target_profile_changed$"):
+        proof._policy()
+
+
 def test_modified_profile_and_symlink_are_refused(tmp_path, monkeypatch):
     altered = tmp_path / "policy.json"
     altered.write_bytes(proof.OPERATOR_PROFILE.read_bytes() + b" ")

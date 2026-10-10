@@ -149,6 +149,17 @@ is not the only defense against substituted files. This is not a generalized
 REA Worker. No runtime host, user-target, network or secret access is granted;
 Media refusal history and UI PR #61 remain preserved.
 
+## REA manual-profile CI correction (10 October 2026)
+
+The post-merge main check at 6eab7b9 failed one REA profile-read check with
+`rea_target_profile_changed`; 5,491 tests passed and two were skipped. An
+isolated correction compares stable file identity and nanosecond mutation
+metadata rather than access time, preserving exact profile SHA-256 and all
+consent/authority gates. Deterministic atime-only cases fail with the original
+reader and pass with the fix; protected metadata changes still refuse.
+This correction is pending independent review/full CI and is not permission
+to run a native qualification. See v0.15-rea-profile-stable-identity.md.
+
 ## Checkpoint history
 
 The sections below preserve prior releases and implementation checkpoints. Their
