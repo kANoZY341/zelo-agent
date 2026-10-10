@@ -20,6 +20,12 @@ from app.community_ecc_playbooks import (
     ecc_manual_playbook,
 )
 from app.community_harness import TeamBlueprint, TeamTemplate, propose_team
+from app.community_harness_project import (
+    HarnessProjectReviewPlan,
+    HarnessProjectReviewService,
+    TeamProjectPlanningRefusal,
+    TeamProjectPlanningRequest,
+)
 from app.community_skill_catalog import community_skill_candidates
 from app.community_sources import CommunitySourceRefusal, verify_community_sources
 from app.skills import SkillSpec
@@ -111,6 +117,29 @@ def get_community_team_draft(
     template: TeamTemplate,
 ) -> TeamBlueprint:
     return propose_team(template)
+
+
+@router.post(
+    "/teams/{template}/project-readiness",
+    response_model=HarnessProjectReviewPlan,
+)
+def preview_harness_project_readiness(
+    template: TeamTemplate,
+    body: TeamProjectPlanningRequest,
+    request: Request,
+) -> HarnessProjectReviewPlan:
+    """A project-bound, budgeted draft proposal, never an activation/approval."""
+
+    service = HarnessProjectReviewService(
+        request.app.state.storage,
+        request.app.state.agent_factory,
+    )
+    try:
+        return service.preview(template, body)
+    except TeamProjectPlanningRefusal:
+        raise HTTPException(status_code=409, detail="harness_project_blueprint_stale") from None
+    except CommunitySourceRefusal:
+        raise HTTPException(status_code=503, detail="harness_project_source_unavailable") from None
 
 
 @router.get("/architecture")

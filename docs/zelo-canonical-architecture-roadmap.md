@@ -435,6 +435,12 @@ permission/Skill promotion authority.
 Harness proposal templates additionally cover permissionless YouTube content
 and Trading research hierarchies under Managing Director → Zelo CEO (see
 v0.15-harness-specialist-team-drafts.md).
+A new operator-selected Project-bound Harness team review plan checks pinned
+blueprint, current Project status, Agent Registry version, globally reserved
+role identities and explicitly proposed four-role planning ceilings. Its SHA
+is a checksum, never an activation ticket; no AgentInstances, Workers, Tasks,
+Skill promotion, tools, Spaces or execution budgets are granted. See
+v0.15-harness-project-review-plan.md.
 The separate Archify projection of the trusted Agent Factory registry makes
 registered template hierarchy inspectable without live instance or grant claims
 (see v0.15-archify-agent-registry-projection.md).

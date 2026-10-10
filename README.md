@@ -167,7 +167,12 @@ is run and no Skill, Task, Tool, promotion or runtime authority is granted.
 A separate [explicit local Ollama ECC probe](docs/v0.15-ecc-local-model-probe.md)
 can observe only three synthetic-case responses from one already installed
 local model, using Zelo's existing ModelProvider. It requires an opt-in CLI
-flag, never grants permissions, and does not qualify a real Agent or Skill. An
+flag, never grants permissions, and does not qualify a real Agent or Skill.
+An [operator-selected Harness Project team review plan](docs/v0.15-harness-project-review-plan.md)
+can bind exact imported blueprint identity, an existing Project and proposed
+resource ceilings with collision and inactive-project denials through the
+POST `/integration-candidates/community/teams/{template}/project-readiness`.
+It creates no Agents, Workers, Tasks, permissions, or spend budget. An
 [authenticated OCR evidence preview](docs/v0.15-ocr-operator-evidence-preview.md)
 is available through the operator-only POST
 `/integration-candidates/community/open-code-review/evidence/{base_sha}/{head_sha}`.
