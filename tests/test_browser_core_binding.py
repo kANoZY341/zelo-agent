@@ -607,6 +607,18 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "agent_space_intent_revocations_no_delete",
             "agent_space_intents_no_duplicate_insert",
             "agent_space_intent_revocations_no_duplicate_insert",
+            "agent_space_resources_no_update",
+            "agent_space_resources_no_delete",
+            "agent_space_resources_no_duplicate_insert",
+            "agent_space_resource_retirements_no_update",
+            "agent_space_resource_retirements_no_delete",
+            "agent_space_resource_retirements_no_duplicate_insert",
+            "agent_space_activations_no_update",
+            "agent_space_activations_no_delete",
+            "agent_space_activations_no_duplicate_insert",
+            "agent_space_activation_revocations_no_update",
+            "agent_space_activation_revocations_no_delete",
+            "agent_space_activation_revocations_no_duplicate_insert",
         }
     finally:
         db.close()
