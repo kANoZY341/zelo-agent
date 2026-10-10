@@ -444,6 +444,12 @@ v0.15-harness-project-review-plan.md.
 The separate Archify projection of the trusted Agent Factory registry makes
 registered template hierarchy inspectable without live instance or grant claims
 (see v0.15-archify-agent-registry-projection.md).
+A further operator-only Archify view renders the **current** Project-bound
+Harness design-review plan as a strict static diagram of the four proposed,
+never-deployed roles, with exact plan fingerprint, Project/Registry binding,
+denial reason and no instance or permission grant. See
+`v0.15-archify-harness-project-design.md`. Live team activation still requires
+separate durable Managing Director approval and runtime qualifications.
 
 **Selected continuation (10 October 2026):** The repair queue is complete and the
 [Addy + Matt engineering pack](development/engineering-pack.md) merged in PR #143.
