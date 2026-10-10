@@ -636,14 +636,20 @@ class RepositoryInspector:
                 )
                 total += len(encoded)
 
-            status_after = _git(
-                self.repo,
-                "status",
-                "--porcelain=v1",
-                "-z",
-                "--untracked-files=normal",
-            )
-            head_after = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
+            try:
+                status_after = _git(
+                    self.repo,
+                    "status",
+                    "--porcelain=v1",
+                    "-z",
+                    "--untracked-files=normal",
+                )
+                head_after = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
+            except SelfImprovementError:
+                # Source metadata may have vanished or changed while content
+                # was read. This is an invalidated inspection, not permission
+                # to return the previously observed bytes.
+                raise SelfImprovementError("inspection_repository_changed") from None
             try:
                 identity_changed = _verified_git_repository(self.repo) != repository_identity
             except SelfImprovementError:

@@ -115,6 +115,52 @@ def test_repository_inspector_refuses_symlinked_git_metadata(tmp_path):
         RepositoryInspector(fake).inspect()
 
 
+def test_repository_inspector_rejects_group_writable_linked_pointer(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "unsafe-pointer"
+    git(repo, "worktree", "add", "--quiet", "-b", "unsafe-pointer", str(linked), sha)
+    (linked / ".git").chmod(0o664)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_rejects_symlinked_worktree_admin_directory(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "admin-symlink"
+    git(repo, "worktree", "add", "--quiet", "-b", "admin-symlink", str(linked), sha)
+    admin = repo / ".git" / "worktrees" / "admin-symlink"
+    detached = tmp_path / "detached-git-admin"
+    admin.rename(detached)
+    admin.symlink_to(detached, target_is_directory=True)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_refuses_worktree_gitfile_swap_during_inspection(
+    tmp_path, monkeypatch
+):
+    from app import self_improvement
+
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "swap-between-reads"
+    git(repo, "worktree", "add", "--quiet", "-b", "swap-between-reads", str(linked), sha)
+    pointer = linked / ".git"
+    original_read = self_improvement._read_regular_utf8
+    mutated = False
+
+    def swap_pointer(source, relative, bound):
+        nonlocal mutated
+        if not mutated:
+            mutated = True
+            pointer.write_text("gitdir: /invalid/admin/worktrees/forged\n")
+        return original_read(source, relative, bound)
+
+    monkeypatch.setattr(self_improvement, "_read_regular_utf8", swap_pointer)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_changed"):
+        RepositoryInspector(linked).inspect()
+    assert mutated
+
+
 def test_repository_inspector_ignores_untracked_private_review_evidence(tmp_path):
     repo, sha = make_repo(tmp_path)
     review = repo / "docs" / "reviews" / "untracked-adversarial-review.md"
