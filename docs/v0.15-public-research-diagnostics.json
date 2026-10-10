@@ -682,6 +682,73 @@
       "runtime_cleanup_confirmed": true,
       "setup_cleanup_errors": [],
       "status": "failed"
+    },
+    {
+      "answer_words": 183,
+      "browser_tasks_succeeded": 3,
+      "database_sha256_after_memory": "667a97cf8adee063c2c53a0418cc5c2e5b9374484fc6fe0574b961da1a7e1889",
+      "database_sha256_before_memory": "c7511e52cf171ed88393ef70fc64380178dffb846b93e972f61505930fd29b90",
+      "exact_replay_parent_monotonic_seconds": 1.1403312040492892,
+      "exact_replay_same_receipt": true,
+      "exclusion_recall_empty": true,
+      "full_summary_recalled_untruncated": true,
+      "git_commit": "f9e72873626e5ab2539511c916736c48877e5136",
+      "memory_id": "19f89fb7-8d92-4fbe-959c-13df1725d579",
+      "memory_receipt": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/memory-receipt.json",
+      "memory_receipt_sha256": "73ba4de90cae13005579526f7c09a6710f3ae04d7d4f9d285f48cdb9b734ed7e",
+      "memory_records_after_exact_replay": 1,
+      "memory_written": false,
+      "mind_turn_id": "a66d42b9-89c7-5f47-ad3e-a80582433a8a",
+      "mind_turn_persisted": true,
+      "mind_usage": {
+        "completion_tokens": 300,
+        "prompt_tokens": 924,
+        "total_tokens": 1224
+      },
+      "parent_monotonic_seconds": 471.0420387429185,
+      "published_evidence_directory": "docs/reviews/public-research-v0.15",
+      "report": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/report.json",
+      "report_sha256": "d10585450dc9f48137e107bd35446198536b4c94fe309f3b5a359df03114d3b1",
+      "research_model_steps": 4,
+      "research_result_sha256": "f2f82a8e7065d20d47d9fa5a670a8bc40c5024caa88443bcc090ccf69e659f1a",
+      "research_task_id": "778fb8b7-0a1d-49e5-9a6f-98589ce31410",
+      "research_timeout_seconds": 600.0,
+      "research_tool_calls": 3,
+      "research_usage": [
+        {
+          "completion_tokens": 23,
+          "prompt_tokens": 677,
+          "step": 1,
+          "total_tokens": 700
+        },
+        {
+          "completion_tokens": 24,
+          "prompt_tokens": 2421,
+          "step": 2,
+          "total_tokens": 2445
+        },
+        {
+          "completion_tokens": 24,
+          "prompt_tokens": 3398,
+          "step": 3,
+          "total_tokens": 3422
+        },
+        {
+          "completion_tokens": 333,
+          "prompt_tokens": 6385,
+          "step": 4,
+          "total_tokens": 6718
+        }
+      ],
+      "reviewed_memory_written_after_report": true,
+      "reviewed_summary_characters": 998,
+      "reviewed_summary_sha256": "854543cc62680c8d4ac0b4ce8c589accd3c305c478bb4e215ab7bba07b46443d",
+      "runtime_cleanup_confirmed": true,
+      "semantic_review": "runtime/public-research/proof-2ff6423a809a4ddbb242f471f2a56b32/semantic-review.json",
+      "semantic_review_sha256": "6232ce6d838d2e5602d533d293119a5ee6cc10d6baeeb517e965235783dfcb42",
+      "setup_cleanup_errors": [],
+      "status": "passed",
+      "unedited_answer_semantic_status": "failed_semantic_completeness_review"
     }
   ],
   "schema": "zelo-public-research-diagnostics-v1",
