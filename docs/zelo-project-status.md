@@ -121,6 +121,10 @@ Archify now has a second operator-only view grounded in the trusted Agent Factor
 registry: exact AgentSpec/DepartmentSpec templates, version fingerprint,
 deterministic JSON/Mermaid and digest. It never claims that templates are running
 Agents or that edges grant authority. See v0.15-archify-agent-registry-projection.md.
+The separate OpenDots Specialist profile candidate exposes only trust-bound,
+operator-visible AgentSpec instructions, memory namespace, eligible skill
+metadata, declared Spaces and tools; no new authority (see
+v0.15-opendots-specialist-profile.md and issue #131).
 UI PR #61 remains parked until the Core-first development priority changes.
 
 Context Mode concept continuation: a separate operator-only, private SQLite
@@ -150,6 +154,17 @@ analyzer boundary before Docker launch, so the CLI's fixture preparation
 is not the only defense against substituted files. This is not a generalized
 REA Worker. No runtime host, user-target, network or secret access is granted;
 Media refusal history and UI PR #61 remain preserved.
+
+## REA manual-profile CI correction (10 October 2026)
+
+The post-merge main check at 6eab7b9 failed one REA profile-read check with
+`rea_target_profile_changed`; 5,491 tests passed and two were skipped. An
+isolated correction compares stable file identity and nanosecond mutation
+metadata rather than access time, preserving exact profile SHA-256 and all
+consent/authority gates. Deterministic atime-only cases fail with the original
+reader and pass with the fix; protected metadata changes still refuse.
+This correction is pending independent review/full CI and is not permission
+to run a native qualification. See v0.15-rea-profile-stable-identity.md.
 
 ## Checkpoint history
 
