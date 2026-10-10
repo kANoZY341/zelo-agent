@@ -521,6 +521,10 @@ inspect
 ```
 
 v0.11 does not autonomously merge, tag, release or deploy itself.
+A later v0.15 maintenance fix qualifies real registered linked Git
+worktrees for bounded, clean, read-only self-inspection with reciprocal
+Git metadata identity checks; it does not relax Developer execution or
+approval authority. See `v0.15-self-improvement-linked-worktree-qualification.md`.
 
 ### Early workspace increment — Core proof completed; workspace foundation active
 

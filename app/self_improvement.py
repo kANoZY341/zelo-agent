@@ -305,6 +305,143 @@ def _git(repo: Path, *arguments: str) -> bytes:
     return result.stdout
 
 
+def _git_metadata_file(path: Path, limit: int = 4096) -> tuple[bytes, tuple[int, ...]]:
+    """Open one owner-controlled Git metadata pointer without following symlinks."""
+    try:
+        before = path.lstat()
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) & 0o022
+            or not 0 < before.st_size <= limit
+        ):
+            raise OSError("unsafe_git_metadata_file")
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            opened = os.fstat(fd)
+            raw = os.read(fd, limit + 1)
+            after = os.fstat(fd)
+        finally:
+            os.close(fd)
+        present = path.lstat()
+    except OSError:
+        raise SelfImprovementError("inspection_repository_unavailable") from None
+
+    def identity(info) -> tuple[int, ...]:
+        return (
+            info.st_dev,
+            info.st_ino,
+            info.st_mode,
+            info.st_uid,
+            info.st_nlink,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
+        )
+
+    if (
+        identity(before) != identity(opened)
+        or identity(before) != identity(after)
+        or identity(before) != identity(present)
+        or len(raw) != before.st_size
+    ):
+        raise SelfImprovementError("inspection_repository_unavailable")
+    return raw, identity(before)
+
+
+def _trusted_git_directory(path: Path) -> None:
+    """Reject aliases and group-writable Git admin paths before Git executes."""
+    try:
+        info = path.lstat()
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) & 0o022
+            or path.resolve(strict=True) != path
+        ):
+            raise OSError("unsafe_git_directory")
+    except (OSError, RuntimeError, ValueError):
+        raise SelfImprovementError("inspection_repository_unavailable") from None
+
+
+def _git_absolute_path(repo: Path, *args: str) -> Path:
+    try:
+        value = _git(repo, "rev-parse", *args).decode("utf-8").strip()
+        path = Path(value)
+        if (
+            not value
+            or len(value) > 4096
+            or any(character in value for character in "\r\n\x00")
+            or not path.is_absolute()
+            or any(part == ".." for part in path.parts)
+            or path.resolve(strict=True) != path
+        ):
+            raise ValueError("invalid_git_path")
+        return path
+    except (SelfImprovementError, UnicodeError, ValueError, OSError, RuntimeError):
+        raise SelfImprovementError("inspection_repository_unavailable") from None
+
+
+def _verified_git_repository(repo: Path) -> tuple[object, ...]:
+    """Accept real clones or reciprocally registered linked worktrees only.
+
+    A copied/forged `.git` file, symlinked pointer, mismatched Git top-level or
+    alternate external Git directory is never sufficient to authorize source
+    inspection. The returned identity is checked again after file reads.
+    """
+    marker = repo / ".git"
+    try:
+        info = marker.lstat()
+    except OSError:
+        raise SelfImprovementError("inspection_repository_unavailable") from None
+
+    if stat.S_ISDIR(info.st_mode):
+        _trusted_git_directory(marker)
+        expected_admin = expected_common = marker
+        identity: tuple[object, ...] = ("clone", info.st_dev, info.st_ino)
+    elif stat.S_ISREG(info.st_mode):
+        raw, pointer_stamp = _git_metadata_file(marker)
+        if not raw.startswith(b"gitdir: ") or not raw.endswith(b"\n"):
+            raise SelfImprovementError("inspection_repository_unavailable")
+        try:
+            decoded = raw[len(b"gitdir: ") : -1].decode("utf-8")
+            expected_admin = Path(decoded)
+            if (
+                not expected_admin.is_absolute()
+                or any(character in decoded for character in "\r\n\x00")
+                or ".." in expected_admin.parts
+                or expected_admin.parent.name != "worktrees"
+                or not expected_admin.name
+            ):
+                raise ValueError("invalid_gitfile")
+        except (UnicodeError, ValueError):
+            raise SelfImprovementError("inspection_repository_unavailable") from None
+        expected_common = expected_admin.parent.parent
+        for directory in (expected_common, expected_admin.parent, expected_admin):
+            _trusted_git_directory(directory)
+        reciprocal, reciprocal_stamp = _git_metadata_file(expected_admin / "gitdir")
+        if reciprocal != (str(marker) + "\n").encode("utf-8"):
+            raise SelfImprovementError("inspection_repository_unavailable")
+        # Linked worktrees always resolve commondir to their registered
+        # common Git root, not to an arbitrary external Git directory.
+        commondir, _ = _git_metadata_file(expected_admin / "commondir", 128)
+        if commondir != b"../..\n":
+            raise SelfImprovementError("inspection_repository_unavailable")
+        identity = ("linked", *pointer_stamp, *reciprocal_stamp)
+    else:
+        raise SelfImprovementError("inspection_repository_unavailable")
+
+    if (
+        _git_absolute_path(repo, "--show-toplevel") != repo
+        or _git_absolute_path(repo, "--absolute-git-dir") != expected_admin
+        or _git_absolute_path(repo, "--path-format=absolute", "--git-common-dir") != expected_common
+        or _git(repo, "rev-parse", "--is-inside-work-tree").strip() != b"true"
+    ):
+        raise SelfImprovementError("inspection_repository_unavailable")
+    return (str(repo), str(expected_admin), str(expected_common), *identity)
+
+
 def _decode_paths(data: bytes) -> tuple[str, ...]:
     try:
         values = tuple(item.decode("utf-8") for item in data.split(b"\x00") if item)
@@ -439,8 +576,7 @@ class RepositoryInspector:
 
     def inspect(self) -> RepositoryInspection:
         try:
-            if not (self.repo / ".git").is_dir():
-                raise SelfImprovementError("inspection_repository_unavailable")
+            repository_identity = _verified_git_repository(self.repo)
 
             status_before = _git(
                 self.repo,
@@ -500,15 +636,29 @@ class RepositoryInspector:
                 )
                 total += len(encoded)
 
-            status_after = _git(
-                self.repo,
-                "status",
-                "--porcelain=v1",
-                "-z",
-                "--untracked-files=normal",
-            )
-            head_after = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
-            if not _repository_status_clean(status_after) or head_after != base_sha:
+            try:
+                status_after = _git(
+                    self.repo,
+                    "status",
+                    "--porcelain=v1",
+                    "-z",
+                    "--untracked-files=normal",
+                )
+                head_after = _git(self.repo, "rev-parse", "HEAD").decode("ascii").strip()
+            except SelfImprovementError:
+                # Source metadata may have vanished or changed while content
+                # was read. This is an invalidated inspection, not permission
+                # to return the previously observed bytes.
+                raise SelfImprovementError("inspection_repository_changed") from None
+            try:
+                identity_changed = _verified_git_repository(self.repo) != repository_identity
+            except SelfImprovementError:
+                identity_changed = True
+            if (
+                not _repository_status_clean(status_after)
+                or head_after != base_sha
+                or identity_changed
+            ):
                 raise SelfImprovementError("inspection_repository_changed")
 
             return RepositoryInspection.create(

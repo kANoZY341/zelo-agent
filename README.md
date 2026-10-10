@@ -77,6 +77,11 @@ MIT source references remain under `integrations/development/`; the pack grants
 no runtime Skill Registry entry or execution authority. Merge and validation
 evidence is recorded in the [project status](docs/zelo-project-status.md).
 
+The [linked-worktree self-inspection fix](docs/v0.15-self-improvement-linked-worktree-qualification.md)
+allows bounded read-only RepositoryInspector work on authenticated, registered
+Git worktrees without accepting fabricated `.git` pointers or widening
+Developer Worker/approval authority.
+
 ## Public research with project memory
 
 The opt-in [public research workflow](docs/v0.15-public-research-workflow.md)

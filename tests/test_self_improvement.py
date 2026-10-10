@@ -59,6 +59,108 @@ def test_repository_inspector_builds_deterministic_bounded_snapshot(tmp_path):
     assert first.total_content_bytes == sum(len(item.text.encode("utf-8")) for item in first.files)
 
 
+def test_repository_inspector_accepts_real_registered_linked_worktree(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "linked-worktree"
+    git(repo, "worktree", "add", "--quiet", "-b", "linked-demo", str(linked), sha)
+    assert (linked / ".git").is_file() and not (linked / ".git").is_symlink()
+
+    inspection = RepositoryInspector(linked).inspect()
+    assert inspection.base_sha == sha
+    assert inspection.branch == "linked-demo"
+    assert inspection.clean is True
+    assert "README.md" in inspection.tracked_paths
+    assert {item.path: item.text for item in inspection.files}["app/core.py"] == "VALUE = 1\n"
+    assert "docs/reviews/private-review.md" not in {item.path for item in inspection.files}
+
+
+def test_repository_inspector_refuses_dirty_linked_worktree(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "linked-dirty"
+    git(repo, "worktree", "add", "--quiet", "-b", "linked-dirty", str(linked), sha)
+    (linked / "app" / "core.py").write_text("VALUE = 5\n")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_dirty"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_rejects_forged_gitfile_pointing_to_other_repository(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    forged = tmp_path / "forged"
+    forged.mkdir()
+    (forged / ".git").write_text(f"gitdir: {repo / '.git'}\n")
+    (forged / "README.md").write_text("unrelated files\n")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(forged).inspect()
+
+
+def test_repository_inspector_rejects_copied_linked_pointer_not_registered(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "registered"
+    git(repo, "worktree", "add", "--quiet", "-b", "registered", str(linked), sha)
+    fake = tmp_path / "copied"
+    fake.mkdir()
+    (fake / ".git").write_bytes((linked / ".git").read_bytes())
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(fake).inspect()
+
+
+def test_repository_inspector_refuses_symlinked_git_metadata(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "registered"
+    git(repo, "worktree", "add", "--quiet", "-b", "registered", str(linked), sha)
+    fake = tmp_path / "git-symlink"
+    fake.mkdir()
+    (fake / ".git").symlink_to(linked / ".git")
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(fake).inspect()
+
+
+def test_repository_inspector_rejects_group_writable_linked_pointer(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "unsafe-pointer"
+    git(repo, "worktree", "add", "--quiet", "-b", "unsafe-pointer", str(linked), sha)
+    (linked / ".git").chmod(0o664)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_rejects_symlinked_worktree_admin_directory(tmp_path):
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "admin-symlink"
+    git(repo, "worktree", "add", "--quiet", "-b", "admin-symlink", str(linked), sha)
+    admin = repo / ".git" / "worktrees" / "admin-symlink"
+    detached = tmp_path / "detached-git-admin"
+    admin.rename(detached)
+    admin.symlink_to(detached, target_is_directory=True)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_unavailable"):
+        RepositoryInspector(linked).inspect()
+
+
+def test_repository_inspector_refuses_worktree_gitfile_swap_during_inspection(
+    tmp_path, monkeypatch
+):
+    from app import self_improvement
+
+    repo, sha = make_repo(tmp_path)
+    linked = tmp_path / "swap-between-reads"
+    git(repo, "worktree", "add", "--quiet", "-b", "swap-between-reads", str(linked), sha)
+    pointer = linked / ".git"
+    original_read = self_improvement._read_regular_utf8
+    mutated = False
+
+    def swap_pointer(source, relative, bound):
+        nonlocal mutated
+        if not mutated:
+            mutated = True
+            pointer.write_text("gitdir: /invalid/admin/worktrees/forged\n")
+        return original_read(source, relative, bound)
+
+    monkeypatch.setattr(self_improvement, "_read_regular_utf8", swap_pointer)
+    with pytest.raises(SelfImprovementError, match="inspection_repository_changed"):
+        RepositoryInspector(linked).inspect()
+    assert mutated
+
+
 def test_repository_inspector_ignores_untracked_private_review_evidence(tmp_path):
     repo, sha = make_repo(tmp_path)
     review = repo / "docs" / "reviews" / "untracked-adversarial-review.md"
