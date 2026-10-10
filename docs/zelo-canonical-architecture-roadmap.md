@@ -332,6 +332,9 @@ These projects are references or optional components, not Zelo itself.
 | Agent Town | Company-world/visual-office reference or adaptation candidate |
 | Ruflo | Optional swarm / coordinated execution backend |
 | ECC | Engineering skills, hooks, verification and worker procedures |
+| Addy Osmani / Matt Pocock skills | Selected repository development procedures, adapted to Zelo rules with pinned MIT source notices |
+| Agent-Reach | Public-source access choices and diagnostics, behind Zelo-owned retrieval and evidence boundaries |
+| Hindsight | Evaluation-only candidate for richer retrieval behind Core memory scope and lifecycle controls |
 | Harness | Agent Factory / agent-team design reference |
 | CopilotKit/OpenDots | Specialist-agent workspace, Computer Panel, per-agent computer and learning UX/reference; selectively adapt compatible code only |
 | CopilotKit/OpenBot | Pinned candidate backend for per-agent persistent browser/files/shell/takeover; always behind Zelo Core/Supervisor authority |
@@ -396,6 +399,17 @@ v0.15-harness-specialist-team-drafts.md).
 The separate Archify projection of the trusted Agent Factory registry makes
 registered template hierarchy inspectable without live instance or grant claims
 (see v0.15-archify-agent-registry-projection.md).
+
+**Selected continuation (10 October 2026):** After completing the repair and
+merge queue, apply the [Addy + Matt engineering pack](development/engineering-pack.md),
+complete one useful public research workflow with current Zelo memory, and
+compare Hindsight on the same bounded non-sensitive workload. The engineering
+pack serves contributors and coding workers through root `AGENTS.md`.
+Public-source text remains untrusted evidence; reviewed memory retention stays
+an explicit Core operation. A memory experiment does not replace Core's scope,
+expiry, correction, supersession, provenance or context-admission authority.
+HyperFrames and VoiceStudio follow when the corresponding production tasks begin.
+This continuation remains within the current v0.15 engineering focus.
 
 ## Workspace and conversational direction
 

@@ -63,6 +63,14 @@ python -m pytest -q
 Runtime dependencies include the local HTTP client used by the Ollama adapter.
 The development requirements add pytest and Ruff.
 
+## Engineering development procedures
+
+The [engineering development pack](docs/development/engineering-pack.md)
+provides focused procedures for diagnosing bugs, choosing meaningful tests,
+improving diagnostics, and simplifying completed changes. Root `AGENTS.md`
+selects the relevant procedure for repository work. Its pinned MIT source
+references are retained separately under `integrations/development/`.
+
 ## Vendored REA source (inactive)
 
 The complete upstream REA 6.0.0 **tracked source snapshot** is copied into

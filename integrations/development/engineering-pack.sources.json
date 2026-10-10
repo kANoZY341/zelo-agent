@@ -1,0 +1,131 @@
+{
+  "adaptation_notes": [
+    "Use Zelo-authored docs/development procedures; upstream source instructions remain non-authoritative.",
+    "Routine test-interface choices follow existing task authorization; no extra user approval for each test.",
+    "Security tests may verify refusal before a forbidden backend side effect.",
+    "Telemetry uses existing bounded structured diagnostics before proposing new infrastructure.",
+    "Simplification preserves async authorization checks and uses relevant tests plus established CI gates.",
+    "The human-assisted diagnosis helper is retained only for source-reference closure, with exact bytes and no executable bits.",
+    "Named upstream skills, host discovery metadata, installers and plugins are not installed or invoked.",
+    "The Addy code-simplification source retains its attribution to Anthropic Code Simplifier."
+  ],
+  "audience": "repository_contributors",
+  "execution_enabled": false,
+  "guidance_documents": [
+    "docs/development/behavioral-testing.md",
+    "docs/development/code-simplification.md",
+    "docs/development/diagnosing-bugs.md",
+    "docs/development/engineering-pack.md",
+    "docs/development/observability.md"
+  ],
+  "purpose": "Pinned source evidence for Zelo-authored repository development procedures.",
+  "runtime_skill_registration": false,
+  "schema_version": "zelo-development-engineering-sources-v1",
+  "source_bytes": 52062,
+  "source_file_count": 10,
+  "source_instructions_authoritative": false,
+  "source_only": true,
+  "sources": [
+    {
+      "commit": "1401c8b8030e023baeebb31781a6653fe8e93026",
+      "files": [
+        {
+          "bytes": 1068,
+          "local_mode": "0644",
+          "path": "LICENSE",
+          "sha256": "6f202f8bd568cd730dbb2b0d1f8e243bc74c2fa1f64dbce9b2c7ea08bd5c9fd7",
+          "upstream_git_blob": "d67778ada6b9cda6227e9130da182c13e73c8b2e",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 5129,
+          "local_mode": "0644",
+          "path": "references/observability-checklist.md",
+          "sha256": "25fcd0e854596a5ab6f11b002050d245bf78f5ae0fcbd1df699b89451ae0e1e8",
+          "upstream_git_blob": "ad40d7aa3fca5d2091fa45be234c14aee22c3588",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 13545,
+          "local_mode": "0644",
+          "path": "skills/code-simplification/SKILL.md",
+          "sha256": "f0c5ed754057eb0c1e027e2587f59de816651feb5e837242296c43ea21cf621d",
+          "upstream_git_blob": "239b2848489511de30d9e63b0bd183adc4b01347",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 13948,
+          "local_mode": "0644",
+          "path": "skills/observability-and-instrumentation/SKILL.md",
+          "sha256": "e7fcb0820306d46268de9594d676ad98e35040858926c412b7000faa52a61f87",
+          "upstream_git_blob": "84d9cb373467fe0e15236e190833ecc90f840c38",
+          "upstream_mode": "100644"
+        }
+      ],
+      "id": "addy_agent_skills",
+      "license": "MIT",
+      "license_path": "sources/addy_agent_skills/LICENSE",
+      "repository": "addyosmani/agent-skills",
+      "source_root": "sources/addy_agent_skills"
+    },
+    {
+      "commit": "49dd158d1076134a641b33efb035946536778336",
+      "files": [
+        {
+          "bytes": 1068,
+          "local_mode": "0644",
+          "path": "LICENSE",
+          "sha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+          "upstream_git_blob": "f1dd2c09108dde1a5f56097cee8461b3ea834499",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 8664,
+          "local_mode": "0644",
+          "path": "skills/engineering/diagnosing-bugs/SKILL.md",
+          "sha256": "849198df88cdb65fd0d97236604c1fca7ff2f22d2f705f9724a800d0266b118d",
+          "upstream_git_blob": "d039541ddd1c46e6ddbd662fe99d49b686fc5e12",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 1316,
+          "local_mode": "0644",
+          "path": "skills/engineering/diagnosing-bugs/scripts/hitl-loop.template.sh",
+          "sha256": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503",
+          "upstream_git_blob": "243198464a8401a7ba1d63b3708fa43c3d067665",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 3629,
+          "local_mode": "0644",
+          "path": "skills/engineering/tdd/SKILL.md",
+          "sha256": "5505d25bbaa8fc14a79e4d20163936958992a2995b7f1dd1d6197edc9ed722e0",
+          "upstream_git_blob": "01eadaa34e7c9a63a67d6dc3cce1cc81b0e49985",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 1481,
+          "local_mode": "0644",
+          "path": "skills/engineering/tdd/mocking.md",
+          "sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+          "upstream_git_blob": "71cbfee674d93244ce81d1830b930ca9a69200bd",
+          "upstream_mode": "100644"
+        },
+        {
+          "bytes": 2214,
+          "local_mode": "0644",
+          "path": "skills/engineering/tdd/tests.md",
+          "sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a",
+          "upstream_git_blob": "7ab86479f925a1f9e8ba680af33cb3b12e015381",
+          "upstream_mode": "100644"
+        }
+      ],
+      "id": "matt_skills",
+      "license": "MIT",
+      "license_path": "sources/matt_skills/LICENSE",
+      "repository": "mattpocock/skills",
+      "source_root": "sources/matt_skills"
+    }
+  ],
+  "tool_grants": []
+}
