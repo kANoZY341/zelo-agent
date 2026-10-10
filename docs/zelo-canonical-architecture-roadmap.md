@@ -385,6 +385,12 @@ revalidating it on submit/retry/claim and at read dispatch. Generic Computer
 backends reject Space-bound requests; the Core Runner fails closed without its
 Space file gateway. This remains file-read-only, not general OpenDots authority
 or an automatic Agent Tool. See `v0.15-space-file-task-routing.md`.
+An additional authenticated, read-only Specialist Space-status projection
+shows whether a currently confirmed, scoped file Task appears eligible, or
+which exact owner/lifecycle/registry/resource/Computer prerequisite denies
+it. The projection never grants access or exposes source paths/content; every
+use-point revalidates its own authority. See
+`v0.15-specialist-space-access-status.md`.
 Existing Computer Worker execution is also revalidated after the control-state
 await and started-event callback, immediately before backend dispatch. This
 closes a reproduced revocation gap without granting Space authority; see
