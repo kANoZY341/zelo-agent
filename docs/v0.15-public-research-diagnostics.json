@@ -259,6 +259,333 @@
       "prior_context_tokens": 3359,
       "prompt_tokens": 6322,
       "semantic_outcome": "expensive_partial_prefill_observed_without_complete_final_reply"
+    },
+    {
+      "all_three_exact_source_results_in_final_request": true,
+      "artifacts_sha256": {
+        "call-04-request.json": "7181d333db7d373fd2984c0e0aa074be94ecfffc8af4acc7fdd8cc63b4abb550",
+        "protocol.json": "f0e453b76d2188bb4e06dae35f2f6c9983eb8ac2c6ad5ad968a4da39123e5687",
+        "result.json": "66335768030ca280917a3cfa4f211e4db57413cf94501581915c494fdf048c21",
+        "run_component.py": "91de72d58298ccc15aed11da0de6ec24774a7acaa4ce916c716208ce53ed1e9c"
+      },
+      "call_seconds": [
+        18.70863287593238,
+        24.34241022192873,
+        59.19235110189766,
+        240.04897901881486
+      ],
+      "calls": 4,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-acc94133853e44f29770400f0fb8a2e0",
+      "elapsed_seconds": 342.49303367198445,
+      "failed_call": 4,
+      "failure_code": "model_timeout",
+      "model_resident_before": false,
+      "reply_complete": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "research_tool_calls": 3,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "three_complete_reads_then_fourth_call_timeout_without_complete_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "journal-timing.json": "44925c6b5ab1d9ffdf18eaeeffc7f3fe5f025482d9bee38fc8e6d314ed156730",
+        "observation.json": "5c4a629880885decee95a5fbcf870b49d69b9757371f5611730aecf1c087b9a2"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timing-observation-316f0f8fbef0465c8eeeb2ca7d423708",
+      "exact_generation_total_known": false,
+      "explicit_generation_updates": 28,
+      "first_observed_generation": {
+        "elapsed_seconds": 155.863606,
+        "tokens": 100
+      },
+      "generation_before_cancellation_observed": true,
+      "independent_numeric_records_matched": true,
+      "last_observed_generation": {
+        "elapsed_seconds": 239.314549,
+        "tokens": 579
+      },
+      "new_inference": false,
+      "original_answer_retained": false,
+      "original_inputs_modified": false,
+      "prompt_tokens": 6322,
+      "raw_journal_rerender_byte_equality": false,
+      "requested_context_tokens": 16384,
+      "semantic_outcome": "actual_generation_observed_before_240_second_cancellation_without_answer_or_terminal_usage"
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "65f486ef1371ca7b36189d0a18310c57daf8738c76e51a54fbb7be09e0c5f4e2",
+        "protocol.json": "02086f9419014ab1e174af1ccb76232164c9c61510d4dd29ffde2d1d0622a1f0",
+        "request.json": "f78f10cfc5a2df41ec596f1fd910d2925bcda82e139a92be24c77eb348235f87",
+        "response.ndjson": "2cf1c46d77a1b1ae1dcbc21c22f7206f2ed3f0c27f8457875563bd1a45f44247",
+        "result.json": "65149912e02d7f586987de6aae8008c725c7a6576464eb80ad7921e593ffbf8c",
+        "run_stream.py": "7b22c4e9ec5cfdbdc0787f8483560a2ac7c5c59f01c38ea563e29f067b3dc41e"
+      },
+      "cache_controlled": false,
+      "complete_workflow": false,
+      "core_task_dispatches": 0,
+      "database_opens": 0,
+      "diagnostic_status": "timeout",
+      "directory": "runtime/public-research/research-final-stream-diagnostic-84c9dc59c3e24b20911d4424999c813d",
+      "generation": {
+        "capture_capped": false,
+        "captured_bytes": 207924,
+        "content": {
+          "bytes": 8326,
+          "sha256": "65f486ef1371ca7b36189d0a18310c57daf8738c76e51a54fbb7be09e0c5f4e2"
+        },
+        "content_characters": 8326,
+        "content_trailing_whitespace_characters": 0,
+        "decoded_frames": 1387,
+        "done_observed": false,
+        "elapsed_seconds": 480.0102688870393,
+        "finished_at": "2026-10-10T05:49:57.809002+00:00",
+        "first_content_seconds": 230.2767686790321,
+        "first_response_bytes_seconds": 230.2767686790321,
+        "first_thinking_seconds": null,
+        "message_tool_calls_observed": false,
+        "raw_response": {
+          "bytes": 207924,
+          "sha256": "2cf1c46d77a1b1ae1dcbc21c22f7206f2ed3f0c27f8457875563bd1a45f44247"
+        },
+        "response_complete": false,
+        "response_eof": false,
+        "started_at": "2026-10-10T05:41:03.939531+00:00",
+        "status": "timeout",
+        "status_code": 200,
+        "strict_core_action_parse": {
+          "valid": false
+        },
+        "terminal_metrics": null,
+        "thinking": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "undecoded_tail": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wall_limit_seconds": 480.0
+      },
+      "memory_writes": 0,
+      "model": "qwen2.5-coder:3b-instruct-8k",
+      "model_after": {
+        "cache_controlled": false,
+        "identity_valid": true,
+        "recorded_at": "2026-10-10T05:49:58.367171+00:00",
+        "requested_context_tokens": 16384,
+        "responses": {
+          "/api/ps": {
+            "models": [
+              {
+                "context_length": 16384,
+                "details": {
+                  "families": [
+                    "qwen2"
+                  ],
+                  "family": "qwen2",
+                  "format": "gguf",
+                  "parameter_size": "3.1B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+                "expires_at": "2026-10-10T09:54:57.801328328+04:00",
+                "model": "qwen2.5-coder:3b-instruct-8k",
+                "name": "qwen2.5-coder:3b-instruct-8k",
+                "size": 2730921819,
+                "size_vram": 0
+              }
+            ],
+            "status": "ok"
+          },
+          "/api/tags": {
+            "models": [
+              {
+                "details": {
+                  "context_length": 32768,
+                  "embedding_length": 2048,
+                  "families": [
+                    "qwen2"
+                  ],
+                  "family": "qwen2",
+                  "format": "gguf",
+                  "parameter_size": "3.1B",
+                  "parent_model": "qwen2.5-coder:3b-instruct",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+                "model": "qwen2.5-coder:3b-instruct-8k",
+                "name": "qwen2.5-coder:3b-instruct-8k",
+                "size": 1929912271
+              }
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "model_digest": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_output_reconstructed": false,
+      "request_changes_from_original": [
+        "stream",
+        "observational_timeout"
+      ],
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "unfinished_uncited_repetitive_output_with_cross_channel_source_errors",
+      "semantic_pass": false,
+      "tool_dispatches": 0
+    },
+    {
+      "answer_words": 240,
+      "artifacts_sha256": {
+        "content.txt": "76f8bbb8413a4856c93a90f6798a698ada2aaa19605fc9162a27de26f08cbd25",
+        "protocol.json": "4c66e0b2a5782fd9cfa3bfe076040df0b07542500787c403558e4d80ab143947",
+        "request.json": "d3e6047ef1911e6b928e5f13a569aee7cd9f9da750b6702a0614dd42df45fd8e",
+        "response.ndjson": "178b4c286d99ff62e078176e11b1fbc08cded309032bd6f0e32e4de95d28ac0d",
+        "result.json": "dd96773a150a3f2946607e0e771d879d0d1632d6986e68aee40bbff5c3e1659a",
+        "run_stream.py": "d5faeb38f5eef17e9b846e211dd6c256d078763a68d6ed66de8b4ee23bf037ca"
+      },
+      "cache_controlled": false,
+      "complete_workflow": false,
+      "core_task_dispatches": 0,
+      "database_opens": 0,
+      "diagnostic_status": "completed",
+      "directory": "runtime/public-research/research-final-stream-diagnostic-bd177f11a3aa458bb75ae4c4dcd0efcc",
+      "generation": {
+        "capture_capped": false,
+        "captured_bytes": 57890,
+        "content": {
+          "bytes": 1871,
+          "sha256": "76f8bbb8413a4856c93a90f6798a698ada2aaa19605fc9162a27de26f08cbd25"
+        },
+        "content_characters": 1865,
+        "content_trailing_whitespace_characters": 0,
+        "decoded_frames": 443,
+        "done_observed": true,
+        "elapsed_seconds": 369.37645670212805,
+        "finished_at": "2026-10-10T06:04:16.703725+00:00",
+        "first_content_seconds": 288.9167386610061,
+        "first_response_bytes_seconds": 288.9167386610061,
+        "first_thinking_seconds": null,
+        "message_tool_calls_observed": false,
+        "raw_response": {
+          "bytes": 57890,
+          "sha256": "178b4c286d99ff62e078176e11b1fbc08cded309032bd6f0e32e4de95d28ac0d"
+        },
+        "response_complete": true,
+        "response_eof": true,
+        "started_at": "2026-10-10T05:57:24.240163+00:00",
+        "status": "completed",
+        "status_code": 200,
+        "strict_core_action_parse": {
+          "source_ids": [
+            "S1",
+            "S2",
+            "S3"
+          ],
+          "type": "final",
+          "valid": true
+        },
+        "terminal_metrics": {
+          "created_at": "2026-10-10T06:04:16.694245527Z",
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 449,
+          "eval_duration": 80457902000,
+          "load_duration": 7551558411,
+          "model": "qwen3.5:4b",
+          "prompt_eval_count": 6322,
+          "prompt_eval_duration": 281286245000,
+          "total_duration": 369353925642
+        },
+        "thinking": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "undecoded_tail": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "wall_limit_seconds": 480.0
+      },
+      "memory_writes": 0,
+      "model": "qwen3.5:4b",
+      "model_after": {
+        "cache_controlled": false,
+        "identity_valid": true,
+        "recorded_at": "2026-10-10T06:04:17.080973+00:00",
+        "requested_context_tokens": 16384,
+        "responses": {
+          "/api/ps": {
+            "models": [
+              {
+                "context_length": 16384,
+                "details": {
+                  "families": [
+                    "qwen35"
+                  ],
+                  "family": "qwen35",
+                  "format": "gguf",
+                  "parameter_size": "4.7B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+                "expires_at": "2026-10-10T10:09:16.69486776+04:00",
+                "model": "qwen3.5:4b",
+                "name": "qwen3.5:4b",
+                "size": 3638663576,
+                "size_vram": 0
+              }
+            ],
+            "status": "ok"
+          },
+          "/api/tags": {
+            "models": [
+              {
+                "details": {
+                  "context_length": 262144,
+                  "embedding_length": 2560,
+                  "families": [
+                    "qwen35"
+                  ],
+                  "family": "qwen35",
+                  "format": "gguf",
+                  "parameter_size": "4.7B",
+                  "parent_model": "",
+                  "quantization_level": "Q4_K_M"
+                },
+                "digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+                "model": "qwen3.5:4b",
+                "name": "qwen3.5:4b",
+                "size": 3389983735
+              }
+            ],
+            "status": "ok"
+          }
+        }
+      },
+      "model_digest": "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "original_output_reconstructed": false,
+      "request_changes_from_original": [
+        "model",
+        "stream",
+        "sampling_options",
+        "output_token_cap",
+        "observational_timeout"
+      ],
+      "retained_inputs_unchanged": true,
+      "self_reported_answer_words": 198,
+      "semantic_outcome": "valid_cited_final_but_false_web_readiness_claim_and_invalid_research_authority_recommendation",
+      "semantic_pass": false,
+      "tool_dispatches": 0
     }
   ],
   "full_workflow_attempts": [

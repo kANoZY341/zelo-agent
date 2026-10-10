@@ -644,8 +644,48 @@ def test_cancellation_stops_agent_model_loop(settings, database):
             ACTION.json_schema(),
             {"temperature": 0, "num_predict": 2048, "num_ctx": 16384},
         ),
+        (
+            {"structured_action_options": {"temperature": 0.7, "seed": 10102026}},
+            "json",
+            {"temperature": 0.7, "num_predict": 2048, "seed": 10102026},
+        ),
+        (
+            {
+                "use_json_schema": True,
+                "num_ctx": 16384,
+                "structured_action_options": {
+                    "temperature": 0.7,
+                    "top_p": 0.8,
+                    "top_k": 20,
+                    "min_p": 0.0,
+                    "presence_penalty": 1.5,
+                    "repeat_penalty": 1.0,
+                    "seed": 10102026,
+                    "num_predict": 1024,
+                },
+            },
+            ACTION.json_schema(),
+            {
+                "temperature": 0.7,
+                "num_predict": 1024,
+                "top_p": 0.8,
+                "top_k": 20,
+                "min_p": 0.0,
+                "presence_penalty": 1.5,
+                "repeat_penalty": 1.0,
+                "seed": 10102026,
+                "num_ctx": 16384,
+            },
+        ),
     ],
-    ids=["defaults", "schema", "context", "schema-and-context"],
+    ids=[
+        "defaults",
+        "schema",
+        "context",
+        "schema-and-context",
+        "sampling-json",
+        "sampling-schema-and-context",
+    ],
 )
 def test_ollama_action_request_has_schema_roles_and_no_thinking(
     monkeypatch, provider_kwargs, expected_format, expected_options
@@ -689,6 +729,48 @@ def test_ollama_action_request_has_schema_roles_and_no_thinking(
     assert captured[0]["options"] == expected_options
     assert [m["role"] for m in captured[0]["messages"]] == ["system", "user", "assistant", "tool"]
     assert "private reasoning" not in str(result)
+
+
+def test_ollama_structured_options_are_copied_at_construction(monkeypatch):
+    captured = []
+
+    def handle(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": json.dumps(FINAL)}})
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.gateway.httpx.AsyncClient",
+        lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handle)),
+    )
+    options = {"temperature": 0.7, "num_predict": 1024, "seed": 10102026}
+    provider = OllamaProvider(
+        "http://127.0.0.1:11434",
+        use_json_schema=True,
+        num_ctx=16384,
+        structured_action_options=options,
+    )
+    options.update(temperature=0, num_ctx=32768)
+    request = ModelRequest(
+        "qwen3:4b-instruct", "system", ["hello"], 1, output_schema=ACTION.json_schema()
+    )
+    for _ in range(2):
+        assert asyncio.run(provider.generate(request)).text == json.dumps(FINAL)
+    assert len(captured) == 2
+    assert all(
+        body["options"]
+        == {"temperature": 0.7, "num_predict": 1024, "seed": 10102026, "num_ctx": 16384}
+        for body in captured
+    )
+
+
+@pytest.mark.parametrize("option", ["num_ctx", "think", "repetition_penalty"])
+def test_ollama_structured_options_reject_non_sampling_controls(option):
+    with pytest.raises(ValueError, match="unsupported structured action option"):
+        OllamaProvider(
+            "http://127.0.0.1:11434",
+            structured_action_options={option: 1},
+        )
 
 
 def test_ollama_unexpected_actual_model_is_rejected(monkeypatch):
@@ -751,8 +833,27 @@ def test_ollama_failures_are_normalized_without_download_or_fallback(monkeypatch
         ({"use_json_schema": True}, None),
         ({"num_ctx": 16384}, {"num_ctx": 16384}),
         ({"use_json_schema": True, "num_ctx": 16384}, {"num_ctx": 16384}),
+        (
+            {"structured_action_options": {"temperature": 0.7, "num_predict": 1024}},
+            None,
+        ),
+        (
+            {
+                "use_json_schema": True,
+                "num_ctx": 16384,
+                "structured_action_options": {"temperature": 0.7, "seed": 10102026},
+            },
+            {"num_ctx": 16384},
+        ),
     ],
-    ids=["defaults", "schema-without-schema", "context", "schema-and-context"],
+    ids=[
+        "defaults",
+        "schema-without-schema",
+        "context",
+        "schema-and-context",
+        "sampling-without-schema",
+        "sampling-and-context-without-schema",
+    ],
 )
 def test_ollama_unstructured_request_keeps_only_explicit_context(
     monkeypatch, provider_kwargs, expected_options
@@ -782,7 +883,14 @@ def test_ollama_unstructured_request_keeps_only_explicit_context(
         assert captured[0]["options"] == expected_options
 
 
-def test_ollama_schema_request_preserves_core_mind_validation(monkeypatch, settings, database):
+@pytest.mark.parametrize(
+    "structured_action_options",
+    [None, {"temperature": 0.7, "num_predict": 1024, "seed": 10102026}],
+    ids=["defaults", "sampling"],
+)
+def test_ollama_schema_request_preserves_core_mind_validation(
+    monkeypatch, settings, database, structured_action_options
+):
     from sqlalchemy import func, select
 
     from app.mind import MIND_ROUTE, MindService
@@ -801,7 +909,14 @@ def test_ollama_schema_request_preserves_core_mind_validation(monkeypatch, setti
         "app.gateway.httpx.AsyncClient",
         lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handle)),
     )
-    gateway = models(OllamaProvider("http://127.0.0.1:11434", use_json_schema=True, num_ctx=16384))
+    gateway = models(
+        OllamaProvider(
+            "http://127.0.0.1:11434",
+            use_json_schema=True,
+            num_ctx=16384,
+            structured_action_options=structured_action_options,
+        )
+    )
     mind = MindService(database, settings, gateway, TaskService(database, settings, gateway))
     conversation = mind.create("Schema validation fixture")
     with pytest.raises(DomainError, match="Zelo Mind returned an invalid action") as caught:

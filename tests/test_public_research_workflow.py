@@ -22,13 +22,13 @@ from app.browser_operator import contract_data, load_receipt
 from app.browser_worker import BrowserRuntime
 from app.config import ROOT
 from app.database import Database
-from app.gateway import OllamaProvider
 from app.models import MemoryRecord, Task
 from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
     MANIFEST_SHA256,
     MODEL,
     MODEL_REQUEST_SETTINGS,
+    RESEARCH_TIMEOUT,
     RUN_SCHEMA,
     EvidenceError,
     canonical,
@@ -49,6 +49,7 @@ from scripts.qualify_public_research import (
     research_request,
     research_tools,
     save_report,
+    workflow_provider,
     workflow_settings,
 )
 from tests.test_browser_renderer import Resolver
@@ -177,7 +178,7 @@ def public_fixture(tmp_path, *, changed_body=False, truncated=False, oversized=F
                     {
                         "kind": "research_run",
                         "payload": {"query": research_request(manifest)},
-                        "timeout_seconds": 480,
+                        "timeout_seconds": RESEARCH_TIMEOUT,
                     },
                     *(call("read_workspace_file", path=s.artifact) for s in manifest.sources),
                     final(
@@ -281,12 +282,10 @@ def test_public_workflow_binds_distinct_mind_and_research_http_timeouts(tmp_path
             return original(**kwargs)
 
         monkeypatch.setattr("app.gateway.httpx.AsyncClient", client)
-        case.provider = OllamaProvider(
-            case.settings.ollama_url, use_json_schema=True, num_ctx=16384
-        )
+        case.provider = workflow_provider(case.settings)
         run_candidate(case)
         assert len(requests) == 6 and actions == []
-        for request, timeout in zip(requests, [120, 120, 240, 240, 240, 240], strict=True):
+        for request, timeout in zip(requests, [240, 240, 480, 480, 480, 480], strict=True):
             assert request.extensions["timeout"] == {
                 "connect": timeout,
                 "read": timeout,
@@ -295,13 +294,44 @@ def test_public_workflow_binds_distinct_mind_and_research_http_timeouts(tmp_path
             }
             body = json.loads(request.content)
             assert body["stream"] is False and body["think"] is False
-            assert body["options"] == {"temperature": 0, "num_predict": 2048, "num_ctx": 16384}
-        assert case.settings.model_timeout_seconds == 120
-        assert case.settings.scheduler_mind_window_seconds == 486
-        assert case.settings.agent_timeout_seconds == 480
-        assert case.report["budgets"]["model_timeout_seconds"] == 120
-        assert case.report["budgets"]["research_model_timeout_seconds"] == 240
-        assert case.report["budgets"]["research_timeout_seconds"] == 480
+            assert body["model"] == "qwen3.5:4b"
+            assert isinstance(body["format"], dict)
+            assert body["options"] == {
+                "temperature": 0.7,
+                "num_predict": 1024,
+                "top_p": 0.8,
+                "top_k": 20,
+                "min_p": 0.0,
+                "presence_penalty": 1.5,
+                "repeat_penalty": 1.0,
+                "seed": 10102026,
+                "num_ctx": 16384,
+            }
+            assert case.report["model_request_settings"] == {
+                "format": "json_schema",
+                "think": body["think"],
+                **body["options"],
+            }
+        assert case.settings.model_timeout_seconds == 240
+        assert case.settings.scheduler_mind_window_seconds == 966
+        assert case.settings.agent_timeout_seconds == 600
+        assert case.report["budgets"] == {
+            "browser_timeout_seconds": 30,
+            "model_timeout_seconds": 240,
+            "research_model_timeout_seconds": 480,
+            "research_timeout_seconds": 600,
+            "dispatch_grace_seconds": 15,
+            "max_agent_steps": 6,
+            "max_agent_tool_calls": 4,
+            "max_model_parse_retries": 1,
+            "max_agent_tool_result_chars": 16384,
+        }
+        database = Database(case.settings.database_path)
+        try:
+            task = TaskService(database, case.settings).get(case.report["research_task_id"])
+            assert task.timeout_seconds == 600 and task.status == "succeeded"
+        finally:
+            database.close()
         assert case.report["runtime_cleanup_confirmed"] is True
         assert len(case.report["research_result"]["sources"]) == 3
 

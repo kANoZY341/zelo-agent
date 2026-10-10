@@ -19,19 +19,28 @@ from app.schemas import ApiPayload, BrowserRunResult, ResearchRunResult, StrictM
 from app.tools import ToolGateway
 
 RUN_SCHEMA = "zelo-public-research-v1"
-MODEL = "qwen2.5-coder:3b-instruct-8k"
+MODEL = "qwen3.5:4b"
 MODEL_CONTEXT_TOKENS = 16384
+MODEL_SAMPLING_OPTIONS = {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 1.5,
+    "repeat_penalty": 1.0,
+    "seed": 10102026,
+    "num_predict": 1024,
+}
 MODEL_REQUEST_SETTINGS = {
     "format": "json_schema",
     "num_ctx": MODEL_CONTEXT_TOKENS,
-    "temperature": 0,
-    "num_predict": 2048,
     "think": False,
+    **MODEL_SAMPLING_OPTIONS,
 }
 BROWSER_TIMEOUT = 30.0
-MODEL_TIMEOUT = 120.0
-RESEARCH_MODEL_TIMEOUT = 240.0
-RESEARCH_TIMEOUT = 480.0
+MODEL_TIMEOUT = 240.0
+RESEARCH_MODEL_TIMEOUT = 480.0
+RESEARCH_TIMEOUT = 600.0
 DISPATCH_GRACE = 15.0
 TOOL_RESULT_LIMIT = 16384
 PUBLIC_RESEARCH_BUDGETS = {

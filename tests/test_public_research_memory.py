@@ -256,16 +256,26 @@ def test_a_report_outside_its_fixed_run_path_cannot_select_a_database(reviewed_c
         {"setup_cleanup_errors": ["owned_fixture_cleanup_failed"]},
         {"model_digest_before": "0" * 64},
         {"model_digest_after": "0" * 64},
+        {"model": "qwen2.5-coder:3b-instruct-8k"},
     ],
 )
-def test_an_explicitly_reviewed_but_ineligible_report_is_refused(reviewed_case, changes):
+def test_an_explicitly_reviewed_but_ineligible_report_is_refused(
+    reviewed_case, monkeypatch, changes
+):
     replace_report(reviewed_case, **changes)
+
+    def database_must_not_open(_path):
+        pytest.fail("ineligible report reached Database construction")
+
+    monkeypatch.setattr(command, "Database", database_must_not_open)
     with pytest.raises(EvidenceError, match="memory_report_not_eligible"):
         record(reviewed_case)
     assert memory_ids(reviewed_case) == []
 
 
-@pytest.mark.parametrize("settings_change", ["missing", "changed_context"])
+@pytest.mark.parametrize(
+    "settings_change", ["missing", "changed_context", "changed_sampling", "changed_seed"]
+)
 def test_model_request_settings_are_verified_before_database_open(
     reviewed_case, monkeypatch, settings_change
 ):
@@ -273,10 +283,12 @@ def test_model_request_settings_are_verified_before_database_open(
     if settings_change == "missing":
         case.report.pop("model_request_settings")
     else:
-        case.report["model_request_settings"] = {
-            **evidence.MODEL_REQUEST_SETTINGS,
-            "num_ctx": 8192,
-        }
+        change = {
+            "changed_context": {"num_ctx": 8192},
+            "changed_sampling": {"temperature": 0},
+            "changed_seed": {"seed": 10102027},
+        }[settings_change]
+        case.report["model_request_settings"] = {**evidence.MODEL_REQUEST_SETTINGS, **change}
     replace_report(case)
 
     def database_must_not_open(_path):
@@ -290,7 +302,14 @@ def test_model_request_settings_are_verified_before_database_open(
 
 
 @pytest.mark.parametrize(
-    "budget_change", ["missing", "changed_research_timeout", "changed_retry_type"]
+    "budget_change",
+    [
+        "missing",
+        "changed_mind_timeout",
+        "changed_research_timeout",
+        "changed_task_timeout",
+        "changed_retry_type",
+    ],
 )
 def test_report_budgets_are_verified_before_database_open(
     reviewed_case, monkeypatch, budget_change
@@ -298,16 +317,14 @@ def test_report_budgets_are_verified_before_database_open(
     case = reviewed_case
     if budget_change == "missing":
         case.report.pop("budgets")
-    elif budget_change == "changed_research_timeout":
-        case.report["budgets"] = {
-            **evidence.PUBLIC_RESEARCH_BUDGETS,
-            "research_model_timeout_seconds": 480.0,
-        }
     else:
-        case.report["budgets"] = {
-            **evidence.PUBLIC_RESEARCH_BUDGETS,
-            "max_model_parse_retries": True,
-        }
+        change = {
+            "changed_mind_timeout": {"model_timeout_seconds": 120.0},
+            "changed_research_timeout": {"research_model_timeout_seconds": 900.0},
+            "changed_task_timeout": {"research_timeout_seconds": 480.0},
+            "changed_retry_type": {"max_model_parse_retries": True},
+        }[budget_change]
+        case.report["budgets"] = {**evidence.PUBLIC_RESEARCH_BUDGETS, **change}
     replace_report(case)
 
     def database_must_not_open(_path):

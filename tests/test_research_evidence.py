@@ -93,15 +93,16 @@ def test_staged_artifact_drift_is_rejected_against_persisted_browser_result(tmp_
             db.close()
 
 
-def test_replay_rejects_changed_research_task_timeout(tmp_path):
+@pytest.mark.parametrize("changed_timeout", [120, 480])
+def test_replay_rejects_changed_research_task_timeout(tmp_path, changed_timeout):
     with public_fixture(tmp_path) as case:
         run_candidate(case)
         db = Database(case.settings.database_path)
         try:
             with db.transaction() as session:
                 task = session.get(Task, case.report["research_task_id"])
-                assert task.status == "succeeded" and task.timeout_seconds == 480
-                task.timeout_seconds = 120
+                assert task.status == "succeeded" and task.timeout_seconds == 600
+                task.timeout_seconds = changed_timeout
             with pytest.raises(EvidenceError, match="public_research_task_mismatch"):
                 validate_candidate(
                     case.report,
