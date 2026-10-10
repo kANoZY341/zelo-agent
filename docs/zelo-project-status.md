@@ -144,6 +144,12 @@ and started-event callback. It prevents the reproduced post-revocation access
 window; it does not activate Space grants or make remote access atomic.
 See v0.15-computer-dispatch-revalidation.md.
 
+OpenDots governed learning-history inspection is now a separate operator-only
+Specialist view over existing Skill Learning records. It reports bounded
+per-AgentInstance proposal status, revision digest and review/promotion-link
+evidence but never instructions, automatic learning or executable Skills.
+See v0.15-opendots-specialist-learning-history.md.
+
 ## REA source-owned candidate preparation
 
 Main now contains the REA v6 source and its observed 139-tool catalog,

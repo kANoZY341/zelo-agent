@@ -369,6 +369,11 @@ Existing Computer Worker execution is also revalidated after the control-state
 await and started-event callback, immediately before backend dispatch. This
 closes a reproduced revocation gap without granting Space authority; see
 `v0.15-computer-dispatch-revalidation.md`.
+
+The OpenDots Specialist profile separately exposes a bounded, operator-only
+governed Skill Learning history view, displaying historical proposal, review
+and promotion-link metadata without instructions or activation authority.
+See `v0.15-opendots-specialist-learning-history.md`.
 The next Context Mode concept slice stores explicitly submitted, untrusted
 text in a bounded project/operator-scoped archive with SHA-256-anchored narrow
 windows; it never automatically admits retrieved text to Zelo Mind. See
