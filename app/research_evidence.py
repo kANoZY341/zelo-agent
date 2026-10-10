@@ -28,8 +28,23 @@ MODEL_REQUEST_SETTINGS = {
     "num_predict": 2048,
     "think": False,
 }
+BROWSER_TIMEOUT = 30.0
+MODEL_TIMEOUT = 120.0
+RESEARCH_MODEL_TIMEOUT = 240.0
 RESEARCH_TIMEOUT = 480.0
+DISPATCH_GRACE = 15.0
 TOOL_RESULT_LIMIT = 16384
+PUBLIC_RESEARCH_BUDGETS = {
+    "browser_timeout_seconds": BROWSER_TIMEOUT,
+    "model_timeout_seconds": MODEL_TIMEOUT,
+    "research_model_timeout_seconds": RESEARCH_MODEL_TIMEOUT,
+    "research_timeout_seconds": RESEARCH_TIMEOUT,
+    "dispatch_grace_seconds": DISPATCH_GRACE,
+    "max_agent_steps": 6,
+    "max_agent_tool_calls": 4,
+    "max_model_parse_retries": 1,
+    "max_agent_tool_result_chars": TOOL_RESULT_LIMIT,
+}
 MANIFEST_SHA256 = "2b47d26853b4d7ce57521a410099fd99a2d5864b2ebc1a654d02b2e27878f4d6"
 BROWSER_SOURCE_MANIFEST_DIGEST = "5cd2da1e5d84d268dbe7c46e6a95f82d640babed410ffd1f31c681de37f424ca"
 SOURCE_DIRECTORY = ROOT / "integrations" / "research"

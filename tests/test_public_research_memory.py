@@ -289,6 +289,37 @@ def test_model_request_settings_are_verified_before_database_open(
     assert not (case.run_root / "memory-receipt.json").exists()
 
 
+@pytest.mark.parametrize(
+    "budget_change", ["missing", "changed_research_timeout", "changed_retry_type"]
+)
+def test_report_budgets_are_verified_before_database_open(
+    reviewed_case, monkeypatch, budget_change
+):
+    case = reviewed_case
+    if budget_change == "missing":
+        case.report.pop("budgets")
+    elif budget_change == "changed_research_timeout":
+        case.report["budgets"] = {
+            **evidence.PUBLIC_RESEARCH_BUDGETS,
+            "research_model_timeout_seconds": 480.0,
+        }
+    else:
+        case.report["budgets"] = {
+            **evidence.PUBLIC_RESEARCH_BUDGETS,
+            "max_model_parse_retries": True,
+        }
+    replace_report(case)
+
+    def database_must_not_open(_path):
+        pytest.fail("ineligible research budgets reached Database construction")
+
+    monkeypatch.setattr(command, "Database", database_must_not_open)
+    with pytest.raises(EvidenceError, match="memory_report_not_eligible"):
+        record(case)
+    assert memory_ids(case) == []
+    assert not (case.run_root / "memory-receipt.json").exists()
+
+
 @pytest.mark.parametrize("binding", ["goal_project", "conversation_task"])
 def test_persisted_project_and_conversation_must_bind_the_report(reviewed_case, binding):
     case = reviewed_case

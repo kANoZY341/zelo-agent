@@ -22,6 +22,7 @@ from app.browser_operator import contract_data, load_receipt
 from app.browser_worker import BrowserRuntime
 from app.config import ROOT
 from app.database import Database
+from app.gateway import OllamaProvider
 from app.models import MemoryRecord, Task
 from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
@@ -200,7 +201,7 @@ def public_fixture(tmp_path, *, changed_body=False, truncated=False, oversized=F
             "model_request_settings": dict(MODEL_REQUEST_SETTINGS),
             "model_digest_before": MODEL_DIGEST,
             "model_digest_after": MODEL_DIGEST,
-            "budgets": BUDGETS,
+            "budgets": dict(BUDGETS),
             "execution_mode": "fixture_only",
             "setup_cleanup_errors": [],
             "memory_written": False,
@@ -258,6 +259,51 @@ def test_real_core_mind_research_candidate_has_complete_evidence_and_no_memory(t
             assert all(request.model_id == MODEL for request in case.provider.requests)
         finally:
             db.close()
+
+
+def test_public_workflow_binds_distinct_mind_and_research_http_timeouts(tmp_path, monkeypatch):
+    with public_fixture(tmp_path) as case:
+        actions = list(case.provider.actions)
+        requests = []
+
+        def handle(request):
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={"model": MODEL, "message": {"content": json.dumps(actions.pop(0))}},
+            )
+
+        original = httpx.AsyncClient
+
+        def client(**kwargs):
+            if str(kwargs.get("base_url", "")) == "http://127.0.0.1:11434":
+                return original(**kwargs, transport=httpx.MockTransport(handle))
+            return original(**kwargs)
+
+        monkeypatch.setattr("app.gateway.httpx.AsyncClient", client)
+        case.provider = OllamaProvider(
+            case.settings.ollama_url, use_json_schema=True, num_ctx=16384
+        )
+        run_candidate(case)
+        assert len(requests) == 6 and actions == []
+        for request, timeout in zip(requests, [120, 120, 240, 240, 240, 240], strict=True):
+            assert request.extensions["timeout"] == {
+                "connect": timeout,
+                "read": timeout,
+                "write": timeout,
+                "pool": timeout,
+            }
+            body = json.loads(request.content)
+            assert body["stream"] is False and body["think"] is False
+            assert body["options"] == {"temperature": 0, "num_predict": 2048, "num_ctx": 16384}
+        assert case.settings.model_timeout_seconds == 120
+        assert case.settings.scheduler_mind_window_seconds == 486
+        assert case.settings.agent_timeout_seconds == 480
+        assert case.report["budgets"]["model_timeout_seconds"] == 120
+        assert case.report["budgets"]["research_model_timeout_seconds"] == 240
+        assert case.report["budgets"]["research_timeout_seconds"] == 480
+        assert case.report["runtime_cleanup_confirmed"] is True
+        assert len(case.report["research_result"]["sources"]) == 3
 
 
 @pytest.mark.parametrize(

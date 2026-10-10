@@ -195,6 +195,70 @@
       "retained_inputs_unchanged": true,
       "semantic_outcome": "first_nonstream_component_call_timed_out_without_complete_response",
       "serialization_note": "Exact original HTTPX request bytes observed; stream remains false. File archival adds diagnostic observation overhead."
+    },
+    {
+      "all_three_exact_source_results_in_final_request": true,
+      "artifacts_sha256": {
+        "call-01-request.json": "78e5769eda3c2079b6898f5bc6dfaa46956fbf7434b7522dd88f46d5de6db608",
+        "call-03-response.json": "86c4460d40f194bb594a6f5c1b90a732744827d2fc526a9fc52a4cedebdc3e60",
+        "call-04-request.json": "7181d333db7d373fd2984c0e0aa074be94ecfffc8af4acc7fdd8cc63b4abb550",
+        "protocol.json": "de33f165fd2820fcead77ff6067ead9d3d1817db2f99bb5de5d27e0d61f8f8c7",
+        "result.json": "c1a50a4f445daa801f0d892f9f6c3ec059376522a643eee7b6e6678eca20bca0",
+        "run_component.py": "3805de32e0156e4e053a7184d34f75bdd2f70e936908f897e857daddad0fae07",
+        "task-evidence.json": "77de1ad2813189e75e8d4f2b2ae1e7d673092cf53522fec0508541013dcfca4a"
+      },
+      "call_seconds": [
+        17.846,
+        23.462,
+        65.097,
+        120.06
+      ],
+      "calls": 4,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-cf868ad807fb4a6a8c4552a818d9d9ac",
+      "elapsed_seconds": 226.656,
+      "failed_call": 4,
+      "failure_code": "model_timeout",
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_resident_before": false,
+      "reply_complete": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "research_tool_calls": 3,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "three_complete_reads_then_fourth_call_timeout_without_complete_answer"
+    },
+    {
+      "artifacts_sha256": {
+        "journal-timing.json": "66433062ce93801d090bac881cf8af4f4a42102d30f0477cd75b5256ca3dce9b",
+        "observation.json": "3fe0cce910fdd48c7056bf9ccaf0fc29d1be3a50f79d8afa3119ed9b7e92fc76"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timing-observation-45ca17677f154e66a07a39601b4c5bf8",
+      "exact_phase_at_client_cancellation_known": false,
+      "generation_count_known": false,
+      "new_inference": false,
+      "original_inputs_modified": false,
+      "prefill_progress": [
+        {
+          "elapsed_seconds": 44.81,
+          "new_tokens": 1024,
+          "progress": 0.69
+        },
+        {
+          "elapsed_seconds": 93.36,
+          "new_tokens": 2048,
+          "progress": 0.86
+        }
+      ],
+      "prior_context_tokens": 3359,
+      "prompt_tokens": 6322,
+      "semantic_outcome": "expensive_partial_prefill_observed_without_complete_final_reply"
     }
   ],
   "full_workflow_attempts": [

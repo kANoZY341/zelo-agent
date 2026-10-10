@@ -28,10 +28,15 @@ from app.projects import ProjectService
 from app.research import ResearchRuntime
 from app.research_evidence import (
     BROWSER_SOURCE_MANIFEST_DIGEST,
+    BROWSER_TIMEOUT,
+    DISPATCH_GRACE,
     MANIFEST_SHA256,
     MODEL,
     MODEL_CONTEXT_TOKENS,
     MODEL_REQUEST_SETTINGS,
+    MODEL_TIMEOUT,
+    PUBLIC_RESEARCH_BUDGETS,
+    RESEARCH_MODEL_TIMEOUT,
     RESEARCH_TIMEOUT,
     RUN_SCHEMA,
     TOOL_RESULT_LIMIT,
@@ -62,20 +67,8 @@ from scripts.qualify_browser_renderer import LABEL, cleanup_owned_setup, command
 
 DOCKER = "/usr/bin/docker"
 MODEL_DIGEST = "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712"
-BROWSER_TIMEOUT = 30.0
-MODEL_TIMEOUT = 120.0
-DISPATCH_GRACE = 15.0
 REPORT_LIMIT = 262144
-BUDGETS = {
-    "browser_timeout_seconds": BROWSER_TIMEOUT,
-    "model_timeout_seconds": MODEL_TIMEOUT,
-    "research_timeout_seconds": RESEARCH_TIMEOUT,
-    "dispatch_grace_seconds": DISPATCH_GRACE,
-    "max_agent_steps": 6,
-    "max_agent_tool_calls": 4,
-    "max_model_parse_retries": 1,
-    "max_agent_tool_result_chars": TOOL_RESULT_LIMIT,
-}
+BUDGETS = PUBLIC_RESEARCH_BUDGETS
 MINIMAL_ENVIRONMENT = {
     "PATH",
     "HOME",
@@ -130,6 +123,11 @@ def workflow_settings(run_root: Path, workspace: Path, receipt: Path | None = No
         agent_timeout_seconds=RESEARCH_TIMEOUT,
         **browser,
     )
+
+
+def research_workflow_settings(settings: Settings) -> Settings:
+    """Apply the separately recorded allowance only to this opt-in Research worker."""
+    return settings.model_copy(update={"model_timeout_seconds": RESEARCH_MODEL_TIMEOUT})
 
 
 def research_tools(settings: Settings) -> ToolGateway:
@@ -280,7 +278,12 @@ async def exercise(
         tools = research_tools(settings)
         research = Supervisor(
             WorkerRegistry(
-                ((descriptor_for_research_worker(), ResearchRuntime(settings, gateway, tools)),)
+                (
+                    (
+                        descriptor_for_research_worker(),
+                        ResearchRuntime(research_workflow_settings(settings), gateway, tools),
+                    ),
+                )
             )
         )
         browser = Supervisor(WorkerRegistry(((descriptor_for_browser_worker(), runtime),)))
@@ -459,7 +462,7 @@ def qualify(source: Path, expected_digest: str) -> tuple[Path, bool]:
         "source_bundle_manifest_digest": expected_digest,
         "model": MODEL,
         "model_request_settings": dict(MODEL_REQUEST_SETTINGS),
-        "budgets": BUDGETS,
+        "budgets": dict(BUDGETS),
         "execution_mode": "live_local_model",
         "external_network_attempted": False,
         "production_browser_worker_activated": False,
