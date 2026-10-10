@@ -368,6 +368,12 @@ operator-only, per-AgentInstance scoped and version-bound grant *intents*
 are recorded with revocation but are never usable for Worker, Tool, File,
 Browser or Shell actions until the independent enforcement gates pass.
 See `v0.15-opendots-space-grant-intent-foundation.md`.
+A separately staged Core-owned file-resource registry binds canonical Space IDs
+to pre-provisioned, attested roots, and an operator-only confirmation binds
+a current intent to one exact resource. Neither the registry nor a reviewed
+confirmation grants Worker/Tool/file-opening authority; dispatch/use-point
+enforcement remains a future independently qualified slice. See
+`v0.15-space-resource-operator-confirmation.md`.
 Existing Computer Worker execution is also revalidated after the control-state
 await and started-event callback, immediately before backend dispatch. This
 closes a reproduced revocation gap without granting Space authority; see

@@ -159,7 +159,10 @@ OpenDots-inspired Computer Panel data projection is available at
 and service boundaries. Deterministic architecture examples are in
 `examples/curated/`. The imported upstream documents are reference data,
 not active runtime plugins or Agent/Tool grants. The actual UI, reviewer-worker
-qualification, skill promotion and Space authorization remain future gates.
+qualification, skill promotion and actual Space resource access remain future gates. The separately
+staged [operator Space-resource registry and confirmation contract](docs/v0.15-space-resource-operator-confirmation.md)
+records bounded, pre-provisioned directory identities and revocable,
+AgentInstance-bound owner confirmations, but grants no Worker/Tool/file reads.
 
 ## Structure and scope
 

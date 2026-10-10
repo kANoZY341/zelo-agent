@@ -1158,6 +1158,83 @@ class CommunityContextArchiveRecord(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class AgentSpaceResourceRecord(Base):
+    """Immutable operator-selected logical Space root; does not open files."""
+
+    __tablename__ = "agent_space_resources"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "space_id",
+            "resource_kind",
+            "resource_id",
+            name="uq_space_resource_project_identity",
+        ),
+        CheckConstraint("resource_kind='files'", name="ck_space_resource_kind"),
+        CheckConstraint("length(resource_sha256)=64", name="ck_space_resource_digest"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    space_id: Mapped[str] = mapped_column(String(64))
+    resource_kind: Mapped[str] = mapped_column(String(16))
+    resource_id: Mapped[str] = mapped_column(String(64))
+    operations_json: Mapped[str] = mapped_column(Text)
+    root_path: Mapped[str] = mapped_column(Text)
+    root_device: Mapped[int] = mapped_column(Integer)
+    root_inode: Mapped[int] = mapped_column(Integer)
+    resource_sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentSpaceResourceRetirement(Base):
+    """Permanent resource retirement; retired identities are never reused."""
+
+    __tablename__ = "agent_space_resource_retirements"
+
+    resource_record_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_space_resources.id"), primary_key=True
+    )
+    retired_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentSpaceActivationRecord(Base):
+    """Owner-confirmed metadata prerequisite; grants NO Worker/Tool authority."""
+
+    __tablename__ = "agent_space_activations"
+    __table_args__ = (
+        UniqueConstraint("intent_id", name="uq_space_activation_intent"),
+        CheckConstraint("length(activation_sha256)=64", name="ck_space_activation_digest"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    intent_id: Mapped[str] = mapped_column(ForeignKey("agent_space_intents.id"), index=True)
+    resource_record_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_space_resources.id"), index=True
+    )
+    agent_instance_id: Mapped[str] = mapped_column(ForeignKey("agent_instances.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    agent_version: Mapped[int] = mapped_column(Integer)
+    registry_version: Mapped[str] = mapped_column(String(64))
+    spec_sha256: Mapped[str] = mapped_column(String(64))
+    intent_sha256: Mapped[str] = mapped_column(String(64))
+    resource_sha256: Mapped[str] = mapped_column(String(64))
+    activation_sha256: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class AgentSpaceActivationRevocation(Base):
+    """One-way terminal revocation for one owner-confirmed activation."""
+
+    __tablename__ = "agent_space_activation_revocations"
+
+    activation_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_space_activations.id"), primary_key=True
+    )
+    revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class AgentSpaceIntentRecord(Base):
     """Immutable owner-reviewed Space intent; no Worker or resource authorization."""
 
