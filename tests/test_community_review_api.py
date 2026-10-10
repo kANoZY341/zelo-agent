@@ -138,6 +138,13 @@ def test_wrong_identity_or_stale_head_never_returns_evidence(revisions, monkeypa
         ).encode(),
         b'{"schema_version":"zelo-ocr-line-review-input-v1","summary":"a","summary":"b","comments":[]}',
         b'{"schema_version":"zelo-ocr-line-review-input-v1","summary":"bad","comments":[{"path":"../../secrets","start_line":1,"end_line":1,"category":"security","severity":"critical","content":"escape"}]}',
+        json.dumps({**json.loads(raw()), "summary": "\ud800"}).encode(),
+        json.dumps(
+            {
+                **json.loads(raw()),
+                "comments": [{**json.loads(raw())["comments"][0], "content": "\ud800"}],
+            }
+        ).encode(),
     ],
 )
 def test_invalid_or_unanchored_external_findings_fail_closed(
