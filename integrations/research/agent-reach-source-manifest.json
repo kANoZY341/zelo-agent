@@ -1,0 +1,33 @@
+{
+  "schema_version": "zelo-public-source-manifest-v1",
+  "repository": "Panniantong/Agent-Reach",
+  "commit": "94f06c1969dfc1834001269d79d3ad0972d9dee6",
+  "endpoint_id": "rawgithub",
+  "origin": "https://raw.githubusercontent.com",
+  "license": {
+    "artifact": "LICENSE.Agent-Reach.txt",
+    "bytes": 1067,
+    "sha256": "e94c131ac1c2f78cfd8f7e69da354c0ff58e4e54071697703d56856c036de402",
+    "git_blob": "85cfac9168cbcc87f55dc3939311e7f612e5c648"
+  },
+  "sources": [
+    {
+      "source_id": "rss",
+      "path": "/Panniantong/Agent-Reach/94f06c1969dfc1834001269d79d3ad0972d9dee6/agent_reach/channels/rss.py",
+      "body_bytes": 958,
+      "sha256": "bb8d24e4705dd86abcf0ead333c19306df735fc54bb2d2c03390d5aa3614bbda"
+    },
+    {
+      "source_id": "web",
+      "path": "/Panniantong/Agent-Reach/94f06c1969dfc1834001269d79d3ad0972d9dee6/agent_reach/channels/web.py",
+      "body_bytes": 2505,
+      "sha256": "d59271dcf9e2ab94f7ae927f0c1a13e9c4308b116de13e1a617a0c4582a7b8e3"
+    },
+    {
+      "source_id": "youtube",
+      "path": "/Panniantong/Agent-Reach/94f06c1969dfc1834001269d79d3ad0972d9dee6/agent_reach/channels/youtube.py",
+      "body_bytes": 5429,
+      "sha256": "b7b9869dd732d65810b2699ccdf9c6c0e3aed2194bded9f7ccd3552b51607565"
+    }
+  ]
+}

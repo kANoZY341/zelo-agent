@@ -71,6 +71,15 @@ improving diagnostics, and simplifying completed changes. Root `AGENTS.md`
 selects the relevant procedure for repository work. Its pinned MIT source
 references are retained separately under `integrations/development/`.
 
+## Public research with project memory
+
+The opt-in [public research workflow](docs/v0.15-public-research-workflow.md)
+retrieves three pinned public source files through Browser, stages complete
+workspace evidence, and runs an actual Mind-to-Research task. A separate command
+records an operator-reviewed summary in the run's project memory and verifies
+scoped recall. The guide explains the fixed inputs, evidence checks, budgets,
+and observed qualification result.
+
 ## Vendored REA source (inactive)
 
 The complete upstream REA 6.0.0 **tracked source snapshot** is copied into
