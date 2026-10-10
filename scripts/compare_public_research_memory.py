@@ -223,8 +223,9 @@ def corpus() -> tuple[Record, ...]:
             content=(
                 "Agent-Reach Web read first calls normalize_public_http_url and "
                 "requests https://r.jina.ai/ followed by that normalized URL. "
-                "urlopen receives timeout=30. It reads 5*1024*1024+1 bytes and "
-                "raises ValueError when the returned body exceeds 5*1024*1024 "
+                "urlopen receives timeout=30. It calls resp.read(5*1024*1024+1), "
+                "requesting up to that many bytes, and raises ValueError when "
+                "the returned body exceeds 5*1024*1024 "
                 "bytes (5 MiB). The shown timeout argument is not proof of an "
                 "end-to-end deadline."
             ),
@@ -257,10 +258,11 @@ def corpus() -> tuple[Record, ...]:
             content=(
                 "After a successful yt-dlp probe, Agent-Reach YouTube readiness "
                 "checks for Deno or Node. In the Node-present, Deno-absent branch, "
-                "_has_js_runtime_config checks whether the literal substring "
-                "--js-runtimes appears in bounded configuration text. It does "
-                "not parse or validate the flag's effective value. Missing that "
-                "substring leads to a warn branch."
+                "_has_js_runtime_config calls read_small_text_no_follow with "
+                "max_bytes=1024*1024 and checks the returned text for the literal "
+                "substring --js-runtimes. It does not parse or validate the flag's "
+                "effective value; the reading helper was not inspected. Missing "
+                "that substring leads to a warn branch."
             ),
         ),
         Record(
