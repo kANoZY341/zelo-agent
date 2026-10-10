@@ -167,6 +167,11 @@ A separate [task-bound Space file gateway](docs/v0.15-space-file-gateway.md)
 proves one controlled read-only use-point with actual running Computer Task
 identity, permissions and safe descriptor-relative file reads. It remains
 internal and does not turn that proof into an automatically callable Tool.
+The follow-on [explicit Space file Task route](docs/v0.15-space-file-task-routing.md)
+binds an exact owner confirmation to a Computer Task action and safely returns
+bounded read-only content through the existing Core Runner. It cannot bypass
+Core permissions or human takeover, and it does not enable general file or
+shell access, auto-admit context, or make default Agents Space-authorized.
 
 ## Structure and scope
 

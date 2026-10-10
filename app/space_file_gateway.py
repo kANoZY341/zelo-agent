@@ -228,6 +228,8 @@ class SpaceFileReadGateway:
             or agent.task_kind != "computer_run"
             or agent.delegation is not None  # delegation needs its own use-point gate
             or computer.agent_instance_id != agent.agent_instance_id
+            or computer.space_activation_id is None
+            or computer.space_activation_id != execution.payload.get("space_activation_id")
             or computer.action != "files_read"
             or computer.path != relative_path
             or computer.timeout_seconds != task.timeout_seconds
@@ -341,6 +343,11 @@ class SpaceFileReadGateway:
         self, *, execution: Execution, activation_id: str, relative_path: str
     ) -> SpaceFileReadResult:
         parts = _path_components(relative_path)
+        if (
+            execution.computer_request is None
+            or execution.computer_request.space_activation_id != activation_id
+        ):
+            raise DomainError("Space read activation not bound to Task action", 403)
         # The same human-control barrier as the Computer Worker applies.
         # Check task authority before the external control lookup, then
         # recheck everything after the await under a SQLite write lock.

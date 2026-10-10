@@ -153,10 +153,13 @@ class ComputerRuntime:
         timeout_seconds: float,
         *,
         endpoint_id: str | None = None,
+        space_activation_id: str | None = None,
     ) -> ComputerExecutionSpec:
         profile = agent_execution.spec.computer
         if profile is None:
             raise ComputerRuntimeError("computer_profile_unavailable")
+        if space_activation_id is not None and action != "files_read":
+            raise ComputerRuntimeError("computer_space_activation_action_denied")
         required_permission = self._required_permission(action)
         required_capability = self._required_capability(action)
         if not getattr(profile, required_permission):
@@ -198,6 +201,7 @@ class ComputerRuntime:
                 worker_selection=worker_selection,
                 action=action,
                 path=path,
+                space_activation_id=space_activation_id,
                 endpoint=endpoint,
                 egress_policy_version=egress_policy_version,
                 permission_version=permission_version,
@@ -245,6 +249,7 @@ class ComputerRuntime:
             payload.get("action") == spec.action
             and payload.get("endpoint_id") == endpoint_id
             and payload.get("path", "") == spec.path
+            and payload.get("space_activation_id") == spec.space_activation_id
             and timeout_seconds == spec.timeout_seconds
         )
 
@@ -468,6 +473,9 @@ class ComputerRuntime:
         emit: Emit,
         endpoint_id: str | None = None,
     ) -> dict[str, Any]:
+        # The Core Space gateway is the ONLY allowed path for Space content.
+        if spec.space_activation_id is not None:
+            raise ComputerRuntimeError("computer_space_requires_mediated_gateway")
         if not self.request_matches(
             spec,
             {"action": action, "endpoint_id": endpoint_id, "path": path},

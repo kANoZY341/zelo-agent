@@ -12,13 +12,19 @@ from app.browser_worker import BrowserRuntime, BrowserRuntimeError
 from app.computer_worker import ComputerRuntime, ComputerRuntimeError
 from app.developer import DeveloperRuntime, DeveloperRuntimeError
 from app.gateway import ModelGateway, ModelGatewayError
+from app.models import utcnow
 from app.policy import DomainError, State
 from app.promotion import PromotionRuntime
 from app.promotion_merge import PromotionMergeRuntime
 from app.promotion_release import PromotionReleaseRuntime
 from app.python_worker import PythonRuntime, PythonRuntimeError
 from app.research import ResearchRuntime, ResearchRuntimeError
-from app.schemas import SkillLearningProposalPayload, SkillLearningProposalRunResult
+from app.schemas import (
+    ComputerFilesReadResult,
+    ComputerRunResult,
+    SkillLearningProposalPayload,
+    SkillLearningProposalRunResult,
+)
 from app.self_improvement import SelfImprovementError
 from app.self_improvement_runtime import (
     SelfImprovementPreparation,
@@ -26,6 +32,7 @@ from app.self_improvement_runtime import (
     developer_instruction,
 )
 from app.shell_worker import ShellRuntime, ShellRuntimeError
+from app.space_file_gateway import SpaceFileReadGateway
 from app.tasks import Execution, TaskService
 from app.tools import ToolRuntimeError
 from app.worker_registry import Supervisor
@@ -60,6 +67,7 @@ class Runner:
         browser_supervisor: Supervisor[BrowserRuntime] | None = None,
         shell_supervisor: Supervisor[ShellRuntime] | None = None,
         computer_supervisor: Supervisor[ComputerRuntime] | None = None,
+        space_file_gateway: SpaceFileReadGateway | None = None,
     ) -> None:
         self.service = service
         self.worker = worker
@@ -71,6 +79,7 @@ class Runner:
         self.browser_supervisor = browser_supervisor
         self.shell_supervisor = shell_supervisor
         self.computer_supervisor = computer_supervisor
+        self.space_file_gateway = space_file_gateway
         self.self_improvement_runtime = self_improvement_runtime
         self.developer_runtime = developer_runtime
         self.promotion_runtime = promotion_runtime
@@ -650,6 +659,37 @@ class Runner:
             )
         ):
             raise ComputerRuntimeError("computer_execution_spec_stale")
+
+        space_activation_id = execution.computer_request.space_activation_id
+        if space_activation_id is not None:
+            if (
+                self.space_file_gateway is None
+                or execution.payload.get("space_activation_id") != space_activation_id
+                or execution.payload.get("action") != "files_read"
+            ):
+                raise ComputerRuntimeError("computer_space_gateway_unavailable")
+            try:
+                file = await self.space_file_gateway.read(
+                    execution=execution,
+                    activation_id=space_activation_id,
+                    relative_path=execution.payload.get("path", ""),
+                )
+            except DomainError:
+                # Only a stable, bounded denial is recorded on Task history.
+                # Raw source path and local filesystem errors remain private.
+                raise ComputerRuntimeError("computer_space_read_denied") from None
+            bounded_text = file.text[:64000]
+            return ComputerRunResult(
+                action="files_read",
+                agent_instance_id=file.agent_instance_id,
+                files_read=ComputerFilesReadResult(
+                    path=file.relative_path,
+                    text=bounded_text,
+                    truncated=len(bounded_text) != len(file.text),
+                    bytes=file.bytes_read,
+                ),
+                completed_at=utcnow(),
+            ).model_dump(mode="json")
 
         def emit(event: str, details: dict[str, Any]) -> None:
             self.service.model_event(

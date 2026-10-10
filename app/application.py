@@ -80,6 +80,7 @@ from app.skill_learning_api import router as skill_learning_router
 from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import SkillLearningProposalStore
 from app.skills import default_skill_registry
+from app.space_file_gateway import SpaceFileReadGateway
 from app.storage import build_storage
 from app.task_api import router as task_router
 from app.tasks import TaskService
@@ -336,6 +337,9 @@ def create_app(
             tasks.recover()
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
+            space_file_gateway = SpaceFileReadGateway(
+                database, agent_factory, configuration.runtime_dir, computer_runtime
+            )
             runner = Runner(
                 tasks,
                 worker,
@@ -352,6 +356,7 @@ def create_app(
                 browser_supervisor=browser_supervisor,
                 shell_supervisor=shell_supervisor,
                 computer_supervisor=computer_supervisor,
+                space_file_gateway=space_file_gateway,
             )
             application.state.capability_registry = capability_registry
             application.state.skill_registry = skill_registry
