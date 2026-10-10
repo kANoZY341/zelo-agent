@@ -39,6 +39,10 @@ class ComputerExecutionSpec(ComputerContract):
     worker_selection: WorkerSelectionSnapshot
     action: ComputerAction
     path: str = Field(default="", max_length=API_PATH_LIMIT)
+    space_activation_id: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    )
     endpoint: ApiEndpointBinding | None = None
     egress_policy_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     permission_version: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -48,6 +52,8 @@ class ComputerExecutionSpec(ComputerContract):
     @model_validator(mode="after")
     def _validate_action_path(self):
         path = self.path
+        if self.space_activation_id is not None and self.action != "files_read":
+            raise ValueError("computer_space_activation_files_read_only")
         if self.action == "browser_navigate":
             if self.schema_version != "zelo-computer-execution-v2":
                 raise ValueError("computer_navigation_requires_v2")

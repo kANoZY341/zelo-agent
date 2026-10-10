@@ -379,6 +379,12 @@ per-Task/Attempt file use-point with the exact Space confirmation and
 Core Computer permission rechecked under a serialized transaction; no
 Worker dispatch, model Tool or HTTP file-reading endpoint is activated.
 See `v0.15-space-file-gateway.md`.
+A subsequent explicitly scoped Computer Task route binds the exact operator
+Space confirmation into immutable Task and Worker execution identities,
+revalidating it on submit/retry/claim and at read dispatch. Generic Computer
+backends reject Space-bound requests; the Core Runner fails closed without its
+Space file gateway. This remains file-read-only, not general OpenDots authority
+or an automatic Agent Tool. See `v0.15-space-file-task-routing.md`.
 Existing Computer Worker execution is also revalidated after the control-state
 await and started-event callback, immediately before backend dispatch. This
 closes a reproduced revocation gap without granting Space authority; see

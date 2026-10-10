@@ -758,6 +758,44 @@ class TaskService:
         self.computer_supervisor = computer_supervisor
         self.skill_learning_store = skill_learning_store
 
+    def _check_space_approval(
+        self,
+        session: Session,
+        agent_execution: AgentExecutionBinding | None,
+        computer_spec: ComputerExecutionSpec,
+        computer_worker: Any,
+    ) -> None:
+        """Reject stale Space authority at submit/retry/claim, before Task work.
+
+        The gateway *also* rechecks at the exact file use-point. This check
+        never grants raw host access or bypasses normal Computer permissions.
+        """
+        activation_id = computer_spec.space_activation_id
+        if activation_id is None:
+            return
+        if (
+            agent_execution is None
+            or self.agent_factory is None
+            or computer_spec.action != "files_read"
+        ):
+            raise DomainError("computer_space_activation_invalid", 409)
+        from app.space_file_gateway import SpaceFileReadGateway, _path_components
+
+        try:
+            _path_components(computer_spec.path)
+            SpaceFileReadGateway(
+                self.database,
+                self.agent_factory,
+                self.settings.runtime_dir,
+                computer_worker,
+            )._verified_resource(
+                session,
+                instance_id=agent_execution.agent_instance_id,
+                activation_id=activation_id,
+            )
+        except DomainError:
+            raise DomainError("computer_space_activation_invalid", 409) from None
+
     @staticmethod
     def _agent_execution_selection(
         selection: dict[str, Any] | None,
@@ -2011,6 +2049,10 @@ class TaskService:
                         payload.get("path", ""),
                         request.timeout_seconds,
                         endpoint_id=payload.get("endpoint_id"),
+                        space_activation_id=payload.get("space_activation_id"),
+                    )
+                    self._check_space_approval(
+                        session, agent_execution, computer_request, selected.worker
                     )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
@@ -3193,6 +3235,10 @@ class TaskService:
                         task.payload.get("path", ""),
                         task.timeout_seconds,
                         endpoint_id=task.payload.get("endpoint_id"),
+                        space_activation_id=task.payload.get("space_activation_id"),
+                    )
+                    self._check_space_approval(
+                        session, agent_execution, refreshed_computer, selected.worker
                     )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
@@ -3725,7 +3771,10 @@ class TaskService:
                         or tuple(selection.requested_capabilities) != (required_capability,)
                     ):
                         raise ValueError("computer_execution_spec_stale")
-                except ValueError:
+                    self._check_space_approval(
+                        session, agent_execution, computer_request, selected.worker
+                    )
+                except (ValueError, DomainError):
                     task.error = "computer_execution_spec_invalid"
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)

@@ -76,6 +76,7 @@ def _fixture(database, settings, *, path="notes.txt", root_resource="documents")
         "factory": factory,
         "backend": backend,
         "computer": computer,
+        "supervisor": supervisor,
         "tasks": tasks,
         "agent_submit": execution_service,
         "agents": agents,
@@ -98,7 +99,12 @@ def _claim(env, *, path=None):
         env["instance"].id,
         AgentTaskCreate(
             task=ComputerRunInput(
-                kind="computer_run", payload={"action": "files_read", "path": relative}
+                kind="computer_run",
+                payload={
+                    "action": "files_read",
+                    "path": relative,
+                    "space_activation_id": env["activation"].id,
+                },
             )
         ),
         None,
@@ -163,7 +169,7 @@ def test_missing_revoked_or_retired_confirmation_never_opens_a_file(
         return real_open(*args, **kwargs)
 
     monkeypatch.setattr(module, "_open_bounded_utf8", spy)
-    with pytest.raises(DomainError, match="activation not found"):
+    with pytest.raises(DomainError, match="activation not bound to Task action"):
         _read(env, execution, activation_id="00000000-0000-4000-8000-000000000000")
     assert openings == []
     env["resources"].revoke(instance_id=env["instance"].id, activation_id=env["activation"].id)
