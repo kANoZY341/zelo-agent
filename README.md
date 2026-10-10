@@ -163,6 +163,10 @@ qualification, skill promotion and actual Space resource access remain future ga
 staged [operator Space-resource registry and confirmation contract](docs/v0.15-space-resource-operator-confirmation.md)
 records bounded, pre-provisioned directory identities and revocable,
 AgentInstance-bound owner confirmations, but grants no Worker/Tool/file reads.
+A separate [task-bound Space file gateway](docs/v0.15-space-file-gateway.md)
+proves one controlled read-only use-point with actual running Computer Task
+identity, permissions and safe descriptor-relative file reads. It remains
+internal and does not turn that proof into an automatically callable Tool.
 
 ## Structure and scope
 

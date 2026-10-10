@@ -374,6 +374,11 @@ a current intent to one exact resource. Neither the registry nor a reviewed
 confirmation grants Worker/Tool/file-opening authority; dispatch/use-point
 enforcement remains a future independently qualified slice. See
 `v0.15-space-resource-operator-confirmation.md`.
+A separately gated task-bound read gateway adds an internal, bounded
+per-Task/Attempt file use-point with the exact Space confirmation and
+Core Computer permission rechecked under a serialized transaction; no
+Worker dispatch, model Tool or HTTP file-reading endpoint is activated.
+See `v0.15-space-file-gateway.md`.
 Existing Computer Worker execution is also revalidated after the control-state
 await and started-event callback, immediately before backend dispatch. This
 closes a reproduced revocation gap without granting Space authority; see
