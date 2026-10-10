@@ -8,12 +8,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError, create_model
 
 from app.config import Settings
 from app.gateway import ModelGateway, ModelGatewayError, ModelMessage
 from app.schemas import ResearchRunResult, ResearchSource, StrictModel
-from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
+from app.tools import Tool, ToolGateway, ToolPolicyDenied, ToolRuntimeError
 
 RESEARCH_TOOL_NAMES = frozenset(
     {
@@ -96,16 +96,34 @@ class ResearchRuntime:
         self.models = models
         self.tools = tools
 
-    def tool_metadata(self) -> list[dict[str, Any]]:
-        allowed: list[dict[str, Any]] = []
+    def _allowed_tools(self) -> list[Tool[Any, Any]]:
+        allowed: list[Tool[Any, Any]] = []
         for name in sorted(RESEARCH_TOOL_NAMES):
             try:
                 tool = self.tools.registry.get(name)
                 self.tools.policy.evaluate(tool)
             except (ToolPolicyDenied, ToolRuntimeError):
                 continue
-            allowed.append(tool.metadata())
+            allowed.append(tool)
         return allowed
+
+    def tool_metadata(self) -> list[dict[str, Any]]:
+        return [tool.metadata() for tool in self._allowed_tools()]
+
+    @staticmethod
+    def _action_schema(tools: list[Tool[Any, Any]]) -> dict[str, Any]:
+        """Describe the registered inputs without replacing Core's action validation."""
+        action_type: Any = ResearchFinalAction
+        for tool in tools:
+            tool_action = create_model(
+                f"ResearchTool_{tool.name}",
+                __base__=StrictModel,
+                type=(Literal["tool_call"], ...),
+                tool=(Literal[tool.name], ...),
+                arguments=(tool.input_model, ...),
+            )
+            action_type |= tool_action
+        return TypeAdapter(action_type).json_schema()
 
     @staticmethod
     def _locator(tool: str, arguments: dict[str, Any]) -> str:
@@ -182,8 +200,10 @@ class ResearchRuntime:
         emit: ResearchEventSink,
     ) -> dict[str, Any]:
         messages = [ModelMessage("user", query)]
-        metadata = self.tool_metadata()
+        allowed_tools = self._allowed_tools()
+        metadata = [tool.metadata() for tool in allowed_tools]
         system = SYSTEM_PROMPT + json.dumps(metadata, sort_keys=True)
+        output_schema = self._action_schema(allowed_tools)
 
         tool_calls = 0
         parse_failures = 0
@@ -200,7 +220,7 @@ class ResearchRuntime:
                         expected_model=model,
                         system_prompt=system,
                         messages=tuple(messages),
-                        output_schema=RESEARCH_ACTION.json_schema(),
+                        output_schema=output_schema,
                         timeout=self.settings.model_timeout_seconds,
                     )
             except TimeoutError:

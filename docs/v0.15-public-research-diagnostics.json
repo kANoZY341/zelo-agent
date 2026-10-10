@@ -108,6 +108,70 @@
       "requested_timeout_honored": true,
       "retained_status": "parsed_task_only",
       "semantic_outcome": "strict_research_task_with_requested_timeout_only"
+    },
+    {
+      "artifacts_sha256": {
+        "observation.json": "ee34efe8b24175dcfb0f1bbdace5a0b6718f26fb94ebedab6ab8e1f279ea931d",
+        "ollama-public-run-timing.log": "7ca6c49f0a491528cd2b9ae05a54f12ff1301f70c7a74375549a2e153a57c135"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-timeout-observation-9b1eae9a815c43ea82515b0269973bc5",
+      "generated_text_retained": false,
+      "semantic_outcome": "first_research_generation_cancelled_after_at_least_1115_tokens"
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "8c1d17ea94cbbc6e93d4d3678dda92fec970e5a005d738659d1dfd27d1f22b7a",
+        "streaming-request.json": "cc3655c9cc611337986d3aeb12b7d4f09b868cf31b6de3f77f647a55f44d82ab",
+        "wire-request.json": "e5c9c06ffaaeaf5cf3dd38fdd12155ce3e778ef61c71b9d3b6bf9b3efd298f2c"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-first-request-diagnostic-9766927c25024b4fa94faeaed24b22b1",
+      "semantic_outcome": "actual_first_request_values_captured_without_inference",
+      "serialization_note": "These canonical artifacts recursively sort keys and do not preserve the original provider JSON-schema property order. Replaying them changes serialization order."
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "86262763d438c5869ca6d5ae2152bdc7b63af9dd4fe9053e3422a5f6f4565d62",
+        "protocol.json": "e522890601dc3eeee65acf3d95bf7ae63aae97486e676455480a5fd7656d1012",
+        "result.json": "dc59b1baec346592f777dcdd5cd2f917a71c1311c7a0d1c92fa5bc8b10122c07"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 265,
+      "directory": "runtime/public-research/research-stream-diagnostic-568befccf77541daacf2e455cfc315c9",
+      "elapsed_seconds": 31.296,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_failure_reproduced": false,
+      "semantic_outcome": "premature_final_with_invented_claims_and_source_ids",
+      "serialization_note": "The request changed stream and JSON-schema key order because the input artifact was canonicalized. The original protocol records only stream as a changed field; this later qualification corrects that interpretation."
+    },
+    {
+      "artifacts_sha256": {
+        "protocol.json": "5da97b4d8ad5955a43e2c73278c7d3e957aa5379bfe6ed7c7f0a4afe3a438f27",
+        "serialization-addendum.json": "0a48457884ff4a637df982077f60c02b2d0b7d500f7d6cf26321342338189b84",
+        "streaming-request.json": "f6148d19e09ac2a463756c151b212899e9b2a086694f2af4186fd2fcaf6cce73",
+        "wire-request.json": "e7b0b5b0f31a9da6125e55b8f653cc9f90998c8ba6f134ad38911ac7d5b2e890"
+      },
+      "complete_workflow": false,
+      "directory": "runtime/public-research/research-first-request-diagnostic-20cbe7da702f403e93266d9552dfa7cc",
+      "semantic_outcome": "actual_first_request_recaptured_as_original_order_HTTPX_bytes_without_inference"
+    },
+    {
+      "artifacts_sha256": {
+        "content.txt": "4b76190349695ca73c12d13b6bb0850ef21343dd3c0bd44d693eb793c1d145ca",
+        "protocol.json": "f21a340c3ecd87f3ee58cac2d251b9c1065ac202d3369664ee6d4918c8397e79",
+        "result.json": "d033f0e589e22f623143b0692c52119a2115cb4bd817cd146c7496523bc7d4ba"
+      },
+      "complete_workflow": false,
+      "completion_tokens": 24,
+      "directory": "runtime/public-research/research-original-order-stream-12e8acfb47244f0c96480677f5b22325",
+      "elapsed_seconds": 1.491,
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "original_timeout_reproduced": false,
+      "selected_path": "agent-reach-rss.txt",
+      "semantic_outcome": "valid_first_read_workspace_file_action_without_dispatch"
     }
   ],
   "full_workflow_attempts": [
@@ -135,6 +199,24 @@
       "precise_failure_not_retrospectively_proven": true,
       "report": "runtime/public-research/proof-f8f32cb116ad4f08ad7f2ad0bf574930/report.json",
       "report_sha256": "c8acfb4816034059c304b882b73aee502a1767a21d06c5950f8ed16f35b5b02a",
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "model_timeout",
+      "failure_phase": "research_run",
+      "failure_type": "EvidenceError",
+      "git_commit": "00459c627bd68933ce12708c12b0713d659dadb2",
+      "memory_written": false,
+      "mind_turn_persisted": true,
+      "parent_monotonic_seconds": 177.591,
+      "report": "runtime/public-research/proof-fd5a9edfac5246759588f3a76d70fce0/report.json",
+      "report_sha256": "4ad44bc4f35f80f9ba992db1c17fad68cd77bb5cc84060280b3a1de36d310a7f",
+      "research_model_steps": 1,
+      "research_task_id": "4b788bab-4aa7-4441-8a27-4cb562761574",
+      "research_tool_calls": 0,
       "runtime_cleanup_confirmed": true,
       "setup_cleanup_errors": [],
       "status": "failed"
