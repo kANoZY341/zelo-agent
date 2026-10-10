@@ -158,7 +158,12 @@ integrity check with:
 
 Authenticated operator candidate views are available under
 `GET /integration-candidates/community` (sources), `/skills`,
-`/teams/{template}`, `/architecture`, `/architecture/mermaid`. An
+`/teams/{template}`, `/architecture`, `/architecture/mermaid`. Four
+[synthetic ECC fixed-case suites](docs/v0.15-ecc-fixed-case-evaluation.md) are
+available to authenticated operators at `GET /integration-candidates/community/ecc/{skill_id}/cases`
+and `POST /integration-candidates/community/ecc/{skill_id}/evaluate`.
+These score submitted decisions on fixed Zelo-authored scenarios only; no model
+is run and no Skill, Task, Tool, promotion or runtime authority is granted. An
 [authenticated OCR evidence preview](docs/v0.15-ocr-operator-evidence-preview.md)
 is available through the operator-only POST
 `/integration-candidates/community/open-code-review/evidence/{base_sha}/{head_sha}`.
