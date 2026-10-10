@@ -65,6 +65,10 @@ def test_migration_from_empty_database(settings) -> None:
             "community_context_archives",
             "agent_space_intents",
             "agent_space_intent_revocations",
+            "agent_space_resources",
+            "agent_space_resource_retirements",
+            "agent_space_activations",
+            "agent_space_activation_revocations",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
@@ -207,7 +211,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0040_agent_space_intents"
+                == "0041_space_resource_activation"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -434,7 +438,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0040_agent_space_intents"
+                "0041_space_resource_activation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
