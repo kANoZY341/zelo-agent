@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.community_sources import verify_community_sources
+from app.community_sources import CommunitySourceRefusal, verify_community_sources
 from app.developer_contracts import ReviewerReport, ReviewFinding
 
 MAX_BYTES = 131072
@@ -213,5 +213,9 @@ def bind_ocr_review(
             ),
         )
         return report, evidence
+    except CommunitySourceRefusal:
+        # A trusted reference-source-integrity failure is availability, not
+        # evidence that the supplied review comment schema was invalid.
+        raise
     except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
         raise OcrEvidenceRefusal("ocr_report_invalid_or_untrusted") from None
