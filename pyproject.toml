@@ -1,7 +1,8 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["docs/reviews/*.md", "third_party/rea"]
+# Retained upstream sources keep their exact bytes and source-manifest identities.
+extend-exclude = ["docs/reviews/*.md", "third_party/rea", "integrations/development/sources"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
