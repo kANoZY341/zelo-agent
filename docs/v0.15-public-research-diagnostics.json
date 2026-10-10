@@ -172,6 +172,29 @@
       "original_timeout_reproduced": false,
       "selected_path": "agent-reach-rss.txt",
       "semantic_outcome": "valid_first_read_workspace_file_action_without_dispatch"
+    },
+    {
+      "artifacts_sha256": {
+        "call-01-request.json": "51f5babdc62ef56f3490acd5cedf5722e4faf5dd07e54ec2ba6c55de3c536ac4",
+        "protocol.json": "3dde24b0bb7b468d671ce716d0a72886c7d763fb123ac860706718b022306602",
+        "result.json": "5f761e3225b36fcd6bbde55824395f8e485019367c56423a8cf03a7991cf71d3",
+        "run_component.py": "3805de32e0156e4e053a7184d34f75bdd2f70e936908f897e857daddad0fae07",
+        "task-evidence.json": "77de1ad2813189e75e8d4f2b2ae1e7d673092cf53522fec0508541013dcfca4a"
+      },
+      "calls": 1,
+      "complete_workflow": false,
+      "component_status": "failed",
+      "directory": "runtime/public-research/research-component-diagnostic-6cecd4e68204423fbb8805f7816209a0",
+      "elapsed_seconds": 120.114,
+      "failure_code": "model_timeout",
+      "model_digest_after": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_digest_before": "b6808bd4d104071c1038fb38d5a7bf9ecef724b0f515e57b517d1c72a4467712",
+      "model_resident_before": false,
+      "reply_complete": false,
+      "research_tool_calls": 0,
+      "retained_inputs_unchanged": true,
+      "semantic_outcome": "first_nonstream_component_call_timed_out_without_complete_response",
+      "serialization_note": "Exact original HTTPX request bytes observed; stream remains false. File archival adds diagnostic observation overhead."
     }
   ],
   "full_workflow_attempts": [
@@ -216,6 +239,24 @@
       "report_sha256": "4ad44bc4f35f80f9ba992db1c17fad68cd77bb5cc84060280b3a1de36d310a7f",
       "research_model_steps": 1,
       "research_task_id": "4b788bab-4aa7-4441-8a27-4cb562761574",
+      "research_tool_calls": 0,
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
+    },
+    {
+      "browser_tasks_succeeded": 3,
+      "failure_code": "model_timeout",
+      "failure_phase": "research_run",
+      "failure_type": "EvidenceError",
+      "git_commit": "6112e40e8ca05fd96c07425bf08d64caf2cdb344",
+      "memory_written": false,
+      "mind_turn_persisted": true,
+      "parent_monotonic_seconds": 178.065,
+      "report": "runtime/public-research/proof-5a0c9dd4c4c5463e9501ea656c156b7d/report.json",
+      "report_sha256": "0a38e28cff6163c7f5ef0d57c39da51569aeaf74442fe432474be0c455b6f9f2",
+      "research_model_steps": 1,
+      "research_task_id": "f4de0e5e-bb3f-4039-8acb-68e01adf2e8f",
       "research_tool_calls": 0,
       "runtime_cleanup_confirmed": true,
       "setup_cleanup_errors": [],

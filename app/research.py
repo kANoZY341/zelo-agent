@@ -111,9 +111,11 @@ class ResearchRuntime:
         return [tool.metadata() for tool in self._allowed_tools()]
 
     @staticmethod
-    def _action_schema(tools: list[Tool[Any, Any]]) -> dict[str, Any]:
-        """Describe the registered inputs without replacing Core's action validation."""
-        action_type: Any = ResearchFinalAction
+    def _action_schema(tools: list[Tool[Any, Any]], source_ids: tuple[str, ...]) -> dict[str, Any]:
+        """Describe available actions and evidence without replacing Core validation."""
+        if not tools and not source_ids:
+            raise ResearchRuntimeError("research_tool_unavailable")
+        action_type: Any = ResearchFinalAction if source_ids else None
         for tool in tools:
             tool_action = create_model(
                 f"ResearchTool_{tool.name}",
@@ -122,8 +124,12 @@ class ResearchRuntime:
                 tool=(Literal[tool.name], ...),
                 arguments=(tool.input_model, ...),
             )
-            action_type |= tool_action
-        return TypeAdapter(action_type).json_schema()
+            action_type = tool_action if action_type is None else action_type | tool_action
+        schema = TypeAdapter(action_type).json_schema()
+        if source_ids:
+            final_schema = schema["$defs"]["ResearchFinalAction"] if tools else schema
+            final_schema["properties"]["source_ids"]["items"]["enum"] = list(source_ids)
+        return schema
 
     @staticmethod
     def _locator(tool: str, arguments: dict[str, Any]) -> str:
@@ -203,7 +209,6 @@ class ResearchRuntime:
         allowed_tools = self._allowed_tools()
         metadata = [tool.metadata() for tool in allowed_tools]
         system = SYSTEM_PROMPT + json.dumps(metadata, sort_keys=True)
-        output_schema = self._action_schema(allowed_tools)
 
         tool_calls = 0
         parse_failures = 0
@@ -212,6 +217,7 @@ class ResearchRuntime:
         usage: list[dict[str, int | None]] = []
 
         for step in range(1, self.settings.max_agent_steps + 1):
+            output_schema = self._action_schema(allowed_tools, tuple(source_lookup))
             emit("research_model_step", {"step": step, "tool_calls": tool_calls})
             try:
                 async with asyncio.timeout(self.settings.model_timeout_seconds):
