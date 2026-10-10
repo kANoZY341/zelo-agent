@@ -1,0 +1,61 @@
+{
+  "bundled_cobble_carrier": {
+    "bytes": 799,
+    "kind": "exact bundled source containing copyright and license declaration",
+    "limitation": "The bundled source declares MIT and refers to LICENSE, but no standalone full license text was supplied in the wheel, pinned sdist, or inspected tagged repository root. The package metadata and tagged README separately declare/link BSD-2-Clause. Original declarations are retained without inventing omitted text.",
+    "name": "cobble",
+    "path": "licenses/cobble/0.1.4/bundled/cobble/inflection.py",
+    "sha256": "1967a2342dfae1812636d6e41b8636398f2fb94d96c20a10540faaf941d9bec1",
+    "version": "0.1.4",
+    "wheel": "inputs/wheels/cobble-0.1.4-py3-none-any.whl",
+    "wheel_member": "cobble/inflection.py",
+    "wheel_sha256": "36c91b1655e599fd428e2b95fdd5f0da1ca2e9f1abb0bc871dec21a0e78a2b44"
+  },
+  "packages": [
+    {
+      "commit": "7fdaefb724d08a999f8d30647e8ce8f2ad1c5795",
+      "name": "markitdown",
+      "notices": [
+        {
+          "bytes": 1141,
+          "git_blob_sha1": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+          "path": "licenses/markitdown/0.1.5b1/upstream/LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+          "upstream_path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/microsoft/markitdown/7fdaefb724d08a999f8d30647e8ce8f2ad1c5795/LICENSE"
+        }
+      ],
+      "repository": "microsoft/markitdown",
+      "root_listing_sha256": "4b107c8ba53e76fc729eee95595035b27ec5f2ba7ef0ce228c5cde2c5764bb87",
+      "root_listing_url": "https://api.github.com/repos/microsoft/markitdown/contents?ref=7fdaefb724d08a999f8d30647e8ce8f2ad1c5795",
+      "tag": "v0.1.5b1",
+      "version": "0.1.5b1"
+    },
+    {
+      "commit": "ec9dfd6c18205aa1880f46842677f27d7275cbc7",
+      "name": "py-key-value-aio",
+      "notices": [
+        {
+          "bytes": 11339,
+          "git_blob_sha1": "210235d5142fd22c61085d801adc9ea105889772",
+          "path": "licenses/py-key-value-aio/0.4.4/upstream/LICENSE",
+          "sha256": "d09dfd49388d9bff8ecf258700abebbd77d25da2903cd21f362e074f242a1601",
+          "upstream_path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/strawgate/py-key-value/ec9dfd6c18205aa1880f46842677f27d7275cbc7/LICENSE"
+        }
+      ],
+      "repository": "strawgate/py-key-value",
+      "root_listing_sha256": "7ffc997bc37ab0303903e4bf3a49769142e244f9ab09e2c10a277b1dde2cfbb4",
+      "root_listing_url": "https://api.github.com/repos/strawgate/py-key-value/contents?ref=ec9dfd6c18205aa1880f46842677f27d7275cbc7",
+      "tag": "0.4.4",
+      "version": "0.4.4"
+    }
+  ],
+  "py_key_value_repository_discovery": {
+    "linked_repository": "https://github.com/strawgate/py-key-value",
+    "official_metadata_documentation_url": "https://strawgate.com/py-key-value/",
+    "retained_documentation": "notice-source-refs/py-key-value-aio-0.4.4-doc-source.html",
+    "retained_documentation_sha256": "5d8d02ebe707a83673c3b380e45404367422e2002ae42b5cc12a118c209a6d43"
+  },
+  "schema": "zelo-hindsight-final-notice-supplement-v1"
+}

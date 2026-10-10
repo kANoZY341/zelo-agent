@@ -1,0 +1,450 @@
+{
+  "build_recipe": {
+    "backend": "hatchling.build",
+    "backend_requirement": "hatchling>=1.27",
+    "build_packages": [
+      {
+        "name": "hatchling",
+        "sha256": "d3a2f3567c4f926ea39849cdf924c7e99e6686c9c8e288ae1037c8fa2a5d937b",
+        "size": 75794,
+        "version": "1.27.0"
+      },
+      {
+        "name": "packaging",
+        "sha256": "29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
+        "size": 66469,
+        "version": "25.0"
+      },
+      {
+        "name": "pathspec",
+        "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+        "size": 31191,
+        "version": "0.12.1"
+      },
+      {
+        "name": "pluggy",
+        "sha256": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+        "size": 20538,
+        "version": "1.6.0"
+      },
+      {
+        "name": "trove-classifiers",
+        "sha256": "5f19c789d4f17f501d36c94dbbf969fb3e8c2784d008e6f5164dd2c3d6a2b07c",
+        "size": 13610,
+        "version": "2025.1.15.22"
+      }
+    ],
+    "isolation": "Isolate the build from the host/global environment: use the new owned environment and exact five backend wheels from the local hashed wheelhouse. Build the standalone source with network and dependency resolution disabled; install exactly the runtime rows from the same frozen local inputs according to the reviewed runtime plan.",
+    "performed": false,
+    "source": "Standalone pinned hindsight-api-slim tree; no root uv workspace or missing-member workaround.",
+    "tomli_on_python_312": "Inactive; Hatchling requires it only below Python 3.11."
+  },
+  "evidence": [
+    {
+      "bytes": 1724,
+      "mode": "0o400",
+      "path": "source-inputs.json",
+      "sha256": "4acc5a96aef05b848f9a8c74bb48c18226c927c76cfd24f9272585ba01834b69"
+    },
+    {
+      "bytes": 259290,
+      "mode": "0o400",
+      "path": "source-tree.json",
+      "sha256": "430bbbb988dc31062561583c2a26bb70e05f8049e4075ce4b118f368b730f106"
+    },
+    {
+      "bytes": 442161,
+      "mode": "0o400",
+      "path": "source-verification.json",
+      "sha256": "53e156efa07dbbb4a6e30f7fc554afab9ecb39209472296b85ab2eedcabc3168"
+    },
+    {
+      "bytes": 160667,
+      "mode": "0o400",
+      "path": "selection-audit.json",
+      "sha256": "4086fccc664bc41ea81ed3ead11dbe8fdf33c1ea33630e9c691a729a76a17083"
+    },
+    {
+      "bytes": 318249,
+      "mode": "0o400",
+      "path": "wheel-verification.json",
+      "sha256": "9cc0d1217a0af9b09c67b3f556474c5fcd0a6d177142579c70f56097d456fb1b"
+    },
+    {
+      "bytes": 330895,
+      "mode": "0o400",
+      "path": "wheel-verification-v2.json",
+      "sha256": "877520617f207f8fecaebc18db1fb18cdf5ade8c7feb01fea8a71a48cd621d08"
+    },
+    {
+      "bytes": 6638,
+      "mode": "0o400",
+      "path": "supplemental-notices.json",
+      "sha256": "7300140c69a30f1bf06b276a33f839bd878e3e4b93578d13cf3f302e678a5725"
+    },
+    {
+      "bytes": 5118,
+      "mode": "0o400",
+      "path": "versioned-source-notices.json",
+      "sha256": "ad5548d041d0422ec4fe94199f8683166342b4b567554b6d8f554c8a4da2a005"
+    },
+    {
+      "bytes": 1364,
+      "mode": "0o400",
+      "path": "notice-carriers.json",
+      "sha256": "8f182225aef14d15de70c65733561424d7af87ef02890e54d6466eabd195d0cc"
+    },
+    {
+      "bytes": 3110,
+      "mode": "0o400",
+      "path": "final-notice-supplement.json",
+      "sha256": "629f6b80d705688ce60c95c631bc10ac08b7c9654097cc5c129d3c7753ef340b"
+    },
+    {
+      "bytes": 339985,
+      "mode": "0o400",
+      "path": "notice-inventory.json",
+      "sha256": "7a469e421f898fa01dec5e2f9ebdd9eae477fc01fbfece85f919f21591596382"
+    }
+  ],
+  "first_verifier_attempt": "The retained first wheel-verification report stopped on local JSON serialization of pandas License metadata; v2 stringifies that header only and verifies the same selected wheel bytes with no dependency or pin change.",
+  "limits": [
+    "Source, wheel bytes, official metadata, selected marker closure and notices have been verified. No packages were installed, no source build or runtime import was executed, and no services or model calls were started.",
+    "The slim base requires several cloud SDK packages; retaining those pinned wheels does not activate their providers.",
+    "This wheel closure excludes operating-system packages, PostgreSQL/container artifacts, the separately pinned uv bootstrap and model assets; the operator owns those separate readiness gates.",
+    "Cobble upstream omits standalone full license text as documented in the notice inventory; original declarations and header are preserved."
+  ],
+  "notices": {
+    "directory": "licenses",
+    "flashrank_package_license": "Apache 2.0",
+    "flashrank_package_notice": {
+      "bytes": 11357,
+      "path": "licenses/flashrank/0.2.10/FlashRank-0.2.10.dist-info/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "wheel_member": "FlashRank-0.2.10.dist-info/LICENSE"
+    },
+    "inventory": {
+      "bytes": 339985,
+      "mode": "0o400",
+      "path": "notice-inventory.json",
+      "sha256": "7a469e421f898fa01dec5e2f9ebdd9eae477fc01fbfece85f919f21591596382"
+    },
+    "known_upstream_omission_package": "cobble==0.1.4",
+    "model_notices_are_separate": true,
+    "resolution": "Eight wheels are supplemented with exact version-associated full source notices. Cobble retains the exact versioned BSD declaration/link and bundled MIT copyright/license header; no absent full notice text was invented.",
+    "separate_notice_omission_wheels": [
+      "cobble-0.1.4-py3-none-any.whl",
+      "flatbuffers-25.12.19-py2.py3-none-any.whl",
+      "github_copilot_sdk-1.0.11-py3-none-any.whl",
+      "magika-0.6.3-py3-none-manylinux_2_28_x86_64.whl",
+      "markitdown-0.1.5b1-py3-none-any.whl",
+      "obstore-0.8.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "opentelemetry_util_http-0.65b0-py3-none-any.whl",
+      "py_key_value_aio-0.4.4-py3-none-any.whl",
+      "tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    ]
+  },
+  "preparation_root": "/home/zelo/zelo/core-hindsight-comparison/runtime/hindsight-preparation/wheel-closure-a4cf06f6e65445dd919ccf1fb32a3a01",
+  "runtime_interface_observation": {
+    "correction_status": "Reported; author owns implementation and verification.",
+    "impact": "The observed _wheel_manifest available-set comprehension directly indexes every lock wheel size and raises KeyError for these excluded torch entries. Root and runtime author were notified to filter incomplete unselected records while retaining exact selected-row URL/hash/size checks and CPU exclusion. Every selected runtime entry has size; no input pin change is required.",
+    "observed_runtime_script_sha256": "45997994b6e3b52271db4d72656a410c7280b21aef4788de80809345bcf40ff1",
+    "unselected_lock_wheels_missing_size": [
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp311-cp311-macosx_14_0_arm64.whl",
+        "version": "2.13.0"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp312-cp312-macosx_14_0_arm64.whl",
+        "version": "2.13.0"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp313-cp313-macosx_14_0_arm64.whl",
+        "version": "2.13.0"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp314-cp314-macosx_14_0_arm64.whl",
+        "version": "2.13.0"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0-cp314-cp314t-macosx_14_0_arm64.whl",
+        "version": "2.13.0"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-linux_s390x.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-win_amd64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp311-cp311-win_arm64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-linux_s390x.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-win_amd64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-win_arm64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp313-cp313-linux_s390x.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp313-cp313-win_amd64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp313-cp313-win_arm64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314-linux_s390x.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314-win_amd64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314t-linux_s390x.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314t-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314t-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp314-cp314t-win_amd64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp315-cp315-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp315-cp315-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp315-cp315t-manylinux_2_28_aarch64.whl",
+        "version": "2.13.0+cpu"
+      },
+      {
+        "name": "torch",
+        "url": "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp315-cp315t-manylinux_2_28_x86_64.whl",
+        "version": "2.13.0+cpu"
+      }
+    ]
+  },
+  "schema": "zelo-hindsight-offline-closure-v1",
+  "source": {
+    "bytes": 16774104,
+    "commit": "44d5340148fd47efb34e184d61f87ab5e2d8d1e2",
+    "files": 993,
+    "path": "inputs/hindsight-api-slim",
+    "repository": "vectorize-io/hindsight",
+    "tree_sha1": "b1bb4d5be99443079ba6f0eda9541ab30d52c11a",
+    "verification": {
+      "bytes": 442161,
+      "mode": "0o400",
+      "path": "source-verification.json",
+      "sha256": "53e156efa07dbbb4a6e30f7fc554afab9ecb39209472296b85ab2eedcabc3168"
+    }
+  },
+  "stage_inputs": {
+    "lock": {
+      "bytes": 1012778,
+      "mode": "0o400",
+      "path": "inputs/uv.lock",
+      "sha256": "666a5412fc05a85c2c967c510197ec7830a9b809ccb0323f52104ca25be77ae7"
+    },
+    "source_directory": "inputs/hindsight-api-slim",
+    "source_license": {
+      "bytes": 1075,
+      "mode": "0o400",
+      "path": "inputs/LICENSE.Hindsight",
+      "sha256": "01fde0bedf83bdc185065d7af524a61690efe576a67f922eaff3a1280c17b63a"
+    },
+    "wheel_directory": "inputs/wheels",
+    "wheel_manifest": {
+      "bytes": 83820,
+      "mode": "0o400",
+      "path": "inputs/wheel-manifest.json",
+      "sha256": "db1f422d27a160c352c2eb07443af947e613d0a2037006d025ca7b023f51141b"
+    }
+  },
+  "status": "inputs_verified_for_operator_staging",
+  "target": {
+    "environment": {
+      "implementation_name": "cpython",
+      "implementation_version": "3.12.3",
+      "os_name": "posix",
+      "platform_machine": "x86_64",
+      "platform_python_implementation": "CPython",
+      "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+      "platform_system": "Linux",
+      "platform_version": "#1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026",
+      "python_full_version": "3.12.3",
+      "python_version": "3.12",
+      "sys_platform": "linux"
+    },
+    "libc": [
+      "glibc",
+      "2.39"
+    ]
+  },
+  "wheel_closure": {
+    "build_rows": 5,
+    "embedded_metadata_directory": "wheel-metadata",
+    "excluded_packages_present": [],
+    "excluded_prefixes": [
+      "torch",
+      "nvidia",
+      "cuda",
+      "triton",
+      "onnxruntime-gpu",
+      "mlx",
+      "llama-cpp",
+      "pg0",
+      "sentence-transformers"
+    ],
+    "missing_compatible_wheels": [],
+    "official_metadata_directory": "pypi",
+    "per_wheel_audits": "verified-wheels",
+    "roots": [
+      "hindsight-api-slim[local-onnx]==0.10.3",
+      "flashrank==0.2.10"
+    ],
+    "runtime_rows": 188,
+    "selected_extras": {
+      "fastapi": [
+        "standard"
+      ],
+      "fastapi-cli": [
+        "standard"
+      ],
+      "google-auth": [
+        "requests"
+      ],
+      "hindsight-api-slim": [
+        "local-onnx"
+      ],
+      "httpx": [
+        "http2"
+      ],
+      "markitdown": [
+        "docx",
+        "pdf",
+        "pptx",
+        "xls",
+        "xlsx"
+      ],
+      "py-key-value-aio": [
+        "filetree",
+        "keyring",
+        "memory"
+      ],
+      "pydantic": [
+        "email"
+      ],
+      "pyjwt": [
+        "crypto"
+      ],
+      "uvicorn": [
+        "standard"
+      ]
+    },
+    "shared_runtime_build_wheel": "packaging==25.0",
+    "unique_wheel_bytes": 293268174,
+    "unique_wheels": 192,
+    "unsatisfied_active_requirements": [],
+    "verification": {
+      "bytes": 330895,
+      "mode": "0o400",
+      "path": "wheel-verification-v2.json",
+      "sha256": "877520617f207f8fecaebc18db1fb18cdf5ade8c7feb01fea8a71a48cd621d08"
+    }
+  },
+  "worktree_observation": {
+    "head": "53ccac1e1670204a28e4b9b49d4221507a2f1187",
+    "preparation_ignored": true,
+    "this_preparation_modified_tracked_files": false,
+    "tracked_status_porcelain": ""
+  }
+}

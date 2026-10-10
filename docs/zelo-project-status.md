@@ -8,6 +8,22 @@ in `docs/zelo-workspace-decision.md`.
 
 ## Active increment: v0.15 publication refusal and inert v0.16 channels
 
+Current checkpoint (10 October 2026): repairs #142 and #141, including #140
+ancestry, are complete. PR #143 merged the engineering pack with exact-head
+and post-merge CI green. The public Browser → Mind → Research path passed
+operational checks; its raw answer failed semantic review. A corrected
+operator-reviewed summary was separately admitted, recalled in full, isolated
+from the exclusion project and replayed without duplication.
+
+Hindsight comparison on the fixed public/synthetic workload: Core and
+Core-filtered Hindsight each passed 8/10 grounded-correct cases; raw Hindsight
+passed 6/10. This bounded run does not justify replacing Core memory.
+This evaluation does not replace Core memory or its scope and lifecycle authority.
+
+The engineering focus remains v0.15; the published release remains v0.14.0.
+UI PR #61 stays parked, REA stays inactive, and no fifth Media native-reader
+qualification is authorized.
+
 Core-first work remains on Core v0.15. Merged PR #107 established learned-skill
 proposal admission. Merged PR #108 at
 bc6f50c94b7d42c25a32462a8657606534dff457 added channel: text
@@ -162,23 +178,39 @@ reviewed and tested tree `895ebe41b816ef9712214f0765e199f31fbdafca`.
 
 ## Selected engineering and public research continuation
 
-The Managing Director selected the next order: the focused Addy Osmani and
-Matt Pocock engineering pack, one complete public research workflow using
-current Zelo memory, then a bounded Hindsight comparison on that same work.
-The [engineering development pack](development/engineering-pack.md) connects
-four adapted procedures to root `AGENTS.md` for relevant coding work. Exact
-MIT source files and supporting references are retained separately in
-`integrations/development/`; they are not runtime Skill Registry entries.
+The Managing Director selected the sequence: the focused Addy Osmani and
+Matt Pocock engineering pack, a complete public research workflow using current
+Zelo memory, then a bounded Hindsight comparison on the same work.
 
-The [public research workflow](v0.15-public-research-workflow.md) is implemented
-with separate reviewed project-memory admission. Its first live run verified
-all three Browser sources and cleanup, then failed during Mind delegation; no
-Research result or memory was admitted. The retained routing diagnostic led to
-a narrower operator request and safe gateway failure codes. Successful live
-Research and reviewed memory remain the next gate before the bounded Hindsight
-comparison. RSS/Atom ingestion and automatic public-video transcript retrieval
-are not established by this source-file workflow.
-HyperFrames and VoiceStudio remain deferred to corresponding production tasks.
+The [engineering development pack](development/engineering-pack.md) merged in
+PR #143 at `b1e122aaa673a054606932d9b40e9913ab7e1d97`.
+[Exact-head CI 38031905463](https://github.com/kANoZY341/zelo-agent/actions/runs/38031905463)
+and [post-merge main CI 38033369042](https://github.com/kANoZY341/zelo-agent/actions/runs/38033369042)
+passed. Post-merge main recorded 5,550 passed, two skipped and 42 warnings in
+1,232.30 seconds. These are the engineering-pack merge gates. Four adapted
+procedures are connected through root `AGENTS.md`; exact MIT source files and
+supporting references remain under `integrations/development/` and grant no
+runtime Skill Registry or execution authority.
+
+The [public research workflow](v0.15-public-research-workflow.md#observed-result)
+completed its operational and separately reviewed project-memory path in run
+`2ff6423a809a4ddbb242f471f2a56b32`. Browser retrieval, Mind delegation, Research
+execution, citations and cleanup passed. The unedited answer failed semantic
+and completeness review. A corrected source-grounded operator summary was
+separately approved and admitted; full scoped recall, exclusion-project
+isolation and idempotent replay passed. The original answer, operational
+report, semantic review and memory receipt remain unchanged.
+
+The [bounded Hindsight comparison](v0.15-hindsight-memory-comparison.md) evaluates
+native recall on a frozen public/synthetic workload with Core scope and
+lifecycle filtering and separate operator grading. Its retained outcome and
+operator assessment are recorded in that guide and the active checkpoint
+above. The experiment grants no production memory promotion or backend switch.
+
+RSS/Atom ingestion and automatic public-video transcript retrieval are not
+established by the source-file workflow. HyperFrames and VoiceStudio remain
+deferred to their corresponding production tasks. The engineering focus remains
+v0.15, with the existing later milestone order and Core authority boundaries.
 
 ## REA source-owned candidate preparation
 

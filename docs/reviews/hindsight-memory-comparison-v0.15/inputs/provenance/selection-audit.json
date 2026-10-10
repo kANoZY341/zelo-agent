@@ -1,0 +1,5690 @@
+{
+  "excluded_prefixes": [
+    "torch",
+    "nvidia",
+    "cuda",
+    "triton",
+    "onnxruntime-gpu",
+    "mlx",
+    "llama-cpp",
+    "pg0",
+    "sentence-transformers"
+  ],
+  "inactive_edges": [
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "winloop"
+      },
+      "parent": "hindsight-api-slim"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "onnxruntime"
+      },
+      "parent": "markitdown"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "colorama"
+      },
+      "parent": "tqdm"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "pywin32"
+      },
+      "parent": "mcp"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "tzdata"
+      },
+      "parent": "tzlocal"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "colorama"
+      },
+      "parent": "uvicorn[standard]"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "colorama"
+      },
+      "parent": "click"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.12'",
+        "name": "importlib-metadata"
+      },
+      "parent": "keyring"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "pywin32-ctypes"
+      },
+      "parent": "keyring"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'win32'",
+        "name": "pyreadline3"
+      },
+      "parent": "humanfriendly"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.12'",
+        "name": "backports-tarfile"
+      },
+      "parent": "jaraco-context"
+    }
+  ],
+  "missing_compatible_wheels": [],
+  "roots": [
+    "hindsight-api-slim[local-onnx]==0.10.3",
+    "flashrank==0.2.10"
+  ],
+  "runtime_wheels": [
+    {
+      "filename": "aiofile-3.9.0-py3-none-any.whl",
+      "name": "aiofile",
+      "role": "runtime",
+      "sha256": "ce2f6c1571538cbdfa0143b04e16b208ecb0e9cb4148e528af8a640ed51cc8aa",
+      "size": 19539,
+      "url": "https://files.pythonhosted.org/packages/50/25/da1f0b4dd970e52bf5a36c204c107e11a0c6d3ed195eba0bfbc664c312b2/aiofile-3.9.0-py3-none-any.whl",
+      "version": "3.9.0"
+    },
+    {
+      "filename": "aiohappyeyeballs-2.6.1-py3-none-any.whl",
+      "name": "aiohappyeyeballs",
+      "role": "runtime",
+      "sha256": "f349ba8f4b75cb25c99c5c2d84e997e485204d2902a9597802b0371f09331fb8",
+      "size": 15265,
+      "url": "https://files.pythonhosted.org/packages/0f/15/5bf3b99495fb160b63f95972b81750f18f7f4e02ad051373b669d17d44f2/aiohappyeyeballs-2.6.1-py3-none-any.whl",
+      "version": "2.6.1"
+    },
+    {
+      "filename": "aiohttp-3.14.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "aiohttp",
+      "role": "runtime",
+      "sha256": "543906c127fb1d929b95076db19b83fa2d46751006ff1e23b093aa5ac4d8db42",
+      "size": 1792122,
+      "url": "https://files.pythonhosted.org/packages/52/b7/7cd31f29d6055bd711ae6e669367fba6f5ae9de463910a793e30556a8db7/aiohttp-3.14.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.14.3"
+    },
+    {
+      "filename": "aiosignal-1.4.0-py3-none-any.whl",
+      "name": "aiosignal",
+      "role": "runtime",
+      "sha256": "053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e",
+      "size": 7490,
+      "url": "https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl",
+      "version": "1.4.0"
+    },
+    {
+      "filename": "alembic-1.17.1-py3-none-any.whl",
+      "name": "alembic",
+      "role": "runtime",
+      "sha256": "cbc2386e60f89608bb63f30d2d6cc66c7aaed1fe105bd862828600e5ad167023",
+      "size": 247848,
+      "url": "https://files.pythonhosted.org/packages/a5/32/7df1d81ec2e50fb661944a35183d87e62d3f6c6d9f8aff64a4f245226d55/alembic-1.17.1-py3-none-any.whl",
+      "version": "1.17.1"
+    },
+    {
+      "filename": "annotated_doc-0.0.4-py3-none-any.whl",
+      "name": "annotated-doc",
+      "role": "runtime",
+      "sha256": "571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320",
+      "size": 5303,
+      "url": "https://files.pythonhosted.org/packages/1e/d3/26bf1008eb3d2daa8ef4cacc7f3bfdc11818d111f7e2d0201bc6e3b49d45/annotated_doc-0.0.4-py3-none-any.whl",
+      "version": "0.0.4"
+    },
+    {
+      "filename": "annotated_types-0.7.0-py3-none-any.whl",
+      "name": "annotated-types",
+      "role": "runtime",
+      "sha256": "1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53",
+      "size": 13643,
+      "url": "https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl",
+      "version": "0.7.0"
+    },
+    {
+      "filename": "anthropic-0.75.0-py3-none-any.whl",
+      "name": "anthropic",
+      "role": "runtime",
+      "sha256": "ea8317271b6c15d80225a9f3c670152746e88805a7a61e14d4a374577164965b",
+      "size": 388164,
+      "url": "https://files.pythonhosted.org/packages/60/1c/1cd02b7ae64302a6e06724bf80a96401d5313708651d277b1458504a1730/anthropic-0.75.0-py3-none-any.whl",
+      "version": "0.75.0"
+    },
+    {
+      "filename": "anyio-4.14.2-py3-none-any.whl",
+      "name": "anyio",
+      "role": "runtime",
+      "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+      "size": 125813,
+      "url": "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl",
+      "version": "4.14.2"
+    },
+    {
+      "filename": "asgiref-3.11.0-py3-none-any.whl",
+      "name": "asgiref",
+      "role": "runtime",
+      "sha256": "1db9021efadb0d9512ce8ffaf72fcef601c7b73a8807a1bb2ef143dc6b14846d",
+      "size": 24096,
+      "url": "https://files.pythonhosted.org/packages/91/be/317c2c55b8bbec407257d45f5c8d1b6867abc76d12043f2d3d58c538a4ea/asgiref-3.11.0-py3-none-any.whl",
+      "version": "3.11.0"
+    },
+    {
+      "filename": "asyncpg-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "asyncpg",
+      "role": "runtime",
+      "sha256": "1292b84ee06ac8a2ad8e51c7475aa309245874b61333d97411aab835c4a2f737",
+      "size": 3575059,
+      "url": "https://files.pythonhosted.org/packages/f4/40/0ae9d061d278b10713ea9021ef6b703ec44698fe32178715a501ac696c6b/asyncpg-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.30.0"
+    },
+    {
+      "filename": "attrs-25.4.0-py3-none-any.whl",
+      "name": "attrs",
+      "role": "runtime",
+      "sha256": "adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373",
+      "size": 67615,
+      "url": "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl",
+      "version": "25.4.0"
+    },
+    {
+      "filename": "authlib-1.6.12-py2.py3-none-any.whl",
+      "name": "authlib",
+      "role": "runtime",
+      "sha256": "e9229ad7fde610b139dd12f5edbe97eab9ee78bfb85691247e767727850b99ab",
+      "size": 244473,
+      "url": "https://files.pythonhosted.org/packages/cd/51/9b0b5cd4cf683a02db937a6f9bbebcdc9c56558a7bb3763ce7d3512103c3/authlib-1.6.12-py2.py3-none-any.whl",
+      "version": "1.6.12"
+    },
+    {
+      "filename": "beartype-0.22.5-py3-none-any.whl",
+      "name": "beartype",
+      "role": "runtime",
+      "sha256": "d9743dd7cd6d193696eaa1e025f8a70fb09761c154675679ff236e61952dfba0",
+      "size": 1321700,
+      "url": "https://files.pythonhosted.org/packages/f7/f6/073d19f7b571c08327fbba3f8e011578da67ab62a11f98911274ff80653f/beartype-0.22.5-py3-none-any.whl",
+      "version": "0.22.5"
+    },
+    {
+      "filename": "beautifulsoup4-4.14.2-py3-none-any.whl",
+      "name": "beautifulsoup4",
+      "role": "runtime",
+      "sha256": "5ef6fa3a8cbece8488d66985560f97ed091e22bbc4e9c2338508a9d5de6d4515",
+      "size": 106392,
+      "url": "https://files.pythonhosted.org/packages/94/fe/3aed5d0be4d404d12d36ab97e2f1791424d9ca39c2f754a6285d59a3b01d/beautifulsoup4-4.14.2-py3-none-any.whl",
+      "version": "4.14.2"
+    },
+    {
+      "filename": "boto3-1.43.108-py3-none-any.whl",
+      "name": "boto3",
+      "role": "runtime",
+      "sha256": "19e9da95ef0c494e27052049a42137550e66730509bb613e76eaa30ddf9a7170",
+      "size": 140045,
+      "url": "https://files.pythonhosted.org/packages/74/e4/7e88c40e9f61888e12dac0de41a5fddc2bcd1c3992d9b28e17d915cce0df/boto3-1.43.108-py3-none-any.whl",
+      "version": "1.43.108"
+    },
+    {
+      "filename": "botocore-1.43.108-py3-none-any.whl",
+      "name": "botocore",
+      "role": "runtime",
+      "sha256": "ab9d16c6b4350aaa54ed28202dfa2998b2d735fdbf3247eb60af469d8d48a5b8",
+      "size": 16008194,
+      "url": "https://files.pythonhosted.org/packages/7a/0b/4670b7e23914b5cc357be5ca45fae503b57d98ecff4b3eabea70412809fd/botocore-1.43.108-py3-none-any.whl",
+      "version": "1.43.108"
+    },
+    {
+      "filename": "cachetools-6.2.1-py3-none-any.whl",
+      "name": "cachetools",
+      "role": "runtime",
+      "sha256": "09868944b6dde876dfd44e1d47e18484541eaf12f26f29b7af91b26cc892d701",
+      "size": 11280,
+      "url": "https://files.pythonhosted.org/packages/96/c5/1e741d26306c42e2bf6ab740b2202872727e0f606033c9dd713f8b93f5a8/cachetools-6.2.1-py3-none-any.whl",
+      "version": "6.2.1"
+    },
+    {
+      "filename": "caio-0.9.25-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "name": "caio",
+      "role": "runtime",
+      "sha256": "6bebf6f079f1341d19f7386db9b8b1f07e8cc15ae13bfdaff573371ba0575d69",
+      "size": 80200,
+      "url": "https://files.pythonhosted.org/packages/d1/1c/0fe770b8ffc8362c48134d1592d653a81a3d8748d764bec33864db36319d/caio-0.9.25-cp312-cp312-manylinux_2_34_x86_64.whl",
+      "version": "0.9.25"
+    },
+    {
+      "filename": "certifi-2025.10.5-py3-none-any.whl",
+      "name": "certifi",
+      "role": "runtime",
+      "sha256": "0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de",
+      "size": 163286,
+      "url": "https://files.pythonhosted.org/packages/e4/37/af0d2ef3967ac0d6113837b44a4f0bfe1328c2b9763bd5b1744520e5cfed/certifi-2025.10.5-py3-none-any.whl",
+      "version": "2025.10.5"
+    },
+    {
+      "filename": "cffi-2.0.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "name": "cffi",
+      "role": "runtime",
+      "sha256": "3e17ed538242334bf70832644a32a7aae3d83b57567f9fd60a26257e992b79ba",
+      "size": 219572,
+      "url": "https://files.pythonhosted.org/packages/78/2d/7fa73dfa841b5ac06c7b8855cfc18622132e365f5b81d02230333ff26e9e/cffi-2.0.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "version": "2.0.0"
+    },
+    {
+      "filename": "charset_normalizer-3.4.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "charset-normalizer",
+      "role": "runtime",
+      "sha256": "11d694519d7f29d6cd09f6ac70028dba10f92f6cdd059096db198c283794ac86",
+      "size": 153471,
+      "url": "https://files.pythonhosted.org/packages/c0/10/d20b513afe03acc89ec33948320a5544d31f21b05368436d580dec4e234d/charset_normalizer-3.4.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.4.4"
+    },
+    {
+      "filename": "claude_agent_sdk-0.2.87-py3-none-manylinux_2_17_x86_64.whl",
+      "name": "claude-agent-sdk",
+      "role": "runtime",
+      "sha256": "5ac525d9ae3481296df5639d005e12ce2b6b0427426991f35da64db30be25c6e",
+      "size": 72875504,
+      "url": "https://files.pythonhosted.org/packages/04/50/449f5044d76d9de18cf6a9f4b1c9386a74f41b4e2da5312df245d9dd23ef/claude_agent_sdk-0.2.87-py3-none-manylinux_2_17_x86_64.whl",
+      "version": "0.2.87"
+    },
+    {
+      "filename": "click-8.1.8-py3-none-any.whl",
+      "name": "click",
+      "role": "runtime",
+      "sha256": "63c132bbbed01578a06712a2d1f497bb62d9c1c0d329b7903a866228027263b2",
+      "size": 98188,
+      "url": "https://files.pythonhosted.org/packages/7e/d4/7ebdbd03970677812aac39c869717059dbb71a4cfc033ca6e5221787892c/click-8.1.8-py3-none-any.whl",
+      "version": "8.1.8"
+    },
+    {
+      "filename": "cobble-0.1.4-py3-none-any.whl",
+      "name": "cobble",
+      "role": "runtime",
+      "sha256": "36c91b1655e599fd428e2b95fdd5f0da1ca2e9f1abb0bc871dec21a0e78a2b44",
+      "size": 3984,
+      "url": "https://files.pythonhosted.org/packages/d5/e1/3714a2f371985215c219c2a70953d38e3eed81ef165aed061d21de0e998b/cobble-0.1.4-py3-none-any.whl",
+      "version": "0.1.4"
+    },
+    {
+      "filename": "cohere-5.20.1-py3-none-any.whl",
+      "name": "cohere",
+      "role": "runtime",
+      "sha256": "d230fd13d95ba92ae927fce3dd497599b169883afc7954fe29b39fb8d5df5fc7",
+      "size": 318973,
+      "url": "https://files.pythonhosted.org/packages/7a/e3/94eb11ac3ebaaa3a6afb5d2ff23db95d58bc468ae538c388edf49f2f20b5/cohere-5.20.1-py3-none-any.whl",
+      "version": "5.20.1"
+    },
+    {
+      "filename": "coloredlogs-15.0.1-py2.py3-none-any.whl",
+      "name": "coloredlogs",
+      "role": "runtime",
+      "sha256": "612ee75c546f53e92e70049c9dbfcc18c935a2b9a53b66085ce9ef6a6e5c0934",
+      "size": 46018,
+      "url": "https://files.pythonhosted.org/packages/a7/06/3d6badcf13db419e25b07041d9c7b4a2c331d3f4e7134445ec5df57714cd/coloredlogs-15.0.1-py2.py3-none-any.whl",
+      "version": "15.0.1"
+    },
+    {
+      "filename": "croniter-6.2.2-py3-none-any.whl",
+      "name": "croniter",
+      "role": "runtime",
+      "sha256": "a5d17b1060974d36251ea4faf388233eca8acf0d09cbd92d35f4c4ac8f279960",
+      "size": 45422,
+      "url": "https://files.pythonhosted.org/packages/d0/39/783980e78cb92c2d7bdb1fc7dbc86e94ccc6d58224d76a7f1f51b6c51e30/croniter-6.2.2-py3-none-any.whl",
+      "version": "6.2.2"
+    },
+    {
+      "filename": "cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl",
+      "name": "cryptography",
+      "role": "runtime",
+      "sha256": "82148ec5bddac30b51a5b3c1945075f896fa022cb93f8e4a01e9f6ee95292c5f",
+      "size": 4734462,
+      "url": "https://files.pythonhosted.org/packages/da/3a/f05e32c99d440c9bb891ea0e36c9091891e36be5a9a87ab2ee6ea20729f6/cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl",
+      "version": "50.0.0"
+    },
+    {
+      "filename": "cyclopts-4.2.2-py3-none-any.whl",
+      "name": "cyclopts",
+      "role": "runtime",
+      "sha256": "2e001158ccb275723a4d820c65d114caa078073e61298f2a7c6112a8d3ba90c6",
+      "size": 184362,
+      "url": "https://files.pythonhosted.org/packages/ac/cc/53c8350d8ca53ada627f071c252e806b97c949e03b054af7d15e62309a83/cyclopts-4.2.2-py3-none-any.whl",
+      "version": "4.2.2"
+    },
+    {
+      "filename": "dateparser-1.4.2-py3-none-any.whl",
+      "name": "dateparser",
+      "role": "runtime",
+      "sha256": "752f3d49d477cf7f60a7a9c8bcb19c882496ede0e377d5a3d80014cdfeca7050",
+      "size": 316546,
+      "url": "https://files.pythonhosted.org/packages/cb/1b/349e07ad184d64e81109e85a3557d7e05631fa3d05344169114ba743c4d3/dateparser-1.4.2-py3-none-any.whl",
+      "version": "1.4.2"
+    },
+    {
+      "filename": "defusedxml-0.7.1-py2.py3-none-any.whl",
+      "name": "defusedxml",
+      "role": "runtime",
+      "sha256": "a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61",
+      "size": 25604,
+      "url": "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl",
+      "version": "0.7.1"
+    },
+    {
+      "filename": "distro-1.9.0-py3-none-any.whl",
+      "name": "distro",
+      "role": "runtime",
+      "sha256": "7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+      "size": 20277,
+      "url": "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl",
+      "version": "1.9.0"
+    },
+    {
+      "filename": "dnspython-2.8.0-py3-none-any.whl",
+      "name": "dnspython",
+      "role": "runtime",
+      "sha256": "01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af",
+      "size": 331094,
+      "url": "https://files.pythonhosted.org/packages/ba/5a/18ad964b0086c6e62e2e7500f7edc89e3faa45033c71c1893d34eed2b2de/dnspython-2.8.0-py3-none-any.whl",
+      "version": "2.8.0"
+    },
+    {
+      "filename": "docstring_parser-0.17.0-py3-none-any.whl",
+      "name": "docstring-parser",
+      "role": "runtime",
+      "sha256": "cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708",
+      "size": 36896,
+      "url": "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl",
+      "version": "0.17.0"
+    },
+    {
+      "filename": "docutils-0.22.3-py3-none-any.whl",
+      "name": "docutils",
+      "role": "runtime",
+      "sha256": "bd772e4aca73aff037958d44f2be5229ded4c09927fcf8690c577b66234d6ceb",
+      "size": 633032,
+      "url": "https://files.pythonhosted.org/packages/11/a8/c6a4b901d17399c77cd81fb001ce8961e9f5e04d3daf27e8925cb012e163/docutils-0.22.3-py3-none-any.whl",
+      "version": "0.22.3"
+    },
+    {
+      "filename": "email_validator-2.3.0-py3-none-any.whl",
+      "name": "email-validator",
+      "role": "runtime",
+      "sha256": "80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4",
+      "size": 35604,
+      "url": "https://files.pythonhosted.org/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl",
+      "version": "2.3.0"
+    },
+    {
+      "filename": "et_xmlfile-2.0.0-py3-none-any.whl",
+      "name": "et-xmlfile",
+      "role": "runtime",
+      "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa",
+      "size": 18059,
+      "url": "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl",
+      "version": "2.0.0"
+    },
+    {
+      "filename": "exceptiongroup-1.3.0-py3-none-any.whl",
+      "name": "exceptiongroup",
+      "role": "runtime",
+      "sha256": "4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10",
+      "size": 16674,
+      "url": "https://files.pythonhosted.org/packages/36/f4/c6e662dade71f56cd2f3735141b265c3c79293c109549c1e6933b0651ffc/exceptiongroup-1.3.0-py3-none-any.whl",
+      "version": "1.3.0"
+    },
+    {
+      "filename": "fastapi-0.136.3-py3-none-any.whl",
+      "name": "fastapi",
+      "role": "runtime",
+      "sha256": "3d2a69bdf04b7e9f3afa292c3bc7a98816bbfafa10bc9b45f3f3700d2f761620",
+      "size": 117481,
+      "url": "https://files.pythonhosted.org/packages/e0/82/45359b62a067409bd929ae8a56b8ed13e5a8c8a61194b3c236920999ab83/fastapi-0.136.3-py3-none-any.whl",
+      "version": "0.136.3"
+    },
+    {
+      "filename": "fastapi_cli-0.0.16-py3-none-any.whl",
+      "name": "fastapi-cli",
+      "role": "runtime",
+      "sha256": "addcb6d130b5b9c91adbbf3f2947fe115991495fdb442fe3e51b5fc6327df9f4",
+      "size": 12312,
+      "url": "https://files.pythonhosted.org/packages/55/43/678528c19318394320ee43757648d5e0a8070cf391b31f69d931e5c840d2/fastapi_cli-0.0.16-py3-none-any.whl",
+      "version": "0.0.16"
+    },
+    {
+      "filename": "fastapi_cloud_cli-0.3.1-py3-none-any.whl",
+      "name": "fastapi-cloud-cli",
+      "role": "runtime",
+      "sha256": "7d1a98a77791a9d0757886b2ffbf11bcc6b3be93210dd15064be10b216bf7e00",
+      "size": 19711,
+      "url": "https://files.pythonhosted.org/packages/68/79/7f5a5e5513e6a737e5fb089d9c59c74d4d24dc24d581d3aa519b326bedda/fastapi_cloud_cli-0.3.1-py3-none-any.whl",
+      "version": "0.3.1"
+    },
+    {
+      "filename": "fastar-0.11.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "fastar",
+      "role": "runtime",
+      "sha256": "ef5a6071121e05d8287fc75bccb054bcbac8bb0501200a0c0a8feeace5303ea4",
+      "size": 819382,
+      "url": "https://files.pythonhosted.org/packages/22/47/0448ea7992b997dad2bf004bfd98eca74b5858630eae080b50c7b17d9ddc/fastar-0.11.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.11.0"
+    },
+    {
+      "filename": "fastavro-1.12.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "fastavro",
+      "role": "runtime",
+      "sha256": "44cbff7518901c91a82aab476fcab13d102e4999499df219d481b9e15f61af34",
+      "size": 3458005,
+      "url": "https://files.pythonhosted.org/packages/0d/9e/b4951dc84ebc34aac69afcbfbb22ea4a91080422ec2bfd2c06076ff1d419/fastavro-1.12.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "1.12.1"
+    },
+    {
+      "filename": "fastmcp-3.2.0-py3-none-any.whl",
+      "name": "fastmcp",
+      "role": "runtime",
+      "sha256": "e71aba3df16f86f546a4a9e513261d3233bcc92bef0dfa647bac3fa33623f681",
+      "size": 705550,
+      "url": "https://files.pythonhosted.org/packages/4f/67/684fa2d2de1e7504549d4ca457b4f854ccec3cd3be03bd86b33b599fbf58/fastmcp-3.2.0-py3-none-any.whl",
+      "version": "3.2.0"
+    },
+    {
+      "filename": "fastuuid-0.14.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "fastuuid",
+      "role": "runtime",
+      "sha256": "808527f2407f58a76c916d6aa15d58692a4a019fdf8d4c32ac7ff303b7d7af09",
+      "size": 278105,
+      "url": "https://files.pythonhosted.org/packages/16/6e/c0fb547eef61293153348f12e0f75a06abb322664b34a1573a7760501336/fastuuid-0.14.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.14.0"
+    },
+    {
+      "filename": "filelock-3.20.3-py3-none-any.whl",
+      "name": "filelock",
+      "role": "runtime",
+      "sha256": "4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1",
+      "size": 16701,
+      "url": "https://files.pythonhosted.org/packages/b5/36/7fb70f04bf00bc646cd5bb45aa9eddb15e19437a28b8fb2b4a5249fac770/filelock-3.20.3-py3-none-any.whl",
+      "version": "3.20.3"
+    },
+    {
+      "filename": "FlashRank-0.2.10-py3-none-any.whl",
+      "name": "flashrank",
+      "role": "runtime",
+      "sha256": "5d3272ae657d793c132d1e7917ed9e2adf49e0e1c60735583a67b051c6f0434a",
+      "size": 14511,
+      "url": "https://files.pythonhosted.org/packages/ec/99/72639cc1c9221c5bc77a2df1c2d352fe11965553bdf7d3e0856e7fcc8fd6/FlashRank-0.2.10-py3-none-any.whl",
+      "version": "0.2.10"
+    },
+    {
+      "filename": "flatbuffers-25.12.19-py2.py3-none-any.whl",
+      "name": "flatbuffers",
+      "role": "runtime",
+      "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4",
+      "size": 26661,
+      "url": "https://files.pythonhosted.org/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl",
+      "version": "25.12.19"
+    },
+    {
+      "filename": "frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "name": "frozenlist",
+      "role": "runtime",
+      "sha256": "494a5952b1c597ba44e0e78113a7266e656b9794eec897b19ead706bd7074383",
+      "size": 242411,
+      "url": "https://files.pythonhosted.org/packages/6a/bd/d91c5e39f490a49df14320f4e8c80161cfcce09f1e2cde1edd16a551abb3/frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "version": "1.8.0"
+    },
+    {
+      "filename": "fsspec-2026.9.0-py3-none-any.whl",
+      "name": "fsspec",
+      "role": "runtime",
+      "sha256": "8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f",
+      "size": 221738,
+      "url": "https://files.pythonhosted.org/packages/6c/c0/a98505f18594f1bce828bb159cec0fcf9860562f1a2c85913409fc8f3d9e/fsspec-2026.9.0-py3-none-any.whl",
+      "version": "2026.9.0"
+    },
+    {
+      "filename": "github_copilot_sdk-1.0.11-py3-none-any.whl",
+      "name": "github-copilot-sdk",
+      "role": "runtime",
+      "sha256": "6f664c7b843c34ab5a7455f7effb4d339eae75969d2b72f43c2e6214c9c637dc",
+      "size": 486719,
+      "url": "https://files.pythonhosted.org/packages/67/ac/175cbb71fe637d963a885248a421040c9d500ea6390ed3b88bc68ecf51ca/github_copilot_sdk-1.0.11-py3-none-any.whl",
+      "version": "1.0.11"
+    },
+    {
+      "filename": "google_auth-2.56.3-py3-none-any.whl",
+      "name": "google-auth",
+      "role": "runtime",
+      "sha256": "8ec438808f813ad034535000261eed1067475d229d05bbf4216e78c3f2362e53",
+      "size": 259116,
+      "url": "https://files.pythonhosted.org/packages/bc/b3/6117b2f24065cd7e2c4f140e9a193e215f089ca8ba314cf91eb9d0b7fe0a/google_auth-2.56.3-py3-none-any.whl",
+      "version": "2.56.3"
+    },
+    {
+      "filename": "google_genai-2.18.1-py3-none-any.whl",
+      "name": "google-genai",
+      "role": "runtime",
+      "sha256": "36a5949233e64a60f6cc4521bff7a76b7c569d0aa227bbe9fa642213b8a3a3b2",
+      "size": 1051129,
+      "url": "https://files.pythonhosted.org/packages/30/7d/5310f7a1cf290a6cb22eab37059610bf338ab7595892902591d2220cf825/google_genai-2.18.1-py3-none-any.whl",
+      "version": "2.18.1"
+    },
+    {
+      "filename": "googleapis_common_protos-1.75.0-py3-none-any.whl",
+      "name": "googleapis-common-protos",
+      "role": "runtime",
+      "sha256": "961ed60399c457ceb0ee8f285a84c870aabc9c6a832b9d37bb281b5bebde43ed",
+      "size": 300631,
+      "url": "https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl",
+      "version": "1.75.0"
+    },
+    {
+      "filename": "greenlet-3.2.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "greenlet",
+      "role": "runtime",
+      "sha256": "3b3812d8d0c9579967815af437d96623f45c0f2ae5f04e366de62a12d83a8fb0",
+      "size": 607586,
+      "url": "https://files.pythonhosted.org/packages/19/0d/6660d55f7373b2ff8152401a83e02084956da23ae58cddbfb0b330978fe9/greenlet-3.2.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.2.4"
+    },
+    {
+      "filename": "h11-0.16.0-py3-none-any.whl",
+      "name": "h11",
+      "role": "runtime",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "size": 37515,
+      "url": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl",
+      "version": "0.16.0"
+    },
+    {
+      "filename": "h2-4.4.1-py3-none-any.whl",
+      "name": "h2",
+      "role": "runtime",
+      "sha256": "0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6",
+      "size": 62636,
+      "url": "https://files.pythonhosted.org/packages/7e/22/e85faf23bd72a92d1921e37d674ca56eb298a3c8be31fdecef0ff2b3aaac/h2-4.4.1-py3-none-any.whl",
+      "version": "4.4.1"
+    },
+    {
+      "filename": "hf_xet-1.3.2-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "name": "hf-xet",
+      "role": "runtime",
+      "sha256": "7c2a054a97c44e136b1f7f5a78f12b3efffdf2eed3abc6746fc5ea4b39511633",
+      "size": 4180750,
+      "url": "https://files.pythonhosted.org/packages/9d/ca/907890ce6ef5598b5920514f255ed0a65f558f820515b18db75a51b2f878/hf_xet-1.3.2-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "version": "1.3.2"
+    },
+    {
+      "filename": "hpack-4.2.0-py3-none-any.whl",
+      "name": "hpack",
+      "role": "runtime",
+      "sha256": "858ac0b02280fa582b5080d68db0899c62a80375e0e5413a74970c5e518b6986",
+      "size": 34246,
+      "url": "https://files.pythonhosted.org/packages/71/b4/4a9fcfb2aef6ba44d9073ecd301443aa00b3dac95de5619f2a7de7ec8a91/hpack-4.2.0-py3-none-any.whl",
+      "version": "4.2.0"
+    },
+    {
+      "filename": "httpcore-1.0.9-py3-none-any.whl",
+      "name": "httpcore",
+      "role": "runtime",
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "size": 78784,
+      "url": "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl",
+      "version": "1.0.9"
+    },
+    {
+      "filename": "httptools-0.7.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "name": "httptools",
+      "role": "runtime",
+      "sha256": "2c15f37ef679ab9ecc06bfc4e6e8628c32a8e4b305459de7cf6785acd57e4d03",
+      "size": 517655,
+      "url": "https://files.pythonhosted.org/packages/84/a6/b3965e1e146ef5762870bbe76117876ceba51a201e18cc31f5703e454596/httptools-0.7.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "version": "0.7.1"
+    },
+    {
+      "filename": "httpx-0.28.1-py3-none-any.whl",
+      "name": "httpx",
+      "role": "runtime",
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "size": 73517,
+      "url": "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl",
+      "version": "0.28.1"
+    },
+    {
+      "filename": "httpx_sse-0.4.3-py3-none-any.whl",
+      "name": "httpx-sse",
+      "role": "runtime",
+      "sha256": "0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc",
+      "size": 8960,
+      "url": "https://files.pythonhosted.org/packages/d2/fd/6668e5aec43ab844de6fc74927e155a3b37bf40d7c3790e49fc0406b6578/httpx_sse-0.4.3-py3-none-any.whl",
+      "version": "0.4.3"
+    },
+    {
+      "filename": "huggingface_hub-1.6.0-py3-none-any.whl",
+      "name": "huggingface-hub",
+      "role": "runtime",
+      "sha256": "ef40e2d5cb85e48b2c067020fa5142168342d5108a1b267478ed384ecbf18961",
+      "size": 612874,
+      "url": "https://files.pythonhosted.org/packages/92/e3/e3a44f54c8e2f28983fcf07f13d4260b37bd6a0d3a081041bc60b91d230e/huggingface_hub-1.6.0-py3-none-any.whl",
+      "version": "1.6.0"
+    },
+    {
+      "filename": "humanfriendly-10.0-py2.py3-none-any.whl",
+      "name": "humanfriendly",
+      "role": "runtime",
+      "sha256": "1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477",
+      "size": 86794,
+      "url": "https://files.pythonhosted.org/packages/f0/0f/310fb31e39e2d734ccaa2c0fb981ee41f7bd5056ce9bc29b2248bd569169/humanfriendly-10.0-py2.py3-none-any.whl",
+      "version": "10.0"
+    },
+    {
+      "filename": "hyperframe-6.1.0-py3-none-any.whl",
+      "name": "hyperframe",
+      "role": "runtime",
+      "sha256": "b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5",
+      "size": 13007,
+      "url": "https://files.pythonhosted.org/packages/48/30/47d0bf6072f7252e6521f3447ccfa40b421b6824517f82854703d0f5a98b/hyperframe-6.1.0-py3-none-any.whl",
+      "version": "6.1.0"
+    },
+    {
+      "filename": "idna-3.15-py3-none-any.whl",
+      "name": "idna",
+      "role": "runtime",
+      "sha256": "048adeaf8c2d788c40fee287673ccaa74c24ffd8dcf09ffa555a2fbb59f10ac8",
+      "size": 72340,
+      "url": "https://files.pythonhosted.org/packages/d2/23/408243171aa9aaba178d3e2559159c24c1171a641aa83b67bdd3394ead8e/idna-3.15-py3-none-any.whl",
+      "version": "3.15"
+    },
+    {
+      "filename": "importlib_metadata-8.5.0-py3-none-any.whl",
+      "name": "importlib-metadata",
+      "role": "runtime",
+      "sha256": "45e54197d28b7a7f1559e60b95e7c567032b602131fbd588f1497f47880aa68b",
+      "size": 26514,
+      "url": "https://files.pythonhosted.org/packages/a0/d9/a1e041c5e7caa9a05c925f4bdbdfb7f006d1f74996af53467bc394c97be7/importlib_metadata-8.5.0-py3-none-any.whl",
+      "version": "8.5.0"
+    },
+    {
+      "filename": "jaraco.classes-3.4.0-py3-none-any.whl",
+      "name": "jaraco-classes",
+      "role": "runtime",
+      "sha256": "f662826b6bed8cace05e7ff873ce0f9283b5c924470fe664fff1c2f00f581790",
+      "size": 6777,
+      "url": "https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bbfcec9a4873ab79d993a1dd4edb922cbfccae192bd5b5f/jaraco.classes-3.4.0-py3-none-any.whl",
+      "version": "3.4.0"
+    },
+    {
+      "filename": "jaraco_context-6.1.2-py3-none-any.whl",
+      "name": "jaraco-context",
+      "role": "runtime",
+      "sha256": "bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535",
+      "size": 7871,
+      "url": "https://files.pythonhosted.org/packages/f2/58/bc8954bda5fcda97bd7c19be11b85f91973d67a706ed4a3aec33e7de22db/jaraco_context-6.1.2-py3-none-any.whl",
+      "version": "6.1.2"
+    },
+    {
+      "filename": "jaraco_functools-4.3.0-py3-none-any.whl",
+      "name": "jaraco-functools",
+      "role": "runtime",
+      "sha256": "227ff8ed6f7b8f62c56deff101545fa7543cf2c8e7b82a7c2116e672f29c26e8",
+      "size": 10408,
+      "url": "https://files.pythonhosted.org/packages/b4/09/726f168acad366b11e420df31bf1c702a54d373a83f968d94141a8c3fde0/jaraco_functools-4.3.0-py3-none-any.whl",
+      "version": "4.3.0"
+    },
+    {
+      "filename": "jeepney-0.9.0-py3-none-any.whl",
+      "name": "jeepney",
+      "role": "runtime",
+      "sha256": "97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683",
+      "size": 49010,
+      "url": "https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl",
+      "version": "0.9.0"
+    },
+    {
+      "filename": "jinja2-3.1.6-py3-none-any.whl",
+      "name": "jinja2",
+      "role": "runtime",
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "size": 134899,
+      "url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+      "version": "3.1.6"
+    },
+    {
+      "filename": "jiter-0.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "jiter",
+      "role": "runtime",
+      "sha256": "4321e8a3d868919bcb1abb1db550d41f2b5b326f72df29e53b2df8b006eb9403",
+      "size": 361328,
+      "url": "https://files.pythonhosted.org/packages/71/b3/7a69d77943cc837d30165643db753471aff5df39692d598da880a6e51c24/jiter-0.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.12.0"
+    },
+    {
+      "filename": "jmespath-1.1.0-py3-none-any.whl",
+      "name": "jmespath",
+      "role": "runtime",
+      "sha256": "a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64",
+      "size": 20419,
+      "url": "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl",
+      "version": "1.1.0"
+    },
+    {
+      "filename": "json_repair-0.63.2-py3-none-any.whl",
+      "name": "json-repair",
+      "role": "runtime",
+      "sha256": "7354c2dd433bf15dedf98d2932ae9cd1ea197d7edc77e6c0538f08e34616580e",
+      "size": 50916,
+      "url": "https://files.pythonhosted.org/packages/66/fe/edc09f67290861ab6b97dfd530189ae07092a708e90abe5a0e55f863f35c/json_repair-0.63.2-py3-none-any.whl",
+      "version": "0.63.2"
+    },
+    {
+      "filename": "jsonref-1.1.0-py3-none-any.whl",
+      "name": "jsonref",
+      "role": "runtime",
+      "sha256": "590dc7773df6c21cbf948b5dac07a72a251db28b0238ceecce0a2abfa8ec30a9",
+      "size": 9425,
+      "url": "https://files.pythonhosted.org/packages/0c/ec/e1db9922bceb168197a558a2b8c03a7963f1afe93517ddd3cf99f202f996/jsonref-1.1.0-py3-none-any.whl",
+      "version": "1.1.0"
+    },
+    {
+      "filename": "jsonschema-4.23.0-py3-none-any.whl",
+      "name": "jsonschema",
+      "role": "runtime",
+      "sha256": "fbadb6f8b144a8f8cf9f0b89ba94501d143e50411a1278633f56a7acf7fd5566",
+      "size": 88462,
+      "url": "https://files.pythonhosted.org/packages/69/4a/4f9dbeb84e8850557c02365a0eee0649abe5eb1d84af92a25731c6c0f922/jsonschema-4.23.0-py3-none-any.whl",
+      "version": "4.23.0"
+    },
+    {
+      "filename": "jsonschema_path-0.3.4-py3-none-any.whl",
+      "name": "jsonschema-path",
+      "role": "runtime",
+      "sha256": "f502191fdc2b22050f9a81c9237be9d27145b9001c55842bece5e94e382e52f8",
+      "size": 14810,
+      "url": "https://files.pythonhosted.org/packages/cb/58/3485da8cb93d2f393bce453adeef16896751f14ba3e2024bc21dc9597646/jsonschema_path-0.3.4-py3-none-any.whl",
+      "version": "0.3.4"
+    },
+    {
+      "filename": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+      "name": "jsonschema-specifications",
+      "role": "runtime",
+      "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+      "size": 18437,
+      "url": "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+      "version": "2025.9.1"
+    },
+    {
+      "filename": "keyring-25.6.0-py3-none-any.whl",
+      "name": "keyring",
+      "role": "runtime",
+      "sha256": "552a3f7af126ece7ed5c89753650eec89c7eaae8617d0aa4d9ad2b75111266bd",
+      "size": 39085,
+      "url": "https://files.pythonhosted.org/packages/d3/32/da7f44bcb1105d3e88a0b74ebdca50c59121d2ddf71c9e34ba47df7f3a56/keyring-25.6.0-py3-none-any.whl",
+      "version": "25.6.0"
+    },
+    {
+      "filename": "litellm-1.104.0-cp310-abi3-manylinux_2_28_x86_64.whl",
+      "name": "litellm",
+      "role": "runtime",
+      "sha256": "b0a690d18b0d25f907d08329027ca57b03f0173a4824b89b8f91528490d10bde",
+      "size": 36828930,
+      "url": "https://files.pythonhosted.org/packages/cb/44/fd2733a47dbe201819ddfe61078d7b3e26fc9a0a20ec93bae72219dcfaa9/litellm-1.104.0-cp310-abi3-manylinux_2_28_x86_64.whl",
+      "version": "1.104.0"
+    },
+    {
+      "filename": "lxml-6.1.0-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "lxml",
+      "role": "runtime",
+      "sha256": "bc783ee3147e60a25aa0445ea82b3e8aabb83b240f2b95d32cb75587ff781814",
+      "size": 5240445,
+      "url": "https://files.pythonhosted.org/packages/31/ba/3c13d3fc24b7cacf675f808a3a1baabf43a30d0cd24c98f94548e9aa58eb/lxml-6.1.0-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "6.1.0"
+    },
+    {
+      "filename": "magika-0.6.3-py3-none-manylinux_2_28_x86_64.whl",
+      "name": "magika",
+      "role": "runtime",
+      "sha256": "3d9661eedbdf445ac9567e97e7ceefb93545d77a6a32858139ea966b5806fb64",
+      "size": 15367335,
+      "url": "https://files.pythonhosted.org/packages/c4/03/5ed859be502903a68b7b393b17ae0283bf34195cfcca79ce2dc25b9290e7/magika-0.6.3-py3-none-manylinux_2_28_x86_64.whl",
+      "version": "0.6.3"
+    },
+    {
+      "filename": "mako-1.4.3-py3-none-any.whl",
+      "name": "mako",
+      "role": "runtime",
+      "sha256": "723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f",
+      "size": 80164,
+      "url": "https://files.pythonhosted.org/packages/6d/a0/053d6af3e8f871e0073b4a36732d9e65be77a72e5434c31b94f6af78a6bb/mako-1.4.3-py3-none-any.whl",
+      "version": "1.4.3"
+    },
+    {
+      "filename": "mammoth-1.11.0-py2.py3-none-any.whl",
+      "name": "mammoth",
+      "role": "runtime",
+      "sha256": "c077ab0d450bd7c0c6ecd529a23bf7e0fa8190c929e28998308ff4eada3f063b",
+      "size": 54752,
+      "url": "https://files.pythonhosted.org/packages/ca/54/2e39566a131b13f6d8d193f974cb6a34e81bb7cc2fa6f7e03de067b36588/mammoth-1.11.0-py2.py3-none-any.whl",
+      "version": "1.11.0"
+    },
+    {
+      "filename": "markdown_it_py-4.0.0-py3-none-any.whl",
+      "name": "markdown-it-py",
+      "role": "runtime",
+      "sha256": "87327c59b172c5011896038353a81343b6754500a08cd7a4973bb48c6d578147",
+      "size": 87321,
+      "url": "https://files.pythonhosted.org/packages/94/54/e7d793b573f298e1c9013b8c4dade17d481164aa517d1d7148619c2cedbf/markdown_it_py-4.0.0-py3-none-any.whl",
+      "version": "4.0.0"
+    },
+    {
+      "filename": "markdownify-1.2.2-py3-none-any.whl",
+      "name": "markdownify",
+      "role": "runtime",
+      "sha256": "3f02d3cc52714084d6e589f70397b6fc9f2f3a8531481bf35e8cc39f975e186a",
+      "size": 15724,
+      "url": "https://files.pythonhosted.org/packages/43/ce/f1e3e9d959db134cedf06825fae8d5b294bd368aacdd0831a3975b7c4d55/markdownify-1.2.2-py3-none-any.whl",
+      "version": "1.2.2"
+    },
+    {
+      "filename": "markitdown-0.1.5b1-py3-none-any.whl",
+      "name": "markitdown",
+      "role": "runtime",
+      "sha256": "31b667ce9858bc7ff50b7c7aec5fab2c3103d3ca2cb69203b3edabdda5d3a568",
+      "size": 62710,
+      "url": "https://files.pythonhosted.org/packages/3c/10/e3a4e65265c239b15b34199ca340b56b1163ffbc8d0a658a734f7fa2f8b3/markitdown-0.1.5b1-py3-none-any.whl",
+      "version": "0.1.5b1"
+    },
+    {
+      "filename": "markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "markupsafe",
+      "role": "runtime",
+      "sha256": "d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d",
+      "size": 22947,
+      "url": "https://files.pythonhosted.org/packages/3c/2e/8d0c2ab90a8c1d9a24f0399058ab8519a3279d1bd4289511d74e909f060e/markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "3.0.3"
+    },
+    {
+      "filename": "mcp-1.28.1-py3-none-any.whl",
+      "name": "mcp",
+      "role": "runtime",
+      "sha256": "2726bca5e7193f61c5dde8b12500a6de2d9acf6d1a1c0be9e8c2e706437991df",
+      "size": 222620,
+      "url": "https://files.pythonhosted.org/packages/e2/5e/d118fce19f87a2e7d8101c35c8ae0ec289098a4df0ff244cec23e415aca0/mcp-1.28.1-py3-none-any.whl",
+      "version": "1.28.1"
+    },
+    {
+      "filename": "mdurl-0.1.2-py3-none-any.whl",
+      "name": "mdurl",
+      "role": "runtime",
+      "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+      "size": 9979,
+      "url": "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl",
+      "version": "0.1.2"
+    },
+    {
+      "filename": "more_itertools-10.8.0-py3-none-any.whl",
+      "name": "more-itertools",
+      "role": "runtime",
+      "sha256": "52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b",
+      "size": 69667,
+      "url": "https://files.pythonhosted.org/packages/a4/8e/469e5a4a2f5855992e425f3cb33804cc07bf18d48f2db061aec61ce50270/more_itertools-10.8.0-py3-none-any.whl",
+      "version": "10.8.0"
+    },
+    {
+      "filename": "mpmath-1.3.0-py3-none-any.whl",
+      "name": "mpmath",
+      "role": "runtime",
+      "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c",
+      "size": 536198,
+      "url": "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl",
+      "version": "1.3.0"
+    },
+    {
+      "filename": "multidict-6.9.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "multidict",
+      "role": "runtime",
+      "sha256": "976fd7689d69ec78d67d31d38d396d8adb562f7e8368279f76aed4aa451fa06d",
+      "size": 336881,
+      "url": "https://files.pythonhosted.org/packages/ed/5b/db08419c1e1f7c9d60cfd2787b2b517d7ae4ebbda8281b48a33eb5141467/multidict-6.9.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "6.9.1"
+    },
+    {
+      "filename": "numpy-2.3.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "numpy",
+      "role": "runtime",
+      "sha256": "4121c5beb58a7f9e6dfdee612cb24f4df5cd4db6e8261d7f4d7450a997a65d6a",
+      "size": 16641271,
+      "url": "https://files.pythonhosted.org/packages/f9/58/30a85127bfee6f108282107caf8e06a1f0cc997cb6b52cdee699276fcce4/numpy-2.3.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2.3.4"
+    },
+    {
+      "filename": "obstore-0.8.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "obstore",
+      "role": "runtime",
+      "sha256": "4a0bf7763292a8fc47d01cd66e6f19002c5c6ad4b3ed4e6b2729f5e190fa8a0d",
+      "size": 3766199,
+      "url": "https://files.pythonhosted.org/packages/44/2f/d380239da2d6a1fda82e17df5dae600a404e8a93a065784518ff8325d5f6/obstore-0.8.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.8.2"
+    },
+    {
+      "filename": "onnxruntime-1.20.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "onnxruntime",
+      "role": "runtime",
+      "sha256": "bb71a814f66517a65628c9e4a2bb530a6edd2cd5d87ffa0af0f6f773a027d99e",
+      "size": 13333903,
+      "url": "https://files.pythonhosted.org/packages/47/42/2f71f5680834688a9c81becbe5c5bb996fd33eaed5c66ae0606c3b1d6a02/onnxruntime-1.20.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "1.20.1"
+    },
+    {
+      "filename": "openai-2.24.0-py3-none-any.whl",
+      "name": "openai",
+      "role": "runtime",
+      "sha256": "fed30480d7d6c884303287bde864980a4b137b60553ffbcf9ab4a233b7a73d94",
+      "size": 1120122,
+      "url": "https://files.pythonhosted.org/packages/c9/30/844dc675ee6902579b8eef01ed23917cc9319a1c9c0c14ec6e39340c96d0/openai-2.24.0-py3-none-any.whl",
+      "version": "2.24.0"
+    },
+    {
+      "filename": "openapi_pydantic-0.5.1-py3-none-any.whl",
+      "name": "openapi-pydantic",
+      "role": "runtime",
+      "sha256": "a3a09ef4586f5bd760a8df7f43028b60cafb6d9f61de2acba9574766255ab146",
+      "size": 96381,
+      "url": "https://files.pythonhosted.org/packages/12/cf/03675d8bd8ecbf4445504d8071adab19f5f993676795708e36402ab38263/openapi_pydantic-0.5.1-py3-none-any.whl",
+      "version": "0.5.1"
+    },
+    {
+      "filename": "openpyxl-3.1.5-py2.py3-none-any.whl",
+      "name": "openpyxl",
+      "role": "runtime",
+      "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2",
+      "size": 250910,
+      "url": "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl",
+      "version": "3.1.5"
+    },
+    {
+      "filename": "opentelemetry_api-1.44.0-py3-none-any.whl",
+      "name": "opentelemetry-api",
+      "role": "runtime",
+      "sha256": "94b98c893a91b88657eaac1e3ba89618cdb85be6918196705354f34728b2cdef",
+      "size": 60018,
+      "url": "https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl",
+      "version": "1.44.0"
+    },
+    {
+      "filename": "opentelemetry_exporter_otlp_proto_common-1.44.0-py3-none-any.whl",
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "role": "runtime",
+      "sha256": "9a9fe61bba73d802904bc989f1d6b4a7b1ee40f06c40e98d6f85af65aaebb694",
+      "size": 17045,
+      "url": "https://files.pythonhosted.org/packages/5e/71/65fd9d54c10b860f87c045ccee1264cab7011268895d3528818a29c1172a/opentelemetry_exporter_otlp_proto_common-1.44.0-py3-none-any.whl",
+      "version": "1.44.0"
+    },
+    {
+      "filename": "opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl",
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "role": "runtime",
+      "sha256": "838592fce774c1c8bb7b9a0a7facbfa82e17be5a8a4e94cef10cb84ae026bae3",
+      "size": 21850,
+      "url": "https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl",
+      "version": "1.44.0"
+    },
+    {
+      "filename": "opentelemetry_exporter_prometheus-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-exporter-prometheus",
+      "role": "runtime",
+      "sha256": "3b3d24b586d0ad9712c7b52b7d19c8a9dfbb318b9b284121b5f95e90ed019367",
+      "size": 13031,
+      "url": "https://files.pythonhosted.org/packages/82/0d/d7cdc030edeed0fea03448446b88f1a1f8c4a565bad30dac0f5477ebe290/opentelemetry_exporter_prometheus-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "opentelemetry_instrumentation-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-instrumentation",
+      "role": "runtime",
+      "sha256": "ea967a72b9939b5fcfdad572753b4306c59dcb99e3f382d95dae04286805e137",
+      "size": 36717,
+      "url": "https://files.pythonhosted.org/packages/40/7b/85eab1215f72adf0e68d3dc4a679b9bff993fa679ff34cd8dd378e2659fd/opentelemetry_instrumentation-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "opentelemetry_instrumentation_asgi-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-instrumentation-asgi",
+      "role": "runtime",
+      "sha256": "3a845a8ebd1c4ef0d8263401e6545f5b219b2feee612090d50f578a87e71fd65",
+      "size": 15903,
+      "url": "https://files.pythonhosted.org/packages/0b/9c/376962840b619d2d55fe8ee2285f8c70971c090e5fff614516fc654a6f3a/opentelemetry_instrumentation_asgi-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "opentelemetry_instrumentation_fastapi-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-instrumentation-fastapi",
+      "role": "runtime",
+      "sha256": "cda2610a0ec1b22d19886f33e4d861e9f5dbb886aeaa3a1263b47aff82c36943",
+      "size": 13261,
+      "url": "https://files.pythonhosted.org/packages/fa/b0/c9b0300d33349ecc3dfd2362516eaffc44877e90970e6a52178ff953fec3/opentelemetry_instrumentation_fastapi-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "opentelemetry_proto-1.44.0-py3-none-any.whl",
+      "name": "opentelemetry-proto",
+      "role": "runtime",
+      "sha256": "898b155a0e1557afd867478fb6158e8122a46329ca0bb8dc53cc55e98f017f56",
+      "size": 72483,
+      "url": "https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl",
+      "version": "1.44.0"
+    },
+    {
+      "filename": "opentelemetry_sdk-1.44.0-py3-none-any.whl",
+      "name": "opentelemetry-sdk",
+      "role": "runtime",
+      "sha256": "df081c4c6bcfdb1211e3e86140376792643128a25f8d72d1d27675936e7e96ad",
+      "size": 137221,
+      "url": "https://files.pythonhosted.org/packages/e7/23/ff077e61886ee020a17ce9c8b6fa11c601c8d8345b09ea24f605445df62a/opentelemetry_sdk-1.44.0-py3-none-any.whl",
+      "version": "1.44.0"
+    },
+    {
+      "filename": "opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-semantic-conventions",
+      "role": "runtime",
+      "sha256": "1cacde7b0ad306f84c5ef08c3dbe1bbaf20165bba6f8bff43b670e555a086bcb",
+      "size": 204645,
+      "url": "https://files.pythonhosted.org/packages/a6/0e/49df70d9b81fb5cbae4bbf2a49d865b09bcbcbc4eb53f5851b1027738d78/opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "opentelemetry_util_http-0.65b0-py3-none-any.whl",
+      "name": "opentelemetry-util-http",
+      "role": "runtime",
+      "sha256": "7553b606f963097cb190536dc30556cce85090692e471a422fff30ca29b04348",
+      "size": 8245,
+      "url": "https://files.pythonhosted.org/packages/23/3f/ab8d29df207ce5f470a07fa96ebb48af4e95b7fab7e7635311b9a32f2fab/opentelemetry_util_http-0.65b0-py3-none-any.whl",
+      "version": "0.65b0"
+    },
+    {
+      "filename": "orjson-3.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "orjson",
+      "role": "runtime",
+      "sha256": "1192a7021b6d071aaf909864f6e924d6a2675ca360485b972b8401749311750b",
+      "size": 131245,
+      "url": "https://files.pythonhosted.org/packages/8c/57/80b986ebfecd9c6a177ddf1c2319717f0cd8feffb2b78946595a18a2fc88/orjson-3.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "3.12.0"
+    },
+    {
+      "filename": "packaging-25.0-py3-none-any.whl",
+      "name": "packaging",
+      "role": "runtime",
+      "sha256": "29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
+      "size": 66469,
+      "url": "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl",
+      "version": "25.0"
+    },
+    {
+      "filename": "pandas-2.3.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "pandas",
+      "role": "runtime",
+      "sha256": "b3d11d2fda7eb164ef27ffc14b4fcab16a80e1ce67e9f57e19ec0afaf715ba89",
+      "size": 12362693,
+      "url": "https://files.pythonhosted.org/packages/e5/63/cd7d615331b328e287d8233ba9fdf191a9c2d11b6af0c7a59cfcec23de68/pandas-2.3.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2.3.3"
+    },
+    {
+      "filename": "pathable-0.4.4-py3-none-any.whl",
+      "name": "pathable",
+      "role": "runtime",
+      "sha256": "5ae9e94793b6ef5a4cbe0a7ce9dbbefc1eec38df253763fd0aeeacf2762dbbc2",
+      "size": 9592,
+      "url": "https://files.pythonhosted.org/packages/7d/eb/b6260b31b1a96386c0a880edebe26f89669098acea8e0318bff6adb378fd/pathable-0.4.4-py3-none-any.whl",
+      "version": "0.4.4"
+    },
+    {
+      "filename": "pdfminer_six-20251230-py3-none-any.whl",
+      "name": "pdfminer-six",
+      "role": "runtime",
+      "sha256": "9ff2e3466a7dfc6de6fd779478850b6b7c2d9e9405aa2a5869376a822771f485",
+      "size": 6591909,
+      "url": "https://files.pythonhosted.org/packages/65/d7/b288ea32deb752a09aab73c75e1e7572ab2a2b56c3124a5d1eb24c62ceb3/pdfminer_six-20251230-py3-none-any.whl",
+      "version": "20251230"
+    },
+    {
+      "filename": "pdfplumber-0.11.9-py3-none-any.whl",
+      "name": "pdfplumber",
+      "role": "runtime",
+      "sha256": "33ec5580959ba524e9100138746e090879504c42955df1b8a997604dd326c443",
+      "size": 60045,
+      "url": "https://files.pythonhosted.org/packages/8b/c8/cdbc975f5b634e249cfa6597e37c50f3078412474f21c015e508bfbfe3c3/pdfplumber-0.11.9-py3-none-any.whl",
+      "version": "0.11.9"
+    },
+    {
+      "filename": "pgvector-0.4.1-py3-none-any.whl",
+      "name": "pgvector",
+      "role": "runtime",
+      "sha256": "34bb4e99e1b13d08a2fe82dda9f860f15ddcd0166fbb25bffe15821cbfeb7362",
+      "size": 27086,
+      "url": "https://files.pythonhosted.org/packages/bf/21/b5735d5982892c878ff3d01bb06e018c43fc204428361ee9fc25a1b2125c/pgvector-0.4.1-py3-none-any.whl",
+      "version": "0.4.1"
+    },
+    {
+      "filename": "pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "pillow",
+      "role": "runtime",
+      "sha256": "78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91",
+      "size": 6940830,
+      "url": "https://files.pythonhosted.org/packages/84/21/a35af28dcc61f37ed850a2d64c65c701321dfbf25085e469d5559360cbbf/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "12.3.0"
+    },
+    {
+      "filename": "platformdirs-4.5.0-py3-none-any.whl",
+      "name": "platformdirs",
+      "role": "runtime",
+      "sha256": "e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3",
+      "size": 18651,
+      "url": "https://files.pythonhosted.org/packages/73/cb/ac7874b3e5d58441674fb70742e6c374b28b0c7cb988d37d991cde47166c/platformdirs-4.5.0-py3-none-any.whl",
+      "version": "4.5.0"
+    },
+    {
+      "filename": "prometheus_client-0.23.1-py3-none-any.whl",
+      "name": "prometheus-client",
+      "role": "runtime",
+      "sha256": "dd1913e6e76b59cfe44e7a4b83e01afc9873c1bdfd2ed8739f1e76aeca115f99",
+      "size": 61145,
+      "url": "https://files.pythonhosted.org/packages/b8/db/14bafcb4af2139e046d03fd00dea7873e48eafe18b7d2797e73d6681f210/prometheus_client-0.23.1-py3-none-any.whl",
+      "version": "0.23.1"
+    },
+    {
+      "filename": "propcache-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "propcache",
+      "role": "runtime",
+      "sha256": "15932ab57837c3368b024473a525e25d316d8353016e7cc0e5ba9eb343fbb1cf",
+      "size": 221575,
+      "url": "https://files.pythonhosted.org/packages/46/4b/3aae6835b8e5f44ea6a68348ad90f78134047b503765087be2f9912140ea/propcache-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "0.4.1"
+    },
+    {
+      "filename": "protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl",
+      "name": "protobuf",
+      "role": "runtime",
+      "sha256": "74758715c53d7158fb76caf4f0cfdacc5329a4b1bb994f865d6cf302d413a1c4",
+      "size": 327130,
+      "url": "https://files.pythonhosted.org/packages/e4/be/5b3cfe508bfab6761414ff944e3366eb13be4fd71efcd69450f89ba39f43/protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl",
+      "version": "7.35.1"
+    },
+    {
+      "filename": "psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "name": "psycopg2-binary",
+      "role": "runtime",
+      "sha256": "fa0f693d3c68ae925966f0b14b8edda71696608039f4ed61b1fe9ffa468d16db",
+      "size": 4166236,
+      "url": "https://files.pythonhosted.org/packages/30/da/4e42788fb811bbbfd7b7f045570c062f49e350e1d1f3df056c3fb5763353/psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "version": "2.9.11"
+    },
+    {
+      "filename": "py_key_value_aio-0.4.4-py3-none-any.whl",
+      "name": "py-key-value-aio",
+      "role": "runtime",
+      "sha256": "18e17564ecae61b987f909fc2cd41ee2012c84b4b1dcb8c055cf8b4bc1bf3f5d",
+      "size": 152291,
+      "url": "https://files.pythonhosted.org/packages/32/69/f1b537ee70b7def42d63124a539ed3026a11a3ffc3086947a1ca6e861868/py_key_value_aio-0.4.4-py3-none-any.whl",
+      "version": "0.4.4"
+    },
+    {
+      "filename": "pyasn1-0.6.4-py3-none-any.whl",
+      "name": "pyasn1",
+      "role": "runtime",
+      "sha256": "deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b",
+      "size": 84410,
+      "url": "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl",
+      "version": "0.6.4"
+    },
+    {
+      "filename": "pyasn1_modules-0.4.2-py3-none-any.whl",
+      "name": "pyasn1-modules",
+      "role": "runtime",
+      "sha256": "29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a",
+      "size": 181259,
+      "url": "https://files.pythonhosted.org/packages/47/8d/d529b5d697919ba8c11ad626e835d4039be708a35b0d22de83a269a6682c/pyasn1_modules-0.4.2-py3-none-any.whl",
+      "version": "0.4.2"
+    },
+    {
+      "filename": "pycparser-2.23-py3-none-any.whl",
+      "name": "pycparser",
+      "role": "runtime",
+      "sha256": "e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934",
+      "size": 118140,
+      "url": "https://files.pythonhosted.org/packages/a0/e3/59cd50310fc9b59512193629e1984c1f95e5c8ae6e5d8c69532ccc65a7fe/pycparser-2.23-py3-none-any.whl",
+      "version": "2.23"
+    },
+    {
+      "filename": "pydantic-2.12.5-py3-none-any.whl",
+      "name": "pydantic",
+      "role": "runtime",
+      "sha256": "e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d",
+      "size": 463580,
+      "url": "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl",
+      "version": "2.12.5"
+    },
+    {
+      "filename": "pydantic_core-2.41.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "pydantic-core",
+      "role": "runtime",
+      "sha256": "eceb81a8d74f9267ef4081e246ffd6d129da5d87e37a77c9bde550cb04870c1c",
+      "size": 2075366,
+      "url": "https://files.pythonhosted.org/packages/0d/76/941cc9f73529988688a665a5c0ecff1112b3d95ab48f81db5f7606f522d3/pydantic_core-2.41.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "2.41.5"
+    },
+    {
+      "filename": "pydantic_extra_types-2.11.1-py3-none-any.whl",
+      "name": "pydantic-extra-types",
+      "role": "runtime",
+      "sha256": "1722ea2bddae5628ace25f2aa685b69978ef533123e5638cfbddb999e0100ec1",
+      "size": 79526,
+      "url": "https://files.pythonhosted.org/packages/17/c1/3226e6d7f5a4f736f38ac11a6fbb262d701889802595cdb0f53a885ac2e0/pydantic_extra_types-2.11.1-py3-none-any.whl",
+      "version": "2.11.1"
+    },
+    {
+      "filename": "pydantic_settings-2.14.2-py3-none-any.whl",
+      "name": "pydantic-settings",
+      "role": "runtime",
+      "sha256": "a20c97b37910b6550d5ea50fbcc2d4187defe58cd57070b73863d069419c9440",
+      "size": 61715,
+      "url": "https://files.pythonhosted.org/packages/77/c1/6e422f34e569cf8e18df68d1939c81c099d2b61e4f7d9621c8a77560799c/pydantic_settings-2.14.2-py3-none-any.whl",
+      "version": "2.14.2"
+    },
+    {
+      "filename": "pygments-2.20.0-py3-none-any.whl",
+      "name": "pygments",
+      "role": "runtime",
+      "sha256": "81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176",
+      "size": 1231151,
+      "url": "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl",
+      "version": "2.20.0"
+    },
+    {
+      "filename": "pyjwt-2.15.1-py3-none-any.whl",
+      "name": "pyjwt",
+      "role": "runtime",
+      "sha256": "42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193",
+      "size": 33860,
+      "url": "https://files.pythonhosted.org/packages/50/ca/44de4e75f8aadc457f0634be3b542815078ded46dca30efb960edeecad6e/pyjwt-2.15.1-py3-none-any.whl",
+      "version": "2.15.1"
+    },
+    {
+      "filename": "pypdfium2-5.4.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "pypdfium2",
+      "role": "runtime",
+      "sha256": "ce482d76e5447e745d761307401eaa366616ca44032b86cf7fbe6be918ade64e",
+      "size": 2998123,
+      "url": "https://files.pythonhosted.org/packages/92/08/fa315a2ab353b41501b7088be72dc6cf8ad2bd4f1ebdfdb90c41b7f29155/pypdfium2-5.4.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "5.4.0"
+    },
+    {
+      "filename": "pyperclip-1.11.0-py3-none-any.whl",
+      "name": "pyperclip",
+      "role": "runtime",
+      "sha256": "299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273",
+      "size": 11063,
+      "url": "https://files.pythonhosted.org/packages/df/80/fc9d01d5ed37ba4c42ca2b55b4339ae6e200b456be3a1aaddf4a9fa99b8c/pyperclip-1.11.0-py3-none-any.whl",
+      "version": "1.11.0"
+    },
+    {
+      "filename": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "name": "python-dateutil",
+      "role": "runtime",
+      "sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+      "size": 229892,
+      "url": "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "version": "2.9.0.post0"
+    },
+    {
+      "filename": "python_dotenv-1.2.2-py3-none-any.whl",
+      "name": "python-dotenv",
+      "role": "runtime",
+      "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+      "size": 22101,
+      "url": "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl",
+      "version": "1.2.2"
+    },
+    {
+      "filename": "python_multipart-0.0.32-py3-none-any.whl",
+      "name": "python-multipart",
+      "role": "runtime",
+      "sha256": "ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23",
+      "size": 30042,
+      "url": "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl",
+      "version": "0.0.32"
+    },
+    {
+      "filename": "python_pptx-1.0.2-py3-none-any.whl",
+      "name": "python-pptx",
+      "role": "runtime",
+      "sha256": "160838e0b8565a8b1f67947675886e9fea18aa5e795db7ae531606d68e785cba",
+      "size": 472788,
+      "url": "https://files.pythonhosted.org/packages/d9/4f/00be2196329ebbff56ce564aa94efb0fbc828d00de250b1980de1a34ab49/python_pptx-1.0.2-py3-none-any.whl",
+      "version": "1.0.2"
+    },
+    {
+      "filename": "pytz-2025.2-py2.py3-none-any.whl",
+      "name": "pytz",
+      "role": "runtime",
+      "sha256": "5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00",
+      "size": 509225,
+      "url": "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl",
+      "version": "2025.2"
+    },
+    {
+      "filename": "pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "pyyaml",
+      "role": "runtime",
+      "sha256": "ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc",
+      "size": 807870,
+      "url": "https://files.pythonhosted.org/packages/8b/9d/b3589d3877982d4f2329302ef98a8026e7f4443c765c46cfecc8858c6b4b/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "6.0.3"
+    },
+    {
+      "filename": "referencing-0.36.2-py3-none-any.whl",
+      "name": "referencing",
+      "role": "runtime",
+      "sha256": "e8699adbbf8b5c7de96d8ffa0eb5c158b3beafce084968e2ea8bb08c6794dcd0",
+      "size": 26775,
+      "url": "https://files.pythonhosted.org/packages/c1/b1/3baf80dc6d2b7bc27a95a67752d0208e410351e3feb4eb78de5f77454d8d/referencing-0.36.2-py3-none-any.whl",
+      "version": "0.36.2"
+    },
+    {
+      "filename": "regex-2026.9.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "regex",
+      "role": "runtime",
+      "sha256": "665207e41bacd435db001099eeab44103197c2c1a729d73ade74688a905ed4ce",
+      "size": 801965,
+      "url": "https://files.pythonhosted.org/packages/4b/8b/9cc6d4123033f7cb82df6cd8ce19eb0fc18a964afe060a03c9b26757c9f3/regex-2026.9.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "2026.9.3"
+    },
+    {
+      "filename": "requests-2.34.2-py3-none-any.whl",
+      "name": "requests",
+      "role": "runtime",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "size": 73075,
+      "url": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl",
+      "version": "2.34.2"
+    },
+    {
+      "filename": "rich-14.2.0-py3-none-any.whl",
+      "name": "rich",
+      "role": "runtime",
+      "sha256": "76bc51fe2e57d2b1be1f96c524b890b816e334ab4c1e45888799bfaab0021edd",
+      "size": 243393,
+      "url": "https://files.pythonhosted.org/packages/25/7a/b0178788f8dc6cafce37a212c99565fa1fe7872c70c6c9c1e1a372d9d88f/rich-14.2.0-py3-none-any.whl",
+      "version": "14.2.0"
+    },
+    {
+      "filename": "rich_rst-1.3.2-py3-none-any.whl",
+      "name": "rich-rst",
+      "role": "runtime",
+      "sha256": "a99b4907cbe118cf9d18b0b44de272efa61f15117c61e39ebdc431baf5df722a",
+      "size": 12567,
+      "url": "https://files.pythonhosted.org/packages/13/2f/b4530fbf948867702d0a3f27de4a6aab1d156f406d72852ab902c4d04de9/rich_rst-1.3.2-py3-none-any.whl",
+      "version": "1.3.2"
+    },
+    {
+      "filename": "rich_toolkit-0.15.1-py3-none-any.whl",
+      "name": "rich-toolkit",
+      "role": "runtime",
+      "sha256": "36a0b1d9a135d26776e4b78f1d5c2655da6e0ef432380b5c6b523c8d8ab97478",
+      "size": 29412,
+      "url": "https://files.pythonhosted.org/packages/c8/49/42821d55ead7b5a87c8d121edf323cb393d8579f63e933002ade900b784f/rich_toolkit-0.15.1-py3-none-any.whl",
+      "version": "0.15.1"
+    },
+    {
+      "filename": "rignore-0.7.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "rignore",
+      "role": "runtime",
+      "sha256": "d24321efac92140b7ec910ac7c53ab0f0c86a41133d2bb4b0e6a7c94967f44dd",
+      "size": 959787,
+      "url": "https://files.pythonhosted.org/packages/85/e5/7f99bd0cc9818a91d0e8b9acc65b792e35750e3bdccd15a7ee75e64efca4/rignore-0.7.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.7.6"
+    },
+    {
+      "filename": "rpds_py-0.28.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "rpds-py",
+      "role": "runtime",
+      "sha256": "8455933b4bcd6e83fde3fefc987a023389c4b13f9a58c8d23e4b3f6d13f78c84",
+      "size": 386379,
+      "url": "https://files.pythonhosted.org/packages/3e/cd/49ce51767b879cde77e7ad9fae164ea15dce3616fe591d9ea1df51152706/rpds_py-0.28.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.28.0"
+    },
+    {
+      "filename": "s3transfer-0.19.2-py3-none-any.whl",
+      "name": "s3transfer",
+      "role": "runtime",
+      "sha256": "d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25",
+      "size": 90216,
+      "url": "https://files.pythonhosted.org/packages/bc/e7/5c595c75e9f41a44f30e526eda465ea0b4eec93470e074e4a111b253f13a/s3transfer-0.19.2-py3-none-any.whl",
+      "version": "0.19.2"
+    },
+    {
+      "filename": "safetensors-0.6.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "safetensors",
+      "role": "runtime",
+      "sha256": "8045db2c872db8f4cbe3faa0495932d89c38c899c603f21e9b6486951a5ecb8f",
+      "size": 485835,
+      "url": "https://files.pythonhosted.org/packages/fe/5d/5a514d7b88e310c8b146e2404e0dc161282e78634d9358975fd56dfd14be/safetensors-0.6.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.6.2"
+    },
+    {
+      "filename": "secretstorage-3.4.1-py3-none-any.whl",
+      "name": "secretstorage",
+      "role": "runtime",
+      "sha256": "c55d57b4da3de568d8c3af89dad244ab24c35ca1da8625fc1b550edf005ebc41",
+      "size": 15301,
+      "url": "https://files.pythonhosted.org/packages/b0/6d/24ebb101484f1911a6be6695b76ce43219caa110ebbe07d8c3a5f3106cca/secretstorage-3.4.1-py3-none-any.whl",
+      "version": "3.4.1"
+    },
+    {
+      "filename": "sentry_sdk-2.44.0-py2.py3-none-any.whl",
+      "name": "sentry-sdk",
+      "role": "runtime",
+      "sha256": "9e36a0372b881e8f92fdbff4564764ce6cec4b7f25424d0a3a8d609c9e4651a7",
+      "size": 402352,
+      "url": "https://files.pythonhosted.org/packages/a8/56/c16bda4d53012c71fa1b588edde603c6b455bc8206bf6de7b83388fcce75/sentry_sdk-2.44.0-py2.py3-none-any.whl",
+      "version": "2.44.0"
+    },
+    {
+      "filename": "shellingham-1.5.4-py2.py3-none-any.whl",
+      "name": "shellingham",
+      "role": "runtime",
+      "sha256": "7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686",
+      "size": 9755,
+      "url": "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl",
+      "version": "1.5.4"
+    },
+    {
+      "filename": "six-1.17.0-py2.py3-none-any.whl",
+      "name": "six",
+      "role": "runtime",
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "size": 11050,
+      "url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+      "version": "1.17.0"
+    },
+    {
+      "filename": "sniffio-1.3.1-py3-none-any.whl",
+      "name": "sniffio",
+      "role": "runtime",
+      "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+      "size": 10235,
+      "url": "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl",
+      "version": "1.3.1"
+    },
+    {
+      "filename": "soupsieve-2.9.2-py3-none-any.whl",
+      "name": "soupsieve",
+      "role": "runtime",
+      "sha256": "8089a26fd974ca7a1f30276d3d8492ab266ab15af581642dfe8aa162e0c1c823",
+      "size": 37370,
+      "url": "https://files.pythonhosted.org/packages/eb/dc/ad025c1ee131eba60c69f4dd5779b18fcf1e6b21a343e2162a84d5d133c7/soupsieve-2.9.2-py3-none-any.whl",
+      "version": "2.9.2"
+    },
+    {
+      "filename": "sqlalchemy-2.0.44-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "sqlalchemy",
+      "role": "runtime",
+      "sha256": "119dc41e7a7defcefc57189cfa0e61b1bf9c228211aba432b53fb71ef367fda1",
+      "size": 3337842,
+      "url": "https://files.pythonhosted.org/packages/45/e5/5aa65852dadc24b7d8ae75b7efb8d19303ed6ac93482e60c44a585930ea5/sqlalchemy-2.0.44-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "2.0.44"
+    },
+    {
+      "filename": "sse_starlette-3.0.3-py3-none-any.whl",
+      "name": "sse-starlette",
+      "role": "runtime",
+      "sha256": "af5bf5a6f3933df1d9c7f8539633dc8444ca6a97ab2e2a7cd3b6e431ac03a431",
+      "size": 11765,
+      "url": "https://files.pythonhosted.org/packages/23/a0/984525d19ca5c8a6c33911a0c164b11490dd0f90ff7fd689f704f84e9a11/sse_starlette-3.0.3-py3-none-any.whl",
+      "version": "3.0.3"
+    },
+    {
+      "filename": "starlette-1.3.1-py3-none-any.whl",
+      "name": "starlette",
+      "role": "runtime",
+      "sha256": "c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6",
+      "size": 73632,
+      "url": "https://files.pythonhosted.org/packages/ec/bb/2799cc2ede3ed41131f8975621e7213dfc7ef4acbbaadfa440f32500c370/starlette-1.3.1-py3-none-any.whl",
+      "version": "1.3.1"
+    },
+    {
+      "filename": "sympy-1.14.0-py3-none-any.whl",
+      "name": "sympy",
+      "role": "runtime",
+      "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+      "size": 6299353,
+      "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+      "version": "1.14.0"
+    },
+    {
+      "filename": "tenacity-9.1.2-py3-none-any.whl",
+      "name": "tenacity",
+      "role": "runtime",
+      "sha256": "f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138",
+      "size": 28248,
+      "url": "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl",
+      "version": "9.1.2"
+    },
+    {
+      "filename": "tiktoken-0.12.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+      "name": "tiktoken",
+      "role": "runtime",
+      "sha256": "edde1ec917dfd21c1f2f8046b86348b0f54a2c0547f68149d8600859598769ad",
+      "size": 1152665,
+      "url": "https://files.pythonhosted.org/packages/f4/90/3dae6cc5436137ebd38944d396b5849e167896fc2073da643a49f372dc4f/tiktoken-0.12.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+      "version": "0.12.0"
+    },
+    {
+      "filename": "tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "tokenizers",
+      "role": "runtime",
+      "sha256": "369cc9fc8cc10cb24143873a0d95438bb8ee257bb80c71989e3ee290e8d72c67",
+      "size": 3274982,
+      "url": "https://files.pythonhosted.org/packages/2e/76/932be4b50ef6ccedf9d3c6639b056a967a86258c6d9200643f01269211ca/tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.22.2"
+    },
+    {
+      "filename": "toktok_rs-0.1.3-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "toktok-rs",
+      "role": "runtime",
+      "sha256": "0499998a9b9e680f1adc4f029cddadccd39740317f0a6133939d4032004125b6",
+      "size": 2560150,
+      "url": "https://files.pythonhosted.org/packages/9a/d7/d833fd95fec1bc739b293da9bcca52c718e81b1a0ce613728044032664fc/toktok_rs-0.1.3-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "0.1.3"
+    },
+    {
+      "filename": "tqdm-4.67.1-py3-none-any.whl",
+      "name": "tqdm",
+      "role": "runtime",
+      "sha256": "26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2",
+      "size": 78540,
+      "url": "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl",
+      "version": "4.67.1"
+    },
+    {
+      "filename": "transformers-5.12.1-py3-none-any.whl",
+      "name": "transformers",
+      "role": "runtime",
+      "sha256": "2a5e109d2021265df7098ffbb738295acaf5ad256f12cbc586db2ea4dcbb1a8a",
+      "size": 11150587,
+      "url": "https://files.pythonhosted.org/packages/df/56/bbd60dd8668055803bf8ba55a81f9b8a8b31497f620109a9671d26a2076d/transformers-5.12.1-py3-none-any.whl",
+      "version": "5.12.1"
+    },
+    {
+      "filename": "typer-0.20.0-py3-none-any.whl",
+      "name": "typer",
+      "role": "runtime",
+      "sha256": "5b463df6793ec1dca6213a3cf4c0f03bc6e322ac5e16e13ddd622a889489784a",
+      "size": 47028,
+      "url": "https://files.pythonhosted.org/packages/78/64/7713ffe4b5983314e9d436a90d5bd4f63b6054e2aca783a3cfc44cb95bbf/typer-0.20.0-py3-none-any.whl",
+      "version": "0.20.0"
+    },
+    {
+      "filename": "types_requests-2.32.4.20260107-py3-none-any.whl",
+      "name": "types-requests",
+      "role": "runtime",
+      "sha256": "b703fe72f8ce5b31ef031264fe9395cac8f46a04661a79f7ed31a80fb308730d",
+      "size": 20676,
+      "url": "https://files.pythonhosted.org/packages/1c/12/709ea261f2bf91ef0a26a9eed20f2623227a8ed85610c1e54c5805692ecb/types_requests-2.32.4.20260107-py3-none-any.whl",
+      "version": "2.32.4.20260107"
+    },
+    {
+      "filename": "typing_extensions-4.15.0-py3-none-any.whl",
+      "name": "typing-extensions",
+      "role": "runtime",
+      "sha256": "f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548",
+      "size": 44614,
+      "url": "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl",
+      "version": "4.15.0"
+    },
+    {
+      "filename": "typing_inspection-0.4.2-py3-none-any.whl",
+      "name": "typing-inspection",
+      "role": "runtime",
+      "sha256": "4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7",
+      "size": 14611,
+      "url": "https://files.pythonhosted.org/packages/dc/9b/47798a6c91d8bdb567fe2698fe81e0c6b7cb7ef4d13da4114b41d239f65d/typing_inspection-0.4.2-py3-none-any.whl",
+      "version": "0.4.2"
+    },
+    {
+      "filename": "tzdata-2025.2-py2.py3-none-any.whl",
+      "name": "tzdata",
+      "role": "runtime",
+      "sha256": "1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8",
+      "size": 347839,
+      "url": "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl",
+      "version": "2025.2"
+    },
+    {
+      "filename": "tzlocal-5.3.1-py3-none-any.whl",
+      "name": "tzlocal",
+      "role": "runtime",
+      "sha256": "eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d",
+      "size": 18026,
+      "url": "https://files.pythonhosted.org/packages/c2/14/e2a54fabd4f08cd7af1c07030603c3356b74da07f7cc056e600436edfa17/tzlocal-5.3.1-py3-none-any.whl",
+      "version": "5.3.1"
+    },
+    {
+      "filename": "uncalled_for-0.2.0-py3-none-any.whl",
+      "name": "uncalled-for",
+      "role": "runtime",
+      "sha256": "2c0bd338faff5f930918f79e7eb9ff48290df2cb05fcc0b40a7f334e55d4d85f",
+      "size": 11351,
+      "url": "https://files.pythonhosted.org/packages/ff/7f/4320d9ce3be404e6310b915c3629fe27bf1e2f438a1a7a3cb0396e32e9a9/uncalled_for-0.2.0-py3-none-any.whl",
+      "version": "0.2.0"
+    },
+    {
+      "filename": "urllib3-2.8.0-py3-none-any.whl",
+      "name": "urllib3",
+      "role": "runtime",
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+      "size": 135717,
+      "url": "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl",
+      "version": "2.8.0"
+    },
+    {
+      "filename": "uvicorn-0.38.0-py3-none-any.whl",
+      "name": "uvicorn",
+      "role": "runtime",
+      "sha256": "48c0afd214ceb59340075b4a052ea1ee91c16fbc2a9b1469cca0e54566977b02",
+      "size": 68109,
+      "url": "https://files.pythonhosted.org/packages/ee/d9/d88e73ca598f4f6ff671fb5fde8a32925c2e08a637303a1d12883c7305fa/uvicorn-0.38.0-py3-none-any.whl",
+      "version": "0.38.0"
+    },
+    {
+      "filename": "uvloop-0.22.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "uvloop",
+      "role": "runtime",
+      "sha256": "7b5b1ac819a3f946d3b2ee07f09149578ae76066d70b44df3fa990add49a82e4",
+      "size": 4426307,
+      "url": "https://files.pythonhosted.org/packages/5f/6f/e62b4dfc7ad6518e7eff2516f680d02a0f6eb62c0c212e152ca708a0085e/uvloop-0.22.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "0.22.1"
+    },
+    {
+      "filename": "watchfiles-1.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "watchfiles",
+      "role": "runtime",
+      "sha256": "1db5d7ae38ff20153d542460752ff397fcf5c96090c1230803713cf3147a6803",
+      "size": 456812,
+      "url": "https://files.pythonhosted.org/packages/cf/68/5707da262a119fb06fbe214d82dd1fe4a6f4af32d2d14de368d0349eb52a/watchfiles-1.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "1.1.1"
+    },
+    {
+      "filename": "websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "name": "websockets",
+      "role": "runtime",
+      "sha256": "64dee438fed052b52e4f98f76c5790513235efaa1ef7f3f2192c392cd7c91b65",
+      "size": 182523,
+      "url": "https://files.pythonhosted.org/packages/14/8f/aa61f528fba38578ec553c145857a181384c72b98156f858ca5c8e82d9d3/websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "version": "15.0.1"
+    },
+    {
+      "filename": "wrapt-1.17.3-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "name": "wrapt",
+      "role": "runtime",
+      "sha256": "042ec3bb8f319c147b1301f2393bc19dba6e176b7da446853406d041c36c7828",
+      "size": 88036,
+      "url": "https://files.pythonhosted.org/packages/9f/81/5d931d78d0eb732b95dc3ddaeeb71c8bb572fb01356e9133916cd729ecdd/wrapt-1.17.3-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl",
+      "version": "1.17.3"
+    },
+    {
+      "filename": "wsproto-1.3.2-py3-none-any.whl",
+      "name": "wsproto",
+      "role": "runtime",
+      "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584",
+      "size": 24405,
+      "url": "https://files.pythonhosted.org/packages/a4/f5/10b68b7b1544245097b2a1b8238f66f2fc6dcaeb24ba5d917f52bd2eed4f/wsproto-1.3.2-py3-none-any.whl",
+      "version": "1.3.2"
+    },
+    {
+      "filename": "xlrd-2.0.2-py2.py3-none-any.whl",
+      "name": "xlrd",
+      "role": "runtime",
+      "sha256": "ea762c3d29f4cca48d82df517b6d89fbce4db3107f9d78713e48cd321d5c9aa9",
+      "size": 96555,
+      "url": "https://files.pythonhosted.org/packages/1a/62/c8d562e7766786ba6587d09c5a8ba9f718ed3fa8af7f4553e8f91c36f302/xlrd-2.0.2-py2.py3-none-any.whl",
+      "version": "2.0.2"
+    },
+    {
+      "filename": "xlsxwriter-3.2.9-py3-none-any.whl",
+      "name": "xlsxwriter",
+      "role": "runtime",
+      "sha256": "9a5db42bc5dff014806c58a20b9eae7322a134abb6fce3c92c181bfb275ec5b3",
+      "size": 175315,
+      "url": "https://files.pythonhosted.org/packages/3a/0c/3662f4a66880196a590b202f0db82d919dd2f89e99a27fadef91c4a33d41/xlsxwriter-3.2.9-py3-none-any.whl",
+      "version": "3.2.9"
+    },
+    {
+      "filename": "yarl-1.22.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "name": "yarl",
+      "role": "runtime",
+      "sha256": "50678a3b71c751d58d7908edc96d332af328839eea883bb554a43f539101277a",
+      "size": 377267,
+      "url": "https://files.pythonhosted.org/packages/db/0f/0d52c98b8a885aeda831224b78f3be7ec2e1aa4a62091f9f9188c3c65b56/yarl-1.22.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "version": "1.22.0"
+    },
+    {
+      "filename": "zipp-3.23.0-py3-none-any.whl",
+      "name": "zipp",
+      "role": "runtime",
+      "sha256": "071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e",
+      "size": 10276,
+      "url": "https://files.pythonhosted.org/packages/2e/54/647ade08bf0db230bfea292f893923872fd20be6ac6f53b2b936ba839d75/zipp-3.23.0-py3-none-any.whl",
+      "version": "3.23.0"
+    }
+  ],
+  "schema": "zelo-hindsight-wheel-selection-audit-v1",
+  "selected_edges": [
+    {
+      "dependency": {
+        "extra": [
+          "local-onnx"
+        ],
+        "name": "hindsight-api-slim",
+        "version": "0.10.3"
+      },
+      "parent": "<root>",
+      "selected_version": "0.10.3"
+    },
+    {
+      "dependency": {
+        "name": "flashrank",
+        "version": "0.2.10"
+      },
+      "parent": "<root>",
+      "selected_version": "0.2.10"
+    },
+    {
+      "dependency": {
+        "name": "aiohttp"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "3.14.3"
+    },
+    {
+      "dependency": {
+        "name": "alembic"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.17.1"
+    },
+    {
+      "dependency": {
+        "name": "anthropic"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.75.0"
+    },
+    {
+      "dependency": {
+        "name": "asyncpg"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.30.0"
+    },
+    {
+      "dependency": {
+        "name": "authlib"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.6.12"
+    },
+    {
+      "dependency": {
+        "name": "boto3"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.43.108"
+    },
+    {
+      "dependency": {
+        "name": "claude-agent-sdk"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.2.87"
+    },
+    {
+      "dependency": {
+        "name": "cohere"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "5.20.1"
+    },
+    {
+      "dependency": {
+        "name": "croniter"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "6.2.2"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "dateparser"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.4.2"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "fastapi"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.136.3"
+    },
+    {
+      "dependency": {
+        "name": "fastmcp"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "3.2.0"
+    },
+    {
+      "dependency": {
+        "name": "filelock"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "3.20.3"
+    },
+    {
+      "dependency": {
+        "name": "github-copilot-sdk"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.0.11"
+    },
+    {
+      "dependency": {
+        "name": "google-auth"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.56.3"
+    },
+    {
+      "dependency": {
+        "name": "google-genai"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.18.1"
+    },
+    {
+      "dependency": {
+        "name": "greenlet"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "3.2.4"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "json-repair"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.63.2"
+    },
+    {
+      "dependency": {
+        "name": "litellm"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.104.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "docx",
+          "pdf",
+          "pptx",
+          "xls",
+          "xlsx"
+        ],
+        "name": "markitdown"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.1.5b1"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "obstore"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.8.2"
+    },
+    {
+      "dependency": {
+        "name": "openai"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.24.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-exporter-otlp-proto-http"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-exporter-prometheus"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-instrumentation-fastapi"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-sdk"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-semantic-conventions"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "orjson"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "3.12.0"
+    },
+    {
+      "dependency": {
+        "name": "pgvector"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.4.1"
+    },
+    {
+      "dependency": {
+        "name": "pillow"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "12.3.0"
+    },
+    {
+      "dependency": {
+        "name": "protobuf"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "7.35.1"
+    },
+    {
+      "dependency": {
+        "name": "psycopg2-binary"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.9.11"
+    },
+    {
+      "dependency": {
+        "name": "pyasn1"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.6.4"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "pygments"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.20.0"
+    },
+    {
+      "dependency": {
+        "name": "pyjwt"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.15.1"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "python-multipart"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.0.32"
+    },
+    {
+      "dependency": {
+        "name": "regex"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2026.9.3"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "sqlalchemy"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.0.44"
+    },
+    {
+      "dependency": {
+        "name": "toktok-rs"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.1.3"
+    },
+    {
+      "dependency": {
+        "name": "typer"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.20.0"
+    },
+    {
+      "dependency": {
+        "name": "urllib3"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "name": "uvicorn"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform != 'win32'",
+        "name": "uvloop"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "0.22.1"
+    },
+    {
+      "dependency": {
+        "name": "wsproto"
+      },
+      "parent": "hindsight-api-slim",
+      "selected_version": "1.3.2"
+    },
+    {
+      "dependency": {
+        "name": "huggingface-hub"
+      },
+      "parent": "hindsight-api-slim[local-onnx]",
+      "selected_version": "1.6.0"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "hindsight-api-slim[local-onnx]",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "onnxruntime"
+      },
+      "parent": "hindsight-api-slim[local-onnx]",
+      "selected_version": "1.20.1"
+    },
+    {
+      "dependency": {
+        "name": "tokenizers"
+      },
+      "parent": "hindsight-api-slim[local-onnx]",
+      "selected_version": "0.22.2"
+    },
+    {
+      "dependency": {
+        "name": "transformers"
+      },
+      "parent": "hindsight-api-slim[local-onnx]",
+      "selected_version": "5.12.1"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "flashrank",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "onnxruntime"
+      },
+      "parent": "flashrank",
+      "selected_version": "1.20.1"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "flashrank",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "tokenizers"
+      },
+      "parent": "flashrank",
+      "selected_version": "0.22.2"
+    },
+    {
+      "dependency": {
+        "name": "tqdm"
+      },
+      "parent": "flashrank",
+      "selected_version": "4.67.1"
+    },
+    {
+      "dependency": {
+        "name": "aiohappyeyeballs"
+      },
+      "parent": "aiohttp",
+      "selected_version": "2.6.1"
+    },
+    {
+      "dependency": {
+        "name": "aiosignal"
+      },
+      "parent": "aiohttp",
+      "selected_version": "1.4.0"
+    },
+    {
+      "dependency": {
+        "name": "attrs"
+      },
+      "parent": "aiohttp",
+      "selected_version": "25.4.0"
+    },
+    {
+      "dependency": {
+        "name": "frozenlist"
+      },
+      "parent": "aiohttp",
+      "selected_version": "1.8.0"
+    },
+    {
+      "dependency": {
+        "name": "multidict"
+      },
+      "parent": "aiohttp",
+      "selected_version": "6.9.1"
+    },
+    {
+      "dependency": {
+        "name": "propcache"
+      },
+      "parent": "aiohttp",
+      "selected_version": "0.4.1"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "aiohttp",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "yarl"
+      },
+      "parent": "aiohttp",
+      "selected_version": "1.22.0"
+    },
+    {
+      "dependency": {
+        "name": "mako"
+      },
+      "parent": "alembic",
+      "selected_version": "1.4.3"
+    },
+    {
+      "dependency": {
+        "name": "sqlalchemy"
+      },
+      "parent": "alembic",
+      "selected_version": "2.0.44"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "alembic",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "anthropic",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "distro"
+      },
+      "parent": "anthropic",
+      "selected_version": "1.9.0"
+    },
+    {
+      "dependency": {
+        "name": "docstring-parser"
+      },
+      "parent": "anthropic",
+      "selected_version": "0.17.0"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "anthropic",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "jiter"
+      },
+      "parent": "anthropic",
+      "selected_version": "0.12.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "anthropic",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "sniffio"
+      },
+      "parent": "anthropic",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "anthropic",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "authlib",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "botocore"
+      },
+      "parent": "boto3",
+      "selected_version": "1.43.108"
+    },
+    {
+      "dependency": {
+        "name": "jmespath"
+      },
+      "parent": "boto3",
+      "selected_version": "1.1.0"
+    },
+    {
+      "dependency": {
+        "name": "s3transfer"
+      },
+      "parent": "boto3",
+      "selected_version": "0.19.2"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "claude-agent-sdk",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "mcp"
+      },
+      "parent": "claude-agent-sdk",
+      "selected_version": "1.28.1"
+    },
+    {
+      "dependency": {
+        "name": "sniffio"
+      },
+      "parent": "claude-agent-sdk",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "fastavro"
+      },
+      "parent": "cohere",
+      "selected_version": "1.12.1"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "cohere",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "cohere",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-core"
+      },
+      "parent": "cohere",
+      "selected_version": "2.41.5"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "cohere",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "tokenizers"
+      },
+      "parent": "cohere",
+      "selected_version": "0.22.2"
+    },
+    {
+      "dependency": {
+        "name": "types-requests"
+      },
+      "parent": "cohere",
+      "selected_version": "2.32.4.20260107"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "cohere",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "croniter",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "marker": "platform_python_implementation != 'PyPy'",
+        "name": "cffi"
+      },
+      "parent": "cryptography",
+      "selected_version": "2.0.0"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "dateparser",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "name": "pytz"
+      },
+      "parent": "dateparser",
+      "selected_version": "2025.2"
+    },
+    {
+      "dependency": {
+        "name": "regex"
+      },
+      "parent": "dateparser",
+      "selected_version": "2026.9.3"
+    },
+    {
+      "dependency": {
+        "name": "tzlocal"
+      },
+      "parent": "dateparser",
+      "selected_version": "5.3.1"
+    },
+    {
+      "dependency": {
+        "name": "annotated-doc"
+      },
+      "parent": "fastapi",
+      "selected_version": "0.0.4"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "fastapi",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "starlette"
+      },
+      "parent": "fastapi",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "fastapi",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-inspection"
+      },
+      "parent": "fastapi",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "email-validator"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "2.3.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "fastapi-cli"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "0.0.16"
+    },
+    {
+      "dependency": {
+        "name": "fastar"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "0.11.0"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "jinja2"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "3.1.6"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-extra-types"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "2.11.1"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-settings"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "2.14.2"
+    },
+    {
+      "dependency": {
+        "name": "python-multipart"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "0.0.32"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "uvicorn"
+      },
+      "parent": "fastapi[standard]",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "authlib"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.6.12"
+    },
+    {
+      "dependency": {
+        "name": "cyclopts"
+      },
+      "parent": "fastmcp",
+      "selected_version": "4.2.2"
+    },
+    {
+      "dependency": {
+        "name": "exceptiongroup"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.3.0"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "jsonref"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.1.0"
+    },
+    {
+      "dependency": {
+        "name": "jsonschema-path"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.3.4"
+    },
+    {
+      "dependency": {
+        "name": "mcp"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.28.1"
+    },
+    {
+      "dependency": {
+        "name": "openapi-pydantic"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.5.1"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "fastmcp",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "platformdirs"
+      },
+      "parent": "fastmcp",
+      "selected_version": "4.5.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "filetree",
+          "keyring",
+          "memory"
+        ],
+        "name": "py-key-value-aio"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.4.4"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "email"
+        ],
+        "name": "pydantic"
+      },
+      "parent": "fastmcp",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "pyperclip"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.11.0"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "fastmcp",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "fastmcp",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "uncalled-for"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.2.0"
+    },
+    {
+      "dependency": {
+        "name": "uvicorn"
+      },
+      "parent": "fastmcp",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "watchfiles"
+      },
+      "parent": "fastmcp",
+      "selected_version": "1.1.1"
+    },
+    {
+      "dependency": {
+        "name": "websockets"
+      },
+      "parent": "fastmcp",
+      "selected_version": "15.0.1"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "github-copilot-sdk",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "github-copilot-sdk",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "github-copilot-sdk",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "google-auth",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "pyasn1-modules"
+      },
+      "parent": "google-auth",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "google-genai",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "distro"
+      },
+      "parent": "google-genai",
+      "selected_version": "1.9.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "requests"
+        ],
+        "name": "google-auth"
+      },
+      "parent": "google-genai",
+      "selected_version": "2.56.3"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "google-genai",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "google-genai",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "google-genai",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "sniffio"
+      },
+      "parent": "google-genai",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "tenacity"
+      },
+      "parent": "google-genai",
+      "selected_version": "9.1.2"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "google-genai",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "websockets"
+      },
+      "parent": "google-genai",
+      "selected_version": "15.0.1"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "httpx",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "certifi"
+      },
+      "parent": "httpx",
+      "selected_version": "2025.10.5"
+    },
+    {
+      "dependency": {
+        "name": "httpcore"
+      },
+      "parent": "httpx",
+      "selected_version": "1.0.9"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "httpx",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "name": "aiohttp"
+      },
+      "parent": "litellm",
+      "selected_version": "3.14.3"
+    },
+    {
+      "dependency": {
+        "name": "boto3"
+      },
+      "parent": "litellm",
+      "selected_version": "1.43.108"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "litellm",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "fastuuid"
+      },
+      "parent": "litellm",
+      "selected_version": "0.14.0"
+    },
+    {
+      "dependency": {
+        "name": "filelock"
+      },
+      "parent": "litellm",
+      "selected_version": "3.20.3"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "http2"
+        ],
+        "name": "httpx"
+      },
+      "parent": "litellm",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "huggingface-hub"
+      },
+      "parent": "litellm",
+      "selected_version": "1.6.0"
+    },
+    {
+      "dependency": {
+        "name": "importlib-metadata"
+      },
+      "parent": "litellm",
+      "selected_version": "8.5.0"
+    },
+    {
+      "dependency": {
+        "name": "jinja2"
+      },
+      "parent": "litellm",
+      "selected_version": "3.1.6"
+    },
+    {
+      "dependency": {
+        "name": "jsonschema"
+      },
+      "parent": "litellm",
+      "selected_version": "4.23.0"
+    },
+    {
+      "dependency": {
+        "name": "openai"
+      },
+      "parent": "litellm",
+      "selected_version": "2.24.0"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "litellm",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "litellm",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-settings"
+      },
+      "parent": "litellm",
+      "selected_version": "2.14.2"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "litellm",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "litellm",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "name": "tiktoken"
+      },
+      "parent": "litellm",
+      "selected_version": "0.12.0"
+    },
+    {
+      "dependency": {
+        "name": "tokenizers"
+      },
+      "parent": "litellm",
+      "selected_version": "0.22.2"
+    },
+    {
+      "dependency": {
+        "name": "beautifulsoup4"
+      },
+      "parent": "markitdown",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "charset-normalizer"
+      },
+      "parent": "markitdown",
+      "selected_version": "3.4.4"
+    },
+    {
+      "dependency": {
+        "name": "defusedxml"
+      },
+      "parent": "markitdown",
+      "selected_version": "0.7.1"
+    },
+    {
+      "dependency": {
+        "name": "magika"
+      },
+      "parent": "markitdown",
+      "selected_version": "0.6.3"
+    },
+    {
+      "dependency": {
+        "name": "markdownify"
+      },
+      "parent": "markitdown",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "markitdown",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "lxml"
+      },
+      "parent": "markitdown[docx]",
+      "selected_version": "6.1.0"
+    },
+    {
+      "dependency": {
+        "name": "mammoth"
+      },
+      "parent": "markitdown[docx]",
+      "selected_version": "1.11.0"
+    },
+    {
+      "dependency": {
+        "name": "pdfminer-six"
+      },
+      "parent": "markitdown[pdf]",
+      "selected_version": "20251230"
+    },
+    {
+      "dependency": {
+        "name": "pdfplumber"
+      },
+      "parent": "markitdown[pdf]",
+      "selected_version": "0.11.9"
+    },
+    {
+      "dependency": {
+        "name": "python-pptx"
+      },
+      "parent": "markitdown[pptx]",
+      "selected_version": "1.0.2"
+    },
+    {
+      "dependency": {
+        "name": "pandas"
+      },
+      "parent": "markitdown[xls]",
+      "selected_version": "2.3.3"
+    },
+    {
+      "dependency": {
+        "name": "xlrd"
+      },
+      "parent": "markitdown[xls]",
+      "selected_version": "2.0.2"
+    },
+    {
+      "dependency": {
+        "name": "openpyxl"
+      },
+      "parent": "markitdown[xlsx]",
+      "selected_version": "3.1.5"
+    },
+    {
+      "dependency": {
+        "name": "pandas"
+      },
+      "parent": "markitdown[xlsx]",
+      "selected_version": "2.3.3"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "obstore",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "openai",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "distro"
+      },
+      "parent": "openai",
+      "selected_version": "1.9.0"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "openai",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "jiter"
+      },
+      "parent": "openai",
+      "selected_version": "0.12.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "openai",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "sniffio"
+      },
+      "parent": "openai",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "tqdm"
+      },
+      "parent": "openai",
+      "selected_version": "4.67.1"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "openai",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "opentelemetry-api",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "googleapis-common-protos"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "1.75.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-exporter-otlp-proto-common"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-proto"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-sdk"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-http",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-exporter-prometheus",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-sdk"
+      },
+      "parent": "opentelemetry-exporter-prometheus",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "prometheus-client"
+      },
+      "parent": "opentelemetry-exporter-prometheus",
+      "selected_version": "0.23.1"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-instrumentation-fastapi",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-instrumentation"
+      },
+      "parent": "opentelemetry-instrumentation-fastapi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-instrumentation-asgi"
+      },
+      "parent": "opentelemetry-instrumentation-fastapi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-semantic-conventions"
+      },
+      "parent": "opentelemetry-instrumentation-fastapi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-util-http"
+      },
+      "parent": "opentelemetry-instrumentation-fastapi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-sdk",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-semantic-conventions"
+      },
+      "parent": "opentelemetry-sdk",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "opentelemetry-sdk",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-semantic-conventions",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "opentelemetry-semantic-conventions",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "pgvector",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "annotated-types"
+      },
+      "parent": "pydantic",
+      "selected_version": "0.7.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-core"
+      },
+      "parent": "pydantic",
+      "selected_version": "2.41.5"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "pydantic",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-inspection"
+      },
+      "parent": "pydantic",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "six"
+      },
+      "parent": "python-dateutil",
+      "selected_version": "1.17.0"
+    },
+    {
+      "dependency": {
+        "name": "markdown-it-py"
+      },
+      "parent": "rich",
+      "selected_version": "4.0.0"
+    },
+    {
+      "dependency": {
+        "name": "pygments"
+      },
+      "parent": "rich",
+      "selected_version": "2.20.0"
+    },
+    {
+      "dependency": {
+        "marker": "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'",
+        "name": "greenlet"
+      },
+      "parent": "sqlalchemy",
+      "selected_version": "3.2.4"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "sqlalchemy",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "typer",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "typer",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "shellingham"
+      },
+      "parent": "typer",
+      "selected_version": "1.5.4"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "typer",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "uvicorn",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "h11"
+      },
+      "parent": "uvicorn",
+      "selected_version": "0.16.0"
+    },
+    {
+      "dependency": {
+        "name": "h11"
+      },
+      "parent": "wsproto",
+      "selected_version": "0.16.0"
+    },
+    {
+      "dependency": {
+        "name": "filelock"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "3.20.3"
+    },
+    {
+      "dependency": {
+        "name": "fsspec"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "2026.9.0"
+    },
+    {
+      "dependency": {
+        "marker": "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'",
+        "name": "hf-xet"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "1.3.2"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "name": "tqdm"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "4.67.1"
+    },
+    {
+      "dependency": {
+        "name": "typer"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "0.20.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "huggingface-hub",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "coloredlogs"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "15.0.1"
+    },
+    {
+      "dependency": {
+        "name": "flatbuffers"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "25.12.19"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "protobuf"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "7.35.1"
+    },
+    {
+      "dependency": {
+        "name": "sympy"
+      },
+      "parent": "onnxruntime",
+      "selected_version": "1.14.0"
+    },
+    {
+      "dependency": {
+        "name": "huggingface-hub"
+      },
+      "parent": "tokenizers",
+      "selected_version": "1.6.0"
+    },
+    {
+      "dependency": {
+        "name": "huggingface-hub"
+      },
+      "parent": "transformers",
+      "selected_version": "1.6.0"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "transformers",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "transformers",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "transformers",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "name": "regex"
+      },
+      "parent": "transformers",
+      "selected_version": "2026.9.3"
+    },
+    {
+      "dependency": {
+        "name": "safetensors"
+      },
+      "parent": "transformers",
+      "selected_version": "0.6.2"
+    },
+    {
+      "dependency": {
+        "name": "tokenizers"
+      },
+      "parent": "transformers",
+      "selected_version": "0.22.2"
+    },
+    {
+      "dependency": {
+        "name": "tqdm"
+      },
+      "parent": "transformers",
+      "selected_version": "4.67.1"
+    },
+    {
+      "dependency": {
+        "name": "typer"
+      },
+      "parent": "transformers",
+      "selected_version": "0.20.0"
+    },
+    {
+      "dependency": {
+        "name": "certifi"
+      },
+      "parent": "requests",
+      "selected_version": "2025.10.5"
+    },
+    {
+      "dependency": {
+        "name": "charset-normalizer"
+      },
+      "parent": "requests",
+      "selected_version": "3.4.4"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "requests",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "name": "urllib3"
+      },
+      "parent": "requests",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "name": "frozenlist"
+      },
+      "parent": "aiosignal",
+      "selected_version": "1.8.0"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "aiosignal",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "yarl",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "name": "multidict"
+      },
+      "parent": "yarl",
+      "selected_version": "6.9.1"
+    },
+    {
+      "dependency": {
+        "name": "propcache"
+      },
+      "parent": "yarl",
+      "selected_version": "0.4.1"
+    },
+    {
+      "dependency": {
+        "name": "markupsafe"
+      },
+      "parent": "mako",
+      "selected_version": "3.0.3"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "anyio",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "anyio",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "jmespath"
+      },
+      "parent": "botocore",
+      "selected_version": "1.1.0"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "botocore",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "name": "urllib3"
+      },
+      "parent": "botocore",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "name": "botocore"
+      },
+      "parent": "s3transfer",
+      "selected_version": "1.43.108"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "mcp",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "mcp",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "name": "httpx-sse"
+      },
+      "parent": "mcp",
+      "selected_version": "0.4.3"
+    },
+    {
+      "dependency": {
+        "name": "jsonschema"
+      },
+      "parent": "mcp",
+      "selected_version": "4.23.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "mcp",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-settings"
+      },
+      "parent": "mcp",
+      "selected_version": "2.14.2"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "crypto"
+        ],
+        "name": "pyjwt"
+      },
+      "parent": "mcp",
+      "selected_version": "2.15.1"
+    },
+    {
+      "dependency": {
+        "name": "python-multipart"
+      },
+      "parent": "mcp",
+      "selected_version": "0.0.32"
+    },
+    {
+      "dependency": {
+        "name": "sse-starlette"
+      },
+      "parent": "mcp",
+      "selected_version": "3.0.3"
+    },
+    {
+      "dependency": {
+        "name": "starlette"
+      },
+      "parent": "mcp",
+      "selected_version": "1.3.1"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "mcp",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-inspection"
+      },
+      "parent": "mcp",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform != 'emscripten'",
+        "name": "uvicorn"
+      },
+      "parent": "mcp",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "pydantic-core",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "urllib3"
+      },
+      "parent": "types-requests",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "marker": "implementation_name != 'PyPy'",
+        "name": "pycparser"
+      },
+      "parent": "cffi",
+      "selected_version": "2.23"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "starlette",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "starlette",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "typing-inspection",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "dnspython"
+      },
+      "parent": "email-validator",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "email-validator",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "name": "rich-toolkit"
+      },
+      "parent": "fastapi-cli",
+      "selected_version": "0.15.1"
+    },
+    {
+      "dependency": {
+        "name": "typer"
+      },
+      "parent": "fastapi-cli",
+      "selected_version": "0.20.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "uvicorn"
+      },
+      "parent": "fastapi-cli",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "fastapi-cloud-cli"
+      },
+      "parent": "fastapi-cli[standard]",
+      "selected_version": "0.3.1"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "uvicorn"
+      },
+      "parent": "fastapi-cli[standard]",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "markupsafe"
+      },
+      "parent": "jinja2",
+      "selected_version": "3.0.3"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "pydantic-extra-types",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "pydantic-extra-types",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "pydantic-settings",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "pydantic-settings",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "typing-inspection"
+      },
+      "parent": "pydantic-settings",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "uvicorn",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "h11"
+      },
+      "parent": "uvicorn",
+      "selected_version": "0.16.0"
+    },
+    {
+      "dependency": {
+        "name": "httptools"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "0.7.1"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "marker": "platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'",
+        "name": "uvloop"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "0.22.1"
+    },
+    {
+      "dependency": {
+        "name": "watchfiles"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "1.1.1"
+    },
+    {
+      "dependency": {
+        "name": "websockets"
+      },
+      "parent": "uvicorn[standard]",
+      "selected_version": "15.0.1"
+    },
+    {
+      "dependency": {
+        "name": "attrs"
+      },
+      "parent": "cyclopts",
+      "selected_version": "25.4.0"
+    },
+    {
+      "dependency": {
+        "name": "docstring-parser"
+      },
+      "parent": "cyclopts",
+      "selected_version": "0.17.0"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "cyclopts",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "rich-rst"
+      },
+      "parent": "cyclopts",
+      "selected_version": "1.3.2"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "exceptiongroup",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "pathable"
+      },
+      "parent": "jsonschema-path",
+      "selected_version": "0.4.4"
+    },
+    {
+      "dependency": {
+        "name": "pyyaml"
+      },
+      "parent": "jsonschema-path",
+      "selected_version": "6.0.3"
+    },
+    {
+      "dependency": {
+        "name": "referencing"
+      },
+      "parent": "jsonschema-path",
+      "selected_version": "0.36.2"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "jsonschema-path",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "pydantic"
+      },
+      "parent": "openapi-pydantic",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "beartype"
+      },
+      "parent": "py-key-value-aio",
+      "selected_version": "0.22.5"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "py-key-value-aio",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "aiofile"
+      },
+      "parent": "py-key-value-aio[filetree]",
+      "selected_version": "3.9.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "py-key-value-aio[filetree]",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "keyring"
+      },
+      "parent": "py-key-value-aio[keyring]",
+      "selected_version": "25.6.0"
+    },
+    {
+      "dependency": {
+        "name": "cachetools"
+      },
+      "parent": "py-key-value-aio[memory]",
+      "selected_version": "6.2.1"
+    },
+    {
+      "dependency": {
+        "name": "annotated-types"
+      },
+      "parent": "pydantic",
+      "selected_version": "0.7.0"
+    },
+    {
+      "dependency": {
+        "name": "pydantic-core"
+      },
+      "parent": "pydantic",
+      "selected_version": "2.41.5"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "pydantic",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-inspection"
+      },
+      "parent": "pydantic",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "email-validator"
+      },
+      "parent": "pydantic[email]",
+      "selected_version": "2.3.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "watchfiles",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "pyasn1"
+      },
+      "parent": "pyasn1-modules",
+      "selected_version": "0.6.4"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "google-auth",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "pyasn1-modules"
+      },
+      "parent": "google-auth",
+      "selected_version": "0.4.2"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "google-auth[requests]",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "certifi"
+      },
+      "parent": "httpcore",
+      "selected_version": "2025.10.5"
+    },
+    {
+      "dependency": {
+        "name": "h11"
+      },
+      "parent": "httpcore",
+      "selected_version": "0.16.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "httpx",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "certifi"
+      },
+      "parent": "httpx",
+      "selected_version": "2025.10.5"
+    },
+    {
+      "dependency": {
+        "name": "httpcore"
+      },
+      "parent": "httpx",
+      "selected_version": "1.0.9"
+    },
+    {
+      "dependency": {
+        "name": "idna"
+      },
+      "parent": "httpx",
+      "selected_version": "3.15"
+    },
+    {
+      "dependency": {
+        "name": "h2"
+      },
+      "parent": "httpx[http2]",
+      "selected_version": "4.4.1"
+    },
+    {
+      "dependency": {
+        "name": "zipp"
+      },
+      "parent": "importlib-metadata",
+      "selected_version": "3.23.0"
+    },
+    {
+      "dependency": {
+        "name": "attrs"
+      },
+      "parent": "jsonschema",
+      "selected_version": "25.4.0"
+    },
+    {
+      "dependency": {
+        "name": "jsonschema-specifications"
+      },
+      "parent": "jsonschema",
+      "selected_version": "2025.9.1"
+    },
+    {
+      "dependency": {
+        "name": "referencing"
+      },
+      "parent": "jsonschema",
+      "selected_version": "0.36.2"
+    },
+    {
+      "dependency": {
+        "name": "rpds-py"
+      },
+      "parent": "jsonschema",
+      "selected_version": "0.28.0"
+    },
+    {
+      "dependency": {
+        "name": "regex"
+      },
+      "parent": "tiktoken",
+      "selected_version": "2026.9.3"
+    },
+    {
+      "dependency": {
+        "name": "requests"
+      },
+      "parent": "tiktoken",
+      "selected_version": "2.34.2"
+    },
+    {
+      "dependency": {
+        "name": "soupsieve"
+      },
+      "parent": "beautifulsoup4",
+      "selected_version": "2.9.2"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "beautifulsoup4",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "magika",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "magika",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "onnxruntime"
+      },
+      "parent": "magika",
+      "selected_version": "1.20.1"
+    },
+    {
+      "dependency": {
+        "name": "python-dotenv"
+      },
+      "parent": "magika",
+      "selected_version": "1.2.2"
+    },
+    {
+      "dependency": {
+        "name": "beautifulsoup4"
+      },
+      "parent": "markdownify",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "six"
+      },
+      "parent": "markdownify",
+      "selected_version": "1.17.0"
+    },
+    {
+      "dependency": {
+        "name": "cobble"
+      },
+      "parent": "mammoth",
+      "selected_version": "0.1.4"
+    },
+    {
+      "dependency": {
+        "name": "charset-normalizer"
+      },
+      "parent": "pdfminer-six",
+      "selected_version": "3.4.4"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "pdfminer-six",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "pdfminer-six"
+      },
+      "parent": "pdfplumber",
+      "selected_version": "20251230"
+    },
+    {
+      "dependency": {
+        "name": "pillow"
+      },
+      "parent": "pdfplumber",
+      "selected_version": "12.3.0"
+    },
+    {
+      "dependency": {
+        "name": "pypdfium2"
+      },
+      "parent": "pdfplumber",
+      "selected_version": "5.4.0"
+    },
+    {
+      "dependency": {
+        "name": "lxml"
+      },
+      "parent": "python-pptx",
+      "selected_version": "6.1.0"
+    },
+    {
+      "dependency": {
+        "name": "pillow"
+      },
+      "parent": "python-pptx",
+      "selected_version": "12.3.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "python-pptx",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "xlsxwriter"
+      },
+      "parent": "python-pptx",
+      "selected_version": "3.2.9"
+    },
+    {
+      "dependency": {
+        "name": "numpy"
+      },
+      "parent": "pandas",
+      "selected_version": "2.3.4"
+    },
+    {
+      "dependency": {
+        "name": "python-dateutil"
+      },
+      "parent": "pandas",
+      "selected_version": "2.9.0.post0"
+    },
+    {
+      "dependency": {
+        "name": "pytz"
+      },
+      "parent": "pandas",
+      "selected_version": "2025.2"
+    },
+    {
+      "dependency": {
+        "name": "tzdata"
+      },
+      "parent": "pandas",
+      "selected_version": "2025.2"
+    },
+    {
+      "dependency": {
+        "name": "et-xmlfile"
+      },
+      "parent": "openpyxl",
+      "selected_version": "2.0.0"
+    },
+    {
+      "dependency": {
+        "name": "protobuf"
+      },
+      "parent": "googleapis-common-protos",
+      "selected_version": "7.35.1"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-proto"
+      },
+      "parent": "opentelemetry-exporter-otlp-proto-common",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "protobuf"
+      },
+      "parent": "opentelemetry-proto",
+      "selected_version": "7.35.1"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-instrumentation",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-semantic-conventions"
+      },
+      "parent": "opentelemetry-instrumentation",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "packaging"
+      },
+      "parent": "opentelemetry-instrumentation",
+      "selected_version": "25.0"
+    },
+    {
+      "dependency": {
+        "name": "wrapt"
+      },
+      "parent": "opentelemetry-instrumentation",
+      "selected_version": "1.17.3"
+    },
+    {
+      "dependency": {
+        "name": "asgiref"
+      },
+      "parent": "opentelemetry-instrumentation-asgi",
+      "selected_version": "3.11.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-api"
+      },
+      "parent": "opentelemetry-instrumentation-asgi",
+      "selected_version": "1.44.0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-instrumentation"
+      },
+      "parent": "opentelemetry-instrumentation-asgi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-semantic-conventions"
+      },
+      "parent": "opentelemetry-instrumentation-asgi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "opentelemetry-util-http"
+      },
+      "parent": "opentelemetry-instrumentation-asgi",
+      "selected_version": "0.65b0"
+    },
+    {
+      "dependency": {
+        "name": "mdurl"
+      },
+      "parent": "markdown-it-py",
+      "selected_version": "0.1.2"
+    },
+    {
+      "dependency": {
+        "name": "humanfriendly"
+      },
+      "parent": "coloredlogs",
+      "selected_version": "10.0"
+    },
+    {
+      "dependency": {
+        "name": "mpmath"
+      },
+      "parent": "sympy",
+      "selected_version": "1.3.0"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "pyjwt[crypto]",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "anyio"
+      },
+      "parent": "sse-starlette",
+      "selected_version": "4.14.2"
+    },
+    {
+      "dependency": {
+        "name": "click"
+      },
+      "parent": "rich-toolkit",
+      "selected_version": "8.1.8"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "rich-toolkit",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "typing-extensions"
+      },
+      "parent": "rich-toolkit",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "httpx"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "0.28.1"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "email"
+        ],
+        "name": "pydantic"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "2.12.5"
+    },
+    {
+      "dependency": {
+        "name": "rich-toolkit"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "0.15.1"
+    },
+    {
+      "dependency": {
+        "name": "rignore"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "0.7.6"
+    },
+    {
+      "dependency": {
+        "name": "sentry-sdk"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "2.44.0"
+    },
+    {
+      "dependency": {
+        "name": "typer"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "0.20.0"
+    },
+    {
+      "dependency": {
+        "extra": [
+          "standard"
+        ],
+        "name": "uvicorn"
+      },
+      "parent": "fastapi-cloud-cli",
+      "selected_version": "0.38.0"
+    },
+    {
+      "dependency": {
+        "name": "docutils"
+      },
+      "parent": "rich-rst",
+      "selected_version": "0.22.3"
+    },
+    {
+      "dependency": {
+        "name": "rich"
+      },
+      "parent": "rich-rst",
+      "selected_version": "14.2.0"
+    },
+    {
+      "dependency": {
+        "name": "attrs"
+      },
+      "parent": "referencing",
+      "selected_version": "25.4.0"
+    },
+    {
+      "dependency": {
+        "name": "rpds-py"
+      },
+      "parent": "referencing",
+      "selected_version": "0.28.0"
+    },
+    {
+      "dependency": {
+        "marker": "python_full_version < '3.13'",
+        "name": "typing-extensions"
+      },
+      "parent": "referencing",
+      "selected_version": "4.15.0"
+    },
+    {
+      "dependency": {
+        "name": "caio"
+      },
+      "parent": "aiofile",
+      "selected_version": "0.9.25"
+    },
+    {
+      "dependency": {
+        "name": "jaraco-classes"
+      },
+      "parent": "keyring",
+      "selected_version": "3.4.0"
+    },
+    {
+      "dependency": {
+        "name": "jaraco-context"
+      },
+      "parent": "keyring",
+      "selected_version": "6.1.2"
+    },
+    {
+      "dependency": {
+        "name": "jaraco-functools"
+      },
+      "parent": "keyring",
+      "selected_version": "4.3.0"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'linux'",
+        "name": "jeepney"
+      },
+      "parent": "keyring",
+      "selected_version": "0.9.0"
+    },
+    {
+      "dependency": {
+        "marker": "sys_platform == 'linux'",
+        "name": "secretstorage"
+      },
+      "parent": "keyring",
+      "selected_version": "3.4.1"
+    },
+    {
+      "dependency": {
+        "name": "hpack"
+      },
+      "parent": "h2",
+      "selected_version": "4.2.0"
+    },
+    {
+      "dependency": {
+        "name": "hyperframe"
+      },
+      "parent": "h2",
+      "selected_version": "6.1.0"
+    },
+    {
+      "dependency": {
+        "name": "referencing"
+      },
+      "parent": "jsonschema-specifications",
+      "selected_version": "0.36.2"
+    },
+    {
+      "dependency": {
+        "name": "certifi"
+      },
+      "parent": "sentry-sdk",
+      "selected_version": "2025.10.5"
+    },
+    {
+      "dependency": {
+        "name": "urllib3"
+      },
+      "parent": "sentry-sdk",
+      "selected_version": "2.8.0"
+    },
+    {
+      "dependency": {
+        "name": "more-itertools"
+      },
+      "parent": "jaraco-classes",
+      "selected_version": "10.8.0"
+    },
+    {
+      "dependency": {
+        "name": "more-itertools"
+      },
+      "parent": "jaraco-functools",
+      "selected_version": "10.8.0"
+    },
+    {
+      "dependency": {
+        "name": "cryptography"
+      },
+      "parent": "secretstorage",
+      "selected_version": "50.0.0"
+    },
+    {
+      "dependency": {
+        "name": "jeepney"
+      },
+      "parent": "secretstorage",
+      "selected_version": "0.9.0"
+    }
+  ],
+  "selected_extras": {
+    "fastapi": [
+      "standard"
+    ],
+    "fastapi-cli": [
+      "standard"
+    ],
+    "google-auth": [
+      "requests"
+    ],
+    "hindsight-api-slim": [
+      "local-onnx"
+    ],
+    "httpx": [
+      "http2"
+    ],
+    "markitdown": [
+      "docx",
+      "pdf",
+      "pptx",
+      "xls",
+      "xlsx"
+    ],
+    "py-key-value-aio": [
+      "filetree",
+      "keyring",
+      "memory"
+    ],
+    "pydantic": [
+      "email"
+    ],
+    "pyjwt": [
+      "crypto"
+    ],
+    "uvicorn": [
+      "standard"
+    ]
+  },
+  "selected_packages": [
+    {
+      "name": "hindsight-api-slim",
+      "version": "0.10.3"
+    },
+    {
+      "name": "flashrank",
+      "version": "0.2.10"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.3"
+    },
+    {
+      "name": "alembic",
+      "version": "1.17.1"
+    },
+    {
+      "name": "anthropic",
+      "version": "0.75.0"
+    },
+    {
+      "name": "asyncpg",
+      "version": "0.30.0"
+    },
+    {
+      "name": "authlib",
+      "version": "1.6.12"
+    },
+    {
+      "name": "boto3",
+      "version": "1.43.108"
+    },
+    {
+      "name": "claude-agent-sdk",
+      "version": "0.2.87"
+    },
+    {
+      "name": "cohere",
+      "version": "5.20.1"
+    },
+    {
+      "name": "croniter",
+      "version": "6.2.2"
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.0"
+    },
+    {
+      "name": "dateparser",
+      "version": "1.4.2"
+    },
+    {
+      "name": "fastapi",
+      "version": "0.136.3"
+    },
+    {
+      "name": "fastmcp",
+      "version": "3.2.0"
+    },
+    {
+      "name": "filelock",
+      "version": "3.20.3"
+    },
+    {
+      "name": "github-copilot-sdk",
+      "version": "1.0.11"
+    },
+    {
+      "name": "google-auth",
+      "version": "2.56.3"
+    },
+    {
+      "name": "google-genai",
+      "version": "2.18.1"
+    },
+    {
+      "name": "greenlet",
+      "version": "3.2.4"
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1"
+    },
+    {
+      "name": "json-repair",
+      "version": "0.63.2"
+    },
+    {
+      "name": "litellm",
+      "version": "1.104.0"
+    },
+    {
+      "name": "markitdown",
+      "version": "0.1.5b1"
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.4"
+    },
+    {
+      "name": "obstore",
+      "version": "0.8.2"
+    },
+    {
+      "name": "openai",
+      "version": "2.24.0"
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.44.0"
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "version": "1.44.0"
+    },
+    {
+      "name": "opentelemetry-exporter-prometheus",
+      "version": "0.65b0"
+    },
+    {
+      "name": "opentelemetry-instrumentation-fastapi",
+      "version": "0.65b0"
+    },
+    {
+      "name": "opentelemetry-sdk",
+      "version": "1.44.0"
+    },
+    {
+      "name": "opentelemetry-semantic-conventions",
+      "version": "0.65b0"
+    },
+    {
+      "name": "orjson",
+      "version": "3.12.0"
+    },
+    {
+      "name": "pgvector",
+      "version": "0.4.1"
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0"
+    },
+    {
+      "name": "protobuf",
+      "version": "7.35.1"
+    },
+    {
+      "name": "psycopg2-binary",
+      "version": "2.9.11"
+    },
+    {
+      "name": "pyasn1",
+      "version": "0.6.4"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.12.5"
+    },
+    {
+      "name": "pygments",
+      "version": "2.20.0"
+    },
+    {
+      "name": "pyjwt",
+      "version": "2.15.1"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.2"
+    },
+    {
+      "name": "python-multipart",
+      "version": "0.0.32"
+    },
+    {
+      "name": "regex",
+      "version": "2026.9.3"
+    },
+    {
+      "name": "rich",
+      "version": "14.2.0"
+    },
+    {
+      "name": "sqlalchemy",
+      "version": "2.0.44"
+    },
+    {
+      "name": "toktok-rs",
+      "version": "0.1.3"
+    },
+    {
+      "name": "typer",
+      "version": "0.20.0"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0"
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.38.0"
+    },
+    {
+      "name": "uvloop",
+      "version": "0.22.1"
+    },
+    {
+      "name": "wsproto",
+      "version": "1.3.2"
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "1.6.0"
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.20.1"
+    },
+    {
+      "name": "tokenizers",
+      "version": "0.22.2"
+    },
+    {
+      "name": "transformers",
+      "version": "5.12.1"
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2"
+    },
+    {
+      "name": "tqdm",
+      "version": "4.67.1"
+    },
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.6.1"
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0"
+    },
+    {
+      "name": "attrs",
+      "version": "25.4.0"
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0"
+    },
+    {
+      "name": "multidict",
+      "version": "6.9.1"
+    },
+    {
+      "name": "propcache",
+      "version": "0.4.1"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.15.0"
+    },
+    {
+      "name": "yarl",
+      "version": "1.22.0"
+    },
+    {
+      "name": "mako",
+      "version": "1.4.3"
+    },
+    {
+      "name": "anyio",
+      "version": "4.14.2"
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0"
+    },
+    {
+      "name": "docstring-parser",
+      "version": "0.17.0"
+    },
+    {
+      "name": "jiter",
+      "version": "0.12.0"
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1"
+    },
+    {
+      "name": "botocore",
+      "version": "1.43.108"
+    },
+    {
+      "name": "jmespath",
+      "version": "1.1.0"
+    },
+    {
+      "name": "s3transfer",
+      "version": "0.19.2"
+    },
+    {
+      "name": "mcp",
+      "version": "1.28.1"
+    },
+    {
+      "name": "fastavro",
+      "version": "1.12.1"
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.41.5"
+    },
+    {
+      "name": "types-requests",
+      "version": "2.32.4.20260107"
+    },
+    {
+      "name": "cffi",
+      "version": "2.0.0"
+    },
+    {
+      "name": "pytz",
+      "version": "2025.2"
+    },
+    {
+      "name": "tzlocal",
+      "version": "5.3.1"
+    },
+    {
+      "name": "annotated-doc",
+      "version": "0.0.4"
+    },
+    {
+      "name": "starlette",
+      "version": "1.3.1"
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.2"
+    },
+    {
+      "name": "email-validator",
+      "version": "2.3.0"
+    },
+    {
+      "name": "fastapi-cli",
+      "version": "0.0.16"
+    },
+    {
+      "name": "fastar",
+      "version": "0.11.0"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6"
+    },
+    {
+      "name": "pydantic-extra-types",
+      "version": "2.11.1"
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.14.2"
+    },
+    {
+      "name": "cyclopts",
+      "version": "4.2.2"
+    },
+    {
+      "name": "exceptiongroup",
+      "version": "1.3.0"
+    },
+    {
+      "name": "jsonref",
+      "version": "1.1.0"
+    },
+    {
+      "name": "jsonschema-path",
+      "version": "0.3.4"
+    },
+    {
+      "name": "openapi-pydantic",
+      "version": "0.5.1"
+    },
+    {
+      "name": "packaging",
+      "version": "25.0"
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.5.0"
+    },
+    {
+      "name": "py-key-value-aio",
+      "version": "0.4.4"
+    },
+    {
+      "name": "pyperclip",
+      "version": "1.11.0"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3"
+    },
+    {
+      "name": "uncalled-for",
+      "version": "0.2.0"
+    },
+    {
+      "name": "watchfiles",
+      "version": "1.1.1"
+    },
+    {
+      "name": "websockets",
+      "version": "15.0.1"
+    },
+    {
+      "name": "pyasn1-modules",
+      "version": "0.4.2"
+    },
+    {
+      "name": "tenacity",
+      "version": "9.1.2"
+    },
+    {
+      "name": "certifi",
+      "version": "2025.10.5"
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9"
+    },
+    {
+      "name": "idna",
+      "version": "3.15"
+    },
+    {
+      "name": "click",
+      "version": "8.1.8"
+    },
+    {
+      "name": "fastuuid",
+      "version": "0.14.0"
+    },
+    {
+      "name": "importlib-metadata",
+      "version": "8.5.0"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.23.0"
+    },
+    {
+      "name": "tiktoken",
+      "version": "0.12.0"
+    },
+    {
+      "name": "beautifulsoup4",
+      "version": "4.14.2"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.4"
+    },
+    {
+      "name": "defusedxml",
+      "version": "0.7.1"
+    },
+    {
+      "name": "magika",
+      "version": "0.6.3"
+    },
+    {
+      "name": "markdownify",
+      "version": "1.2.2"
+    },
+    {
+      "name": "lxml",
+      "version": "6.1.0"
+    },
+    {
+      "name": "mammoth",
+      "version": "1.11.0"
+    },
+    {
+      "name": "pdfminer-six",
+      "version": "20251230"
+    },
+    {
+      "name": "pdfplumber",
+      "version": "0.11.9"
+    },
+    {
+      "name": "python-pptx",
+      "version": "1.0.2"
+    },
+    {
+      "name": "pandas",
+      "version": "2.3.3"
+    },
+    {
+      "name": "xlrd",
+      "version": "2.0.2"
+    },
+    {
+      "name": "openpyxl",
+      "version": "3.1.5"
+    },
+    {
+      "name": "googleapis-common-protos",
+      "version": "1.75.0"
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "version": "1.44.0"
+    },
+    {
+      "name": "opentelemetry-proto",
+      "version": "1.44.0"
+    },
+    {
+      "name": "prometheus-client",
+      "version": "0.23.1"
+    },
+    {
+      "name": "opentelemetry-instrumentation",
+      "version": "0.65b0"
+    },
+    {
+      "name": "opentelemetry-instrumentation-asgi",
+      "version": "0.65b0"
+    },
+    {
+      "name": "opentelemetry-util-http",
+      "version": "0.65b0"
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.7.0"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.0.0"
+    },
+    {
+      "name": "shellingham",
+      "version": "1.5.4"
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0"
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0"
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.3.2"
+    },
+    {
+      "name": "coloredlogs",
+      "version": "15.0.1"
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.12.19"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0"
+    },
+    {
+      "name": "safetensors",
+      "version": "0.6.2"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3"
+    },
+    {
+      "name": "httpx-sse",
+      "version": "0.4.3"
+    },
+    {
+      "name": "sse-starlette",
+      "version": "3.0.3"
+    },
+    {
+      "name": "pycparser",
+      "version": "2.23"
+    },
+    {
+      "name": "dnspython",
+      "version": "2.8.0"
+    },
+    {
+      "name": "rich-toolkit",
+      "version": "0.15.1"
+    },
+    {
+      "name": "fastapi-cloud-cli",
+      "version": "0.3.1"
+    },
+    {
+      "name": "httptools",
+      "version": "0.7.1"
+    },
+    {
+      "name": "rich-rst",
+      "version": "1.3.2"
+    },
+    {
+      "name": "pathable",
+      "version": "0.4.4"
+    },
+    {
+      "name": "referencing",
+      "version": "0.36.2"
+    },
+    {
+      "name": "beartype",
+      "version": "0.22.5"
+    },
+    {
+      "name": "aiofile",
+      "version": "3.9.0"
+    },
+    {
+      "name": "keyring",
+      "version": "25.6.0"
+    },
+    {
+      "name": "cachetools",
+      "version": "6.2.1"
+    },
+    {
+      "name": "h2",
+      "version": "4.4.1"
+    },
+    {
+      "name": "zipp",
+      "version": "3.23.0"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "name": "rpds-py",
+      "version": "0.28.0"
+    },
+    {
+      "name": "soupsieve",
+      "version": "2.9.2"
+    },
+    {
+      "name": "cobble",
+      "version": "0.1.4"
+    },
+    {
+      "name": "pypdfium2",
+      "version": "5.4.0"
+    },
+    {
+      "name": "xlsxwriter",
+      "version": "3.2.9"
+    },
+    {
+      "name": "tzdata",
+      "version": "2025.2"
+    },
+    {
+      "name": "et-xmlfile",
+      "version": "2.0.0"
+    },
+    {
+      "name": "wrapt",
+      "version": "1.17.3"
+    },
+    {
+      "name": "asgiref",
+      "version": "3.11.0"
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2"
+    },
+    {
+      "name": "humanfriendly",
+      "version": "10.0"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0"
+    },
+    {
+      "name": "rignore",
+      "version": "0.7.6"
+    },
+    {
+      "name": "sentry-sdk",
+      "version": "2.44.0"
+    },
+    {
+      "name": "docutils",
+      "version": "0.22.3"
+    },
+    {
+      "name": "caio",
+      "version": "0.9.25"
+    },
+    {
+      "name": "jaraco-classes",
+      "version": "3.4.0"
+    },
+    {
+      "name": "jaraco-context",
+      "version": "6.1.2"
+    },
+    {
+      "name": "jaraco-functools",
+      "version": "4.3.0"
+    },
+    {
+      "name": "jeepney",
+      "version": "0.9.0"
+    },
+    {
+      "name": "secretstorage",
+      "version": "3.4.1"
+    },
+    {
+      "name": "hpack",
+      "version": "4.2.0"
+    },
+    {
+      "name": "hyperframe",
+      "version": "6.1.0"
+    },
+    {
+      "name": "more-itertools",
+      "version": "10.8.0"
+    }
+  ],
+  "target_environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.12.3",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+    "platform_python_implementation": "CPython",
+    "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+    "platform_system": "Linux",
+    "platform_version": "#1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026",
+    "python_full_version": "3.12.3",
+    "python_version": "3.12",
+    "sys_platform": "linux"
+  },
+  "target_first_tags": [
+    "cp312-cp312-linux_x86_64",
+    "cp312-cp312-manylinux_2_39_x86_64",
+    "cp312-cp312-manylinux_2_38_x86_64",
+    "cp312-cp312-manylinux_2_37_x86_64",
+    "cp312-cp312-manylinux_2_36_x86_64",
+    "cp312-cp312-manylinux_2_35_x86_64",
+    "cp312-cp312-manylinux_2_34_x86_64",
+    "cp312-cp312-manylinux_2_33_x86_64",
+    "cp312-cp312-manylinux_2_32_x86_64",
+    "cp312-cp312-manylinux_2_31_x86_64",
+    "cp312-cp312-manylinux_2_30_x86_64",
+    "cp312-cp312-manylinux_2_29_x86_64"
+  ],
+  "target_libc": [
+    "glibc",
+    "2.39"
+  ]
+}

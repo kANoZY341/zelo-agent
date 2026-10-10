@@ -1,0 +1,169 @@
+{
+  "packages": [
+    {
+      "name": "cobble",
+      "notices": [],
+      "pypi_home_page": "http://github.com/mwilliamson/python-cobble",
+      "pypi_license": null,
+      "pypi_license_expression": null,
+      "pypi_project_urls": {
+        "Homepage": "http://github.com/mwilliamson/python-cobble"
+      },
+      "sdist": {
+        "bytes": 3805,
+        "path": "notice-source-archives/cobble-0.1.4.tar.gz",
+        "sha256": "de38be1539992c8a06e569630717c485a5f91be2192c461ea2b220607dfa78aa",
+        "url": "https://files.pythonhosted.org/packages/54/7a/a507c709be2c96e1bb6102eb7b7f4026c5e5e223ef7d745a17d239e9d844/cobble-0.1.4.tar.gz"
+      },
+      "version": "0.1.4"
+    },
+    {
+      "name": "flatbuffers",
+      "notices": [],
+      "pypi_home_page": "https://google.github.io/flatbuffers/",
+      "pypi_license": "Apache 2.0",
+      "pypi_license_expression": null,
+      "pypi_project_urls": {
+        "Documentation": "https://google.github.io/flatbuffers/",
+        "Homepage": "https://google.github.io/flatbuffers/",
+        "Source": "https://github.com/google/flatbuffers"
+      },
+      "version": "25.12.19"
+    },
+    {
+      "name": "github-copilot-sdk",
+      "notices": [],
+      "pypi_home_page": null,
+      "pypi_license": null,
+      "pypi_license_expression": "MIT",
+      "pypi_project_urls": {
+        "Homepage": "https://github.com/github/copilot-sdk",
+        "Repository": "https://github.com/github/copilot-sdk"
+      },
+      "version": "1.0.11"
+    },
+    {
+      "name": "magika",
+      "notices": [],
+      "pypi_home_page": null,
+      "pypi_license": "Apache-2.0",
+      "pypi_license_expression": null,
+      "pypi_project_urls": {
+        "Changelog": "https://github.com/google/magika/blob/main/python/CHANGELOG.md",
+        "Documentation": "https://github.com/google/magika/blob/main/python/README.md",
+        "Homepage": "https://github.com/google/magika",
+        "Issues": "https://github.com/google/magika/issues",
+        "Repository": "https://github.com/google/magika/"
+      },
+      "sdist": {
+        "bytes": 3042784,
+        "path": "notice-source-archives/magika-0.6.3.tar.gz",
+        "sha256": "7cc52aa7359af861957043e2bf7265ed4741067251c104532765cd668c0c0cb1",
+        "url": "https://files.pythonhosted.org/packages/a3/f3/3d1dcdd7b9c41d589f5cff252d32ed91cdf86ba84391cfc81d9d8773571d/magika-0.6.3.tar.gz"
+      },
+      "version": "0.6.3"
+    },
+    {
+      "name": "markitdown",
+      "notices": [],
+      "pypi_home_page": null,
+      "pypi_license": null,
+      "pypi_license_expression": "MIT",
+      "pypi_project_urls": {
+        "Documentation": "https://github.com/microsoft/markitdown#readme",
+        "Issues": "https://github.com/microsoft/markitdown/issues",
+        "Source": "https://github.com/microsoft/markitdown"
+      },
+      "sdist": {
+        "bytes": 44408,
+        "path": "notice-source-archives/markitdown-0.1.5b1.tar.gz",
+        "sha256": "d5bffdb9d7aff9cac423a6d80d9e3a970937cec61338167bd855555f8a1c591c",
+        "url": "https://files.pythonhosted.org/packages/23/ae/c1f5e3fbd63883f27aec6bb6f8af2852253928bc673617bd02f2740a3057/markitdown-0.1.5b1.tar.gz"
+      },
+      "version": "0.1.5b1"
+    },
+    {
+      "name": "obstore",
+      "notices": [
+        {
+          "archive_member": "obstore-0.8.2/pyo3-object_store/LICENSE",
+          "bytes": 1073,
+          "path": "licenses/obstore/0.8.2/sdist/obstore-0.8.2/pyo3-object_store/LICENSE",
+          "sha256": "db6dafed288ea54d87f71a0b88f38fdd97ad173c8899eeb2c86376b104337779"
+        }
+      ],
+      "pypi_home_page": "https://developmentseed.org/obstore",
+      "pypi_license": null,
+      "pypi_license_expression": null,
+      "pypi_project_urls": {
+        "Homepage": "https://developmentseed.org/obstore"
+      },
+      "sdist": {
+        "bytes": 168852,
+        "path": "notice-source-archives/obstore-0.8.2.tar.gz",
+        "sha256": "a467bc4e97169e2ba749981b4fd0936015428d9b8f3fb83a5528536b1b6f377f",
+        "url": "https://files.pythonhosted.org/packages/a3/8c/9ec984edd0f3b72226adfaa19b1c61b15823b35b52f311ca4af36d009d15/obstore-0.8.2.tar.gz"
+      },
+      "version": "0.8.2"
+    },
+    {
+      "name": "opentelemetry-util-http",
+      "notices": [],
+      "pypi_home_page": null,
+      "pypi_license": null,
+      "pypi_license_expression": "Apache-2.0",
+      "pypi_project_urls": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/util/opentelemetry-util-http",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python-contrib"
+      },
+      "sdist": {
+        "bytes": 11243,
+        "path": "notice-source-archives/opentelemetry_util_http-0.65b0.tar.gz",
+        "sha256": "84f82d826978bba416ab453460ff6a7391cdc3534c93a786595e4068680016b7",
+        "url": "https://files.pythonhosted.org/packages/32/a9/d7525a59fdd240e69b5af4a6338e78fafa1b4203394122cbd6701fb5f84a/opentelemetry_util_http-0.65b0.tar.gz"
+      },
+      "version": "0.65b0"
+    },
+    {
+      "name": "py-key-value-aio",
+      "notices": [],
+      "pypi_home_page": null,
+      "pypi_license": "Apache-2.0",
+      "pypi_license_expression": null,
+      "pypi_project_urls": null,
+      "sdist": {
+        "bytes": 92300,
+        "path": "notice-source-archives/py_key_value_aio-0.4.4.tar.gz",
+        "sha256": "e3012e6243ed7cc09bb05457bd4d03b1ba5c2b1ca8700096b3927db79ffbbe55",
+        "url": "https://files.pythonhosted.org/packages/04/3c/0397c072a38d4bc580994b42e0c90c5f44f679303489e4376289534735e5/py_key_value_aio-0.4.4.tar.gz"
+      },
+      "version": "0.4.4"
+    },
+    {
+      "name": "tokenizers",
+      "notices": [
+        {
+          "archive_member": "tokenizers-0.22.2/tokenizers/LICENSE",
+          "bytes": 11357,
+          "path": "licenses/tokenizers/0.22.2/sdist/tokenizers-0.22.2/tokenizers/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "pypi_home_page": null,
+      "pypi_license": null,
+      "pypi_license_expression": null,
+      "pypi_project_urls": {
+        "Homepage": "https://github.com/huggingface/tokenizers",
+        "Source": "https://github.com/huggingface/tokenizers"
+      },
+      "sdist": {
+        "bytes": 372115,
+        "path": "notice-source-archives/tokenizers-0.22.2.tar.gz",
+        "sha256": "473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917",
+        "url": "https://files.pythonhosted.org/packages/73/6f/f80cfef4a312e1fb34baf7d85c72d4411afde10978d4657f8cdd811d3ccc/tokenizers-0.22.2.tar.gz"
+      },
+      "version": "0.22.2"
+    }
+  ],
+  "schema": "zelo-hindsight-supplemental-notices-v1"
+}

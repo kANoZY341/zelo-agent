@@ -9,9 +9,17 @@ the earlier U2-first delivery plan and provisional design acceptance.
 Preserve UI PR #61 as a draft and do not merge it automatically, even if CI passes.
 Preserve `feat/v0.15-live-conversation-ui` at `95f35cf` and the independent original
 design worktree. Do not delete UI code, chats, backups or local beta data.
-The active work is v0.15 Browser Worker qualification from API Worker merge
-`8d33d56`. Continue the established Core roadmap; later UI rework requires fresh
-acceptance. Do not spend this phase polishing, deploying or acceptance-testing UI.
+The active engineering phase remains Core v0.15. The repair queue and engineering
+pack are complete. The public research path passed operational checks; its raw
+answer failed review, and a corrected summary was separately admitted and
+replayed. The [live project status](zelo-project-status.md) records the bounded
+Hindsight assessment and remaining approved gates. The published release remains
+v0.14.0.
+
+Continue the established Core roadmap and its existing milestone order. REA
+remains inactive, and no fifth Media native-reader qualification is authorized.
+Later UI rework requires fresh acceptance. Do not spend this phase polishing,
+deploying or acceptance-testing UI.
 
 
 Confirmed by Ahmad on 24 September 2026.
