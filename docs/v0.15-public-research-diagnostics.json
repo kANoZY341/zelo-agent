@@ -652,6 +652,36 @@
       "runtime_cleanup_confirmed": true,
       "setup_cleanup_errors": [],
       "status": "failed"
+    },
+    {
+      "actual_research_timeout_seconds": 120.0,
+      "browser_tasks_succeeded": 3,
+      "database_sha256": "fced8df95a48574549dba7b9d9b3365586104b6933f12584a64fa62296a387ce",
+      "failure_code": "public_mind_task_contract_mismatch",
+      "failure_phase": "mind_turn",
+      "failure_type": "EvidenceError",
+      "git_commit": "ca678ee853c06cfe569bbcb95d85780dfeb65c13",
+      "memory_records": 0,
+      "memory_written": false,
+      "mind_turn_id": "8635a47f-c4f4-5c58-80d8-d9fc524df59f",
+      "mind_turn_persisted": true,
+      "mind_usage": {
+        "completion_tokens": 242,
+        "prompt_tokens": 864,
+        "total_tokens": 1106
+      },
+      "parent_monotonic_seconds": 91.88949742401019,
+      "raw_model_timeout_field_retained": false,
+      "report": "runtime/public-research/proof-dbdb85a8f13a42ffbd0776be40a88f6f/report.json",
+      "report_sha256": "43e88d82925841c7d79e57d75e44a711c78904b6b8a2439db11be2e0a9ff6e6c",
+      "required_research_timeout_seconds": 600.0,
+      "research_model_steps": 0,
+      "research_task_id": "f88d07be-2b18-4a42-acc7-5024ffb79f1b",
+      "research_task_status": "cancelled",
+      "research_tool_calls": 0,
+      "runtime_cleanup_confirmed": true,
+      "setup_cleanup_errors": [],
+      "status": "failed"
     }
   ],
   "schema": "zelo-public-research-diagnostics-v1",

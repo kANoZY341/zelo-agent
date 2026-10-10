@@ -207,8 +207,9 @@ async def inspect_model() -> str:
 def research_request(manifest: SourceManifest) -> str:
     artifacts = ", ".join(source.artifact for source in manifest.sources)
     return (
-        f"Create a Research task for this project with timeout_seconds={RESEARCH_TIMEOUT:g} "
-        "to carry out the following assignment.\n\n"
+        "Create a Research task for this project. Set its top-level "
+        f"timeout_seconds to {RESEARCH_TIMEOUT:g}. Put the following assignment in payload.query, "
+        "preserving its instructions and constraints.\n\n"
         f"Read all three complete files directly with read_workspace_file: {artifacts}. "
         "Compare Agent-Reach web, RSS/Atom and YouTube. Use only the shown method bodies to "
         "distinguish actual retrieval, readiness checks and delegation. Do not infer what "
