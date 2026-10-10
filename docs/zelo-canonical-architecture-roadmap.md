@@ -420,6 +420,12 @@ changing Task, Tool or independent reviewer authority. See
 `v0.15-ocr-operator-evidence-preview.md`. Four ECC manual playbook
 candidates expose Zelo-authored reviewed procedures without activating
 Skills, Workers or Tools (see v0.15-ecc-manual-engineering-playbooks.md).
+An operator-only, deterministic fixed-case evaluator binds four reviewed ECC
+draft candidates to SHA256-frozen synthetic engineering decisions, measuring
+answer agreement, unsafe misses, false alarms and unsupported overclaims
+without executing agents, storing Task evidence, activating Skills or granting
+permissions (see v0.15-ecc-fixed-case-evaluation.md). This is a fixture grader,
+not real independent Agent evaluation or promotion qualification.
 Harness proposal templates additionally cover permissionless YouTube content
 and Trading research hierarchies under Managing Director → Zelo CEO (see
 v0.15-harness-specialist-team-drafts.md).
