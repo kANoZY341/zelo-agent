@@ -426,6 +426,12 @@ answer agreement, unsafe misses, false alarms and unsupported overclaims
 without executing agents, storing Task evidence, activating Skills or granting
 permissions (see v0.15-ecc-fixed-case-evaluation.md). This is a fixture grader,
 not real independent Agent evaluation or promotion qualification.
+A separately opted-in local-only Ollama probe reuses the existing trusted
+ModelProvider to measure three live model responses against that fixed suite,
+with exact source/model identity, bounded time/output, measured token usage and
+no Task/Tool/Agent/Skill grants (see v0.15-ecc-local-model-probe.md). A passing
+sample is still not real Agent Task/Attempt, independent security evaluation or
+permission/Skill promotion authority.
 Harness proposal templates additionally cover permissionless YouTube content
 and Trading research hierarchies under Managing Director → Zelo CEO (see
 v0.15-harness-specialist-team-drafts.md).

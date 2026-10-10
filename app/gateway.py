@@ -94,8 +94,12 @@ class OllamaProvider:
         use_json_schema: bool = False,
         num_ctx: int | None = None,
         structured_action_options: Mapping[str, int | float] | None = None,
+        trust_env: bool | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        # None preserves the existing Core adapter defaults; the opt-in local
+        # model qualification explicitly disables inherited HTTP proxy routing.
+        self._http_trust_env = trust_env
         self.use_json_schema = use_json_schema
         self.num_ctx = num_ctx
         self._structured_action_options = dict(structured_action_options or {})
@@ -104,7 +108,11 @@ class OllamaProvider:
 
     async def models(self) -> list[str]:
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=5) as client:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=5,
+                **({"trust_env": self._http_trust_env} if self._http_trust_env is not None else {}),
+            ) as client:
                 response = await client.get("/api/tags")
                 response.raise_for_status()
                 return [m["name"] for m in response.json().get("models", []) if "name" in m]
@@ -136,7 +144,9 @@ class OllamaProvider:
             body.setdefault("options", {})["num_ctx"] = self.num_ctx
         try:
             async with httpx.AsyncClient(
-                base_url=self.base_url, timeout=request.timeout_seconds
+                base_url=self.base_url,
+                timeout=request.timeout_seconds,
+                **({"trust_env": self._http_trust_env} if self._http_trust_env is not None else {}),
             ) as client:
                 response = await client.post(
                     "/api/chat",
