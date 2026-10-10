@@ -1,6 +1,6 @@
 # Zelo live project status
 
-Latest checkpoint verified: 9 October 2026
+Latest checkpoint verified: 10 October 2026
 
 This file records current implementation state. Architecture and roadmap intent
 live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
@@ -150,6 +150,31 @@ per-AgentInstance proposal status, revision digest and review/promotion-link
 evidence but never instructions, automatic learning or executable Skills.
 See v0.15-opendots-specialist-learning-history.md.
 
+The repair and merge queue is complete. REA repair #142 merged at
+`dfba93fb47bbb0b02c8455e15170ecb337d687af`, and combined Computer dispatch
+repair #141 merged at `84bebc6558ffc20911e057bead66ac42fe4dc097` with the
+complete #140 Learning History head in its Git ancestry. Exact-head CI
+[38012355408](https://github.com/kANoZY341/zelo-agent/actions/runs/38012355408)
+and actual post-merge main CI
+[38015425568](https://github.com/kANoZY341/zelo-agent/actions/runs/38015425568)
+each passed 5,550 tests with two skips. The merged tree equals the independently
+reviewed and tested tree `895ebe41b816ef9712214f0765e199f31fbdafca`.
+
+## Selected engineering and public research continuation
+
+The Managing Director selected the next order: the focused Addy Osmani and
+Matt Pocock engineering pack, one complete public research workflow using
+current Zelo memory, then a bounded Hindsight comparison on that same work.
+The [engineering development pack](development/engineering-pack.md) connects
+four adapted procedures to root `AGENTS.md` for relevant coding work. Exact
+MIT source files and supporting references are retained separately in
+`integrations/development/`; they are not runtime Skill Registry entries.
+
+Public research execution and the Hindsight comparison remain pending their
+own implementation and observed results. RSS/Atom ingestion and automatic
+public-video transcript retrieval are not established by this documentation.
+HyperFrames and VoiceStudio remain deferred to corresponding production tasks.
+
 ## REA source-owned candidate preparation
 
 Main now contains the REA v6 source and its observed 139-tool catalog,
@@ -169,8 +194,12 @@ isolated correction compares stable file identity and nanosecond mutation
 metadata rather than access time, preserving exact profile SHA-256 and all
 consent/authority gates. Deterministic atime-only cases fail with the original
 reader and pass with the fix; protected metadata changes still refuse.
-This correction is pending independent review/full CI and is not permission
-to run a native qualification. See v0.15-rea-profile-stable-identity.md.
+The correction merged in #142 after independent review and exact-head CI
+[38008763900](https://github.com/kANoZY341/zelo-agent/actions/runs/38008763900).
+Its post-merge main CI
+[38011976160](https://github.com/kANoZY341/zelo-agent/actions/runs/38011976160)
+also passed. This changes no native qualification permission. See
+v0.15-rea-profile-stable-identity.md.
 
 ## Checkpoint history
 
