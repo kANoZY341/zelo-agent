@@ -441,3 +441,56 @@ def test_cancel_during_claim_accounts_for_thread_and_attempt(monkeypatch, tmp_pa
             assert task.attempts[0].outcome == "interrupted"
         finally:
             db.close()
+
+
+@pytest.mark.parametrize(
+    "gateway_code,expected_code,status",
+    [
+        ("model_timeout", "model_timeout", 503),
+        ("model_unavailable", "model_unavailable", 503),
+        ("DO_NOT_PERSIST_GATEWAY_DETAIL", "public_workflow_failed", 409),
+    ],
+)
+def test_mind_gateway_failure_retains_only_allowlisted_code(
+    tmp_path, gateway_code, expected_code, status
+):
+    from app.gateway import ModelGatewayError
+    from app.models import ConversationTurn
+    from app.policy import DomainError
+
+    provider_error = ModelGatewayError(gateway_code)
+    provider_error.args = ("DO_NOT_PERSIST_EXCEPTION_TEXT",)
+    with public_fixture(tmp_path, actions=[provider_error]) as case:
+        with pytest.raises(DomainError) as caught:
+            asyncio.run(
+                exercise(
+                    case.settings,
+                    case.report,
+                    runtime=case.runtime,
+                    provider=case.provider,
+                    manifest=case.manifest,
+                )
+            )
+        assert caught.value.message == "Zelo Mind model unavailable"
+        assert caught.value.status_code == status
+        assert caught.value.__context__ is provider_error
+        assert case.report["failure_phase"] == "mind_turn"
+        assert case.report["failure_type"] == "DomainError"
+        assert case.report["runtime_cleanup_confirmed"] is True
+        assert "mind_turn_id" not in case.report
+        assert "research_task_id" not in case.report
+        case.report["status"] = "failed"
+        raw = save_report(case.run_root, case.report).read_bytes()
+        saved = json.loads(raw)
+        assert saved["failure_code"] == expected_code
+        assert b"DO_NOT_PERSIST" not in raw
+        assert b"Zelo Mind model unavailable" not in raw
+        db = Database(case.settings.database_path)
+        try:
+            with db.read() as session:
+                assert session.scalar(select(func.count()).select_from(ConversationTurn)) == 0
+                assert session.scalar(select(func.count()).select_from(MemoryRecord)) == 0
+                kinds = session.scalars(select(Task.kind)).all()
+                assert kinds == ["browser_run"] * 3
+        finally:
+            db.close()

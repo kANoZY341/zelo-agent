@@ -170,9 +170,14 @@ four adapted procedures to root `AGENTS.md` for relevant coding work. Exact
 MIT source files and supporting references are retained separately in
 `integrations/development/`; they are not runtime Skill Registry entries.
 
-Public research execution and the Hindsight comparison remain pending their
-own implementation and observed results. RSS/Atom ingestion and automatic
-public-video transcript retrieval are not established by this documentation.
+The [public research workflow](v0.15-public-research-workflow.md) is implemented
+with separate reviewed project-memory admission. Its first live run verified
+all three Browser sources and cleanup, then failed during Mind delegation; no
+Research result or memory was admitted. The retained routing diagnostic led to
+a narrower operator request and safe gateway failure codes. Successful live
+Research and reviewed memory remain the next gate before the bounded Hindsight
+comparison. RSS/Atom ingestion and automatic public-video transcript retrieval
+are not established by this source-file workflow.
 HyperFrames and VoiceStudio remain deferred to corresponding production tasks.
 
 ## REA source-owned candidate preparation
