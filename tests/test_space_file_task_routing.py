@@ -166,6 +166,44 @@ def test_space_id_only_supported_on_file_reads():
             )
 
 
+def test_hung_human_control_lookup_expires_before_file_read(database, settings, monkeypatch):
+    env = _fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("private")
+    env["agent_submit"].submit(
+        env["instance"].id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run",
+                timeout_seconds=1.0,
+                payload={
+                    "action": "files_read",
+                    "path": "notes.txt",
+                    "space_activation_id": env["activation"].id,
+                },
+            )
+        ),
+        None,
+    )
+    claimed = env["tasks"].claim()
+    assert claimed is not None
+
+    async def stalled_control(_instance_id):
+        await asyncio.sleep(1.1)
+        raise AssertionError("Timed-out control lookup should never complete")
+
+    monkeypatch.setattr(env["backend"], "control", stalled_control)
+    runner = Runner(
+        env["tasks"],
+        computer_supervisor=env["supervisor"],
+        space_file_gateway=env["gateway"],
+    )
+    asyncio.run(runner._run(claimed))
+    result = env["tasks"].get(claimed.task_id)
+    assert result.status == State.FAILED
+    assert result.error == "computer_space_read_denied"
+    assert not env["backend"].calls
+
+
 def test_space_confirmation_change_is_action_hash_bound(database, settings):
     env = _fixture(database, settings)
     first = _space_task(env)

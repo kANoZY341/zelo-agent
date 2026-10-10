@@ -5,6 +5,7 @@ is not registered as a Worker/Tool; it only accepts an already claimed Core
 Computer execution and rechecks it at the exact read use-point.
 """
 
+import asyncio
 import hashlib
 import os
 import re
@@ -354,7 +355,12 @@ class SpaceFileReadGateway:
         with self.store.read() as session:
             agent, _ = self._verify_execution(session, execution, relative_path)
         try:
-            control = await self.computer.backend.control(agent.agent_instance_id)
+            # Unlike the normal Computer Worker this gateway has a separate
+            # dispatch path; preserve its bounded control-lookup deadline.
+            async with asyncio.timeout(execution.timeout_seconds):
+                control = await self.computer.backend.control(agent.agent_instance_id)
+        except TimeoutError:
+            raise DomainError("Space computer control timed out", 504) from None
         except ComputerBackendError:
             raise DomainError("Space computer control unavailable", 503) from None
         if (
