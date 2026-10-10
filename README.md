@@ -172,6 +172,10 @@ binds an exact owner confirmation to a Computer Task action and safely returns
 bounded read-only content through the existing Core Runner. It cannot bypass
 Core permissions or human takeover, and it does not enable general file or
 shell access, auto-admit context, or make default Agents Space-authorized.
+An authenticated, [read-only Specialist Space access status](docs/v0.15-specialist-space-access-status.md)
+is available at `GET /agents/{id}/specialist-profile/space-access` to show
+eligible file Tasks and explicit owner/permission/lifecycle/root denials.
+This is inspection metadata, never a separate grant or file-access Tool.
 
 ## Structure and scope
 
