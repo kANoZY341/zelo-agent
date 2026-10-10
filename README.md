@@ -80,6 +80,17 @@ records an operator-reviewed summary in the run's project memory and verifies
 scoped recall. The guide explains the fixed inputs, evidence checks, budgets,
 and observed qualification result.
 
+## Local memory comparison
+
+The opt-in [Hindsight comparison](docs/v0.15-hindsight-memory-comparison.md)
+uses a frozen public/synthetic workload, fresh databases, native recall text,
+explicit Core lifecycle filtering, and separately reviewed answer grading.
+It runs through isolated operator scripts and does not change Core's memory
+backend. Its unmodified reranking model is credited to
+[Prithivida's FlashRank model repository](https://huggingface.co/prithivida/flashrank/tree/858a1ac046a05663a35367eac852d7f76feeefdd)
+under its retained CC-BY-SA-4.0 model notice; package licenses are recorded
+separately in the pinned dependency closure.
+
 ## Vendored REA source (inactive)
 
 The complete upstream REA 6.0.0 **tracked source snapshot** is copied into
