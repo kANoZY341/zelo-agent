@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     operator_token: SecretStr | None = None
     runtime_dir: Path = ROOT / "runtime"
     storage_backend: Literal["sqlite"] = "sqlite"
+    # Explicit exact-spec opt-in; absent by default, never model supplied.
+    youtube_research_approved_spec_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$"
+    )
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)

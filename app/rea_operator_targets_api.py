@@ -100,7 +100,12 @@ def get_rea_analysis_plan(
     """Read-only refused plan; selected metadata can never activate the analyzer."""
 
     try:
-        return prepare_rea_analysis_plan(_target_store(request), snapshot_id, principal=principal)
+        return prepare_rea_analysis_plan(
+            _target_store(request),
+            snapshot_id,
+            principal=principal,
+            active_registry=request.app.state.agent_registry,
+        )
     except LookupError:
         raise HTTPException(status_code=404, detail="rea_operator_target_not_found") from None
     except ValueError as error:

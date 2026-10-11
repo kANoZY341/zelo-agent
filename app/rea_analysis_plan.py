@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.agent_factory import default_agent_registry
+from app.agent_factory import AgentRegistry, default_agent_registry
 from app.auth import OperatorPrincipal
 from app.rea_candidate import rea_candidate_snapshot
 from app.rea_operator_targets import ReaOperatorTargetStore
@@ -105,6 +105,7 @@ def prepare_rea_analysis_plan(
     snapshot_id: str,
     *,
     principal: OperatorPrincipal,
+    active_registry: AgentRegistry | None = None,
 ) -> ReaAnalysisPlanPreview:
     """Project current inert registry/source and chosen target, never reserve rights."""
 
@@ -126,7 +127,9 @@ def prepare_rea_analysis_plan(
         raise ValueError("rea_operator_target_not_inert")
 
     candidate = rea_candidate_snapshot()
-    live_agents = default_agent_registry()
+    # API callers provide the exact Core-selected registry. The standalone
+    # helper retains its original default for independent inert evaluation.
+    live_agents = active_registry if active_registry is not None else default_agent_registry()
     catalog = rea_tool_inventory()
     if (
         candidate.execution_enabled
