@@ -465,6 +465,10 @@ def test_cancel_during_claim_accounts_for_thread_and_attempt(monkeypatch, tmp_pa
     import threading
 
     entered, release, returned = threading.Event(), threading.Event(), threading.Event()
+    # The events—not a tight wall-clock deadline—prove the cancellation race.
+    # Allow a bounded scheduler delay on the single self-hosted full-suite runner
+    # without skipping the real claim or the post-cancellation completion check.
+    handoff_timeout_seconds = 20
     real_claim = TaskService.claim
 
     def held_claim(service):
@@ -472,7 +476,7 @@ def test_cancel_during_claim_accounts_for_thread_and_attempt(monkeypatch, tmp_pa
         assert execution is not None
         entered.set()
         try:
-            assert release.wait(5)
+            assert release.wait(handoff_timeout_seconds)
             return execution
         finally:
             returned.set()
@@ -491,17 +495,17 @@ def test_cancel_during_claim_accounts_for_thread_and_attempt(monkeypatch, tmp_pa
                 )
             )
             try:
-                assert await asyncio.to_thread(entered.wait, 2)
+                assert await asyncio.to_thread(entered.wait, handoff_timeout_seconds)
                 operation.cancel()
                 await asyncio.sleep(0)  # Deliver cancellation while the real claim is held.
                 release.set()
                 with pytest.raises(asyncio.CancelledError):
                     await operation
-                assert await asyncio.to_thread(returned.wait, 5)
+                assert await asyncio.to_thread(returned.wait, handoff_timeout_seconds)
             finally:
                 release.set()
                 await asyncio.gather(operation, return_exceptions=True)
-                assert await asyncio.to_thread(returned.wait, 5)
+                assert await asyncio.to_thread(returned.wait, handoff_timeout_seconds)
 
         asyncio.run(scenario())
         assert case.provider.requests == []
