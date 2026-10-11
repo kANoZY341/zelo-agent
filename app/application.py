@@ -82,7 +82,6 @@ from app.skill_api import router as skill_router
 from app.skill_learning_api import router as skill_learning_router
 from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import SkillLearningProposalStore
-from app.skills import default_skill_registry
 from app.space_file_gateway import SpaceFileReadGateway
 from app.storage import build_storage
 from app.task_api import router as task_router
@@ -100,7 +99,7 @@ from app.worker_registry import (
     descriptor_for_shell_worker,
 )
 from app.workers import Worker, execute
-from app.youtube_research_specialist import admitted_youtube_research_registry
+from app.youtube_company_team import admitted_youtube_company_registry
 
 
 def create_app(
@@ -198,11 +197,13 @@ def create_app(
             capability_registry.validate_workers(research_registry.list())
             capability_registry.validate_workers(python_registry.list())
             capability_registry.validate_workers(api_worker_registry.list())
-            agent_registry = admitted_youtube_research_registry(
+            agent_registry, skill_registry = admitted_youtube_company_registry(
                 database,
-                approved_spec_sha256=configuration.youtube_research_approved_spec_sha256,
+                pilot_spec_sha256=configuration.youtube_research_approved_spec_sha256,
+                company_approved_registry_sha256=(
+                    configuration.youtube_company_approved_registry_sha256
+                ),
             )
-            skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,

@@ -81,6 +81,10 @@ from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
+from app.youtube_company_authority import (
+    validate_youtube_company_child_parent,
+    validate_youtube_company_execution,
+)
 from app.youtube_research_attempt_quota import youtube_research_attempt_claim_allowed
 from app.youtube_research_quota import enforce_youtube_research_new_task_quota
 
@@ -873,6 +877,11 @@ class TaskService:
         ):
             raise DomainError("Agent execution identity is stale", 409)
 
+        # An Active role alone is never authority for detached company work.
+        # The actual reporting assignment and its exact incoming Delegation
+        # are checked on submit, retry, approval and *every* Worker claim.
+        validate_youtube_company_execution(session, binding, campaign_id=campaign_id)
+
         if campaign_id is not None:
             campaign = session.get(Campaign, campaign_id)
             if campaign is None:
@@ -898,6 +907,9 @@ class TaskService:
         parent = session.get(AgentInstance, delegated.parent_instance_id)
         if parent is None or parent.status != "active":
             raise DomainError("Delegating parent agent is not active", 409)
+        # A historic or externally injected generic-child Delegation from a
+        # company executive must never bypass the atomic trusted org chain.
+        validate_youtube_company_child_parent(parent.agent_id, binding.spec.agent_id)
         if parent.project_id != binding.project_id or not self.agent_factory.matches_agent(
             self._current_agent_binding(parent)
         ):

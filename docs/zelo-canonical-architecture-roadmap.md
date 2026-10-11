@@ -908,6 +908,19 @@ counts persisted TaskAttempt rows, denies a 13th claim before any Worker
 dispatch and never claims token/money budget or new grants. See
 `docs/v0.17-youtube-research-attempt-quota.md`.
 
+The first separately operator-approved **real** four-role YouTube company is
+now staged at `docs/v0.17-youtube-company-operational-hierarchy.md`. Distinct
+from the earlier single-specialist pilot and inert Harness draft, it registers
+reviewed Active VP/Director/Manager/Specialist AgentSpecs under a whole-registry
+SHA-256 startup approval, an Organization coordination Skill and the existing
+read-only Research Worker. A real database-backed test manually creates a
+Division→Department→Team, the VP and three atomic next-level child
+AgentInstances/assignments with three separate Campaign budget reservations
+and active Delegations. It then claims real bound Research Tasks and verifies
+revocation prevents a subsequent Worker claim. No company Team is automatically
+created by startup or model text; a durable *operator-only bootstrap approval*,
+measured Campaign spend and autonomous team coordination remain separate gates.
+
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
 domains.
