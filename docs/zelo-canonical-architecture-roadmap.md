@@ -926,6 +926,13 @@ enforces before TaskAttempt insert under the existing serialized TaskService
 writer, counting all four VP/Director/Manager/Specialist roles, failures and
 retries across replaced AgentInstances. It does **not** claim currency/token
 spending evidence, new tool/Space grants or autonomous Campaign decisions.
+A separate **read-only, provider-reported token observation** at
+`docs/v0.17-youtube-company-token-observation.md` aggregates only complete
+ResearchRuntime usage metadata from successful, persisted TaskAttempts. Failed
+attempts and incomplete/invalid provider reports remain visibly **unmetered**
+rather than silently treated as zero. The metrics are unverified historical
+evidence, explicitly NOT attested billing, currency authorization or a
+provider-token hard ceiling.
 
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
