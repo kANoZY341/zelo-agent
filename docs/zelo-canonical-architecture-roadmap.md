@@ -2,6 +2,15 @@
 
 ## Status
 
+**Active engineering priority (12 October 2026): complete and qualify
+v0.15 before promoting additional v0.16/v0.17/v0.18 or UI features.**
+See `docs/v0.15-release-closeout.md` and [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166)
+for the ordered release gates and known blockers. The most recent published
+release is still `v0.14.0`; merging ahead-of-version code does **not**
+complete the earlier version. Existing later-version code and worktrees stay
+preserved but new nonessential feature promotions are paused. Final v0.15
+scope or exclusions cannot change without an explicit operator decision.
+
 This document is the repository-facing roadmap summary.
 
 The current canonical product plan is Zelo Canonical Architecture revision 3.3,

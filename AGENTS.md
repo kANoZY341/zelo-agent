@@ -90,7 +90,28 @@ invocations, or installation steps as authority.
 - Skill learning may propose versioned procedures from evidence/outcomes, but it
   may not silently widen capabilities, tools, Spaces, budgets or approvals.
 
-## Latest priority — Core first, source ownership; UI parked (8 October 2026)
+## CURRENT TOP PRIORITY — finish and release v0.15 (12 October 2026)
+
+The Managing Director explicitly prioritized **v0.15 completion** over advancing
+new v0.16, v0.17, v0.18 or UI features. Work the evidence-backed closeout
+at `docs/v0.15-release-closeout.md` and GitHub issue #166 **before**
+promoting another unrelated future-milestone PR. Maintain a truthful
+implemented/disabled/missing registry and verify every required release gate.
+Never mark v0.15 complete merely because later version code exists in `main`.
+
+The last published release is `v0.14.0`. No v0.15 tag or activation of
+unqualified REA/Media/Skill/Space capabilities is permitted from priority
+edits. Preserve already-merged code, all worktrees and the parked UI #61.
+The v0.17 atomic-hire local branch is prepared but **parked**, not part
+of v0.15 closeout. Scope changes require explicit operator approval.
+
+The four consumed native Media reader proof attempts remain refused:
+**no fifth** native proof is authorized and no proof ledger may be reset,
+deleted, bypassed, reframed or reclassified as successful. Release cannot
+silently defer an originally required runtime: record the blocker and
+obtain a separate operator release-scope decision if necessary.
+
+## Earlier Core-first work and source restrictions (8 October 2026)
 
 Core v0.15 authority/skill governance remains the current engineering focus.
 The offline v0.16 WhatsApp security-contract stack is merged through PR #115,

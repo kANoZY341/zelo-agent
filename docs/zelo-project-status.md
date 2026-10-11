@@ -1,12 +1,34 @@
 # Zelo live project status
 
-Latest checkpoint verified: 10 October 2026
+Latest priority decision: **12 October 2026**. Exact reviewed baseline:
+`main` `c6daa6b1bced02057b8b0c2879b2cc9d79f8782f` (merged PR #165;
+post-merge CI must still be checked separately).
 
-This file records current implementation state. Architecture and roadmap intent
-live in `docs/zelo-canonical-architecture-roadmap.md`; workspace direction lives
-in `docs/zelo-workspace-decision.md`.
+This file records implementation and qualifications, while the canonical
+architecture and roadmap remain in `docs/zelo-canonical-architecture-roadmap.md`.
 
-## Active increment: v0.15 publication refusal and inert v0.16 channels
+## CURRENT PRIORITY: v0.15 release closeout — HOLD
+
+The Managing Director directed completion of **v0.15 first**. Tracker:
+[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166) and
+`docs/v0.15-release-closeout.md`. The last published version is still
+`v0.14.0`; v0.15.0 is **not released or ready to tag**.
+
+Priority release blockers include complete Space/Core permission scope and
+negative path tests; publication-time exclusive learned-skill approval/claim;
+exact-head qualification of all included Workers and third-party adapters;
+Media native-reader's four exhausted refused proof attempts; independent
+full-repo review; and an explicit operator release-scope decision where
+a required runtime remains disabled. No fifth native proof is authorized.
+
+New v0.16, v0.17, v0.18 and UI feature promotion is paused except for necessary
+security/regression repairs. Existing code and branches are preserved:
+PR #61 stays parked, the local v0.17 atomic-hire branch stays unmerged,
+and merged ahead-of-version company/channel code does not imply release.
+Never classify imported REA source, OCR/ECC candidates, read-only Space
+status projections or speculative tool permissions as activated runtime.
+
+## Historical checkpoint: 10 October — v0.15 publication refusal and inert v0.16 channels
 
 Current checkpoint (10 October 2026): repairs #142 and #141, including #140
 ancestry, are complete. PR #143 merged the engineering pack with exact-head
