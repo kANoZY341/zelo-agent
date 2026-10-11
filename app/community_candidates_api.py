@@ -1,12 +1,12 @@
 """Owner-only view of pinned, inert Zelo community integration candidates."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict
 
-from app.auth import require_operator
+from app.auth import OperatorPrincipal, require_operator
 from app.community_archify import (
     CommunityArchifyRefusal,
     export_archify_json,
@@ -24,6 +24,11 @@ from app.community_ecc_playbooks import (
     ecc_manual_playbook,
 )
 from app.community_harness import TeamBlueprint, TeamTemplate, propose_team
+from app.community_harness_design_review import (
+    HarnessTeamDesignReviewService,
+    TeamDesignReviewReceipt,
+    TeamDesignReviewRequest,
+)
 from app.community_harness_project import (
     HarnessProjectReviewPlan,
     HarnessProjectReviewService,
@@ -169,6 +174,49 @@ def preview_harness_project_architecture(
         raise HTTPException(
             status_code=503, detail="harness_project_architecture_unavailable"
         ) from None
+
+
+@router.post(
+    "/teams/{template}/design-reviews",
+    response_model=TeamDesignReviewReceipt,
+    status_code=201,
+)
+def record_harness_team_design_review(
+    template: TeamTemplate,
+    body: TeamDesignReviewRequest,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> TeamDesignReviewReceipt:
+    """Store one exact human design judgment; never activate Agents."""
+
+    service = HarnessTeamDesignReviewService(
+        request.app.state.storage,
+        HarnessProjectReviewService(
+            request.app.state.storage,
+            request.app.state.agent_factory,
+        ),
+    )
+    try:
+        return service.record(template, body, operator_subject=principal.subject)
+    except TeamProjectPlanningRefusal:
+        raise HTTPException(status_code=409, detail="harness_project_blueprint_stale") from None
+    except CommunitySourceRefusal:
+        raise HTTPException(status_code=503, detail="harness_project_source_unavailable") from None
+
+
+@router.get("/team-design-reviews/{review_id}", response_model=TeamDesignReviewReceipt)
+def get_harness_team_design_review(
+    review_id: str,
+    request: Request,
+) -> TeamDesignReviewReceipt:
+    service = HarnessTeamDesignReviewService(
+        request.app.state.storage,
+        HarnessProjectReviewService(
+            request.app.state.storage,
+            request.app.state.agent_factory,
+        ),
+    )
+    return service.get(review_id)
 
 
 @router.get("/architecture")

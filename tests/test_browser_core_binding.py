@@ -619,6 +619,9 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "agent_space_activation_revocations_no_update",
             "agent_space_activation_revocations_no_delete",
             "agent_space_activation_revocations_no_duplicate_insert",
+            "harness_team_design_reviews_no_update",
+            "harness_team_design_reviews_no_delete",
+            "harness_team_design_reviews_no_duplicate_insert",
         }
     finally:
         db.close()

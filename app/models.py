@@ -143,6 +143,41 @@ class Project(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class HarnessTeamDesignReview(Base):
+    """Immutable human operator *design* judgment; never activation authority."""
+
+    __tablename__ = "harness_team_design_reviews"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_harness_team_review_idempotency"),
+        CheckConstraint(
+            "decision IN ('accepted_for_design_review','rejected_for_design_review')",
+            name="ck_harness_team_design_decision",
+        ),
+        CheckConstraint(
+            "length(review_plan_sha256)=64 AND length(blueprint_sha256)=64 "
+            "AND length(registry_version)=64 AND length(request_sha256)=64 "
+            "AND length(receipt_sha256)=64",
+            name="ck_harness_team_review_digests",
+        ),
+        CheckConstraint("operator_subject='ahmad'", name="ck_harness_team_review_operator"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    project_status: Mapped[str] = mapped_column(String(16))
+    template: Mapped[str] = mapped_column(String(32))
+    blueprint_sha256: Mapped[str] = mapped_column(String(64))
+    registry_version: Mapped[str] = mapped_column(String(64))
+    review_plan_sha256: Mapped[str] = mapped_column(String(64))
+    planning_reason: Mapped[str] = mapped_column(String(64))
+    decision: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(64))
+    request_sha256: Mapped[str] = mapped_column(String(64))
+    receipt_sha256: Mapped[str] = mapped_column(String(64))
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class AgentInstance(Base):
     __tablename__ = "agent_instances"
     __table_args__ = (
