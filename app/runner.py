@@ -553,12 +553,21 @@ class Runner:
         def emit(event: str, details: dict[str, Any]) -> None:
             self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
 
+        # Agent execution identity was revalidated during TaskService.claim().
+        # Only bound research tasks receive the exact trusted AgentSpec profile;
+        # unbound Core Research keeps the existing, unchanged worker contract.
+        agent_kwargs = (
+            {"agent_execution": execution.agent_execution}
+            if execution.agent_execution is not None
+            else {}
+        )
         return await runtime.run(
             query=execution.payload["query"],
             selected_alias=execution.selected_alias or "",
             selected_model=execution.selected_model or "",
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            **agent_kwargs,
         )
 
     async def _python_worker(self, execution: Execution) -> dict[str, Any]:

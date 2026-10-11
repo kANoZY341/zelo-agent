@@ -142,7 +142,7 @@ def test_unexpected_live_agent_activation_refuses_preview(client, database, monk
         def get_agent(agent_id):
             return object() if agent_id == "reverse_engineering" else None
 
-    monkeypatch.setattr(plans, "default_agent_registry", DriftedRegistry)
+    monkeypatch.setattr(client.app.state, "agent_registry", DriftedRegistry())
     denied = client.get(URL, headers=AUTH)
     assert denied.status_code == 503
     assert denied.json() == {"detail": "rea_analysis_plan_unavailable"}

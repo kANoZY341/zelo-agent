@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, TypeAdapter, ValidationError, create_model
 
+from app.agent_execution_contracts import AgentExecutionBinding
 from app.config import Settings
 from app.gateway import ModelGateway, ModelGatewayError, ModelMessage
 from app.schemas import ResearchRunResult, ResearchSource, StrictModel
@@ -96,9 +97,13 @@ class ResearchRuntime:
         self.models = models
         self.tools = tools
 
-    def _allowed_tools(self) -> list[Tool[Any, Any]]:
+    def _allowed_tools(
+        self, permitted_tool_names: frozenset[str] | None = None
+    ) -> list[Tool[Any, Any]]:
         allowed: list[Tool[Any, Any]] = []
         for name in sorted(RESEARCH_TOOL_NAMES):
+            if permitted_tool_names is not None and name not in permitted_tool_names:
+                continue
             try:
                 tool = self.tools.registry.get(name)
                 self.tools.policy.evaluate(tool)
@@ -171,7 +176,14 @@ class ResearchRuntime:
         selected_model: str,
         timeout_seconds: float,
         emit: ResearchEventSink,
+        agent_execution: AgentExecutionBinding | None = None,
     ) -> dict[str, Any]:
+        if agent_execution is not None and (
+            not isinstance(agent_execution, AgentExecutionBinding)
+            or agent_execution.task_kind != "research_run"
+            or agent_execution.spec.lifecycle != "active"
+        ):
+            raise ResearchRuntimeError("research_agent_binding_invalid")
         emit(
             "research_started",
             {
@@ -183,7 +195,9 @@ class ResearchRuntime:
             async with asyncio.timeout(min(timeout_seconds, self.settings.agent_timeout_seconds)):
                 if selected_alias != "local_general":
                     raise ResearchRuntimeError("invalid_research_profile")
-                return await self._loop(query, selected_model, emit)
+                return await self._loop(
+                    query, selected_model, emit, agent_execution=agent_execution
+                )
         except TimeoutError:
             emit("research_limit_reached", {"limit": "agent_timeout_seconds"})
             raise ResearchRuntimeError("research_timeout") from None
@@ -204,11 +218,30 @@ class ResearchRuntime:
         query: str,
         model: str,
         emit: ResearchEventSink,
+        *,
+        agent_execution: AgentExecutionBinding | None = None,
     ) -> dict[str, Any]:
         messages = [ModelMessage("user", query)]
-        allowed_tools = self._allowed_tools()
+        permitted = (
+            frozenset(agent_execution.spec.allowed_tools) if agent_execution is not None else None
+        )
+        allowed_tools = self._allowed_tools(permitted)
         metadata = [tool.metadata() for tool in allowed_tools]
         system = SYSTEM_PROMPT + json.dumps(metadata, sort_keys=True)
+        if agent_execution is not None:
+            # This data is already revalidated at TaskService.claim() against
+            # the active Registry, immutable persisted AgentSpec and Project.
+            # No user-supplied Task payload can author or override this profile.
+            profile = {
+                "agent_id": agent_execution.spec.agent_id,
+                "agent_version": agent_execution.spec.version,
+                "registry_version": agent_execution.registry_version,
+                "objective": agent_execution.spec.objective,
+                "instructions": agent_execution.spec.instructions,
+            }
+            system += "\n\nTrusted Core AgentSpec profile:\n" + json.dumps(
+                profile, sort_keys=True, ensure_ascii=True
+            )
 
         tool_calls = 0
         parse_failures = 0
@@ -302,6 +335,11 @@ class ResearchRuntime:
 
             if action.tool not in RESEARCH_TOOL_NAMES:
                 raise ResearchRuntimeError("research_tool_not_allowed")
+            # The model output is untrusted and need not obey output_schema.
+            # Check the persisted, claim-validated AgentSpec allowlist again
+            # BEFORE any tool lookup, requested event, validation or dispatch.
+            if permitted is not None and action.tool not in permitted:
+                raise ResearchRuntimeError("research_agent_tool_not_allowed")
             try:
                 tool = self.tools.registry.get(action.tool)
             except ToolRuntimeError:

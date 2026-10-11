@@ -19,7 +19,7 @@ from app.agent_delegation_api import router as agent_delegation_router
 from app.agent_delegations import AgentDelegationService
 from app.agent_execution import AgentExecutionService
 from app.agent_execution_api import router as agent_execution_router
-from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory, default_agent_registry
+from app.agent_factory import BUILTIN_AGENT_TASK_KINDS, AgentFactory
 from app.agent_instance_api import router as agent_instance_router
 from app.agent_instances import AgentInstanceService
 from app.agent_space_intents_api import router as agent_space_intents_router
@@ -100,6 +100,7 @@ from app.worker_registry import (
     descriptor_for_shell_worker,
 )
 from app.workers import Worker, execute
+from app.youtube_research_specialist import admitted_youtube_research_registry
 
 
 def create_app(
@@ -197,7 +198,10 @@ def create_app(
             capability_registry.validate_workers(research_registry.list())
             capability_registry.validate_workers(python_registry.list())
             capability_registry.validate_workers(api_worker_registry.list())
-            agent_registry = default_agent_registry()
+            agent_registry = admitted_youtube_research_registry(
+                database,
+                approved_spec_sha256=configuration.youtube_research_approved_spec_sha256,
+            )
             skill_registry = default_skill_registry()
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(

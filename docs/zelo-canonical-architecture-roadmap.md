@@ -887,6 +887,15 @@ host deliberately.
 
 ### v0.17 — Real specialist organizations and agents
 
+An early **operator-opt-in, single Specialist pilot** is being qualified at
+`docs/v0.17-youtube-research-specialist-pilot.md`. It binds a trusted
+YouTube Research AgentSpec to Core's existing Research Worker, an explicit
+read-only workspace Tool/Skill allowlist, an exact SHA-256 operator startup
+approval and a fail-closed guard against invalidating existing live
+AgentInstances. It is default-disabled, does not create an instance or
+hierarchy automatically, and grants no YouTube publishing/credentials or
+Campaign budget. This pilot does **not** complete the wider v0.17 team work.
+
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
 domains.
