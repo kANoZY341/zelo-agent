@@ -81,6 +81,7 @@ from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
+from app.youtube_research_quota import enforce_youtube_research_new_task_quota
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
 TERMINAL_STATES = frozenset({State.SUCCEEDED, State.FAILED, State.CANCELLED, State.INTERRUPTED})
@@ -1837,6 +1838,10 @@ class TaskService:
                     agent_execution,
                     campaign_id=request.campaign_id,
                 )
+                # The quota is checked under the same BEGIN IMMEDIATE lock as
+                # the Task INSERT, after exact idempotency replay resolution.
+                # All accepted statuses count to prevent cancel/retry bypass.
+                enforce_youtube_research_new_task_quota(session, agent_execution)
 
             payload = request.payload.model_dump(mode="json")
             task = Task(

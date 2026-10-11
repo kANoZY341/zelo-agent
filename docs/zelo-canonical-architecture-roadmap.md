@@ -895,6 +895,13 @@ approval and a fail-closed guard against invalidating existing live
 AgentInstances. It is default-disabled, does not create an instance or
 hierarchy automatically, and grants no YouTube publishing/credentials or
 Campaign budget. This pilot does **not** complete the wider v0.17 team work.
+A separately staged Core TaskService guard adds an eight-new-Research-Tasks
+per rolling 24h per-Project quota for the explicitly enabled YouTube Research
+Specialist. It uses the existing serialized Task INSERT and immutable agent
+execution snapshot, counts terminal/retired instance history, denies competing
+ninth submissions, and exposes a read-only operator quota view; it is **not**
+a token, financial, attempt-level or Campaign budget. See
+`docs/v0.17-youtube-research-admission-quota.md`.
 
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
