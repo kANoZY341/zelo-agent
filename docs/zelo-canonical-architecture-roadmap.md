@@ -417,7 +417,13 @@ or grant any CI/merge permission (see
 selected OCR operator preview now binds strict raw reviewer JSON to that same
 trusted Git scope, returning non-authoritative ReviewerReport/evidence without
 changing Task, Tool or independent reviewer authority. See
-`v0.15-ocr-operator-evidence-preview.md`. Four ECC manual playbook
+`v0.15-ocr-operator-evidence-preview.md`. An additional operator-only OCR
+fixed-case calibration scores external, explicitly supplied review JSON on four
+source-pinned synthetic examples, recording matched findings, false alarms,
+misses and invalid reviews without a model/Worker/Task/Tool grant. These small
+fixtures are not real-Git reviewer qualification or a substitute for the
+independent Coding reviewer. See `v0.15-open-code-review-fixed-calibration.md`.
+Four ECC manual playbook
 candidates expose Zelo-authored reviewed procedures without activating
 Skills, Workers or Tools (see v0.15-ecc-manual-engineering-playbooks.md).
 An operator-only, deterministic fixed-case evaluator binds four reviewed ECC
