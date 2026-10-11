@@ -60,6 +60,16 @@ def test_local_preflight_binds_exact_claim_artifact_and_pr_without_external_acti
     assert result.artifact_sha256 == intent.artifact_sha256
     assert result.pr_head_sha == request.publication.pr_head_sha
     assert result.pr_base_sha == request.publication.pr_base_sha
+    assert result.promotion_action_hash == request.promotion_action_hash
+    from app.skill_publication_intent import _digest
+
+    assert result.merge_request_sha256 == _digest(request.model_dump(mode="json"))
+    different_merge_text = request.model_copy(
+        update={"merge_commit_message": "Different exact merge action"}
+    )
+    differently_bound = service.preview(claim.id, different_merge_text, OPERATOR)
+    assert differently_bound.promotion_action_hash == result.promotion_action_hash
+    assert differently_bound.merge_request_sha256 != result.merge_request_sha256
     assert result.no_external_merge_or_execution_authority is True
     assert result.runtime_skill_activation_authority is False
     assert store.get_promotion_link(intent.proposal_id) is None

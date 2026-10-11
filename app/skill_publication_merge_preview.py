@@ -13,7 +13,7 @@ from app.auth import OperatorPrincipal
 from app.promotion_contracts import MergeRequest
 from app.skill_learning import CanonicalUuid, Sha256
 from app.skill_publication_claim import SkillPublicationClaimService
-from app.skill_publication_intent import prepare_skill_publication_intent
+from app.skill_publication_intent import _digest, prepare_skill_publication_intent
 
 
 class SkillPublicationMergePreview(BaseModel):
@@ -32,7 +32,8 @@ class SkillPublicationMergePreview(BaseModel):
     pr_number: int = Field(ge=1)
     pr_head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     pr_base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
-    merge_action_hash: Sha256
+    promotion_action_hash: Sha256
+    merge_request_sha256: Sha256
     artifact_path: str
     artifact_sha256: Sha256
     artifact_bytes: int = Field(ge=1, le=65_536)
@@ -128,7 +129,8 @@ class SkillPublicationMergePreviewService:
             pr_number=request.publication.pr_number,
             pr_head_sha=request.publication.pr_head_sha,
             pr_base_sha=request.publication.pr_base_sha,
-            merge_action_hash=request.promotion_action_hash,
+            promotion_action_hash=request.promotion_action_hash,
+            merge_request_sha256=_digest(request.model_dump(mode="json")),
             artifact_path=intent.artifact_path,
             artifact_sha256=intent.artifact_sha256,
             artifact_bytes=intent.artifact_bytes,
