@@ -902,6 +902,11 @@ execution snapshot, counts terminal/retired instance history, denies competing
 ninth submissions, and exposes a read-only operator quota view; it is **not**
 a token, financial, attempt-level or Campaign budget. See
 `docs/v0.17-youtube-research-admission-quota.md`.
+A separate *claim-time* 12-Research-Worker-attempt/rolling-24h per-Project
+limit closes the retry/replacement bypass against this new-Task quota. It
+counts persisted TaskAttempt rows, denies a 13th claim before any Worker
+dispatch and never claims token/money budget or new grants. See
+`docs/v0.17-youtube-research-attempt-quota.md`.
 
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
