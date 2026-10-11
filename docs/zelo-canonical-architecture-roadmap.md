@@ -423,6 +423,11 @@ source-pinned synthetic examples, recording matched findings, false alarms,
 misses and invalid reviews without a model/Worker/Task/Tool grant. These small
 fixtures are not real-Git reviewer qualification or a substitute for the
 independent Coding reviewer. See `v0.15-open-code-review-fixed-calibration.md`.
+An additional explicitly opted-in local Ollama probe reuses Zelo's existing
+pinned, metadata-attested loopback ModelProvider and those four synthetic
+fixtures, recording the model's actual outputs as bounded, digest-bound
+scores without creating Tasks, granting reviewer authority, or claiming
+real Git semantic accuracy. See `v0.15-ocr-local-model-probe.md`.
 Four ECC manual playbook
 candidates expose Zelo-authored reviewed procedures without activating
 Skills, Workers or Tools (see v0.15-ecc-manual-engineering-playbooks.md).
