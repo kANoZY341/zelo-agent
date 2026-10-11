@@ -18,6 +18,10 @@ from app.youtube_company_attempt_budget import (
     YoutubeCompanyAttemptBudgetService,
     YoutubeCompanyAttemptBudgetView,
 )
+from app.youtube_company_operational_status import (
+    YoutubeCompanyOperationalStatus,
+    YoutubeCompanyOperationalStatusService,
+)
 from app.youtube_company_token_observation import (
     YoutubeCompanyTokenObservation,
     YoutubeCompanyTokenObservationService,
@@ -82,6 +86,21 @@ def read_youtube_company_provider_reported_tokens(
     return YoutubeCompanyTokenObservationService(request.app.state.storage).preview(
         project_id,
         active_registry_version=request.app.state.agent_registry.version,
+    )
+
+
+@router.get(
+    "/{project_id}/youtube-company-status",
+    response_model=YoutubeCompanyOperationalStatus,
+)
+def read_youtube_company_operational_status(
+    project_id: str, request: Request
+) -> YoutubeCompanyOperationalStatus:
+    """Owner read of actual persisted company, not a preview or grant."""
+
+    return YoutubeCompanyOperationalStatusService(request.app.state.storage).preview(
+        project_id,
+        registry=request.app.state.agent_registry,
     )
 
 

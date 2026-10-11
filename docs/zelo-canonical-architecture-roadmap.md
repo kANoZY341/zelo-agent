@@ -933,6 +933,15 @@ attempts and incomplete/invalid provider reports remain visibly **unmetered**
 rather than silently treated as zero. The metrics are unverified historical
 evidence, explicitly NOT attested billing, currency authorization or a
 provider-token hard ceiling.
+An operator-only `GET /projects/{id}/youtube-company-status` live-read
+surface is staged at `docs/v0.17-youtube-company-operational-status.md`.
+It reads real project/role instances, Org assignments, the entire bounded
+reporting/Delegation/Campaign hierarchy, current reservation expiry and
+per-Role Research Task pulse, distinguishing partial/stale/paused/revoked
+state rather than relying on Harness preview diagrams. It grants no
+approval, agent creation, model/Tool access, or spending authority.
+The next step remains an independently authorized, idempotent real
+Company bootstrapping workflow and truthful provider cost enforcement.
 
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
