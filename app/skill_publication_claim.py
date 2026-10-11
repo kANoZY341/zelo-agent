@@ -8,7 +8,7 @@ The generic protected learned-skill merge refusal remains unchanged.
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 
 from app.auth import OperatorPrincipal
@@ -41,6 +41,20 @@ class SkillPublicationClaim(BaseModel):
     created_at: datetime
     publication_authority: Literal[False] = False
     runtime_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def verify_receipt_integrity(self):
+        fingerprint = _digest(
+            {
+                "schema_version": self.schema_version,
+                "proposal_id": self.proposal_id,
+                "intent_fingerprint": self.intent_fingerprint,
+                "operator_subject": self.operator_subject,
+            }
+        )
+        if self.claim_fingerprint != fingerprint:
+            raise ValueError("skill_publication_claim_receipt_invalid")
+        return self
 
 
 class SkillPublicationClaimService:

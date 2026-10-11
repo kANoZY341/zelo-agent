@@ -1,5 +1,6 @@
 """Exclusive local learned-skill publication claims: no external publish authority."""
 
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -9,11 +10,14 @@ from sqlalchemy.exc import IntegrityError
 
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
+from app.developer_process import DeveloperError
 from app.memory import MemoryService
 from app.models import SkillPublicationClaimRecord
+from app.promotion_merge import PromotionMergeRuntime
 from app.schemas import AgentInstanceTransition
 from app.skill_publication_claim import SkillPublicationClaim, SkillPublicationClaimService
 from app.skill_publication_intent import prepare_skill_publication_intent
+from tests import test_promotion_merge as merge_tests
 from tests import test_skill_learning_promotion as promotion_tests
 from tests import test_skill_learning_store as learning_store_tests
 from tests.test_skill_learning import revision as make_revision
@@ -214,4 +218,67 @@ def test_forged_approval_flag_refused_at_contract_and_database(database, proposa
                 ),
                 {"id": claim.id},
             )
+    assert _rows(database) == 1
+
+
+def test_valid_local_claim_does_not_bypass_generic_github_publication_refusal(
+    database, proposal_case, tmp_path
+):
+    _store, _reviewed, _agent, _revision, _ref, service, intent = _scope(database, proposal_case)
+    claim, created = service.reserve(intent.proposal_id, intent.intent_fingerprint, OPERATOR)
+    assert created and claim.publication_authority is False
+
+    settings, generic, ci = merge_tests.fixture(tmp_path)
+    protected_file = generic.promotion.review.candidate_manifest[0].model_copy(
+        update={
+            "path": intent.artifact_path,
+            "operation": "add",
+            "object_type": "file",
+            "mode": "100644",
+            "size": intent.artifact_bytes,
+            "sha256": intent.artifact_sha256,
+        }
+    )
+    review = generic.promotion.review.model_copy(update={"candidate_manifest": [protected_file]})
+    request = generic.model_copy(
+        update={"promotion": generic.promotion.model_copy(update={"review": review})}
+    )
+    endpoint = f"/repos/{request.promotion.repository}/pulls/{request.publication.pr_number}"
+    transport = merge_tests.ScriptedTransport([("GET", endpoint, merge_tests.open_pr(request))])
+    verifier = merge_tests.FakeCIVerifier(ci)
+    with pytest.raises(DeveloperError, match="promotion_merge_skill_publication_unqualified"):
+        asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(request))
+    assert transport.calls == [("GET", endpoint, None)]
+    assert verifier.calls == []
+    assert _rows(database) == 1
+
+
+def test_parallel_same_proposal_reservations_return_one_immutable_claim(database, proposal_case):
+    _store, _reviewed, _agent, _rev, _ref, service, intent = _scope(database, proposal_case)
+
+    def try_claim(_):
+        return service.reserve(intent.proposal_id, intent.intent_fingerprint, OPERATOR)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(try_claim, range(2)))
+    assert sorted(created for _claim, created in results) == [False, True]
+    assert results[0][0] == results[1][0]
+    assert _rows(database) == 1
+
+
+def test_claim_receipt_fingerprint_cannot_be_rewritten_or_forged(database, proposal_case):
+    _store, _reviewed, _agent, _revision, _ref, service, intent = _scope(database, proposal_case)
+    claim, created = service.reserve(intent.proposal_id, intent.intent_fingerprint, OPERATOR)
+    assert created
+    snapshot = claim.model_dump(mode="json")
+    for altered in (
+        {"claim_fingerprint": "f" * 64},
+        {"intent_fingerprint": "f" * 64},
+        {"proposal_id": "00000000-0000-4000-8000-000000000001"},
+        {"operator_subject": "anonymous"},
+        {"publication_authority": True},
+    ):
+        with pytest.raises(ValidationError):
+            SkillPublicationClaim.model_validate({**snapshot, **altered})
+    assert service.get(claim.id, OPERATOR) == claim
     assert _rows(database) == 1
