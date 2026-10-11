@@ -920,6 +920,12 @@ and active Delegations. It then claims real bound Research Tasks and verifies
 revocation prevents a subsequent Worker claim. No company Team is automatically
 created by startup or model text; a durable *operator-only bootstrap approval*,
 measured Campaign spend and autonomous team coordination remain separate gates.
+A separate 24-Research-Worker-attempt rolling 24-hour **shared Project/team**
+limit is staged at `docs/v0.17-youtube-company-attempt-budget.md`. It
+enforces before TaskAttempt insert under the existing serialized TaskService
+writer, counting all four VP/Director/Manager/Specialist roles, failures and
+retries across replaced AgentInstances. It does **not** claim currency/token
+spending evidence, new tool/Space grants or autonomous Campaign decisions.
 
 Add real domain organizations under the canonical executive hierarchy. Examples
 may include Business, Media/YouTube, Trading, Product, Security and Personal
