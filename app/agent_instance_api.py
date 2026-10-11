@@ -19,6 +19,10 @@ from app.schemas import (
     AgentMemoryContextResponse,
 )
 from app.skill_learning_store import SkillLearningProposalStore
+from app.youtube_research_attempt_quota import (
+    YoutubeResearchAttemptQuotaService,
+    YoutubeResearchAttemptQuotaView,
+)
 from app.youtube_research_quota import YoutubeResearchQuotaService, YoutubeResearchQuotaView
 
 router = APIRouter(prefix="/agents", dependencies=[Depends(require_operator)])
@@ -79,6 +83,18 @@ def get_youtube_research_quota(instance_id: str, request: Request) -> YoutubeRes
     """Current rolling submission count; no runtime permission or grant."""
 
     return YoutubeResearchQuotaService(request.app.state.storage).preview(instance_id)
+
+
+@router.get(
+    "/{instance_id}/research-attempt-quota",
+    response_model=YoutubeResearchAttemptQuotaView,
+)
+def get_youtube_research_attempt_quota(
+    instance_id: str, request: Request
+) -> YoutubeResearchAttemptQuotaView:
+    """Current rolling Worker-attempt count, independent of Task admission."""
+
+    return YoutubeResearchAttemptQuotaService(request.app.state.storage).preview(instance_id)
 
 
 @router.get("/{instance_id}/learned-skills", response_model=AgentLearnedSkillPage)

@@ -81,6 +81,7 @@ from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
+from app.youtube_research_attempt_quota import youtube_research_attempt_claim_allowed
 from app.youtube_research_quota import enforce_youtube_research_new_task_quota
 
 WAITING = (State.PENDING, State.AWAITING_APPROVAL)
@@ -3994,6 +3995,14 @@ class TaskService:
                     transition(session, task, State.CANCELLED)
                     audit(session, task, "execution_denied", reason=task.error)
                     return None
+            # The claim-time attempt cap is independent of admission count.
+            # Validate while the same serialized writer owns the impending
+            # TaskAttempt insert. This cannot be bypassed by Task.retry().
+            if not youtube_research_attempt_claim_allowed(session, agent_execution):
+                task.error = "youtube_research_attempt_quota_exhausted"
+                transition(session, task, State.CANCELLED)
+                audit(session, task, "execution_denied", reason=task.error)
+                return None
             number = (
                 session.scalar(
                     select(func.max(TaskAttempt.number)).where(TaskAttempt.task_id == task.id)
