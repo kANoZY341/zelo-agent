@@ -27,6 +27,7 @@ from app.schemas import (
     MemoryScope,
 )
 from app.storage import SessionStore
+from app.youtube_company_authority import company_child_requires_atomic_creation
 
 
 class AgentInstanceService:
@@ -106,6 +107,14 @@ class AgentInstanceService:
             if message == "agent_not_registered":
                 raise DomainError("Agent not registered", 404) from None
             raise DomainError("Agent is not active", 409) from None
+
+        # Active YouTube company Director/Manager/Specialist Instances must
+        # be created *atomically* with Org assignments and Campaign-backed
+        # Delegations by AgentChildCreationService, never generic POST /agents.
+        if company_child_requires_atomic_creation(binding.spec.agent_id):
+            raise DomainError(
+                "YouTube company descendants require budget-bound child creation", 409
+            )
 
         now = utcnow()
         with self.database.transaction() as session:

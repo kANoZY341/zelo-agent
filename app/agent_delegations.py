@@ -20,6 +20,7 @@ from app.schemas import (
     AgentDelegationRevoke,
 )
 from app.storage import SessionStore
+from app.youtube_company_authority import deny_generic_company_executive_delegation
 
 
 class AgentDelegationService:
@@ -131,6 +132,9 @@ class AgentDelegationService:
 
             parent_spec = self._require_current(parent)
             child_spec = self._require_current(child)
+            # An executive cannot evade real company hiring/revocation
+            # controls by delegating separately to a generic AgentInstance.
+            deny_generic_company_executive_delegation(parent_spec.agent_id)
             if not parent_spec.allow_subagents or parent_spec.max_subagents < 1:
                 raise DomainError("Parent agent is not authorized to delegate", 409)
 

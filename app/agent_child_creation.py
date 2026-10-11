@@ -25,6 +25,11 @@ from app.schemas import (
     OrganizationAssignmentResponse,
 )
 from app.storage import SessionStore
+from app.youtube_company_authority import (
+    validate_youtube_company_child_depth,
+    validate_youtube_company_child_parent,
+    validate_youtube_company_hiring,
+)
 
 _CHILD_LEVEL = {
     "vp": "director",
@@ -177,6 +182,10 @@ class AgentChildCreationService:
                     raise DomainError("Child AgentSpec is not registered", 404) from None
                 raise DomainError("Child AgentSpec is not active", 409) from None
             child_spec = child_binding.spec
+            validate_youtube_company_child_parent(parent_spec.agent_id, child_spec.agent_id)
+            validate_youtube_company_child_depth(
+                parent_spec.agent_id, child_spec.agent_id, body.max_depth
+            )
             if child_spec.organizational_level != expected_child_level:
                 raise DomainError("Child AgentSpec is not the next organizational level", 409)
 
@@ -253,6 +262,14 @@ class AgentChildCreationService:
                     AgentDelegation.child_instance_id == parent.id,
                     AgentDelegation.status == "active",
                 )
+            )
+            validate_youtube_company_hiring(
+                session,
+                parent=parent,
+                parent_assignment=parent_assignment,
+                incoming=incoming,
+                campaign=campaign,
+                now=utcnow(),
             )
             if incoming is None:
                 depth = 1

@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     youtube_research_approved_spec_sha256: str | None = Field(
         default=None, pattern=r"^[a-f0-9]{64}$"
     )
+    # Separate MD-reviewed exact Team Registry opt-in. The standalone pilot
+    # and a full four-role company cannot be enabled simultaneously.
+    youtube_company_approved_registry_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$"
+    )
     max_waiting_tasks: int = Field(default=100, ge=1, le=1000)
     approval_ttl_seconds: float = Field(default=3600, ge=0.05, le=86400)
     runner_poll_seconds: float = Field(default=0.05, ge=0.01, le=1)
