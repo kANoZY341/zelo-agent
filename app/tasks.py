@@ -81,6 +81,7 @@ from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
 from app.worker_registry import Supervisor
+from app.youtube_company_attempt_budget import youtube_company_attempt_claim_allowed
 from app.youtube_company_authority import (
     validate_youtube_company_child_parent,
     validate_youtube_company_execution,
@@ -4012,6 +4013,13 @@ class TaskService:
             # TaskAttempt insert. This cannot be bypassed by Task.retry().
             if not youtube_research_attempt_claim_allowed(session, agent_execution):
                 task.error = "youtube_research_attempt_quota_exhausted"
+                transition(session, task, State.CANCELLED)
+                audit(session, task, "execution_denied", reason=task.error)
+                return None
+            # Company VP, Director, Manager and Specialist share ONE durable
+            # per-Project claim-time ceiling, including Task.retry() attempts.
+            if not youtube_company_attempt_claim_allowed(session, agent_execution):
+                task.error = "youtube_company_attempt_budget_exhausted"
                 transition(session, task, State.CANCELLED)
                 audit(session, task, "execution_denied", reason=task.error)
                 return None

@@ -14,6 +14,10 @@ from app.schemas import (
     ProjectPage,
     ProjectResponse,
 )
+from app.youtube_company_attempt_budget import (
+    YoutubeCompanyAttemptBudgetService,
+    YoutubeCompanyAttemptBudgetView,
+)
 
 router = APIRouter(prefix="/projects", dependencies=[Depends(require_operator)])
 
@@ -45,6 +49,21 @@ def list_projects(
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(project_id: str, projects: Projects) -> ProjectResponse:
     return projects.get(project_id)
+
+
+@router.get(
+    "/{project_id}/youtube-company-attempt-budget",
+    response_model=YoutubeCompanyAttemptBudgetView,
+)
+def read_youtube_company_attempt_budget(
+    project_id: str, request: Request
+) -> YoutubeCompanyAttemptBudgetView:
+    """Owner-only, read-only measured Worker attempt evidence, no authority."""
+
+    return YoutubeCompanyAttemptBudgetService(request.app.state.storage).preview(
+        project_id,
+        current_registry_version=request.app.state.agent_registry.version,
+    )
 
 
 @router.post("/{project_id}/goals", response_model=GoalResponse, status_code=201)
