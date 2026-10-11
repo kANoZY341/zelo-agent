@@ -39,6 +39,7 @@ from app.community_candidates_api import router as community_candidates_router
 from app.community_context_archive_api import router as community_context_archive_router
 from app.community_ecc_eval_api import router as community_ecc_eval_router
 from app.community_review_api import router as community_review_router
+from app.community_review_fixed_eval_api import router as community_review_fixed_eval_router
 from app.computer_egress import ComputerEgressPolicy
 from app.computer_egress_proxy import ComputerEgressProxy
 from app.computer_worker import ComputerRuntime
@@ -443,6 +444,7 @@ def create_app(
     application.include_router(community_candidates_router)
     application.include_router(community_ecc_eval_router)
     application.include_router(community_review_router)
+    application.include_router(community_review_fixed_eval_router)
     application.include_router(community_context_archive_router)
     application.include_router(rea_operator_targets_router)
     application.include_router(skill_router)
