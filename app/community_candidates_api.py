@@ -13,6 +13,10 @@ from app.community_archify import (
     export_mermaid,
     zelo_architecture_draft,
 )
+from app.community_archify_harness_project import (
+    HarnessProjectArchitectureView,
+    harness_project_architecture,
+)
 from app.community_archify_registry import RegistryArchitectureView, agent_registry_architecture
 from app.community_ecc_playbooks import (
     EccManualPlaybook,
@@ -140,6 +144,31 @@ def preview_harness_project_readiness(
         raise HTTPException(status_code=409, detail="harness_project_blueprint_stale") from None
     except CommunitySourceRefusal:
         raise HTTPException(status_code=503, detail="harness_project_source_unavailable") from None
+
+
+@router.post(
+    "/teams/{template}/project-architecture",
+    response_model=HarnessProjectArchitectureView,
+)
+def preview_harness_project_architecture(
+    template: TeamTemplate,
+    body: TeamProjectPlanningRequest,
+    request: Request,
+) -> HarnessProjectArchitectureView:
+    """Project-bound draft team diagram; no team registration or permission changes."""
+
+    service = HarnessProjectReviewService(
+        request.app.state.storage,
+        request.app.state.agent_factory,
+    )
+    try:
+        return harness_project_architecture(service.preview(template, body))
+    except TeamProjectPlanningRefusal:
+        raise HTTPException(status_code=409, detail="harness_project_blueprint_stale") from None
+    except (CommunityArchifyRefusal, CommunitySourceRefusal):
+        raise HTTPException(
+            status_code=503, detail="harness_project_architecture_unavailable"
+        ) from None
 
 
 @router.get("/architecture")
