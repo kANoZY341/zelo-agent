@@ -18,6 +18,10 @@ from app.youtube_company_attempt_budget import (
     YoutubeCompanyAttemptBudgetService,
     YoutubeCompanyAttemptBudgetView,
 )
+from app.youtube_company_token_observation import (
+    YoutubeCompanyTokenObservation,
+    YoutubeCompanyTokenObservationService,
+)
 
 router = APIRouter(prefix="/projects", dependencies=[Depends(require_operator)])
 
@@ -63,6 +67,21 @@ def read_youtube_company_attempt_budget(
     return YoutubeCompanyAttemptBudgetService(request.app.state.storage).preview(
         project_id,
         current_registry_version=request.app.state.agent_registry.version,
+    )
+
+
+@router.get(
+    "/{project_id}/youtube-company-token-observation",
+    response_model=YoutubeCompanyTokenObservation,
+)
+def read_youtube_company_provider_reported_tokens(
+    project_id: str, request: Request
+) -> YoutubeCompanyTokenObservation:
+    """Read-only partial provider token evidence, NOT a spending grant/cap."""
+
+    return YoutubeCompanyTokenObservationService(request.app.state.storage).preview(
+        project_id,
+        active_registry_version=request.app.state.agent_registry.version,
     )
 
 
