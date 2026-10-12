@@ -181,6 +181,63 @@ class SkillPublicationOneAttemptService:
             raise ValueError("skill_publication_single_attempt_transport_mismatch")
         self.transport = fences.blob.transport
 
+    async def _require_protected_main(self, repository: str) -> None:
+        """Require provider-enforced strict checks before any merge side effect.
+
+        A caller-supplied config flag is not a substitute for an attested
+        GitHub branch policy. A private repository without protection API
+        access (HTTP 403) must remain unpublishable through this service.
+        """
+        endpoint = f"/repos/{repository}/branches/main/protection"
+        try:
+            policy = await self.transport.request("GET", endpoint)
+        except Exception:
+            raise DeveloperError("skill_publication_main_protection_unavailable") from None
+        if type(policy) is not dict:
+            raise DeveloperError("skill_publication_main_protection_unqualified")
+        status = policy.get("required_status_checks")
+        admin = policy.get("enforce_admins")
+        force = policy.get("allow_force_pushes")
+        deletion = policy.get("allow_deletions")
+        if (
+            not self.settings.promotion_required_checks
+            or len(self.settings.promotion_required_checks) > 32
+            or len(set(self.settings.promotion_required_checks))
+            != len(self.settings.promotion_required_checks)
+            or type(status) is not dict
+            or status.get("strict") is not True
+            or type(status.get("checks")) is not list
+            or len(status["checks"]) > 32
+            or type(admin) is not dict
+            or admin.get("enabled") is not True
+            or type(force) is not dict
+            or force.get("enabled") is not False
+            or type(deletion) is not dict
+            or deletion.get("enabled") is not False
+        ):
+            raise DeveloperError("skill_publication_main_protection_unqualified")
+        for name in self.settings.promotion_required_checks:
+            matches = [
+                check
+                for check in status["checks"]
+                if type(check) is dict and check.get("context") == name
+            ]
+            if (
+                len(matches) != 1
+                or type(matches[0].get("app_id")) is not int
+                or matches[0]["app_id"] != self.settings.promotion_ci_app_id
+            ):
+                raise DeveloperError("skill_publication_main_protection_unqualified")
+        reviews = policy.get("required_pull_request_reviews")
+        if type(reviews) is dict:
+            bypass = reviews.get("bypass_pull_request_allowances")
+            if bypass is not None:
+                if type(bypass) is not dict or any(
+                    type(bypass.get(field)) is not list or bypass[field]
+                    for field in ("users", "teams", "apps")
+                ):
+                    raise DeveloperError("skill_publication_main_protection_unqualified")
+
     def get_attempt(
         self, claim_id: str, principal: OperatorPrincipal
     ) -> SkillPublicationMergeAttempt | None:
@@ -337,6 +394,11 @@ class SkillPublicationOneAttemptService:
             or observed.artifact_sha256 != fence.artifact_sha256
         ):
             raise ValueError("skill_publication_single_attempt_preflight_changed")
+
+        # Provider-side strict CI enforcement is mandatory: a configured
+        # switch and approved PR/head alone cannot serialize base advancement.
+        # No branch protection API access means zero GitHub merge attempts.
+        await self._require_protected_main(fence.repository)
 
         # This is the irreversible retry fence. Commit before the first PUT.
         # If a crash happens after commit but before sending, treat its

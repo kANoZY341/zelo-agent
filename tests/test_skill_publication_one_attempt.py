@@ -114,6 +114,29 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
     if approved_source:
         _approved_source(database, request)
     transport.responses = deepcopy(template)
+    transport.responses.append(
+        (
+            "GET",
+            f"/repos/{request.publication.repository}/branches/main/protection",
+            {
+                "required_status_checks": {
+                    "strict": True,
+                    "checks": [{"context": "checks", "app_id": 15368}],
+                },
+                "enforce_admins": {"enabled": True},
+                "allow_force_pushes": {"enabled": False},
+                "allow_deletions": {"enabled": False},
+                "required_pull_request_reviews": {
+                    "bypass_pull_request_allowances": {
+                        "users": [],
+                        "teams": [],
+                        "apps": [],
+                    }
+                },
+            },
+        )
+    )
+    template = deepcopy(transport.responses)
     transport.calls = []
     return (
         store,
@@ -222,7 +245,7 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _failures(database) == 0
     assert service.get_failure(claim.id, OPERATOR) is None
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
-    assert len(transport.calls) == 21
+    assert len(transport.calls) == 22
     assert transport.responses == []
     assert store.get_promotion_link(claim.proposal_id) is None
 
@@ -363,7 +386,7 @@ def test_post_put_changed_base_commit_is_unresolved_and_never_retried(
     _add_success_response(request, transport, template)
     # The provider may accept the exact head but merge against a different
     # base in the race between GET and PUT. Never record success or retry.
-    transport.responses[14][2]["parents"][0]["sha"] = "e" * 40
+    transport.responses[15][2]["parents"][0]["sha"] = "e" * 40
     with pytest.raises(DeveloperError, match="single_attempt_outcome_unresolved"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -549,3 +572,78 @@ def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
     assert _rows(database) == (1, 1)
     assert _failures(database) == 0
     assert service.get_receipt(claim.id, OPERATOR) == success[0]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "strict_false",
+        "wrong_app",
+        "missing_check",
+        "duplicate_check",
+        "admins_bypass",
+        "force_pushes",
+        "deletions",
+        "explicit_bypass",
+        "missing_policy",
+        "empty_required_checks",
+    ),
+)
+def test_unsafe_main_branch_protection_refuses_before_external_merge(
+    database, proposal_case, tmp_path, mutation
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    row = transport.responses[12]
+    assert row[0] == "GET" and row[1].endswith("/branches/main/protection")
+    policy = row[2]
+    if mutation == "strict_false":
+        policy["required_status_checks"]["strict"] = False
+    elif mutation == "wrong_app":
+        policy["required_status_checks"]["checks"][0]["app_id"] = -1
+    elif mutation == "missing_check":
+        policy["required_status_checks"]["checks"] = []
+    elif mutation == "duplicate_check":
+        policy["required_status_checks"]["checks"] *= 2
+    elif mutation == "admins_bypass":
+        policy["enforce_admins"]["enabled"] = False
+    elif mutation == "force_pushes":
+        policy["allow_force_pushes"]["enabled"] = True
+    elif mutation == "deletions":
+        policy["allow_deletions"]["enabled"] = True
+    elif mutation == "explicit_bypass":
+        policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]["users"] = [
+            {"login": "any"}
+        ]
+    elif mutation == "missing_policy":
+        transport.responses[12] = (row[0], row[1], {})
+    else:
+        service.settings = service.settings.model_copy(update={"promotion_required_checks": ()})
+    with pytest.raises(DeveloperError, match="skill_publication_main_protection_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (0, 0)
+    assert _failures(database) == 0
+    assert all(method == "GET" for method, _, _ in transport.calls)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_github_main_protection_api_unavailable_denies_all_publication(
+    database, proposal_case, tmp_path
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    original_request = transport.request
+
+    async def protection_access_refused(method, endpoint, body=None):
+        if method == "GET" and endpoint.endswith("/branches/main/protection"):
+            raise DeveloperError("promotion_github_api_failed")
+        return await original_request(method, endpoint, body)
+
+    transport.request = protection_access_refused
+    with pytest.raises(DeveloperError, match="skill_publication_main_protection_unavailable"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (0, 0)
+    assert _failures(database) == 0
+    assert all(method == "GET" for method, _, _ in transport.calls)
