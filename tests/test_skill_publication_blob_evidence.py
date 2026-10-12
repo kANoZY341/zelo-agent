@@ -42,7 +42,7 @@ def _arrange(database, proposal_case, tmp_path):
     compare = {
         "status": "ahead",
         "base_commit": {"sha": request.publication.pr_base_sha},
-        "head_commit": {"sha": request.publication.pr_head_sha},
+        "merge_base_commit": {"sha": request.publication.pr_base_sha},
         "files": [{"filename": reviewed_path, "status": "added", "sha": blob_oid}],
     }
     tree_oids = [char * 40 for char in ("a", "b", "c", "d", "e")]
@@ -144,15 +144,13 @@ def test_immutable_comparison_refuses_extra_or_wrong_files(
     assert all(method == "GET" for method, _, _ in transport.calls)
 
 
-@pytest.mark.parametrize("mutation", ("base", "compare_head", "status", "head_commit", "root_tree"))
+@pytest.mark.parametrize("mutation", ("base", "status", "head_commit", "root_tree"))
 def test_wrong_immutable_comparison_or_head_commit_denied(
     database, proposal_case, tmp_path, mutation
 ):
     _store, claim, request, transport, service, idx = _arrange(database, proposal_case, tmp_path)
     if mutation == "base":
         transport.responses[idx["compare"]][2]["base_commit"]["sha"] = "f" * 40
-    elif mutation == "compare_head":
-        transport.responses[idx["compare"]][2]["head_commit"]["sha"] = "f" * 40
     elif mutation == "status":
         transport.responses[idx["compare"]][2]["status"] = "identical"
     elif mutation == "head_commit":

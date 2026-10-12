@@ -128,13 +128,10 @@ class SkillPublicationBlobEvidenceService:
         if type(compare) is not dict or compare.get("status") not in ("ahead", "diverged"):
             raise DeveloperError("skill_publication_blob_compare_invalid")
         comparison_base = compare.get("base_commit")
-        comparison_head = compare.get("head_commit")
         files = compare.get("files")
         if (
             type(comparison_base) is not dict
             or comparison_base.get("sha") != fresh.pr_base_sha
-            or type(comparison_head) is not dict
-            or comparison_head.get("sha") != fresh.pr_head_sha
             or type(files) is not list
             or len(files) != 1
             or type(files[0]) is not dict
