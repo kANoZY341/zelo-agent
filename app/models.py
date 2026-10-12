@@ -1184,6 +1184,53 @@ class SkillPublicationOperatorDecisionRecord(Base):
     runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class SkillPublicationDispatchFenceRecord(Base):
+    """One immutable owner-selected pre-dispatch marker; NOT a send grant."""
+
+    __tablename__ = "skill_publication_dispatch_fences"
+    __table_args__ = (
+        UniqueConstraint("decision_id", name="uq_skill_pub_dispatch_decision"),
+        UniqueConstraint("claim_id", name="uq_skill_pub_dispatch_claim"),
+        UniqueConstraint("repository", "pr_number", name="uq_skill_pub_dispatch_pr"),
+        UniqueConstraint("fence_fingerprint", name="uq_skill_pub_dispatch_digest"),
+        CheckConstraint("pr_number >= 1", name="ck_skill_pub_dispatch_pr_positive"),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_dispatch_owner"),
+        CheckConstraint("phase='reserved_no_send'", name="ck_skill_pub_dispatch_inert"),
+        CheckConstraint("network_dispatch_authorized=0", name="ck_skill_pub_dispatch_no_authority"),
+        CheckConstraint("network_dispatch_started=0", name="ck_skill_pub_dispatch_not_started"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_dispatch_no_runtime"),
+        CheckConstraint(
+            "length(decision_fingerprint)=64 AND length(merge_request_sha256)=64 "
+            "AND length(artifact_sha256)=64 AND length(fence_fingerprint)=64 "
+            "AND length(pr_head_sha)=40 AND length(pr_base_sha)=40 "
+            "AND length(git_blob_oid)=40",
+            name="ck_skill_pub_dispatch_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    decision_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_operator_decisions.id"), unique=True
+    )
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    decision_fingerprint: Mapped[str] = mapped_column(String(64))
+    repository: Mapped[str] = mapped_column(String(256))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    pr_base_sha: Mapped[str] = mapped_column(String(40))
+    merge_request_sha256: Mapped[str] = mapped_column(String(64))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    git_blob_oid: Mapped[str] = mapped_column(String(40))
+    fence_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    phase: Mapped[str] = mapped_column(String(32), default="reserved_no_send")
+    remote_verified_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    network_dispatch_authorized: Mapped[bool] = mapped_column(Boolean, default=False)
+    network_dispatch_started: Mapped[bool] = mapped_column(Boolean, default=False)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class ReaOperatorTargetSelectionRecord(Base):
     """Operator-asserted inert target identity; NOT verified bytes or tool authority."""
 
