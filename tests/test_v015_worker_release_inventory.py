@@ -1,0 +1,128 @@
+"""Release inventory is read-only metadata, never operational certification."""
+
+import json
+from dataclasses import asdict
+
+import pytest
+
+from app.v015_worker_release_inventory import worker_release_inventory
+
+EXPECTED_WORKERS = (
+    "research_core",
+    "python_core",
+    "api_core",
+    "browser_core",
+    "computer_core",
+    "computer_navigate_core",
+    "shell_core",
+    "media_native_reader",
+)
+
+
+def _by_id(report):
+    return {item.worker_id: item for item in report.workers}
+
+
+def test_default_v015_worker_inventory_does_not_claim_operational_readiness(settings):
+    report = worker_release_inventory(settings)
+    assert report.schema_version == "zelo-v015-worker-release-inventory-v1"
+    assert report.release_milestone == "v0.15"
+    assert report.release_ready is False
+    assert report.operational_proof_performed is False
+    assert report.github_or_host_action_performed is False
+    assert report.native_media_reader_attempt_performed is False
+    assert tuple(item.worker_id for item in report.workers) == EXPECTED_WORKERS
+    assert all(item.release_qualified is False for item in report.workers)
+    assert all(item.new_authority_granted is False for item in report.workers)
+
+    result = _by_id(report)
+    assert result["research_core"].configured_registration == "registered_conditional_authority"
+    assert result["python_core"].configured_registration == "registered_conditional_authority"
+    assert result["api_core"].configured_registration == "registered_no_approved_endpoints"
+    assert result["browser_core"].configured_registration == "disabled_by_default"
+    assert result["computer_core"].configured_registration == "disabled_by_default"
+    assert result["computer_navigate_core"].configured_registration == "disabled_by_default"
+    assert result["shell_core"].configured_registration == "disabled_by_default"
+    assert result["media_native_reader"].configured_registration == "not_registered_in_core"
+
+
+def test_candidate_endpoints_do_not_imply_qualified_api_or_browser(settings):
+    configured = settings.model_copy(
+        update={
+            "api_worker_endpoints": ("https://example.org",),
+            "browser_worker_enabled": True,
+            "browser_worker_endpoints": ("https://example.org",),
+        }
+    )
+    entries = _by_id(worker_release_inventory(configured))
+    assert entries["api_core"].configured_registration == "configured_unverified"
+    assert entries["browser_core"].configured_registration == "configuration_incomplete"
+    assert entries["browser_core"].release_qualified is False
+    assert entries["api_core"].new_authority_granted is False
+
+
+def test_candidate_shell_and_browser_receipt_flags_do_not_start_execution(settings, tmp_path):
+    configured = settings.model_copy(
+        update={
+            "shell_worker_enabled": True,
+            "shell_worker_admission": tmp_path / "nonexistent-shell-admission",
+            "browser_worker_enabled": True,
+            "browser_worker_endpoints": ("https://example.org",),
+            "browser_worker_receipt": tmp_path / "nonexistent-browser-receipt",
+            "browser_worker_bundle": tmp_path / "nonexistent-browser-bundle",
+            "browser_worker_runtime": tmp_path / "nonexistent-browser-runtime",
+            "browser_worker_admission": tmp_path / "nonexistent-browser-admission",
+        }
+    )
+    report = worker_release_inventory(configured)
+    entries = _by_id(report)
+    # This means inputs are present, NOT that any file exists or any live
+    # reader/browser/shell is operational or approved.
+    assert entries["shell_core"].configured_registration == "configured_unverified"
+    assert entries["browser_core"].configured_registration == "configured_unverified"
+    assert report.operational_proof_performed is False
+    assert report.release_ready is False
+    assert not (tmp_path / "nonexistent-browser-runtime").exists()
+
+
+def test_navigation_candidate_requires_backend_topology_and_named_endpoint(settings):
+    configured = settings.model_copy(
+        update={
+            "computer_supervisor_url": "configured-only",
+            "computer_supervisor_token": object(),
+            "computer_token": object(),
+            "computer_internal_network_cidr": "10.33.0.0/24",
+            "computer_egress_proxy_host": "10.33.0.1",
+        }
+    )
+    entries = _by_id(worker_release_inventory(configured))
+    assert entries["computer_core"].configured_registration == "configured_unverified"
+    assert entries["computer_navigate_core"].configured_registration == "disabled_by_default"
+    with_named_endpoint = configured.model_copy(
+        update={"computer_browser_endpoints": ("https://example.org",)}
+    )
+    row = _by_id(worker_release_inventory(with_named_endpoint))["computer_navigate_core"]
+    assert row.configured_registration == "configured_unverified"
+    assert row.release_qualified is False
+    assert row.new_authority_granted is False
+
+
+def test_inventory_never_emits_configuration_paths_endpoint_urls_or_tokens(settings, tmp_path):
+    configured = settings.model_copy(
+        update={
+            "api_worker_endpoints": ("https://private.example.invalid/credential",),
+            "shell_worker_admission": tmp_path / "private-file",
+        }
+    )
+    serialized = json.dumps(asdict(worker_release_inventory(configured)))
+    assert "private.example.invalid" not in serialized
+    assert str(tmp_path) not in serialized
+    assert "credential" not in serialized
+    assert "token" not in serialized.lower()
+    assert "secret" not in serialized.lower()
+    assert "not_registered_in_core" in serialized
+
+
+def test_unknown_config_object_cannot_be_used_as_release_signal():
+    with pytest.raises(TypeError, match="settings_required"):
+        worker_release_inventory({"browser_worker_enabled": True})
