@@ -622,6 +622,9 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "harness_team_design_reviews_no_update",
             "harness_team_design_reviews_no_delete",
             "harness_team_design_reviews_no_duplicate_insert",
+            "skill_publication_claims_no_update",
+            "skill_publication_claims_no_delete",
+            "skill_publication_claims_no_duplicate_insert",
         }
     finally:
         db.close()
