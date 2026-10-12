@@ -10,9 +10,13 @@ The canonical company chain is Managing Director -> Zelo CEO -> VP -> Director
 approval, scheduling, budget, validation, promotion, merge and release
 boundaries remain in force.
 
-The published release remains v0.14.0. Current repository engineering focuses
-on v0.15; the [live project status](docs/zelo-project-status.md) records the
-implementation, qualification and review state of those increments.
+The published release remains v0.14.0. **v0.15 completion is now the
+immediate engineering priority** (12 October 2026), with release gated by
+[the v0.15 closeout ledger](docs/v0.15-release-closeout.md) and
+[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166). Existing
+v0.16/v0.17 code does not mean those versions, or v0.15, are released.
+The [live project status](docs/zelo-project-status.md) records implementation
+and qualification evidence. UI #61 and unrelated later features are parked.
 
 ## Setup
 
