@@ -5,7 +5,9 @@ import asyncio
 import pytest
 from pydantic import ValidationError
 
+from app.agent_execution_contracts import AgentExecutionBinding, DelegationExecutionBinding
 from app.agent_instances import AgentInstanceService
+from app.computer_contracts import ComputerExecutionSpec
 from app.computer_worker import ComputerRuntimeError
 from app.memory import MemoryService
 from app.models import AgentComputerPermission, Task, utcnow
@@ -252,3 +254,59 @@ def test_runtime_human_takeover_during_space_route_fails_closed(database, settin
     assert outcome.status == State.FAILED
     assert outcome.error == "computer_space_read_denied"
     assert all(call[0] != "files_read" for call in env["backend"].calls)
+
+
+def test_delegated_space_activation_denied_before_any_resource_lookup(
+    database, settings, monkeypatch
+):
+    """The nondelegated Space file grant cannot be inherited by a child Agent.
+
+    Use a real persisted valid owner-bound Computer Task and a schema-valid
+    delegated execution snapshot, then exercise the shared admission gate
+    called by submit/retry/claim. No additional historical Task or backend
+    file read can arise from this denied authority.
+    """
+    from app.space_file_gateway import SpaceFileReadGateway
+
+    env = _fixture(database, settings)
+    legitimate_task = _space_task(env)
+    with database.read() as session:
+        persisted = session.get(Task, legitimate_task.id)
+        assert persisted is not None
+        binding = AgentExecutionBinding.model_validate(persisted.agent_execution_spec)
+        computer = ComputerExecutionSpec.model_validate(persisted.computer_spec)
+    assert binding.delegation is None
+    forged_delegation = DelegationExecutionBinding(
+        delegation_id="00000000-0000-4000-8000-000000000001",
+        parent_instance_id="00000000-0000-4000-8000-000000000002",
+        child_instance_id=env["instance"].id,
+        campaign_id="00000000-0000-4000-8000-000000000003",
+        budget_reservation_id="00000000-0000-4000-8000-000000000004",
+        idempotency_key="cannot_inherit_space",
+        request_hash="a" * 64,
+        objective="Synthetic delegated file read must be denied",
+        allowed_task_kinds=("computer_run",),
+        required_capabilities=("computer_read",),
+        depth=1,
+        max_depth=1,
+        budget_resource="agent_steps",
+        budget_units=1,
+    )
+    delegated = AgentExecutionBinding.model_validate(
+        binding.model_copy(update={"delegation": forged_delegation}).model_dump(mode="json")
+    )
+
+    def should_not_read_resource(*_args, **_kwargs):
+        raise AssertionError("Delegate must be refused before Space resource access")
+
+    monkeypatch.setattr(SpaceFileReadGateway, "_verified_resource", should_not_read_resource)
+    with database.transaction() as session:
+        with pytest.raises(DomainError, match="computer_space_activation_invalid"):
+            env["tasks"]._check_space_approval(
+                session,
+                delegated,
+                computer,
+                env["computer"],
+            )
+    assert env["tasks"].get(legitimate_task.id).status == State.PENDING
+    assert not env["backend"].calls

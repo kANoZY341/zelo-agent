@@ -782,9 +782,13 @@ class TaskService:
             return
         if (
             agent_execution is None
+            or agent_execution.delegation is not None
             or self.agent_factory is None
             or computer_spec.action != "files_read"
         ):
+            # The only qualified Space file Task is owner-confirmed and
+            # nondelegated. Refuse delegated execution before resource lookups
+            # at submission, retry and claim, not only at the file use point.
             raise DomainError("computer_space_activation_invalid", 409)
         from app.space_file_gateway import SpaceFileReadGateway, _path_components
 
