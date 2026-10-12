@@ -198,7 +198,7 @@ def test_forged_approval_flag_refused_at_contract_and_database(database, proposa
     claim, _ = service.reserve(intent.proposal_id, intent.intent_fingerprint, OPERATOR)
     with pytest.raises(ValidationError):
         SkillPublicationClaim.model_validate(
-            {**claim.model_dump(mode="json"), "publication_authority": True}
+            {**claim.model_dump(mode="python"), "publication_authority": True}
         )
     with pytest.raises(IntegrityError):
         with database.transaction() as session:
@@ -270,7 +270,8 @@ def test_claim_receipt_fingerprint_cannot_be_rewritten_or_forged(database, propo
     _store, _reviewed, _agent, _revision, _ref, service, intent = _scope(database, proposal_case)
     claim, created = service.reserve(intent.proposal_id, intent.intent_fingerprint, OPERATOR)
     assert created
-    snapshot = claim.model_dump(mode="json")
+    snapshot = claim.model_dump(mode="python")
+    assert SkillPublicationClaim.model_validate(snapshot) == claim
     for altered in (
         {"claim_fingerprint": "f" * 64},
         {"intent_fingerprint": "f" * 64},
