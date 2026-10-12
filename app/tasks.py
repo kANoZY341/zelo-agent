@@ -2768,6 +2768,10 @@ class TaskService:
             selection = task.release_spec
             try:
                 request = ReleaseRequest.model_validate(selection)
+                # Cancel a queued/approved v0.15 release if its exact host pin
+                # was removed or changed *before* Task claim or approval.
+                # PromotionReleaseRuntime independently rechecks at the PUT.
+                require_v015_release_scope(request.tag, request.main_sha, self.settings)
                 if (
                     request.merge_task_id != task.payload["merge_task_id"]
                     or request.tag != task.payload["tag"]
