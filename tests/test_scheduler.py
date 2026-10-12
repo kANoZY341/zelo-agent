@@ -2092,7 +2092,7 @@ def test_scheduler_migration_preserves_existing_control_state(settings):
         with database.read() as session:
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0042_harness_team_design_review"
+                == "0044_skill_publication_operator_decisions"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 1
