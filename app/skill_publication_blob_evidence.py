@@ -125,13 +125,16 @@ class SkillPublicationBlobEvidenceService:
             "GET",
             base + f"/compare/{fresh.pr_base_sha}...{fresh.pr_head_sha}",
         )
-        if type(compare) is not dict or compare.get("status") not in ("ahead", "diverged"):
+        if type(compare) is not dict or compare.get("status") != "ahead":
             raise DeveloperError("skill_publication_blob_compare_invalid")
         comparison_base = compare.get("base_commit")
+        merge_base = compare.get("merge_base_commit")
         files = compare.get("files")
         if (
             type(comparison_base) is not dict
             or comparison_base.get("sha") != fresh.pr_base_sha
+            or type(merge_base) is not dict
+            or merge_base.get("sha") != fresh.pr_base_sha
             or type(files) is not list
             or len(files) != 1
             or type(files[0]) is not dict

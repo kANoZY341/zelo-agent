@@ -144,13 +144,19 @@ def test_immutable_comparison_refuses_extra_or_wrong_files(
     assert all(method == "GET" for method, _, _ in transport.calls)
 
 
-@pytest.mark.parametrize("mutation", ("base", "status", "head_commit", "root_tree"))
+@pytest.mark.parametrize(
+    "mutation", ("base", "merge_base", "diverged", "status", "head_commit", "root_tree")
+)
 def test_wrong_immutable_comparison_or_head_commit_denied(
     database, proposal_case, tmp_path, mutation
 ):
     _store, claim, request, transport, service, idx = _arrange(database, proposal_case, tmp_path)
     if mutation == "base":
         transport.responses[idx["compare"]][2]["base_commit"]["sha"] = "f" * 40
+    elif mutation == "merge_base":
+        transport.responses[idx["compare"]][2]["merge_base_commit"]["sha"] = "e" * 40
+    elif mutation == "diverged":
+        transport.responses[idx["compare"]][2]["status"] = "diverged"
     elif mutation == "status":
         transport.responses[idx["compare"]][2]["status"] = "identical"
     elif mutation == "head_commit":
