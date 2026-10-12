@@ -126,6 +126,8 @@ def test_approval_response_cannot_claim_runtime_or_merge_authority(
     )
     service = SkillPublicationOperatorDecisionService(remote)
     result, _ = asyncio.run(service.record_approval(claim.id, request, CONFIRM, OPERATOR))
+    snapshot = result.model_dump(mode="python")
+    assert SkillPublicationOperatorDecision.model_validate(snapshot) == result
     for forged in (
         {"publication_authority": True},
         {"external_merge_authority": True},
@@ -135,9 +137,7 @@ def test_approval_response_cannot_claim_runtime_or_merge_authority(
         {"merge_request_sha256": "f" * 64},
     ):
         with pytest.raises(ValidationError):
-            SkillPublicationOperatorDecision.model_validate(
-                {**result.model_dump(mode="json"), **forged}
-            )
+            SkillPublicationOperatorDecision.model_validate({**snapshot, **forged})
 
 
 def test_persisted_decision_is_append_only_even_replace(database, proposal_case, tmp_path):

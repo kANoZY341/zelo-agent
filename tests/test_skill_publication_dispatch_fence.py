@@ -181,7 +181,10 @@ def test_receipt_cannot_forge_network_dispatch_or_swap_approved_action(
         database, proposal_case, tmp_path
     )
     fence, _ = asyncio.run(service.reserve(claim.id, request, FENCE_CONFIRM, OPERATOR))
-    original = fence.model_dump(mode="json")
+    original = fence.model_dump(mode="python")
+    # A faithful strict Python snapshot MUST validate; otherwise every
+    # forged-value test can pass for an unrelated datetime parsing error.
+    assert SkillPublicationDispatchFence.model_validate(original) == fence
     for mutation in (
         {"network_dispatch_authorized": True},
         {"network_dispatch_started": True},
