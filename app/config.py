@@ -22,6 +22,9 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="Zelo Agent", min_length=1)
     operator_token: SecretStr | None = None
+    # No Skill publisher is exposed in Core HTTP/Agent/Tool routing. A separate
+    # manual operator-only, one-attempt merge executor remains disabled by default.
+    skill_publication_external_merge_enabled: bool = False
     runtime_dir: Path = ROOT / "runtime"
     storage_backend: Literal["sqlite"] = "sqlite"
     # Explicit exact-spec opt-in; absent by default, never model supplied.
