@@ -1141,6 +1141,49 @@ class SkillPublicationClaimRecord(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class SkillPublicationOperatorDecisionRecord(Base):
+    """One immutable operator decision, with no merge or runtime grant."""
+
+    __tablename__ = "skill_publication_operator_decisions"
+    __table_args__ = (
+        UniqueConstraint("claim_id", name="uq_skill_pub_decision_claim"),
+        UniqueConstraint("repository", "pr_number", name="uq_skill_pub_decision_pr"),
+        UniqueConstraint("decision_fingerprint", name="uq_skill_pub_decision_digest"),
+        CheckConstraint("pr_number >= 1", name="ck_skill_pub_decision_pr_positive"),
+        CheckConstraint("decision='approved_for_review'", name="ck_skill_pub_decision_choice"),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_decision_owner"),
+        CheckConstraint("publication_authority=0", name="ck_skill_pub_decision_no_publication"),
+        CheckConstraint("external_merge_authority=0", name="ck_skill_pub_decision_no_merge"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_decision_no_runtime"),
+        CheckConstraint(
+            "length(claim_fingerprint)=64 AND length(merge_request_sha256)=64 "
+            "AND length(provider_verified_ci_sha256)=64 "
+            "AND length(decision_fingerprint)=64 AND length(pr_head_sha)=40 "
+            "AND length(pr_base_sha)=40",
+            name="ck_skill_pub_decision_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    proposal_id: Mapped[str] = mapped_column(String(36), index=True)
+    claim_fingerprint: Mapped[str] = mapped_column(String(64))
+    repository: Mapped[str] = mapped_column(String(256))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    pr_base_sha: Mapped[str] = mapped_column(String(40))
+    merge_request_sha256: Mapped[str] = mapped_column(String(64))
+    provider_verified_ci_sha256: Mapped[str] = mapped_column(String(64))
+    decision_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    decision: Mapped[str] = mapped_column(String(32), default="approved_for_review")
+    remote_checked_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    publication_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    external_merge_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class ReaOperatorTargetSelectionRecord(Base):
     """Operator-asserted inert target identity; NOT verified bytes or tool authority."""
 
