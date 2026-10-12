@@ -427,6 +427,7 @@ class SkillPublicationOneAttemptService:
                 or current.get("merge_commit_sha") != merge_sha
                 or type(current.get("head")) is not dict
                 or current["head"].get("sha") != fence.pr_head_sha
+                or current["head"].get("ref") != request.publication.branch
                 or type(current["head"].get("repo")) is not dict
                 or current["head"]["repo"].get("full_name") != fence.repository
                 or type(current.get("base")) is not dict

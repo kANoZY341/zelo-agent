@@ -481,3 +481,71 @@ def test_post_merge_provider_failure_is_not_falsely_labeled_as_policy_mismatch(
     assert incident.automatic_retry_allowed is False
     assert _rows(database) == (1, 0)
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
+    database, proposal_case, tmp_path
+):
+    _store, claim, request, _transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    from tests import test_promotion_merge as merge_tests
+
+    class ConcurrentProvider:
+        """Async provider preserves true overlap across external GET boundaries."""
+
+        def __init__(self):
+            self.calls = []
+            self.put_count = 0
+            self.merge_sha = "f" * 40
+            self.base = f"/repos/{request.publication.repository}"
+            self.pr = f"{self.base}/pulls/{request.publication.pr_number}"
+            self.responses = {
+                endpoint: deepcopy(response)
+                for method, endpoint, response in template
+                if method == "GET"
+            }
+            self.responses[f"{self.base}/git/commits/{self.merge_sha}"] = {
+                "sha": self.merge_sha,
+                "parents": [{"sha": request.publication.pr_base_sha}],
+                "tree": {"sha": "a" * 40},
+            }
+
+        async def request(self, method, endpoint, body=None):
+            await asyncio.sleep(0)
+            self.calls.append((method, endpoint, body))
+            if method == "PUT":
+                assert endpoint == self.pr + "/merge"
+                self.put_count += 1
+                assert self.put_count == 1, "Second external merge forbidden"
+                assert body["sha"] == request.publication.pr_head_sha
+                assert body["merge_method"] == "squash"
+                return {"merged": True, "sha": self.merge_sha}
+            assert method == "GET" and body is None
+            if endpoint == self.pr and self.put_count:
+                return merge_tests.merged_pr(request, self.merge_sha)
+            return deepcopy(self.responses[endpoint])
+
+    provider = ConcurrentProvider()
+    # The exact same provider is used for fresh CI, source/blob and dispatch.
+    service.fences.blob.transport = provider
+    service.fences.blob.remote.transport = provider
+    service.fences.blob.remote.ci_verifier.transport = provider
+    service.transport = provider
+
+    async def compete():
+        return await asyncio.gather(
+            service.run_once(claim.id, request, CONFIRM, OPERATOR),
+            service.run_once(claim.id, request, CONFIRM, OPERATOR),
+            return_exceptions=True,
+        )
+
+    results = asyncio.run(compete())
+    success = [item for item in results if isinstance(item, SkillPublicationMergeReceipt)]
+    rejected = [item for item in results if isinstance(item, Exception)]
+    assert len(success) == 1 and len(rejected) == 1
+    assert provider.put_count == 1
+    assert sum(method == "PUT" for method, _, _ in provider.calls) == 1
+    assert _rows(database) == (1, 1)
+    assert _failures(database) == 0
+    assert service.get_receipt(claim.id, OPERATOR) == success[0]
