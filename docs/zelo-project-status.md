@@ -7,7 +7,7 @@ post-merge CI must still be checked separately).
 This file records implementation and qualifications, while the canonical
 architecture and roadmap remain in `docs/zelo-canonical-architecture-roadmap.md`.
 
-## CURRENT PRIORITY: v0.15 release closeout — HOLD
+## Active increment: v0.15 release closeout — HOLD
 
 The Managing Director directed completion of **v0.15 first**. Tracker:
 [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166) and
