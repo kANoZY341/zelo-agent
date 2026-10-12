@@ -82,6 +82,7 @@ from app.skill_api import router as skill_router
 from app.skill_learning_api import router as skill_learning_router
 from app.skill_learning_candidate import SkillLearningCandidateAdapter
 from app.skill_learning_store import SkillLearningProposalStore
+from app.skill_publication_api import router as skill_publication_router
 from app.space_file_gateway import SpaceFileReadGateway
 from app.storage import build_storage
 from app.task_api import router as task_router
@@ -454,6 +455,7 @@ def create_app(
     application.include_router(rea_operator_targets_router)
     application.include_router(skill_router)
     application.include_router(skill_learning_router)
+    application.include_router(skill_publication_router)
     application.include_router(agent_activation_router)
     application.include_router(agent_instance_router)
     application.include_router(agent_specialist_profile_router)

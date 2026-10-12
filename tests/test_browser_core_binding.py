@@ -625,6 +625,9 @@ def test_migration_preserves_all_prior_trigger_sql(settings):
             "skill_publication_claims_no_update",
             "skill_publication_claims_no_delete",
             "skill_publication_claims_no_duplicate_insert",
+            "skill_publication_operator_decisions_no_update",
+            "skill_publication_operator_decisions_no_delete",
+            "skill_publication_operator_decisions_no_duplicate_insert",
         }
     finally:
         db.close()
