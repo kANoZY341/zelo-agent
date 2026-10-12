@@ -8,6 +8,7 @@ from app.config import Settings
 from app.developer_process import DeveloperError
 from app.promotion_contracts import ReleaseRequest, ReleaseRunResult
 from app.promotion_github import GhApiTransport, GitHubTransport, publisher_identity
+from app.v015_release_hold import require_v015_release_scope
 
 HEX = set("0123456789abcdef")
 
@@ -125,6 +126,13 @@ class PromotionReleaseRuntime:
         )
 
     async def verify_ready(self, request: ReleaseRequest) -> ReleaseRunResult | None:
+        # The v0.15 milestone is on explicit release HOLD, independent of an
+        # ordinary promotion/merge Task approval. Enforce before even the
+        # initial provider GET and again when run() calls verify_ready().
+        try:
+            require_v015_release_scope(request.tag, request.main_sha, self.settings)
+        except ValueError:
+            raise DeveloperError("v015_release_scope_approval_required") from None
         if request.repository != self.repository or request.publisher != publisher_identity(
             self.settings
         ):
