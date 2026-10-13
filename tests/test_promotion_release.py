@@ -325,3 +325,92 @@ def test_release_rejects_lightweight_or_metadata_mismatched_existing_tag(tmp_pat
     )
     with pytest.raises(DeveloperError, match="promotion_release_tag_conflict"):
         asyncio.run(PromotionReleaseRuntime(settings, metadata).run(request))
+
+
+@pytest.mark.parametrize("tag", ("v0.15.0", "v0.15.0-rc.1", "v0.15.1", "v0.15.999"))
+def test_v015_tag_is_held_before_any_github_request_even_for_approved_release(tmp_path, tag):
+    settings, request = fixture(tmp_path)
+    request = request.model_copy(update={"tag": tag, "tag_message": tag})
+    transport = ScriptedTransport([])
+    runtime = PromotionReleaseRuntime(settings, transport)
+
+    with pytest.raises(DeveloperError, match="v015_release_scope_approval_required"):
+        asyncio.run(runtime.verify_ready(request))
+    with pytest.raises(DeveloperError, match="v015_release_scope_approval_required"):
+        asyncio.run(runtime.run(request))
+    assert transport.calls == []
+
+
+def test_v015_tag_requires_exact_host_pinned_main_sha_not_just_any_approval(tmp_path):
+    settings, request = fixture(tmp_path)
+    request = request.model_copy(update={"tag": "v0.15.0", "tag_message": "v0.15.0"})
+    wrong = settings.model_copy(update={"v015_release_approved_main_sha": "a" * 40})
+    transport = ScriptedTransport([])
+    with pytest.raises(DeveloperError, match="v015_release_scope_approval_required"):
+        asyncio.run(PromotionReleaseRuntime(wrong, transport).run(request))
+    assert transport.calls == []
+
+    # A correct exact commit unlocks only the EXISTING additional GitHub
+    # readiness checks; it does NOT declare the audit complete or create a tag.
+    explicit = settings.model_copy(update={"v015_release_approved_main_sha": request.main_sha})
+    repo = request.repository
+    provider = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/git/ref/heads/main", main_ref(request)),
+            ("GET", f"/repos/{repo}/git/matching-refs/tags/{request.tag}", []),
+        ]
+    )
+    assert asyncio.run(PromotionReleaseRuntime(explicit, provider).verify_ready(request)) is None
+    assert [call[0] for call in provider.calls] == ["GET", "GET"]
+
+
+def test_other_release_versions_keep_existing_exact_main_checks(tmp_path):
+    settings, request = fixture(tmp_path)
+    transport = ScriptedTransport(
+        [("GET", f"/repos/{request.repository}/git/ref/heads/main", main_ref(request, "1" * 40))]
+    )
+    with pytest.raises(DeveloperError, match="promotion_release_main_changed"):
+        asyncio.run(PromotionReleaseRuntime(settings, transport).run(request))
+    assert [call[0] for call in transport.calls] == ["GET"]
+
+
+def test_v015_release_pin_revoked_after_readiness_refuses_execution_without_new_calls(
+    tmp_path,
+):
+    settings, request = fixture(tmp_path)
+    request = request.model_copy(update={"tag": "v0.15.0", "tag_message": "v0.15.0"})
+    enabled = settings.model_copy(update={"v015_release_approved_main_sha": request.main_sha})
+    repo = request.repository
+    scripted = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/git/ref/heads/main", main_ref(request)),
+            ("GET", f"/repos/{repo}/git/matching-refs/tags/{request.tag}", []),
+        ]
+    )
+    runtime = PromotionReleaseRuntime(enabled, scripted)
+    assert asyncio.run(runtime.verify_ready(request)) is None
+    before = list(scripted.calls)
+    runtime.settings = settings
+    with pytest.raises(DeveloperError, match="v015_release_scope_approval_required"):
+        asyncio.run(runtime.run(request))
+    assert scripted.calls == before
+    assert all(method == "GET" for method, _, _ in scripted.calls)
+
+
+def test_v015_host_approval_sha_must_be_validated_exact_hex(tmp_path):
+    from pydantic import ValidationError
+
+    settings, request = fixture(tmp_path)
+    for invalid in ("not-a-sha", "A" * 40, "0" * 39, "0" * 41):
+        with pytest.raises(ValidationError):
+            Settings(
+                _env_file=None,
+                runtime_dir=settings.runtime_dir,
+                v015_release_approved_main_sha=invalid,
+            )
+    approved = Settings(
+        _env_file=None,
+        runtime_dir=settings.runtime_dir,
+        v015_release_approved_main_sha=request.main_sha,
+    )
+    assert approved.v015_release_approved_main_sha == request.main_sha
