@@ -4,6 +4,8 @@ import asyncio
 import hashlib
 from datetime import UTC, datetime
 
+import pytest
+
 from app.models import Task, TaskAttempt
 from app.policy import State, action_hash
 from app.promotion_contracts import ReleaseRunResult
@@ -199,3 +201,117 @@ def test_interrupted_release_retry_requires_fresh_approval(database, tmp_path):
     assert retried.approvals[-1].status == "pending"
     assert retried.approvals[-1].action_version == retried.action_version
     assert retried.approvals[-1].action_hash != retried.approvals[0].action_hash
+
+
+def test_v015_release_task_submission_refused_before_approval_or_provider_ready(database, tmp_path):
+    from app.policy import DomainError
+
+    configured, merge_task_id, _merge, result = merge_source(database, tmp_path)
+    final = ReleaseRunResult(
+        repository="kANoZY341/zelo-agent",
+        branch="main",
+        main_sha=result.merge_commit_sha,
+        tag="v0.15.0",
+        tag_object_sha="7" * 40,
+        annotated=True,
+        reused=False,
+    )
+    runtime = FakeReleaseRuntime(final)
+    service = TaskService(database, configured, promotion_release_runtime=runtime)
+    with pytest.raises(DomainError, match="v015_release_scope_approval_required") as denied:
+        service.submit(
+            ReleaseRunInput(
+                kind="release_run",
+                payload={"merge_task_id": merge_task_id, "tag": "v0.15.0"},
+            ),
+            None,
+        )
+    assert denied.value.status_code == 409
+    assert runtime.ready == []
+    assert runtime.calls == []
+
+    # The exact host-approved SHA lifts only this submission interlock;
+    # standard per-Task approval remains necessary before execution.
+    authorized = configured.model_copy(
+        update={"v015_release_approved_main_sha": result.merge_commit_sha}
+    )
+    enabled = TaskService(database, authorized, promotion_release_runtime=runtime)
+    task, created = enabled.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": "v0.15.0"},
+        ),
+        None,
+    )
+    assert created
+    assert task.status == State.AWAITING_APPROVAL
+    assert len(task.approvals) == 1
+    assert runtime.calls == []
+    assert len(runtime.ready) == 1
+
+
+def test_v015_revoked_host_pin_invalidates_approved_task_before_claim(database, tmp_path):
+    configured, merge_task_id, _merge, result = merge_source(database, tmp_path)
+    pinned = configured.model_copy(
+        update={"v015_release_approved_main_sha": result.merge_commit_sha}
+    )
+    runtime = FakeReleaseRuntime(
+        ReleaseRunResult(
+            repository="kANoZY341/zelo-agent",
+            branch="main",
+            main_sha=result.merge_commit_sha,
+            tag="v0.15.0",
+            tag_object_sha="7" * 40,
+            annotated=True,
+            reused=False,
+        )
+    )
+    service = TaskService(database, pinned, promotion_release_runtime=runtime)
+    task, _ = service.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": "v0.15.0"},
+        ),
+        None,
+    )
+    service.decide(task.approvals[0].id, "approve")
+    assert service.get(task.id).status == State.PENDING
+    service.settings = configured  # the exact SHA authorization has been revoked
+    assert service.claim() is None
+    denied = service.get(task.id)
+    assert denied.status == State.CANCELLED
+    assert denied.error == "approval_invalidated"
+    assert runtime.calls == []
+
+
+def test_v015_changed_host_pin_invalidates_before_task_approval(database, tmp_path):
+    from app.policy import DomainError
+
+    configured, merge_task_id, _merge, result = merge_source(database, tmp_path)
+    pinned = configured.model_copy(
+        update={"v015_release_approved_main_sha": result.merge_commit_sha}
+    )
+    runtime = FakeReleaseRuntime(
+        ReleaseRunResult(
+            repository="kANoZY341/zelo-agent",
+            branch="main",
+            main_sha=result.merge_commit_sha,
+            tag="v0.15.0",
+            tag_object_sha="7" * 40,
+            annotated=True,
+            reused=False,
+        )
+    )
+    service = TaskService(database, pinned, promotion_release_runtime=runtime)
+    task, _ = service.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": "v0.15.0"},
+        ),
+        None,
+    )
+    service.settings = pinned.model_copy(update={"v015_release_approved_main_sha": "f" * 40})
+    with pytest.raises(DomainError):
+        service.decide(task.approvals[0].id, "approve")
+    assert service.claim() is None
+    assert runtime.calls == []

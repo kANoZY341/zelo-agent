@@ -127,6 +127,10 @@ class Settings(BaseSettings):
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
     promotion_repository: str | None = None
+    # v0.15 release remains HOLD until the Managing Director has approved
+    # the audited final main SHA and configured that exact SHA on the host.
+    # Absent by default; this is a release execution interlock, not an audit.
+    v015_release_approved_main_sha: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
     skill_learning_candidate_root: Path | None = None
     promotion_git_author_name: str = Field(default="Zelo Agent", min_length=1, max_length=128)
     promotion_git_author_email: str = Field(

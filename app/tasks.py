@@ -80,6 +80,7 @@ from app.shell_worker import ShellRuntimeError
 from app.skill_learning_store import SkillLearningProposalStore
 from app.storage import SessionStore
 from app.tools import ToolGateway, ToolPolicyDenied, ToolRuntimeError
+from app.v015_release_hold import require_v015_release_scope
 from app.worker_registry import Supervisor
 from app.youtube_company_attempt_budget import youtube_company_attempt_claim_allowed
 from app.youtube_company_authority import (
@@ -1650,6 +1651,12 @@ class TaskService:
         merge, result, source_version, source_hash, source_attempt_id = self._release_source(
             payload["merge_task_id"]
         )
+        # Task approval alone cannot lift the separately held v0.15 release.
+        # Refuse before the GitHub readiness GET or creating an approval Task.
+        try:
+            require_v015_release_scope(payload["tag"], result.merge_commit_sha, self.settings)
+        except ValueError:
+            raise DomainError("v015_release_scope_approval_required", 409) from None
         try:
             release = ReleaseRequest(
                 merge_task_id=payload["merge_task_id"],
@@ -2761,6 +2768,10 @@ class TaskService:
             selection = task.release_spec
             try:
                 request = ReleaseRequest.model_validate(selection)
+                # Cancel a queued/approved v0.15 release if its exact host pin
+                # was removed or changed *before* Task claim or approval.
+                # PromotionReleaseRuntime independently rechecks at the PUT.
+                require_v015_release_scope(request.tag, request.main_sha, self.settings)
                 if (
                     request.merge_task_id != task.payload["merge_task_id"]
                     or request.tag != task.payload["tag"]
