@@ -458,9 +458,26 @@ class OpenBotComputerBackend:
         if state is None or state.status != "running":
             raise ComputerBackendError("computer_not_running")
         current = await self.control(agent_instance_id)
-        if current.holder == "bot":
-            return current
         request = current.request
+        if current.holder == "bot":
+            # A partially completed take can leave an active handoff
+            # request while the bot still owns the Computer. The pinned
+            # OpenBot adapter supports cancellation of this *waiting*
+            # request; simply returning bot control would strand Core's
+            # durable pre-take authority fence indefinitely.
+            if request is None or request.status != "waiting":
+                return current
+            try:
+                return ComputerControlState.model_validate(
+                    await self._computer_request(
+                        agent_instance_id,
+                        state,
+                        "/control/cancel",
+                        body={"requestId": request.id},
+                    )
+                )
+            except ValueError:
+                raise ComputerBackendError("computer_response_invalid") from None
         if request is None:
             raise ComputerBackendError("computer_control_request_missing")
         try:

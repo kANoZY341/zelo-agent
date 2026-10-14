@@ -22,6 +22,7 @@ from app.browser_contracts import BrowserExecutionSpec
 from app.browser_worker import BrowserRuntimeError
 from app.campaigns import append_campaign_event
 from app.computer_contracts import ComputerExecutionSpec
+from app.computer_control_fence import human_takeover_unreleased
 from app.computer_worker import ComputerRuntimeError
 from app.config import Settings
 from app.developer import DeveloperRequest, DeveloperRuntime, DeveloperRuntimeError
@@ -793,6 +794,11 @@ class TaskService:
             raise DomainError("computer_space_activation_invalid", 409)
         from app.space_file_gateway import SpaceFileReadGateway, _path_components
 
+        # A Core owner takeover is a durable pre-network event. Refuse new
+        # or retried Space Task admission even if its backend control GET is
+        # still showing the former bot state.
+        if human_takeover_unreleased(session, agent_execution.agent_instance_id):
+            raise DomainError("computer_space_activation_invalid", 409)
         try:
             _path_components(computer_spec.path)
             SpaceFileReadGateway(

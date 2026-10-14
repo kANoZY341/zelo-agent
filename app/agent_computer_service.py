@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from sqlalchemy import func, select
 
 from app.agent_computers import (
@@ -10,6 +12,10 @@ from app.agent_computers import (
     OpenBotComputerBackend,
 )
 from app.agent_factory import AgentBinding, AgentFactory, AgentSpec
+from app.computer_control_fence import (
+    human_takeover_unreleased,
+    latest_control_transition,
+)
 from app.models import (
     AgentComputerEvent,
     AgentComputerPermission,
@@ -335,6 +341,32 @@ class AgentComputerService:
                 raise DomainError("Human computer takeover is not permitted", 409)
         if not self.backend.configured:
             raise DomainError("Agent computer backend is not configured", 503)
+        # Persist the human request *before* the first external takeover
+        # await. This writer serializes with in-progress Space file reads and
+        # invalidates existing Computer Task permission-version snapshots.
+        # An interrupted/failed remote takeover remains blocked until a
+        # separately confirmed owner handback; it cannot silently revert.
+        with self.database.transaction() as session:
+            instance = self._load_instance(session, instance_id)
+            spec = self._spec(instance)
+            self._require_current_active(instance, spec)
+            permissions = self._permissions(session, instance_id)
+            if not (permissions.enabled and permissions.browser and spec.computer.human_takeover):
+                raise DomainError("Human computer takeover is not permitted", 409)
+            if human_takeover_unreleased(session, instance_id):
+                raise DomainError("Human computer takeover pending owner handback", 409)
+            now = utcnow()
+            if now <= permissions.updated_at:
+                now = permissions.updated_at + timedelta(microseconds=1)
+            permissions.updated_at = now
+            self._append_event(
+                session,
+                instance_id,
+                event="take_control_requested",
+                actor="owner",
+                outcome="succeeded",
+            )
+            session.flush()
         try:
             control = await self.backend.take(instance_id)
         except ComputerBackendError as error:
@@ -359,6 +391,28 @@ class AgentComputerService:
             self._spec(instance)
         if not self.backend.configured:
             raise DomainError("Agent computer backend is not configured", 503)
+        # A handback cannot race an in-flight Core takeover whose external
+        # result has not yet been recorded. Serialize both transition intents
+        # with Space reads and new take requests before the provider await.
+        with self.database.transaction() as session:
+            instance = self._load_instance(session, instance_id)
+            self._spec(instance)
+            latest = latest_control_transition(session, instance_id)
+            if latest is not None and latest.event in (
+                "take_control_requested",
+                "release_control_requested",
+            ):
+                raise DomainError(
+                    "Human computer takeover or handback outcome is still pending", 409
+                )
+            self._append_event(
+                session,
+                instance_id,
+                event="release_control_requested",
+                actor="owner",
+                outcome="succeeded",
+            )
+            session.flush()
         try:
             control = await self.backend.release(instance_id)
         except ComputerBackendError as error:
@@ -369,6 +423,22 @@ class AgentComputerService:
                 {"error": str(error)},
             )
             raise self._backend_error(error) from None
+        # Only confirmed bot control, not an ambiguous backend response, can
+        # clear the durable takeover fence. Resume-snapshot policy remains
+        # enforced independently at every Computer/Space use point.
+        if (
+            control.holder != "bot"
+            or control.requested
+            or control.transitioning
+            or (control.request is not None and control.request.status in {"waiting", "taken"})
+        ):
+            self._record(
+                instance_id,
+                "release_control",
+                "failed",
+                {"reason": "backend_control_not_returned"},
+            )
+            raise DomainError("Human computer control handback unconfirmed", 409)
         self._record(
             instance_id,
             "release_control",
