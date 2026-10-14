@@ -1,8 +1,13 @@
 # Zelo live project status
 
-Latest priority decision: **12 October 2026**. Exact reviewed baseline:
-`main` `c6daa6b1bced02057b8b0c2879b2cc9d79f8782f` (merged PR #165;
-post-merge CI must still be checked separately).
+Latest priority decision: **12 October 2026**. Current audited source
+checkpoint (15 October 2026): remote `main`
+`436bb5003b7a9d131d35bf3553c61cee29cdf69a` (merged PR #177), with
+post-merge GitHub CI run 38634182562 **PASS** (6,181 passed, 2 skipped).
+The preceding PR #176 main CI run 38623351365 **failed** on a separately
+reproduced Skill-learning fixture-order race, fixed through PR #177; its
+failure remains recorded. These source/CI results do **not** certify v0.15
+runtime, Worker, Space, Media or operator release readiness.
 
 This file records implementation and qualifications, while the canonical
 architecture and roadmap remain in `docs/zelo-canonical-architecture-roadmap.md`.

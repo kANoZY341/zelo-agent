@@ -5,6 +5,8 @@ from dataclasses import asdict
 
 import pytest
 
+from app.policy import DomainError
+from app.schemas import ApiRunInput, BrowserRunInput, ComputerRunInput, ShellRunInput
 from app.v015_worker_release_inventory import worker_release_inventory
 
 EXPECTED_WORKERS = (
@@ -126,3 +128,80 @@ def test_inventory_never_emits_configuration_paths_endpoint_urls_or_tokens(setti
 def test_unknown_config_object_cannot_be_used_as_release_signal():
     with pytest.raises(TypeError, match="settings_required"):
         worker_release_inventory({"browser_worker_enabled": True})
+
+
+def test_actual_default_core_worker_registration_stays_inside_release_inventory(client, settings):
+    """Exercise Core assembly, not just the metadata projection, with no provider action.
+
+    A Worker registry object or a ComputerRuntime constructor is not evidence
+    that its backend or a new capability is enabled. This catches a default
+    registration change that the source-only inventory would otherwise miss.
+    """
+    state = client.app.state
+    report = worker_release_inventory(settings)
+    metadata = _by_id(report)
+    assert report.release_ready is False
+    assert report.operational_proof_performed is False
+
+    registrations = {
+        "research": tuple(item.worker_id for item in state.research_registry.list()),
+        "python": tuple(item.worker_id for item in state.python_registry.list()),
+        "api": tuple(item.worker_id for item in state.api_worker_registry.list()),
+        "browser": tuple(item.worker_id for item in state.browser_worker_registry.list()),
+        "computer": tuple(item.worker_id for item in state.computer_worker_registry.list()),
+        "shell": tuple(item.worker_id for item in state.shell_worker_registry.list()),
+    }
+    assert registrations == {
+        "research": ("research_core",),
+        "python": ("python_core",),
+        "api": ("api_core",),
+        "browser": (),
+        "computer": (),
+        "shell": (),
+    }
+    assert state.api_endpoint_registry.list() == ()
+    assert state.computer_browser_endpoint_registry.list() == ()
+    assert not state.agent_computers.configured
+    assert state.browser_runtime is None
+    assert state.shell_runtime is None
+    assert state.computer_egress_proxy is None
+    assert state.tasks.browser_supervisor is state.browser_supervisor
+    assert state.tasks.computer_supervisor is state.computer_supervisor
+    assert state.tasks.shell_supervisor is state.shell_supervisor
+    assert metadata["api_core"].configured_registration == "registered_no_approved_endpoints"
+    assert metadata["computer_core"].configured_registration == "disabled_by_default"
+    assert metadata["media_native_reader"].configured_registration == "not_registered_in_core"
+    assert all("media_native_reader" not in ids for ids in registrations.values())
+    assert all(
+        not item.release_qualified and not item.new_authority_granted for item in report.workers
+    )
+
+
+@pytest.mark.parametrize(
+    ("task_input", "denial"),
+    (
+        (
+            ApiRunInput(kind="api_run", payload={"endpoint_id": "unapproved", "path": "/"}),
+            "api_endpoint_not_registered",
+        ),
+        (
+            BrowserRunInput(kind="browser_run", payload={"endpoint_id": "unapproved", "path": "/"}),
+            "no_eligible_worker",
+        ),
+        (
+            ShellRunInput(kind="shell_run", payload={"script": "printf 'unapproved'"}),
+            "no_eligible_worker",
+        ),
+        (
+            ComputerRunInput(kind="computer_run", payload={"action": "browser_snapshot"}),
+            "Computer worker requires Agent execution",
+        ),
+    ),
+)
+def test_default_unapproved_worker_task_refused_without_persistence(client, task_input, denial):
+    """Core's actual admission gate rejects unqualified actions before Task creation."""
+    service = client.app.state.tasks
+    before = service.list_tasks(limit=100, offset=0).total
+    with pytest.raises(DomainError, match=denial):
+        service.submit(task_input, None)
+    assert service.list_tasks(limit=100, offset=0).total == before
