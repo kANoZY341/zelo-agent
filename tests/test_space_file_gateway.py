@@ -7,6 +7,7 @@ from hashlib import sha256
 import pytest
 from sqlalchemy import select
 
+from app.agent_computer_service import AgentComputerService
 from app.agent_computers import ComputerControlState
 from app.agent_execution import AgentExecutionService
 from app.agent_factory import AgentFactory, AgentRegistry
@@ -201,6 +202,121 @@ def test_human_takeover_denies_file_access_before_open(database, settings):
     with pytest.raises(DomainError, match="human control active"):
         _read(env, execution)
     assert all(action != "files_read" for action, _, _ in env["backend"].calls)
+
+
+def test_owner_takeover_after_control_snapshot_denies_space_read(database, settings, monkeypatch):
+    """The Core takeover may complete after a stale bot-control GET returns."""
+    env = _fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("owner-only")
+    with database.transaction() as session:
+        permission = session.get(AgentComputerPermission, env["instance"].id)
+        assert permission is not None
+        permission.browser = True
+        permission.updated_at = utcnow()
+    execution = _claim(env)
+    previous_bot_control = env["backend"].control_state
+    computers = AgentComputerService(database, env["factory"], env["backend"])
+
+    async def take_remote(instance_id):
+        assert instance_id == env["instance"].id
+        env["backend"].control_state = ComputerControlState(
+            holder="human",
+            requested=False,
+            transitioning=False,
+            resumeSnapshotRequired=False,
+        )
+        return env["backend"].control_state
+
+    async def status_after_take(_instance_id):
+        return None  # Do not mask or replace the real Core takeover policy.
+
+    async def stale_control_result(instance_id):
+        await computers.take(instance_id)
+        assert env["backend"].control_state.holder == "human"
+        return previous_bot_control
+
+    monkeypatch.setattr(env["backend"], "take", take_remote, raising=False)
+    monkeypatch.setattr(computers, "status", status_after_take)
+    monkeypatch.setattr(env["backend"], "control", stale_control_result)
+
+    with pytest.raises(DomainError, match="stale|human|control"):
+        _read(env, execution)
+    with database.read() as session:
+        assert not session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == execution.task_id,
+                AuditEvent.event == "space_file_read_completed",
+            )
+        ).all()
+    assert all(action != "files_read" for action, _, _ in env["backend"].calls)
+
+
+def test_pending_owner_takeover_blocks_new_tasks_and_file_use(database, settings, monkeypatch):
+    """A pre-network owner request wins even while the backend still reports bot."""
+    env = _fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("private")
+    with database.transaction() as session:
+        permission = session.get(AgentComputerPermission, env["instance"].id)
+        assert permission is not None
+        permission.browser = True
+        permission.updated_at = utcnow()
+    execution = _claim(env)
+    computers = AgentComputerService(database, env["factory"], env["backend"])
+    remote_entered = asyncio.Event()
+    finish_remote = asyncio.Event()
+
+    async def pending_take_remote(_instance_id):
+        remote_entered.set()
+        await finish_remote.wait()
+        env["backend"].control_state = ComputerControlState(
+            holder="human", requested=False, transitioning=False, resumeSnapshotRequired=False
+        )
+        return env["backend"].control_state
+
+    async def status_after_take(_instance_id):
+        return None
+
+    monkeypatch.setattr(env["backend"], "take", pending_take_remote, raising=False)
+    monkeypatch.setattr(computers, "status", status_after_take)
+
+    async def exercise():
+        pending = asyncio.create_task(computers.take(env["instance"].id))
+        await asyncio.wait_for(remote_entered.wait(), 1)
+        assert env["backend"].control_state.holder == "bot"
+        try:
+            with pytest.raises(DomainError, match="human control active|stale"):
+                await env["gateway"].read(
+                    execution=execution,
+                    activation_id=env["activation"].id,
+                    relative_path="notes.txt",
+                )
+            with pytest.raises(DomainError, match="computer_space_activation_invalid"):
+                env["agent_submit"].submit(
+                    env["instance"].id,
+                    AgentTaskCreate(
+                        task=ComputerRunInput(
+                            kind="computer_run",
+                            payload={
+                                "action": "files_read",
+                                "path": "notes.txt",
+                                "space_activation_id": env["activation"].id,
+                            },
+                        ),
+                    ),
+                    None,
+                )
+        finally:
+            finish_remote.set()
+            await pending
+
+    asyncio.run(exercise())
+    with database.read() as session:
+        assert not session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == execution.task_id,
+                AuditEvent.event == "space_file_read_completed",
+            )
+        ).all()
 
 
 def test_revocation_during_control_await_denied_before_file_read(database, settings, monkeypatch):

@@ -24,6 +24,7 @@ from app.agent_space_resources import (
     _activation_digest,
 )
 from app.computer_contracts import ComputerExecutionSpec
+from app.computer_control_fence import human_takeover_unreleased
 from app.computer_worker import ComputerRuntime
 from app.models import (
     AgentComputerPermission,
@@ -266,6 +267,11 @@ class SpaceFileReadGateway:
             AgentBinding(spec=agent.spec, registry_version=agent.registry_version)
         ):
             raise DomainError("Space read AgentSpec binding changed", 409)
+        # The owner's pre-network takeover marker is committed under the
+        # same Core writer used by the final file read. A stale backend bot
+        # snapshot from before takeover is never enough to override it.
+        if human_takeover_unreleased(session, instance.id):
+            raise DomainError("Space computer human control active", 409)
         permission = session.get(AgentComputerPermission, instance.id)
         if (
             permission is None
