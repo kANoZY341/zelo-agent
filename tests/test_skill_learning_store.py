@@ -54,6 +54,9 @@ from tests.test_skill_learning import revision
 
 @pytest.fixture
 def proposal_case(database, settings):
+    # Tests using both fixtures must prepare this case before `client` starts
+    # its background Runner against the same database. That Runner uses the
+    # default Agent Registry and can invalidate this synthetic Research Task.
     default = default_agent_registry()
     specs = tuple(
         AgentSpec.model_validate({**spec.model_dump(mode="json"), "skill_learning": "propose"})
@@ -294,7 +297,7 @@ def test_stale_evidence_cannot_be_accepted(database, proposal_case):
     assert store.get(stored.proposal.proposal_id).status == "proposed"
 
 
-def test_operator_api_authenticates_ahmad_without_identity_claims(client, proposal_case):
+def test_operator_api_authenticates_ahmad_without_identity_claims(proposal_case, client):
     store, agent, _task, _claimed, candidate, ref = proposal_case
     stored, _ = store.submit(agent_instance_id=agent.id, revision=candidate, evidence_refs=(ref,))
     client.app.state.skill_learning_store = store
@@ -384,7 +387,7 @@ def learning_task_services(database, settings, store):
 
 
 def test_agent_task_api_runs_bounded_proposal_through_core_and_is_idempotent(
-    client, database, settings, proposal_case
+    proposal_case, client, database, settings
 ):
     store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
     tasks, execution = learning_task_services(database, settings, store)
@@ -716,7 +719,7 @@ def test_stale_evidence_after_acceptance_blocks_candidate(tmp_path, proposal_cas
     assert not list(tmp_path.rglob("*.json"))
 
 
-def test_candidate_api_is_disabled_without_configured_staging(client, proposal_case):
+def test_candidate_api_is_disabled_without_configured_staging(proposal_case, client):
     store, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(store, agent, revision, ref)
     client.app.state.skill_learning_store = store
@@ -732,7 +735,7 @@ def test_candidate_api_is_disabled_without_configured_staging(client, proposal_c
 
 
 def test_candidate_api_materializes_metadata_only_and_is_idempotent(
-    client, proposal_case, tmp_path
+    proposal_case, client, tmp_path
 ):
     store, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(store, agent, revision, ref)
@@ -767,7 +770,7 @@ def test_candidate_api_materializes_metadata_only_and_is_idempotent(
     assert second.json() == {**payload, "created": False}
 
 
-def test_candidate_api_refuses_unaccepted_proposal_without_file(client, proposal_case, tmp_path):
+def test_candidate_api_refuses_unaccepted_proposal_without_file(proposal_case, client, tmp_path):
     store, agent, _task, _attempt, revision, ref = proposal_case
     proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
     root = tmp_path / "candidates"
@@ -812,7 +815,7 @@ def test_skill_learning_candidate_root_must_be_absolute_and_inside_runtime(setti
     )
 
 
-def test_agent_learned_skill_projection_is_bounded_metadata_only(client, proposal_case):
+def test_agent_learned_skill_projection_is_bounded_metadata_only(proposal_case, client):
     store, agent, _task, _attempt, revision, ref = proposal_case
     client.app.state.skill_learning_store = store
     proposed, _ = store.submit(agent_instance_id=agent.id, revision=revision, evidence_refs=(ref,))
@@ -850,7 +853,7 @@ def test_agent_learned_skill_projection_is_bounded_metadata_only(client, proposa
 
 
 def test_agent_learned_skill_projection_shows_review_identity_without_content(
-    client, proposal_case
+    proposal_case, client
 ):
     store, agent, _task, _attempt, revision, ref = proposal_case
     client.app.state.skill_learning_store = store
@@ -870,7 +873,7 @@ def test_agent_learned_skill_projection_shows_review_identity_without_content(
     assert item["runtime_authority"] is False
 
 
-def test_agent_learned_skill_projection_requires_existing_agent_and_operator(client, proposal_case):
+def test_agent_learned_skill_projection_requires_existing_agent_and_operator(proposal_case, client):
     store, agent, _task, _attempt, _revision, _ref = proposal_case
     client.app.state.skill_learning_store = store
     unauthenticated = client.get(
@@ -884,7 +887,7 @@ def test_agent_learned_skill_projection_requires_existing_agent_and_operator(cli
 
 
 def test_candidate_api_normalizes_filesystem_permission_error(
-    client, proposal_case, tmp_path, monkeypatch
+    proposal_case, client, tmp_path, monkeypatch
 ):
     store, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(store, agent, revision, ref)
