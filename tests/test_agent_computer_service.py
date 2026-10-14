@@ -2,6 +2,7 @@
 
 import asyncio
 
+import httpx
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,7 @@ from app.agent_computers import (
     ComputerControlRequest,
     ComputerControlState,
     ComputerState,
+    OpenBotComputerBackend,
 )
 from app.agent_factory import (
     AgentComputerSpec,
@@ -20,6 +22,7 @@ from app.agent_factory import (
     AgentSpec,
 )
 from app.agent_instances import AgentInstanceService
+from app.computer_control_fence import human_takeover_unreleased
 from app.memory import MemoryService
 from app.policy import DomainError
 from app.projects import ProjectService
@@ -289,9 +292,218 @@ def test_takeover_requires_browser_grant_and_handback_requires_fresh_snapshot(da
     assert released.control.resume_snapshot_required is True
 
     events = computers.events(instance.id, limit=100, offset=0).items
-    assert events[-2].event == "take_control"
-    assert events[-1].event == "release_control"
+    assert [event.event for event in events[-4:]] == [
+        "take_control_requested",
+        "take_control",
+        "release_control_requested",
+        "release_control",
+    ]
     assert events[-1].details["resume_snapshot_required"] is True
+
+
+def test_ambiguous_takeover_error_keeps_durable_fence_until_confirmed_release(database):
+    backend = FakeBackend()
+    _factory, _instances, computers, instance = setup_services(database, backend=backend)
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id,
+            AgentComputerPermissionPatch(enabled=True, browser=True, files=True),
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    backend.fail["take"] = "computer_http_503"
+
+    with pytest.raises(DomainError, match="computer_http_503"):
+        asyncio.run(computers.take(instance.id))
+    with database.read() as session:
+        assert human_takeover_unreleased(session, instance.id)
+    before_calls = list(backend.calls)
+    with pytest.raises(DomainError, match="pending owner handback"):
+        asyncio.run(computers.take(instance.id))
+    assert backend.calls == before_calls  # Never repeat an ambiguous remote takeover.
+
+    backend.fail.pop("take")
+    asyncio.run(computers.release(instance.id))
+    with database.read() as session:
+        assert not human_takeover_unreleased(session, instance.id)
+
+
+def test_owner_cancel_waiting_takeover_with_pinned_openbot_adapter(database):
+    """Actual backend HTTP contract repairs a waiting request without blind retry."""
+    state = {
+        "holder": "bot",
+        "requested": False,
+        "transitioning": False,
+        "resumeSnapshotRequired": False,
+        "request": None,
+    }
+    calls = []
+    instance_id = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        path = request.url.path
+        instance_state = {
+            "botId": instance_id,
+            "container": f"zelo-computer-{instance_id}",
+            "status": "running",
+            "port": 49152,
+        }
+        if path == "/computers":
+            return httpx.Response(200, json={"computers": [instance_state]})
+        if path == f"/computers/{instance_id}/ensure":
+            return httpx.Response(200, json=instance_state)
+        if path == "/control" and request.method == "GET":
+            return httpx.Response(200, json=state)
+        if path == "/control/request":
+            state.update(
+                requested=True,
+                transitioning=True,
+                request={"id": "handoff", "status": "waiting"},
+            )
+            return httpx.Response(200, json=state)
+        if path == "/control/take":
+            return httpx.Response(503, json={"error": "take result uncertain"})
+        if path == "/control/cancel":
+            state.update(
+                requested=False,
+                transitioning=False,
+                request={"id": "handoff", "status": "cancelled"},
+            )
+            return httpx.Response(200, json=state)
+        raise AssertionError(f"Unexpected adapter path: {path}")
+
+    from tests.test_agent_computers import settings as computer_settings
+
+    backend = OpenBotComputerBackend(computer_settings(), transport=httpx.MockTransport(handler))
+    _factory, _instances, computers, instance = setup_services(database, backend=backend)
+    instance_id = instance.id
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id,
+            AgentComputerPermissionPatch(enabled=True, browser=True, files=True),
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    with pytest.raises(DomainError, match="computer_http_503"):
+        asyncio.run(computers.take(instance.id))
+    with database.read() as session:
+        assert human_takeover_unreleased(session, instance.id)
+
+    with pytest.raises(DomainError, match="pending owner handback"):
+        asyncio.run(computers.take(instance.id))
+    assert calls.count(("POST", "/control/take")) == 1
+    recovered = asyncio.run(computers.release(instance.id))
+    assert recovered.control is not None
+    assert recovered.control.holder == "bot"
+    assert recovered.control.requested is False
+    assert ("POST", "/control/cancel") in calls
+    with database.read() as session:
+        assert not human_takeover_unreleased(session, instance.id)
+
+
+def test_release_cannot_race_in_flight_takeover_request(database, monkeypatch):
+    backend = FakeBackend()
+    _factory, _instances, computers, instance = setup_services(database, backend=backend)
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id, AgentComputerPermissionPatch(enabled=True, browser=True)
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    entered = asyncio.Event()
+    allow_take = asyncio.Event()
+    original_take = backend.take
+
+    async def delayed_take(agent_id):
+        entered.set()
+        await allow_take.wait()
+        return await original_take(agent_id)
+
+    monkeypatch.setattr(backend, "take", delayed_take)
+
+    async def exercise():
+        take_task = asyncio.create_task(computers.take(instance.id))
+        await asyncio.wait_for(entered.wait(), 1)
+        try:
+            with pytest.raises(DomainError, match="takeover.*outcome"):
+                await computers.release(instance.id)
+            assert ("release", instance.id) not in backend.calls
+        finally:
+            allow_take.set()
+            await take_task
+
+    asyncio.run(exercise())
+    with database.read() as session:
+        assert human_takeover_unreleased(session, instance.id)
+
+
+def test_overlapping_handbacks_cannot_clear_future_takeover(database, monkeypatch):
+    """A second delayed release must never complete after a newer takeover."""
+    backend = FakeBackend()
+    _factory, _instances, computers, instance = setup_services(database, backend=backend)
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id, AgentComputerPermissionPatch(enabled=True, browser=True)
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    asyncio.run(computers.take(instance.id))
+    entered = asyncio.Event()
+    allow_release = asyncio.Event()
+    original_release = backend.release
+
+    async def delayed_release(agent_id):
+        entered.set()
+        await allow_release.wait()
+        return await original_release(agent_id)
+
+    monkeypatch.setattr(backend, "release", delayed_release)
+
+    async def exercise():
+        first = asyncio.create_task(computers.release(instance.id))
+        await asyncio.wait_for(entered.wait(), 1)
+        try:
+            with pytest.raises(DomainError, match="handback outcome"):
+                await computers.release(instance.id)
+            assert sum(action == "release" for action, _ in backend.calls) == 0
+            with pytest.raises(DomainError, match="pending owner handback"):
+                await computers.take(instance.id)
+        finally:
+            allow_release.set()
+            await first
+
+    asyncio.run(exercise())
+    assert sum(action == "release" for action, _ in backend.calls) == 1
+    with database.read() as session:
+        assert not human_takeover_unreleased(session, instance.id)
+
+
+def test_unconfirmed_remote_handback_keeps_takeover_fenced(database, monkeypatch):
+    backend = FakeBackend()
+    _factory, _instances, computers, instance = setup_services(database, backend=backend)
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id,
+            AgentComputerPermissionPatch(enabled=True, browser=True),
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    asyncio.run(computers.take(instance.id))
+
+    async def bad_release(_instance_id):
+        return ComputerControlState(
+            holder="human",
+            requested=False,
+            transitioning=False,
+            resumeSnapshotRequired=False,
+        )
+
+    monkeypatch.setattr(backend, "release", bad_release)
+    with pytest.raises(DomainError, match="handback unconfirmed"):
+        asyncio.run(computers.release(instance.id))
+    with database.read() as session:
+        assert human_takeover_unreleased(session, instance.id)
 
 
 def test_backend_failure_is_fail_closed_and_audited(database):

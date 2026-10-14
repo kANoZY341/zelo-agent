@@ -114,6 +114,68 @@ def test_supervisor_lifecycle_uses_only_supervisor_token_and_validates_identity(
     assert "c" * 24 not in serialized
 
 
+def test_real_adapter_cancels_waiting_request_after_failed_take():
+    """Pinned OpenBot /control/cancel is required for owner handback recovery."""
+    agent_id = "agent-1"
+    control = {
+        "holder": "bot",
+        "requested": False,
+        "transitioning": False,
+        "resumeSnapshotRequired": False,
+        "request": None,
+    }
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        path = request.url.path
+        if path == "/computers":
+            return httpx.Response(
+                200,
+                json={
+                    "computers": [
+                        {
+                            "botId": agent_id,
+                            "container": "zelo-computer-agent-1",
+                            "status": "running",
+                            "port": 49152,
+                        }
+                    ]
+                },
+            )
+        if path == "/control" and request.method == "GET":
+            return httpx.Response(200, json=control)
+        if path == "/control/request":
+            control.update(
+                requested=True,
+                transitioning=True,
+                request={"id": "handoff", "status": "waiting"},
+            )
+            return httpx.Response(200, json=control)
+        if path == "/control/take":
+            return httpx.Response(503, json={"error": "simulated uncertain failure"})
+        if path == "/control/cancel":
+            assert request.method == "POST"
+            assert '"requestId":"handoff"' in request.content.decode()
+            control.update(
+                requested=False,
+                transitioning=False,
+                request={"id": "handoff", "status": "cancelled"},
+            )
+            return httpx.Response(200, json=control)
+        raise AssertionError(f"Unexpected endpoint: {path}")
+
+    backend = OpenBotComputerBackend(settings(), transport=httpx.MockTransport(handler))
+    with pytest.raises(ComputerBackendError, match="computer_http_503"):
+        asyncio.run(backend.take(agent_id))
+    assert control["requested"] is True
+    recovered = asyncio.run(backend.release(agent_id))
+    assert recovered.holder == "bot"
+    assert recovered.requested is False
+    assert recovered.transitioning is False
+    assert ("POST", "/control/cancel") in calls
+
+
 def test_application_exposes_inert_agent_computer_backend(client):
     backend = client.app.state.agent_computers
     assert isinstance(backend, OpenBotComputerBackend)
