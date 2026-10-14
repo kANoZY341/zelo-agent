@@ -11,6 +11,15 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 
+**15 October evidence checkpoint:** Core `main` reached
+`436bb5003b7a9d131d35bf3553c61cee29cdf69a` after merged PR #177,
+with exact-main GitHub CI 38634182562 **PASS** (6,181 passed, 2 skipped).
+The preceding PR #176 main CI had **failed** on a reproduced Skill-learning
+fixture race and remains historical failed evidence; PR #177 corrected it.
+Neither a green CI run nor the conservative Worker inventory authorizes a
+v0.15 release. Media native qualification, expanded Space permissions and
+external learned-Skill publishing remain blocked pending their own gates.
+
 This document is the repository-facing roadmap summary.
 
 The current canonical product plan is Zelo Canonical Architecture revision 3.3,
