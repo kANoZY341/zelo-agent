@@ -593,11 +593,12 @@ class RepositoryInspector:
             if not base_sha or not branch:
                 raise SelfImprovementError("inspection_repository_identity_invalid")
 
-            # REA is a separately verified, pinned third-party source snapshot.
-            # Do not ingest its AGENTS.md / npm config into Mind's trusted-source
-            # inventory. Git HEAD and the vendor manifest bind its exact content.
-            # Excluding the 2,082-file subtree also keeps this Git response inside
-            # run_sync's independent 64 KiB stdout cap without weakening that cap.
+            # REA is a separately verified, pinned source snapshot and is
+            # excluded from Mind's trusted-source inventory. Enumerate docs
+            # separately: their accumulated filenames can make a complete Git
+            # response exceed run_sync's fixed 64 KiB stdout limit. These
+            # disjoint pathspecs preserve all other tracked files and fail
+            # closed if either bounded Git request exceeds its limit.
             tracked = _decode_paths(
                 _git(
                     self.repo,
@@ -605,9 +606,10 @@ class RepositoryInspector:
                     "-z",
                     "--",
                     ".",
+                    ":(exclude)docs",
                     ":(exclude)third_party/rea",
                 )
-            )
+            ) + _decode_paths(_git(self.repo, "ls-files", "-z", "--", "docs"))
             if len(tracked) > self.max_tracked_paths:
                 raise SelfImprovementError("inspection_tracked_path_limit")
             tracked = tuple(sorted(tracked))

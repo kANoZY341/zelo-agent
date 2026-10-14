@@ -59,6 +59,24 @@ def test_repository_inspector_builds_deterministic_bounded_snapshot(tmp_path):
     assert first.total_content_bytes == sum(len(item.text.encode("utf-8")) for item in first.files)
 
 
+def test_repository_inspector_keeps_full_inventory_when_git_output_exceeds_cap(tmp_path):
+    repo, _ = make_repo(tmp_path)
+    doc_paths = [f"docs/inventory-{number:04d}-{'d' * 80}.md" for number in range(460)]
+    test_paths = [f"tests/inventory-{number:04d}-{'t' * 80}.txt" for number in range(250)]
+    for relative in doc_paths + test_paths:
+        target = repo / relative
+        target.write_text("tracked fixture\n", encoding="utf-8")
+    fixture_commit(repo)
+
+    # One raw Git inventory would exceed the subprocess's fixed 64 KiB cap.
+    assert sum(len(path.encode("utf-8")) + 1 for path in doc_paths + test_paths) > 65_536
+
+    inspection = RepositoryInspector(repo).inspect()
+
+    assert set(doc_paths + test_paths).issubset(inspection.tracked_paths)
+    assert len(inspection.tracked_paths) == len(doc_paths) + len(test_paths) + 4
+
+
 def test_repository_inspector_accepts_real_registered_linked_worktree(tmp_path):
     repo, sha = make_repo(tmp_path)
     linked = tmp_path / "linked-worktree"
@@ -212,6 +230,8 @@ def test_repository_inspector_refuses_tracked_forbidden_paths(tmp_path):
         ".env.local",
         "credentials.json",
         "credentials/service-account.json",
+        "docs/credentials.json",
+        "docs/nested/.env.local",
     ],
 )
 def test_repository_inspector_refuses_common_tracked_credential_paths(tmp_path, relative_path):
