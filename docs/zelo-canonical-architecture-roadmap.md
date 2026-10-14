@@ -11,6 +11,14 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 
+**14 October evidence checkpoint:** Core source reached merged Space takeover
+repair #176 at `98168bf2221603e5d032e59ad9a2b493e0023e3f`, but its
+post-merge `main` CI failed on the separately reproduced Skill-learning test
+fixture race. Narrow corrective PR #177 remains separately qualified; neither
+source status nor the conservative default Worker inventory authorizes a
+release. Media native qualification, expanded Space permissions, and external
+learned-Skill publishing remain blocked pending their own approval gates.
+
 This document is the repository-facing roadmap summary.
 
 The current canonical product plan is Zelo Canonical Architecture revision 3.3,
