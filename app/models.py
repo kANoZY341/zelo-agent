@@ -1231,6 +1231,123 @@ class SkillPublicationDispatchFenceRecord(Base):
     runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class SkillPublicationMergeAttemptRecord(Base):
+    """Immutable single-use pre-PUT fence; once written, retries stay blocked."""
+
+    __tablename__ = "skill_publication_merge_attempts"
+    __table_args__ = (
+        UniqueConstraint("fence_id", name="uq_skill_pub_attempt_fence"),
+        UniqueConstraint("claim_id", name="uq_skill_pub_attempt_claim"),
+        UniqueConstraint("repository", "pr_number", name="uq_skill_pub_attempt_pr"),
+        UniqueConstraint("attempt_fingerprint", name="uq_skill_pub_attempt_digest"),
+        CheckConstraint("phase='send_outcome_unresolved'", name="ck_skill_pub_attempt_phase"),
+        CheckConstraint("send_may_have_occurred=1", name="ck_skill_pub_attempt_may_have_sent"),
+        CheckConstraint("automatic_retry_allowed=0", name="ck_skill_pub_attempt_no_retry"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_attempt_no_runtime"),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_attempt_owner"),
+        CheckConstraint("pr_number >= 1", name="ck_skill_pub_attempt_pr_positive"),
+        CheckConstraint(
+            "length(pr_head_sha)=40 AND length(pr_base_sha)=40 "
+            "AND length(fence_fingerprint)=64 AND length(merge_request_sha256)=64 "
+            "AND length(attempt_fingerprint)=64",
+            name="ck_skill_pub_attempt_digest_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    fence_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_dispatch_fences.id"), unique=True
+    )
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    promotion_task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), index=True)
+    repository: Mapped[str] = mapped_column(String(256))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    pr_base_sha: Mapped[str] = mapped_column(String(40))
+    fence_fingerprint: Mapped[str] = mapped_column(String(64))
+    merge_request_sha256: Mapped[str] = mapped_column(String(64))
+    attempt_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    phase: Mapped[str] = mapped_column(String(32), default="send_outcome_unresolved")
+    send_may_have_occurred: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_retry_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillPublicationMergeReceiptRecord(Base):
+    """Append-only verified PUT response + exact merged Git commit and blob."""
+
+    __tablename__ = "skill_publication_merge_receipts"
+    __table_args__ = (
+        UniqueConstraint("attempt_id", name="uq_skill_pub_merge_receipt_attempt"),
+        UniqueConstraint("claim_id", name="uq_skill_pub_merge_receipt_claim"),
+        UniqueConstraint("receipt_fingerprint", name="uq_skill_pub_merge_receipt_digest"),
+        CheckConstraint("response_confirmed=1", name="ck_skill_pub_receipt_response"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_receipt_no_runtime"),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_receipt_owner"),
+        CheckConstraint(
+            "length(merge_commit_sha)=40 AND length(parent_base_sha)=40 "
+            "AND length(merged_blob_oid)=40 AND length(receipt_fingerprint)=64",
+            name="ck_skill_pub_receipt_digest_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    attempt_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_merge_attempts.id"), unique=True
+    )
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    merge_commit_sha: Mapped[str] = mapped_column(String(40))
+    parent_base_sha: Mapped[str] = mapped_column(String(40))
+    merged_blob_oid: Mapped[str] = mapped_column(String(40))
+    receipt_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    response_confirmed: Mapped[bool] = mapped_column(Boolean, default=True)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class SkillPublicationMergeFailureRecord(Base):
+    """Bounded terminal incident evidence; immutable; never permits retry."""
+
+    __tablename__ = "skill_publication_merge_failures"
+    __table_args__ = (
+        UniqueConstraint("attempt_id", name="uq_skill_pub_merge_failure_attempt"),
+        UniqueConstraint("claim_id", name="uq_skill_pub_merge_failure_claim"),
+        UniqueConstraint("failure_fingerprint", name="uq_skill_pub_merge_failure_digest"),
+        CheckConstraint(
+            "phase IN ('put_request','put_response','post_pr','post_commit',"
+            "'post_tree','receipt_persistence')",
+            name="ck_skill_pub_failure_phase",
+        ),
+        CheckConstraint(
+            "reason IN ('provider_exception','response_invalid','pr_mismatch',"
+            "'parent_mismatch','blob_mismatch','storage_failure','unclassified')",
+            name="ck_skill_pub_failure_reason",
+        ),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_failure_owner"),
+        CheckConstraint("automatic_retry_allowed=0", name="ck_skill_pub_failure_no_retry"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_failure_no_runtime"),
+        CheckConstraint(
+            "length(failure_fingerprint)=64", name="ck_skill_pub_failure_digest_length"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    attempt_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_merge_attempts.id"), unique=True
+    )
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    phase: Mapped[str] = mapped_column(String(32))
+    reason: Mapped[str] = mapped_column(String(32))
+    failure_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    automatic_retry_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class ReaOperatorTargetSelectionRecord(Base):
     """Operator-asserted inert target identity; NOT verified bytes or tool authority."""
 
