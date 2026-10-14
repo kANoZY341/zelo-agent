@@ -5,6 +5,8 @@ from dataclasses import asdict
 
 import pytest
 
+from app.policy import DomainError
+from app.schemas import ApiRunInput, BrowserRunInput, ComputerRunInput, ShellRunInput
 from app.v015_worker_release_inventory import worker_release_inventory
 
 EXPECTED_WORKERS = (
@@ -173,3 +175,33 @@ def test_actual_default_core_worker_registration_stays_inside_release_inventory(
     assert all(
         not item.release_qualified and not item.new_authority_granted for item in report.workers
     )
+
+
+@pytest.mark.parametrize(
+    ("task_input", "denial"),
+    (
+        (
+            ApiRunInput(kind="api_run", payload={"endpoint_id": "unapproved", "path": "/"}),
+            "api_endpoint_not_registered",
+        ),
+        (
+            BrowserRunInput(kind="browser_run", payload={"endpoint_id": "unapproved", "path": "/"}),
+            "no_eligible_worker",
+        ),
+        (
+            ShellRunInput(kind="shell_run", payload={"script": "printf 'unapproved'"}),
+            "no_eligible_worker",
+        ),
+        (
+            ComputerRunInput(kind="computer_run", payload={"action": "browser_snapshot"}),
+            "Computer worker requires Agent execution",
+        ),
+    ),
+)
+def test_default_unapproved_worker_task_refused_without_persistence(client, task_input, denial):
+    """Core's actual admission gate rejects unqualified actions before Task creation."""
+    service = client.app.state.tasks
+    before = service.list_tasks(limit=100, offset=0).total
+    with pytest.raises(DomainError, match=denial):
+        service.submit(task_input, None)
+    assert service.list_tasks(limit=100, offset=0).total == before
