@@ -4,7 +4,16 @@ This is an isolated in-process source regression, not live Worker qualification
 or an authorization to publish the v0.15 release.
 """
 
+from sqlalchemy import func, select
+
 from app.community_skill_catalog import community_skill_candidates
+from app.models import (
+    AgentComputerPermission,
+    AgentSpaceActivationRecord,
+    AgentSpaceIntentRecord,
+    Task,
+)
+from tests.test_agent_instances import create_instance, create_project
 
 
 def test_default_activations_are_only_bounded_trusted_agents_and_no_space_grants(client, settings):
@@ -57,3 +66,33 @@ def test_default_activations_are_only_bounded_trusted_agents_and_no_space_grants
     assert settings.v015_release_approved_main_sha is None
     assert settings.youtube_research_approved_spec_sha256 is None
     assert settings.youtube_company_approved_registry_sha256 is None
+
+
+def test_operator_created_default_agent_mints_no_space_computer_or_task_authority(client, database):
+    """Creating a normal AgentInstance must not manufacture a Space grant."""
+    project = create_project(client, "v0.15 default scope")
+    with database.read() as session:
+        prior_task_count = session.scalar(select(func.count()).select_from(Task)) or 0
+
+    instance = create_instance(client, project["id"], agent_id="research")
+    assert instance["status"] == "active"
+    assert instance["spec"]["space_permissions"] == []
+    assert instance["spec"]["computer"] is None
+    assert not instance["spec"]["allow_subagents"]
+    assert client.app.state.agent_registry.version == instance["registry_version"]
+
+    with database.read() as session:
+        for model in (
+            AgentComputerPermission,
+            AgentSpaceActivationRecord,
+            AgentSpaceIntentRecord,
+        ):
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(model)
+                    .where(model.agent_instance_id == instance["id"])
+                )
+                == 0
+            )
+        assert session.scalar(select(func.count()).select_from(Task)) == prior_task_count
