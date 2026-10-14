@@ -16,7 +16,7 @@ def proposal_case(database, settings):
 
 
 def test_claim_api_requires_real_operator_and_persists_one_inert_reservation(
-    database, client, proposal_case
+    proposal_case, database, client
 ):
     store, reviewed, _agent, _rev, _ref = accepted_case(database, proposal_case)
     client.app.state.skill_learning_store = store
@@ -56,7 +56,7 @@ def test_claim_api_requires_real_operator_and_persists_one_inert_reservation(
 
 
 def test_claim_preview_route_keeps_artifact_evidence_read_only(
-    database, client, proposal_case, tmp_path
+    proposal_case, database, client, tmp_path
 ):
     store, _agent, _intent, claim, _service, request = _qualified(database, proposal_case, tmp_path)
     client.app.state.skill_learning_store = store
@@ -77,7 +77,7 @@ def test_claim_preview_route_keeps_artifact_evidence_read_only(
 
 
 def test_unconfigured_live_github_routes_refuse_without_network(
-    database, client, proposal_case, tmp_path
+    proposal_case, database, client, tmp_path
 ):
     store, _agent, _intent, claim, _service, request = _qualified(database, proposal_case, tmp_path)
     client.app.state.skill_learning_store = store
@@ -99,7 +99,7 @@ def test_unconfigured_live_github_routes_refuse_without_network(
 
 
 def test_direct_owner_decision_endpoint_with_scripted_provider_but_no_put(
-    database, client, proposal_case, tmp_path, monkeypatch
+    proposal_case, database, client, tmp_path, monkeypatch
 ):
     from app import skill_publication_api
 

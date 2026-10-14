@@ -307,7 +307,7 @@ def test_learned_skill_projection_requires_complete_promotion_proof(updates):
 
 
 def test_ahmad_links_exact_successful_promotion_and_projection_stays_inert(
-    client, database, proposal_case
+    proposal_case, client, database
 ):
     base, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(base, agent, revision, ref)
@@ -912,7 +912,7 @@ def test_promotion_link_records_are_append_only(database, proposal_case):
         assert session.scalar(select(SkillLearningPromotionLinkRecord)).id == link.link_id
 
 
-def test_operator_api_refuses_preaccepted_competing_promoted_head(client, database, proposal_case):
+def test_operator_api_refuses_preaccepted_competing_promoted_head(proposal_case, client, database):
     base, agent, _task, _attempt, first_revision, ref = proposal_case
     first = accepted(base, agent, first_revision, ref)
     competing_revision = make_revision(
@@ -940,7 +940,7 @@ def test_operator_api_refuses_preaccepted_competing_promoted_head(client, databa
     assert store.get_promotion_link(competing.proposal.proposal_id) is None
 
 
-def test_operator_api_records_existing_merge_only(client, database, proposal_case):
+def test_operator_api_records_existing_merge_only(proposal_case, client, database):
     base, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(base, agent, revision, ref)
     store = promotion_store(database, base)
@@ -976,7 +976,7 @@ def test_operator_api_records_existing_merge_only(client, database, proposal_cas
 
 
 def test_operator_api_normalizes_unexpected_promotion_link_error(
-    client, database, proposal_case, monkeypatch
+    proposal_case, client, database, monkeypatch
 ):
     base, agent, _task, _attempt, revision, ref = proposal_case
     reviewed = accepted(base, agent, revision, ref)
