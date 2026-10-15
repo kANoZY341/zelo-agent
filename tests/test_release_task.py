@@ -315,3 +315,94 @@ def test_v015_changed_host_pin_invalidates_before_task_approval(database, tmp_pa
         service.decide(task.approvals[0].id, "approve")
     assert service.claim() is None
     assert runtime.calls == []
+
+
+@pytest.mark.parametrize("tag", ("v0.15.0", "v0.15.1-rc.1"))
+@pytest.mark.parametrize("revoked_pin", (None, "f" * 40))
+def test_v015_revoked_host_pin_refuses_retry_before_mutating_task(
+    database, tmp_path, tag, revoked_pin
+):
+    """An interrupted release cannot mint a new approval after scope revocation."""
+    from app.policy import DomainError
+
+    configured, merge_task_id, _, result = merge_source(database, tmp_path)
+    approved = configured.model_copy(
+        update={"v015_release_approved_main_sha": result.merge_commit_sha}
+    )
+    fake = FakeReleaseRuntime(
+        ReleaseRunResult(
+            repository=result.repository,
+            branch="main",
+            main_sha=result.merge_commit_sha,
+            tag=tag,
+            tag_object_sha="7" * 40,
+            annotated=True,
+            reused=False,
+        )
+    )
+    service = TaskService(database, approved, promotion_release_runtime=fake)
+    task, created = service.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": tag},
+        ),
+        None,
+    )
+    assert created is True
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+
+    before_task = service.get(task.id)
+    before_events = service.events(task.id, 100, 0)
+    assert before_task.status == State.INTERRUPTED
+    assert len(before_task.approvals) == 1
+
+    service.settings = configured.model_copy(update={"v015_release_approved_main_sha": revoked_pin})
+    with pytest.raises(DomainError, match="v015_release_scope_approval_required") as error:
+        service.retry(task.id)
+    assert error.value.status_code == 409
+
+    # Refuse before persistent retry events, new approvals or version increments.
+    assert service.get(task.id) == before_task
+    assert service.events(task.id, 100, 0) == before_events
+    assert fake.calls == []
+
+
+def test_v015_valid_host_pin_retry_still_requires_fresh_task_approval(database, tmp_path):
+    configured, merge_task_id, _, result = merge_source(database, tmp_path)
+    approved = configured.model_copy(
+        update={"v015_release_approved_main_sha": result.merge_commit_sha}
+    )
+    fake = FakeReleaseRuntime(
+        ReleaseRunResult(
+            repository=result.repository,
+            branch="main",
+            main_sha=result.merge_commit_sha,
+            tag="v0.15.0",
+            tag_object_sha="7" * 40,
+            annotated=True,
+            reused=False,
+        )
+    )
+    service = TaskService(database, approved, promotion_release_runtime=fake)
+    task, _ = service.submit(
+        ReleaseRunInput(
+            kind="release_run",
+            payload={"merge_task_id": merge_task_id, "tag": "v0.15.0"},
+        ),
+        None,
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+
+    retried = service.retry(task.id)
+    assert retried.status == State.AWAITING_APPROVAL
+    assert retried.action_version == task.action_version + 1
+    assert len(retried.approvals) == 2
+    assert retried.approvals[-1].status == "pending"
+    assert service.claim() is None
+    assert fake.calls == []
