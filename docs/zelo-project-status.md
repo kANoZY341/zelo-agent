@@ -1,16 +1,18 @@
 # Zelo live project status
 
-Latest priority decision: **12 October 2026**. Current audited source
-checkpoint (15 October 2026): remote `main`
-`0843c2e650bee9c2ec015f59848d2953044a580a` (merged PR #179).
-Exact-head PR CI 38720548868 **PASS** (6,192 passed, 2 skipped);
-post-merge main CI 38729826780 is **IN PROGRESS**, not a verified pass.
-The preceding PR #178 main CI 38645355316 **PASS** (6,186 passed, 2 skipped).
-Historical PR #176 main CI 38623351365 and PR #179 first exact-head CI
-38645851713 **FAILED**; their failure receipts remain recorded, with
-subsequent corrective commits reviewed and requalified. These code/CI
-results do **not** certify v0.15 runtime, Worker, Space, Media or operator
-release readiness.
+Latest priority decision: **12 October 2026**. Verified 15 October Core
+`main` checkpoint: `a603a136623778abe30f98bb4bf74d932c2441a7`
+(merged [PR #183](https://github.com/kANoZY341/zelo-agent/pull/183),
+revoked release-SHA retry protection). PR #183's
+[exact-head CI 38751369757](https://github.com/kANoZY341/zelo-agent/actions/runs/38751369757)
+**PASS** (6,220 passed, 2 skipped; Ruff/diff PASS), after predecessor
+[post-#182 main CI 38750520588](https://github.com/kANoZY341/zelo-agent/actions/runs/38750520588)
+**PASS**. New
+[post-#183 main CI 38761948344](https://github.com/kANoZY341/zelo-agent/actions/runs/38761948344)
+is **IN PROGRESS, not a PASS** at this checkpoint.
+Historical failed #176 main and initial #179 exact-head receipts remain
+failures, with subsequent corrective green runs kept separate. No code/CI
+result constitutes v0.15 release qualification.
 
 This file records implementation and qualifications, while the canonical
 architecture and roadmap remain in `docs/zelo-canonical-architecture-roadmap.md`.

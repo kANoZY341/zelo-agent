@@ -11,16 +11,21 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 
-**15 October evidence checkpoint:** Core `main` reached
-`0843c2e650bee9c2ec015f59848d2953044a580a` after merged PR #179.
-Its exact-head PR CI 38720548868 **PASS** (6,192 passed, 2 skipped),
-while distinct post-merge main CI 38729826780 is **IN PROGRESS**.
-The earlier PR #179 full run failed on audit presentation ordering and a
-synthetic learning-evidence fixture; bounded corrective commits passed their
-revised run, but the original failed receipt remains recorded. Earlier
-PR #176 CI failure remains historical evidence as well. No green code run
-by itself qualifies v0.15. Native Media qualification, expanded Space
-permissions and external learned-Skill publishing remain blocked.
+**15 October evidence checkpoint:** `main` reached
+`a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
+release-retry SHA revocation fix. Its
+[exact-head CI 38751369757](https://github.com/kANoZY341/zelo-agent/actions/runs/38751369757)
+**PASS** (6,220 passed, 2 skipped) and predecessor
+[post-#182 main CI 38750520588](https://github.com/kANoZY341/zelo-agent/actions/runs/38750520588)
+**PASS**, while distinct
+[post-#183 main CI 38761948344](https://github.com/kANoZY341/zelo-agent/actions/runs/38761948344)
+is **IN PROGRESS, not a PASS**. R1 cross-Space negative Runner tests are
+local-only, not general Space permission admission. The four terminal
+Media native-reader refusals, private-repo GitHub protection API 403,
+missing full live Worker qualifications, final independent release audit
+and Managing Director scope decision remain open. Earlier failed CI
+receipts stay historical failures; later green CI cannot retroactively
+reclassify them. v0.15 remains release HOLD.
 
 This document is the repository-facing roadmap summary.
 
