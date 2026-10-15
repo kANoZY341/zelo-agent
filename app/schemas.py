@@ -195,7 +195,7 @@ class BrowserRunInput(TaskInput):
 
 class ComputerPayload(StrictModel):
     action: ComputerAction
-    # Exact Core-approved Space confirmation; only files_read may set this.
+    # Exact Core-approved Space confirmation; only read-only file operations may set this.
     space_activation_id: str | None = Field(
         default=None,
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -210,7 +210,7 @@ class ComputerPayload(StrictModel):
 
     @model_validator(mode="after")
     def _validate_path(self):
-        if self.space_activation_id is not None and self.action != "files_read":
+        if self.space_activation_id is not None and self.action not in ("files_read", "files_list"):
             raise ValueError("computer_space_activation_files_read_only")
         if self.action == "browser_navigate":
             if self.endpoint_id is None:

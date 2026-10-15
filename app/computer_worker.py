@@ -158,7 +158,7 @@ class ComputerRuntime:
         profile = agent_execution.spec.computer
         if profile is None:
             raise ComputerRuntimeError("computer_profile_unavailable")
-        if space_activation_id is not None and action != "files_read":
+        if space_activation_id is not None and action not in ("files_read", "files_list"):
             raise ComputerRuntimeError("computer_space_activation_action_denied")
         required_permission = self._required_permission(action)
         required_capability = self._required_capability(action)

@@ -52,7 +52,7 @@ class ComputerExecutionSpec(ComputerContract):
     @model_validator(mode="after")
     def _validate_action_path(self):
         path = self.path
-        if self.space_activation_id is not None and self.action != "files_read":
+        if self.space_activation_id is not None and self.action not in ("files_read", "files_list"):
             raise ValueError("computer_space_activation_files_read_only")
         if self.action == "browser_navigate":
             if self.schema_version != "zelo-computer-execution-v2":

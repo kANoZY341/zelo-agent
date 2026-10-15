@@ -20,6 +20,7 @@ from app.promotion_release import PromotionReleaseRuntime
 from app.python_worker import PythonRuntime, PythonRuntimeError
 from app.research import ResearchRuntime, ResearchRuntimeError
 from app.schemas import (
+    ComputerFilesListResult,
     ComputerFilesReadResult,
     ComputerRunResult,
     SkillLearningProposalPayload,
@@ -671,22 +672,46 @@ class Runner:
 
         space_activation_id = execution.computer_request.space_activation_id
         if space_activation_id is not None:
+            action = execution.payload.get("action")
             if (
                 self.space_file_gateway is None
                 or execution.payload.get("space_activation_id") != space_activation_id
-                or execution.payload.get("action") != "files_read"
+                or action not in ("files_read", "files_list")
             ):
                 raise ComputerRuntimeError("computer_space_gateway_unavailable")
             try:
-                file = await self.space_file_gateway.read(
-                    execution=execution,
-                    activation_id=space_activation_id,
-                    relative_path=execution.payload.get("path", ""),
-                )
+                if action == "files_list":
+                    listing = await self.space_file_gateway.list(
+                        execution=execution,
+                        activation_id=space_activation_id,
+                        relative_path=execution.payload.get("path", ""),
+                    )
+                else:
+                    file = await self.space_file_gateway.read(
+                        execution=execution,
+                        activation_id=space_activation_id,
+                        relative_path=execution.payload.get("path", ""),
+                    )
             except DomainError:
                 # Only a stable, bounded denial is recorded on Task history.
-                # Raw source path and local filesystem errors remain private.
-                raise ComputerRuntimeError("computer_space_read_denied") from None
+                # Raw source paths and local filesystem errors remain private.
+                code = (
+                    "computer_space_list_denied"
+                    if action == "files_list"
+                    else "computer_space_read_denied"
+                )
+                raise ComputerRuntimeError(code) from None
+            if action == "files_list":
+                return ComputerRunResult(
+                    action="files_list",
+                    agent_instance_id=listing.agent_instance_id,
+                    files_list=ComputerFilesListResult(
+                        path=listing.relative_path,
+                        entries=list(listing.entries),
+                        truncated=listing.truncated,
+                    ),
+                    completed_at=utcnow(),
+                ).model_dump(mode="json")
             bounded_text = file.text[:64000]
             return ComputerRunResult(
                 action="files_read",

@@ -59,6 +59,35 @@ def test_active_approved_file_route_is_read_only_and_metadata_only(database, set
     assert before == _counts(database)
 
 
+def test_specialist_space_view_reports_list_only_permission_without_implying_read(
+    database, settings
+):
+    env = _fixture(database, settings)
+    intent = env["intents"].create(
+        instance_id=env["instance"].id,
+        space_id="workroom",
+        resource_kind="files",
+        resource_id="documents",
+        operations=("list",),
+        ttl_seconds=600,
+    )
+    listing = env["resources"].activate(
+        instance_id=env["instance"].id,
+        intent_id=intent.id,
+        resource_record_id=env["resource"].id,
+    )
+    status = _view(database, settings, env)
+    list_route = next(route for route in status.routes if route.activation_id == listing.id)
+    read_route = next(
+        route for route in status.routes if route.activation_id == env["activation"].id
+    )
+    assert list_route.eligible_operation == "list"
+    assert list_route.declared_operations == ("list",)
+    assert list_route.eligible_for_scoped_file_task
+    assert read_route.eligible_operation == "read"
+    assert read_route.declared_operations == ("read",)
+
+
 def _counts(database):
     with database.read() as session:
         return tuple(

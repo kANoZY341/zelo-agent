@@ -2,6 +2,17 @@
 
 ## Status
 
+**16 October scope affirmation:** v0.15 must fulfill the full originally
+approved operational capability ecosystem; the reduced Core-only foundation
+release is **not approved**. Inert third-party code and unqualified Workers
+remain blockers, not completed deliverables. The active R1 implementation
+extends owner-confirmed Space file resources from a single bounded read to
+independently granted, Task-bound, bounded directory listing with real
+execution and audit. This is a feature candidate, not a declaration that
+general Space permissions or the v0.15 release are complete. No new
+native Media reader proof attempt is authorized.
+
+
 **Active engineering priority (12 October 2026): complete and qualify
 v0.15 before promoting additional v0.16/v0.17/v0.18 or UI features.**
 See `docs/v0.15-release-closeout.md` and [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166)

@@ -1,4 +1,4 @@
-"""Task-bound, bounded, read-only Space file access through trusted Core.
+"""Task-bound, bounded, read-only Space file operations through trusted Core.
 
 A Space activation alone is never enough. This gateway has no HTTP route and
 is not registered as a Worker/Tool; it only accepts an already claimed Core
@@ -48,9 +48,23 @@ from app.tasks import Execution
 
 MAX_SPACE_TEXT_BYTES = 65536
 MAX_SPACE_FILE_PARTS = 4
+MAX_SPACE_LIST_ENTRIES = 128
 _MAX_PATH_LENGTH = 255
 _PART = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}\Z")
 _ALLOWED_SUFFIXES = frozenset({".txt", ".md", ".json", ".csv", ".log"})
+
+
+@dataclass(frozen=True, slots=True)
+class SpaceFileListResult:
+    task_id: str
+    attempt_id: str
+    agent_instance_id: str
+    activation_id: str
+    resource_record_id: str
+    relative_path: str
+    entries: tuple[dict[str, str | int | None], ...]
+    truncated: bool = False
+    model_context_admitted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +94,20 @@ def _path_components(value: str) -> tuple[str, ...]:
     return tuple(parts)
 
 
+def _directory_components(value: str) -> tuple[str, ...]:
+    """Canonical relative directory; the empty string names the attested root."""
+    if type(value) is not str or len(value) > _MAX_PATH_LENGTH:
+        raise DomainError("Space directory path is not canonical", 422)
+    if not value:
+        return ()
+    parts = value.split("/")
+    if len(parts) > MAX_SPACE_FILE_PARTS - 1 or any(
+        not _PART.fullmatch(part) or part.endswith(".") for part in parts
+    ):
+        raise DomainError("Space directory path is not canonical", 422)
+    return tuple(parts)
+
+
 def _stamp(info: os.stat_result) -> tuple[int, ...]:
     return (
         info.st_dev,
@@ -91,6 +119,98 @@ def _stamp(info: os.stat_result) -> tuple[int, ...]:
         info.st_mtime_ns,
         info.st_ctime_ns,
     )
+
+
+def _list_bounded_entries(
+    runtime_dir: Path,
+    *,
+    project_id: str,
+    space_id: str,
+    resource_id: str,
+    device: int,
+    inode: int,
+    relative_parts: tuple[str, ...],
+) -> tuple[dict[str, str | int | None], ...]:
+    """Enumerate only safe file metadata using pinned directory descriptors."""
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    opened: list[int] = []
+    children: list[tuple[int, str, int]] = []
+    try:
+        if not runtime_dir.is_absolute() or runtime_dir.resolve(strict=True) != runtime_dir:
+            raise OSError("runtime_alias")
+        parent_fd = os.open(runtime_dir, directory_flags)
+        opened.append(parent_fd)
+        for index, part in enumerate(
+            ("spaces", project_id, space_id, resource_id, *relative_parts)
+        ):
+            ancestor_fd = parent_fd
+            parent_fd = os.open(part, directory_flags, dir_fd=ancestor_fd)
+            opened.append(parent_fd)
+            children.append((ancestor_fd, part, parent_fd))
+            info = os.fstat(parent_fd)
+            if (
+                not stat.S_ISDIR(info.st_mode)
+                or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) & 0o022
+            ):
+                raise OSError("directory_not_private")
+            if index == 3 and (info.st_dev != device or info.st_ino != inode):
+                raise OSError("registered_resource_root_changed")
+
+        initial = os.fstat(parent_fd)
+        names: list[dict[str, str | int | None]] = []
+        # Fail closed instead of partially exposing a directory with unbounded
+        # enumeration. Raw entries include untrusted, hidden and unsafe names.
+        with os.scandir(parent_fd) as iterator:
+            for count, entry in enumerate(iterator, start=1):
+                if count > MAX_SPACE_LIST_ENTRIES:
+                    raise OSError("directory_entry_limit")
+                name = entry.name
+                path_parts = (*relative_parts, name)
+                if (
+                    not _PART.fullmatch(name)
+                    or name.endswith(".")
+                    or len("/".join(path_parts)) > _MAX_PATH_LENGTH
+                ):
+                    continue
+                before = entry.stat(follow_symlinks=False)
+                if before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) & 0o022:
+                    continue
+                if stat.S_ISDIR(before.st_mode):
+                    if len(path_parts) >= MAX_SPACE_FILE_PARTS:
+                        continue
+                    kind = "folder"
+                    size = None
+                elif (
+                    stat.S_ISREG(before.st_mode)
+                    and Path(name).suffix.lower() in _ALLOWED_SUFFIXES
+                    and before.st_nlink == 1
+                    and before.st_size <= MAX_SPACE_TEXT_BYTES
+                ):
+                    kind = "file"
+                    size = before.st_size
+                else:
+                    continue
+                after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                if _stamp(before) != _stamp(after):
+                    raise OSError("listed_file_changed")
+                names.append({"path": "/".join(path_parts), "kind": kind, "bytes": size})
+        if _stamp(initial) != _stamp(os.fstat(parent_fd)):
+            raise OSError("listed_directory_changed")
+        for ancestor_fd, name, child_fd in children:
+            visible = os.stat(name, dir_fd=ancestor_fd, follow_symlinks=False)
+            referenced = os.fstat(child_fd)
+            if not stat.S_ISDIR(visible.st_mode) or (
+                visible.st_dev,
+                visible.st_ino,
+            ) != (referenced.st_dev, referenced.st_ino):
+                raise OSError("space_directory_alias_changed")
+        return tuple(sorted(names, key=lambda item: str(item["path"])))
+    except (OSError, ValueError):
+        raise DomainError("Space directory listing unavailable or unsafe", 409) from None
+    finally:
+        for fd in reversed(opened):
+            os.close(fd)
 
 
 def _open_bounded_utf8(
@@ -176,7 +296,7 @@ def _open_bounded_utf8(
 
 
 class SpaceFileReadGateway:
-    """Exact running-task authority + live activation + atomic bounded file read."""
+    """Exact running-task authority + live activation + bounded file operations."""
 
     def __init__(
         self,
@@ -191,7 +311,9 @@ class SpaceFileReadGateway:
         self.computer = computer
         self.resources = AgentSpaceResourceService(store, factory, runtime_dir)
 
-    def _verify_execution(self, session, execution: Execution, relative_path: str):
+    def _verify_execution(
+        self, session, execution: Execution, relative_path: str, *, action: str = "files_read"
+    ):
         if (
             not isinstance(execution, Execution)
             or execution.kind != "computer_run"
@@ -232,11 +354,11 @@ class SpaceFileReadGateway:
             or computer.agent_instance_id != agent.agent_instance_id
             or computer.space_activation_id is None
             or computer.space_activation_id != execution.payload.get("space_activation_id")
-            or computer.action != "files_read"
+            or computer.action != action
             or computer.path != relative_path
             or computer.timeout_seconds != task.timeout_seconds
             or tuple(computer.worker_selection.requested_capabilities) != ("computer_read",)
-            or task.payload.get("action") != "files_read"
+            or task.payload.get("action") != action
             or task.payload.get("path") != relative_path
             or execution.payload != task.payload
             or execution.timeout_seconds != task.timeout_seconds
@@ -283,7 +405,9 @@ class SpaceFileReadGateway:
             raise DomainError("Space read computer permission stale", 409)
         return agent, current_spec
 
-    def _verified_resource(self, session, *, instance_id: str, activation_id: str):
+    def _verified_resource(
+        self, session, *, instance_id: str, activation_id: str, operation: str = "read"
+    ):
         if type(activation_id) is not str or not _UUID.fullmatch(activation_id):
             raise DomainError("Space activation not found", 404)
         activation = session.get(AgentSpaceActivationRecord, activation_id)
@@ -320,8 +444,8 @@ class SpaceFileReadGateway:
             lifecycle is not None
             or not receipt.root_attested
             or receipt.retired
-            or "read" not in receipt.operations
-            or "read" not in intent_receipt.operations
+            or operation not in receipt.operations
+            or operation not in intent_receipt.operations
             or intent.agent_instance_id != instance_id
             or intent.agent_id != instance.agent_id
             or intent.agent_version != instance.agent_version
@@ -421,4 +545,78 @@ class SpaceFileReadGateway:
                 text=text,
                 bytes_read=size,
                 content_sha256=digest,
+            )
+
+    async def list(
+        self, *, execution: Execution, activation_id: str, relative_path: str
+    ) -> SpaceFileListResult:
+        parts = _directory_components(relative_path)
+        if (
+            execution.computer_request is None
+            or execution.computer_request.space_activation_id != activation_id
+        ):
+            raise DomainError("Space list activation not bound to Task action", 403)
+        with self.store.read() as session:
+            agent, _ = self._verify_execution(
+                session, execution, relative_path, action="files_list"
+            )
+        try:
+            async with asyncio.timeout(execution.timeout_seconds):
+                control = await self.computer.backend.control(agent.agent_instance_id)
+        except TimeoutError:
+            raise DomainError("Space computer control timed out", 504) from None
+        except ComputerBackendError:
+            raise DomainError("Space computer control unavailable", 503) from None
+        if (
+            control.holder == "human"
+            or control.requested
+            or control.transitioning
+            or control.resume_snapshot_required
+        ):
+            raise DomainError("Space computer human control active", 409)
+
+        # The exact use and audit remain in one Core SQLite serialized writer.
+        # No untrusted await or remote provider runs inside this transaction.
+        with self.store.transaction() as session:
+            agent, _ = self._verify_execution(
+                session, execution, relative_path, action="files_list"
+            )
+            resource = self._verified_resource(
+                session,
+                instance_id=agent.agent_instance_id,
+                activation_id=activation_id,
+                operation="list",
+            )
+            entries = _list_bounded_entries(
+                self.runtime_dir,
+                project_id=resource.project_id,
+                space_id=resource.space_id,
+                resource_id=resource.resource_id,
+                device=resource.root_device,
+                inode=resource.root_inode,
+                relative_parts=parts,
+            )
+            session.add(
+                AuditEvent(
+                    task_id=execution.task_id,
+                    attempt_id=execution.attempt_id,
+                    event="space_file_list_completed",
+                    details={
+                        "agent_instance_id": agent.agent_instance_id,
+                        "activation_id": activation_id,
+                        "resource_record_id": resource.id,
+                        "path_sha256": hashlib.sha256(relative_path.encode("utf-8")).hexdigest(),
+                        "entry_count": len(entries),
+                    },
+                    created_at=utcnow(),
+                )
+            )
+            return SpaceFileListResult(
+                task_id=execution.task_id,
+                attempt_id=execution.attempt_id,
+                agent_instance_id=agent.agent_instance_id,
+                activation_id=activation_id,
+                resource_record_id=resource.id,
+                relative_path=relative_path,
+                entries=entries,
             )
