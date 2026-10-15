@@ -31,6 +31,9 @@ async def run():
         raise RuntimeError("Qualification requires enabled Python assertions")
     if any(key.startswith("ZELO_") for key in os.environ):
         raise RuntimeError("Qualification requires a sanitized environment (no ZELO_* values)")
+    # Ignored worktree directories need not exist in a fresh checkout.
+    (ROOT / "runtime").mkdir(parents=True, exist_ok=True, mode=0o700)
+    (ROOT / "workspaces").mkdir(parents=True, exist_ok=True, mode=0o700)
     with tempfile.TemporaryDirectory(prefix="r3-runtime-", dir=ROOT / "runtime") as rt:
         with tempfile.TemporaryDirectory(prefix="r3-workspaces-", dir=ROOT / "workspaces") as ws:
             token = secrets.token_urlsafe(40)
