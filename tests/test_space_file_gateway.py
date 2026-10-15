@@ -17,8 +17,9 @@ from app.agent_space_resources import AgentSpaceResourceService
 from app.computer_worker import ComputerRuntime
 from app.memory import MemoryService
 from app.models import AgentComputerPermission, AuditEvent, Project, utcnow
-from app.policy import DomainError
+from app.policy import DomainError, State
 from app.projects import ProjectService
+from app.runner import Runner
 from app.schemas import (
     AgentInstanceCreate,
     AgentInstanceTransition,
@@ -32,8 +33,15 @@ from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_compu
 from tests.test_computer_worker import FakeReadBackend, computer_agent_spec
 
 
-def _fixture(database, settings, *, path="notes.txt", root_resource="documents"):
-    spec = computer_agent_spec().model_copy(update={"space_permissions": ("workroom",)})
+def _fixture(
+    database,
+    settings,
+    *,
+    path="notes.txt",
+    root_resource="documents",
+    space_permissions=("workroom",),
+):
+    spec = computer_agent_spec().model_copy(update={"space_permissions": space_permissions})
     factory = AgentFactory(AgentRegistry([spec]))
     backend = FakeReadBackend()
     computer = ComputerRuntime(database, backend)
@@ -152,6 +160,78 @@ def test_claimed_current_task_reads_only_attested_utf8_file_and_audits_no_conten
         assert reads[0].details["bytes"] == len(content)
         assert "text" not in reads[0].details
         assert "notes.txt" not in str(reads[0].details)
+
+
+def test_distinct_valid_space_activation_cannot_retarget_claimed_task(database, settings):
+    """Same AgentInstance's different Space grant cannot substitute for Task-bound grant."""
+    env = _fixture(database, settings, space_permissions=("vault", "workroom"))
+    (env["root"] / "notes.txt").write_text("workroom-only")
+
+    vault_root = settings.runtime_dir / "spaces" / env["project"].id / "vault" / "documents"
+    vault_root.mkdir(parents=True)
+    (vault_root / "notes.txt").write_text("vault-only")
+    vault_resource = env["resources"].register(
+        instance_id=env["instance"].id,
+        space_id="vault",
+        resource_id="documents",
+        operations=("list", "read"),
+    )
+    vault_intent = env["intents"].create(
+        instance_id=env["instance"].id,
+        space_id="vault",
+        resource_kind="files",
+        resource_id="documents",
+        operations=("read",),
+        ttl_seconds=600,
+    )
+    vault_activation = env["resources"].activate(
+        instance_id=env["instance"].id,
+        intent_id=vault_intent.id,
+        resource_record_id=vault_resource.id,
+    )
+    assert vault_activation.id != env["activation"].id
+
+    claimed = _claim(env)
+    assert _read(env, claimed).text == "workroom-only"
+    with pytest.raises(DomainError, match="activation not bound to Task action"):
+        _read(env, claimed, activation_id=vault_activation.id)
+    assert all(action == "control" for action, _, _ in env["backend"].calls)
+    with database.read() as session:
+        events = session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == claimed.task_id,
+                AuditEvent.event == "space_file_read_completed",
+            )
+        ).all()
+    assert len(events) == 1
+
+    # The second Space is independently usable only with its own claimed Task.
+    runner = Runner(
+        env["tasks"], computer_supervisor=env["supervisor"], space_file_gateway=env["gateway"]
+    )
+    asyncio.run(runner._run(claimed))
+    assert env["tasks"].get(claimed.task_id).status == State.SUCCEEDED
+    env["agent_submit"].submit(
+        env["instance"].id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run",
+                payload={
+                    "action": "files_read",
+                    "path": "notes.txt",
+                    "space_activation_id": vault_activation.id,
+                },
+            ),
+        ),
+        None,
+    )
+    vault_execution = env["tasks"].claim()
+    assert vault_execution is not None
+    asyncio.run(runner._run(vault_execution))
+    vault_task = env["tasks"].get(vault_execution.task_id)
+    assert vault_task.status == State.SUCCEEDED
+    assert vault_task.result["files_read"]["text"] == "vault-only"
+    assert all(action == "control" for action, _, _ in env["backend"].calls)
 
 
 def test_missing_revoked_or_retired_confirmation_never_opens_a_file(
