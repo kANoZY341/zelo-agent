@@ -127,11 +127,14 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
                 "allow_force_pushes": {"enabled": False},
                 "allow_deletions": {"enabled": False},
                 "required_pull_request_reviews": {
+                    "required_approving_review_count": 1,
+                    "dismiss_stale_reviews": True,
+                    "require_last_push_approval": True,
                     "bypass_pull_request_allowances": {
                         "users": [],
                         "teams": [],
                         "apps": [],
-                    }
+                    },
                 },
             },
         )
@@ -585,6 +588,27 @@ def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
         "force_pushes",
         "deletions",
         "explicit_bypass",
+        "review_policy_absent",
+        "review_policy_null",
+        "review_policy_malformed",
+        "approval_count_missing",
+        "approval_count_null",
+        "zero_required_approvals",
+        "negative_required_approvals",
+        "too_many_required_approvals",
+        "noninteger_required_approvals",
+        "string_required_approvals",
+        "stale_reviews_allowed",
+        "stale_reviews_missing",
+        "stale_reviews_type_confusion",
+        "last_push_approval_optional",
+        "last_push_approval_missing",
+        "last_push_approval_type_confusion",
+        "review_bypass_missing",
+        "review_bypass_null",
+        "review_bypass_users_missing",
+        "review_bypass_teams",
+        "review_bypass_apps",
         "missing_policy",
         "empty_required_checks",
     ),
@@ -615,6 +639,52 @@ def test_unsafe_main_branch_protection_refuses_before_external_merge(
     elif mutation == "explicit_bypass":
         policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]["users"] = [
             {"login": "any"}
+        ]
+    elif mutation == "review_policy_absent":
+        del policy["required_pull_request_reviews"]
+    elif mutation == "review_policy_null":
+        policy["required_pull_request_reviews"] = None
+    elif mutation == "review_policy_malformed":
+        policy["required_pull_request_reviews"] = []
+    elif mutation == "approval_count_missing":
+        del policy["required_pull_request_reviews"]["required_approving_review_count"]
+    elif mutation == "approval_count_null":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = None
+    elif mutation == "zero_required_approvals":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = 0
+    elif mutation == "negative_required_approvals":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = -1
+    elif mutation == "too_many_required_approvals":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = 7
+    elif mutation == "noninteger_required_approvals":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = True
+    elif mutation == "string_required_approvals":
+        policy["required_pull_request_reviews"]["required_approving_review_count"] = "1"
+    elif mutation == "stale_reviews_allowed":
+        policy["required_pull_request_reviews"]["dismiss_stale_reviews"] = False
+    elif mutation == "stale_reviews_missing":
+        del policy["required_pull_request_reviews"]["dismiss_stale_reviews"]
+    elif mutation == "stale_reviews_type_confusion":
+        policy["required_pull_request_reviews"]["dismiss_stale_reviews"] = 1
+    elif mutation == "last_push_approval_optional":
+        policy["required_pull_request_reviews"]["require_last_push_approval"] = False
+    elif mutation == "last_push_approval_missing":
+        del policy["required_pull_request_reviews"]["require_last_push_approval"]
+    elif mutation == "last_push_approval_type_confusion":
+        policy["required_pull_request_reviews"]["require_last_push_approval"] = 1
+    elif mutation == "review_bypass_missing":
+        del policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]
+    elif mutation == "review_bypass_null":
+        policy["required_pull_request_reviews"]["bypass_pull_request_allowances"] = None
+    elif mutation == "review_bypass_users_missing":
+        del policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]["users"]
+    elif mutation == "review_bypass_teams":
+        policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]["teams"] = [
+            {"slug": "bypass"}
+        ]
+    elif mutation == "review_bypass_apps":
+        policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]["apps"] = [
+            {"slug": "bypass"}
         ]
     elif mutation == "missing_policy":
         transport.responses[12] = (row[0], row[1], {})
