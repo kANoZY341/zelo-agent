@@ -3013,6 +3013,18 @@ class TaskService:
             }
             target = State.AWAITING_APPROVAL if task.kind in approval_kinds else State.PENDING
             validate_transition(task.status, target)
+            if task.kind == "release_run":
+                # A revoked milestone scope must refuse before creating another
+                # pending approval or incrementing the immutable action version.
+                # Approval/claim/side-effect checks remain independent fences.
+                try:
+                    release = ReleaseRequest.model_validate(task.release_spec)
+                except (TypeError, ValueError):
+                    raise DomainError("Release Task identity is invalid", 409) from None
+                try:
+                    require_v015_release_scope(release.tag, release.main_sha, self.settings)
+                except ValueError:
+                    raise DomainError("v015_release_scope_approval_required", 409) from None
             self._check_capacity(session)
             audit(session, task, "retry_requested")
             task.capacity_backoff_attempts = 0
