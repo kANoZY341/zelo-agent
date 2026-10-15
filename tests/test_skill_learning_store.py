@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import json
 from copy import deepcopy
+from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -83,6 +85,13 @@ def proposal_case(database, settings):
     assert created is True
     claimed = tasks.claim()
     assert claimed is not None and claimed.task_id == task.id
+    # Synthetic accepted evidence must have a deterministic, trusted interval.
+    # Host wall-clock steps between claim/result/finish should not poison this
+    # fixture, and the production evidence window remains strictly checked.
+    with database.read() as session:
+        persisted_attempt = session.get(TaskAttempt, claimed.attempt_id)
+        assert persisted_attempt is not None
+        attempt_started_at = persisted_attempt.started_at
     result = ResearchRunResult(
         answer="One retained source supports the answer.",
         sources=[
@@ -99,9 +108,10 @@ def proposal_case(database, settings):
         model_steps=1,
         tool_calls=1,
         usage=[],
-        completed_at=utcnow(),
+        completed_at=attempt_started_at,
     ).model_dump(mode="json")
-    tasks.finish(claimed, State.SUCCEEDED, result)
+    with patch("app.tasks.utcnow", return_value=attempt_started_at + timedelta(seconds=1)):
+        tasks.finish(claimed, State.SUCCEEDED, result)
     records = CoreSkillLearningRecords(database, factory)
     source_id = task_attempt_source_id(task.id, claimed.attempt_id)
     evidence = records.evidence_snapshot("task_attempt", source_id)

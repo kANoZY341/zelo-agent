@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.orm import Session
 
 from app.agent_execution_contracts import (
@@ -2679,7 +2679,10 @@ class TaskService:
                 for event in session.scalars(
                     select(AuditEvent)
                     .where(AuditEvent.task_id == task_id)
-                    .order_by(AuditEvent.created_at, AuditEvent.id)
+                    # SQLite is the only configured backend. Audit rows are append-only;
+                    # wall-clock timestamps can tie or regress, and UUID4 IDs are
+                    # not insertion-ordered. Preserve actual database append order.
+                    .order_by(literal_column("audit_events.rowid"))
                     .limit(limit)
                     .offset(offset)
                 )

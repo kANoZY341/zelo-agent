@@ -1,11 +1,13 @@
 """Read-only skill-learning evidence against isolated migrated Core records."""
 
 from copy import deepcopy
+from datetime import timedelta
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
-from app.models import AgentInstance, Task, TaskAttempt, utcnow
+from app.models import AgentInstance, Task, TaskAttempt
 from app.policy import State
 from app.schemas import AgentInstanceCreate, AgentTaskCreate, ResearchRunInput, ResearchRunResult
 from app.skill_learning import SkillLearningEvidenceRef, verify_skill_evidence_refs
@@ -34,6 +36,10 @@ def successful_attempt(database, settings):
     assert created is True
     claimed = tasks.claim()
     assert claimed is not None and claimed.task_id == task.id
+    with database.read() as session:
+        persisted_attempt = session.get(TaskAttempt, claimed.attempt_id)
+        assert persisted_attempt is not None
+        attempt_started_at = persisted_attempt.started_at
     result = ResearchRunResult(
         answer="One retained source supports the answer.",
         sources=[
@@ -50,9 +56,10 @@ def successful_attempt(database, settings):
         model_steps=1,
         tool_calls=1,
         usage=[],
-        completed_at=utcnow(),
+        completed_at=attempt_started_at,
     ).model_dump(mode="json")
-    tasks.finish(claimed, State.SUCCEEDED, result)
+    with patch("app.tasks.utcnow", return_value=attempt_started_at + timedelta(seconds=1)):
+        tasks.finish(claimed, State.SUCCEEDED, result)
     records = CoreSkillLearningRecords(database, factory)
     source_id = task_attempt_source_id(task.id, claimed.attempt_id)
     snapshot = records.evidence_snapshot("task_attempt", source_id)
@@ -130,7 +137,16 @@ def test_result_content_change_invalidates_retained_ref(database, successful_att
 
 
 @pytest.mark.parametrize(
-    "change", ("failed_attempt", "result_mismatch", "invalid_result", "wrong_kind")
+    "change",
+    (
+        "failed_attempt",
+        "result_mismatch",
+        "invalid_result",
+        "wrong_kind",
+        "completed_before_start",
+        "completed_after_end",
+        "ended_before_start",
+    ),
 )
 def test_unaccepted_or_inconsistent_attempt_denies(database, successful_attempt, change):
     records, _instance, task, claimed, ref = successful_attempt
@@ -146,6 +162,17 @@ def test_unaccepted_or_inconsistent_attempt_denies(database, successful_attempt,
             stored_attempt.result = stored_task.result
         elif change == "wrong_kind":
             stored_task.kind = "api_run"
+        elif change in {"completed_before_start", "completed_after_end"}:
+            corrupted = deepcopy(stored_attempt.result)
+            if change == "completed_before_start":
+                completed = stored_attempt.started_at - timedelta(seconds=1)
+            else:
+                completed = stored_attempt.ended_at + timedelta(seconds=1)
+            corrupted["completed_at"] = completed.isoformat()
+            stored_task.result = corrupted
+            stored_attempt.result = corrupted
+        elif change == "ended_before_start":
+            stored_attempt.ended_at = stored_attempt.started_at - timedelta(seconds=1)
     assert records.evidence_snapshot(ref.kind, ref.source_id) is None
 
 
