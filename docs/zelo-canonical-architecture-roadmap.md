@@ -12,13 +12,15 @@ preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 
 **15 October evidence checkpoint:** Core `main` reached
-`436bb5003b7a9d131d35bf3553c61cee29cdf69a` after merged PR #177,
-with exact-main GitHub CI 38634182562 **PASS** (6,181 passed, 2 skipped).
-The preceding PR #176 main CI had **failed** on a reproduced Skill-learning
-fixture race and remains historical failed evidence; PR #177 corrected it.
-Neither a green CI run nor the conservative Worker inventory authorizes a
-v0.15 release. Media native qualification, expanded Space permissions and
-external learned-Skill publishing remain blocked pending their own gates.
+`0843c2e650bee9c2ec015f59848d2953044a580a` after merged PR #179.
+Its exact-head PR CI 38720548868 **PASS** (6,192 passed, 2 skipped),
+while distinct post-merge main CI 38729826780 is **IN PROGRESS**.
+The earlier PR #179 full run failed on audit presentation ordering and a
+synthetic learning-evidence fixture; bounded corrective commits passed their
+revised run, but the original failed receipt remains recorded. Earlier
+PR #176 CI failure remains historical evidence as well. No green code run
+by itself qualifies v0.15. Native Media qualification, expanded Space
+permissions and external learned-Skill publishing remain blocked.
 
 This document is the repository-facing roadmap summary.
 
