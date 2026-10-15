@@ -228,15 +228,25 @@ class SkillPublicationOneAttemptService:
                 or matches[0]["app_id"] != self.settings.promotion_ci_app_id
             ):
                 raise DeveloperError("skill_publication_main_protection_unqualified")
+        # Local approval and independently reviewed source evidence cannot
+        # replace provider-enforced PR review requirements at the merge gate.
+        # Stale reviews and last-pusher self-approval must not remain usable
+        # after the immutable, reviewed PR head was prepared.
         reviews = policy.get("required_pull_request_reviews")
-        if type(reviews) is dict:
-            bypass = reviews.get("bypass_pull_request_allowances")
-            if bypass is not None:
-                if type(bypass) is not dict or any(
-                    type(bypass.get(field)) is not list or bypass[field]
-                    for field in ("users", "teams", "apps")
-                ):
-                    raise DeveloperError("skill_publication_main_protection_unqualified")
+        if (
+            type(reviews) is not dict
+            or type(reviews.get("required_approving_review_count")) is not int
+            or not 1 <= reviews["required_approving_review_count"] <= 6
+            or reviews.get("dismiss_stale_reviews") is not True
+            or reviews.get("require_last_push_approval") is not True
+        ):
+            raise DeveloperError("skill_publication_main_protection_unqualified")
+        bypass = reviews.get("bypass_pull_request_allowances")
+        if type(bypass) is not dict or any(
+            type(bypass.get(field)) is not list or bypass[field]
+            for field in ("users", "teams", "apps")
+        ):
+            raise DeveloperError("skill_publication_main_protection_unqualified")
 
     def get_attempt(
         self, claim_id: str, principal: OperatorPrincipal
