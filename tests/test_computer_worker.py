@@ -23,6 +23,7 @@ from app.policy import DomainError, State
 from app.projects import ProjectService
 from app.runner import Runner
 from app.schemas import (
+    AgentComputerPermissionPatch,
     AgentInstanceCreate,
     AgentTaskCreate,
     ComputerRunInput,
@@ -34,6 +35,118 @@ from app.worker_registry import (
     WorkerRegistry,
     descriptor_for_computer_worker,
 )
+
+
+def _real_owner_fence_fixture(database, settings):
+    """Use persisted Core takeover events with a controlled backend."""
+    from tests.test_agent_computer_service import FakeBackend, setup_services
+
+    backend = FakeBackend()
+    backend.identity = "a" * 64
+    factory, _instances, computers, instance = setup_services(
+        database, backend=backend, spec=computer_agent_spec()
+    )
+    runtime = ComputerRuntime(database, backend)
+    supervisor = Supervisor(WorkerRegistry(((descriptor_for_computer_worker(), runtime),)))
+    tasks = TaskService(database, settings, agent_factory=factory, computer_supervisor=supervisor)
+    submits = AgentExecutionService(database, factory, tasks)
+    asyncio.run(
+        computers.patch_permissions(
+            instance.id, AgentComputerPermissionPatch(enabled=True, browser=True, files=True)
+        )
+    )
+    asyncio.run(computers.start(instance.id))
+    return backend, computers, tasks, submits, instance
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "browser_snapshot"},
+        {"action": "browser_read"},
+        {"action": "files_list"},
+        {"action": "files_read", "path": "notes.txt"},
+    ],
+)
+def test_owner_takeover_rejects_new_computer_task_before_recording(database, settings, payload):
+    backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    taken = asyncio.run(computers.take(instance.id))
+    assert taken.control is not None and taken.control.holder == "human"
+    calls_before = list(backend.calls)
+    with pytest.raises(DomainError, match="computer_human_control_active") as denied:
+        submits.submit(
+            instance.id,
+            AgentTaskCreate(task=ComputerRunInput(kind="computer_run", payload=payload)),
+            None,
+        )
+    assert denied.value.status_code == 409
+    assert tasks.list_tasks(limit=100, offset=0).total == 0
+    assert backend.calls == calls_before
+    released = asyncio.run(computers.release(instance.id))
+    assert released.control is not None and released.control.holder == "bot"
+    accepted, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(task=ComputerRunInput(kind="computer_run", payload=payload)),
+        None,
+    )
+    assert created and accepted.status == State.PENDING
+
+
+def test_ambiguous_owner_takeover_blocks_new_computer_task_until_handback(database, settings):
+    backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    backend.fail["take"] = "computer_http_503"
+    with pytest.raises(DomainError, match="computer_http_503"):
+        asyncio.run(computers.take(instance.id))
+    calls_before = list(backend.calls)
+    with pytest.raises(DomainError, match="computer_human_control_active") as denied:
+        submits.submit(
+            instance.id,
+            AgentTaskCreate(
+                task=ComputerRunInput(kind="computer_run", payload={"action": "browser_snapshot"})
+            ),
+            None,
+        )
+    assert denied.value.status_code == 409
+    assert tasks.list_tasks(limit=100, offset=0).total == 0
+    assert backend.calls == calls_before
+    backend.fail.pop("take")
+    released = asyncio.run(computers.release(instance.id))
+    assert released.control is not None and released.control.holder == "bot"
+    accepted, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(kind="computer_run", payload={"action": "browser_snapshot"})
+        ),
+        None,
+    )
+    assert created and accepted.status == State.PENDING
+
+
+def test_owner_takeover_rejects_computer_retry_without_rebinding(database, settings):
+    _backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    created, first = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(kind="computer_run", payload={"action": "files_list"})
+        ),
+        None,
+    )
+    assert first
+    cancelled = tasks.cancel(created.id)
+    assert cancelled.status == State.CANCELLED and cancelled.action_version == 1
+    asyncio.run(computers.take(instance.id))
+
+    with pytest.raises(DomainError, match="computer_human_control_active") as denied:
+        tasks.retry(created.id)
+    assert denied.value.status_code == 409
+    unchanged = tasks.get(created.id)
+    assert unchanged.status == State.CANCELLED
+    assert unchanged.action_version == 1
+    assert len(unchanged.attempts) == 0
+
+    asyncio.run(computers.release(instance.id))
+    retried = tasks.retry(created.id)
+    assert retried.status == State.PENDING and retried.action_version == 2
 
 
 class FakeReadBackend:
@@ -426,3 +539,135 @@ def test_computer_result_projection_excludes_private_content():
         },
     }
     assert "PRIVATE-COMPUTER-CONTENT" not in str(projection)
+
+
+def test_owner_takeover_cancels_queued_computer_before_attempt(database, settings):
+    backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    pending, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(kind="computer_run", payload={"action": "browser_snapshot"})
+        ),
+        None,
+    )
+    assert created and pending.status == State.PENDING
+    asyncio.run(computers.take(instance.id))
+    calls_before = list(backend.calls)
+
+    assert tasks.claim() is None
+    cancelled = tasks.get(pending.id)
+    assert cancelled.status == State.CANCELLED
+    assert cancelled.error == "computer_execution_spec_invalid"
+    assert cancelled.attempts == []
+    assert backend.calls == calls_before
+    names = [event.event for event in tasks.events(pending.id, 100, 0)]
+    assert "execution_denied" in names
+    assert "computer_read_started" not in names
+
+
+def test_failed_owner_handback_cannot_reopen_computer_admission(database, settings):
+    backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    asyncio.run(computers.take(instance.id))
+    backend.fail["release"] = "computer_http_503"
+    with pytest.raises(DomainError, match="computer_http_503"):
+        asyncio.run(computers.release(instance.id))
+    calls_before = list(backend.calls)
+    request = AgentTaskCreate(
+        task=ComputerRunInput(kind="computer_run", payload={"action": "files_list"})
+    )
+    with pytest.raises(DomainError, match="computer_human_control_active") as denied:
+        submits.submit(instance.id, request, None)
+    assert denied.value.status_code == 409
+    assert tasks.list_tasks(limit=100, offset=0).total == 0
+    assert backend.calls == calls_before
+
+    backend.fail.pop("release")
+    asyncio.run(computers.release(instance.id))
+    accepted, created = submits.submit(instance.id, request, None)
+    assert created and accepted.status == State.PENDING
+
+
+def test_other_agent_takeover_does_not_block_unrelated_computer_task(database, settings):
+    _backend, computers, _tasks, _submits, instance = _real_owner_fence_fixture(database, settings)
+    asyncio.run(computers.take(instance.id))
+    other_backend, _computers, tasks, submits, other = _real_owner_fence_fixture(database, settings)
+    assert other.id != instance.id
+    calls_before = list(other_backend.calls)
+    accepted, created = submits.submit(
+        other.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(kind="computer_run", payload={"action": "files_list"})
+        ),
+        None,
+    )
+    assert created and accepted.status == State.PENDING
+    assert accepted.computer_spec.agent_instance_id == other.id
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == accepted.id
+    assert other_backend.calls == calls_before
+
+
+@pytest.mark.parametrize("stage", ["ambiguous_before_run", "during_control", "during_read"])
+def test_core_takeover_fences_claimed_tasks_with_stale_backend_control(
+    database, settings, monkeypatch, stage
+):
+    backend, computers, tasks, submits, instance = _real_owner_fence_fixture(database, settings)
+    responses = FakeReadBackend().responses
+    read_calls = []
+    original_control = backend.control
+    takeover_injected = False
+
+    async def stale_control(instance_id):
+        nonlocal takeover_injected
+        captured = await original_control(instance_id)
+        if stage == "during_control" and not takeover_injected:
+            takeover_injected = True
+            # Core commits its owner barrier while this GET still holds the
+            # previously observed bot state. Do not mock the Core barrier.
+            await computers.take(instance_id)
+        return captured
+
+    async def read_action(instance_id, action, *, path=""):
+        read_calls.append((instance_id, action, path))
+        if stage == "during_read":
+            await computers.take(instance_id)
+        return responses[action]
+
+    monkeypatch.setattr(backend, "control", stale_control)
+    monkeypatch.setattr(backend, "read_action", read_action, raising=False)
+    pending, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run", payload={"action": "files_read", "path": "notes.txt"}
+            )
+        ),
+        None,
+    )
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == pending.id
+
+    async def exercise():
+        if stage == "ambiguous_before_run":
+            backend.fail["take"] = "computer_http_503"
+            with pytest.raises(DomainError, match="computer_http_503"):
+                await computers.take(instance.id)
+        await Runner(tasks, computer_supervisor=tasks.computer_supervisor)._run(claimed)
+
+    asyncio.run(exercise())
+    failed = tasks.get(pending.id)
+    assert failed.status == State.FAILED
+    # Core takeover rotates the bound permission version even when backend
+    # acknowledgement is ambiguous. The existing use-point identity check
+    # therefore refuses before dispatch, or withholds an in-flight result.
+    assert failed.error == "computer_execution_spec_stale"
+    assert failed.result is None
+    if stage == "during_read":
+        # The read began before takeover, but its late bytes must not publish.
+        assert read_calls == [(instance.id, "files_read", "notes.txt")]
+    else:
+        assert read_calls == []
+    names = [event.event for event in tasks.events(pending.id, 100, 0)]
+    assert "computer_read_completed" not in names
+    assert "computer_completed" not in names

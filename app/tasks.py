@@ -774,12 +774,25 @@ class TaskService:
         computer_spec: ComputerExecutionSpec,
         computer_worker: Any,
     ) -> None:
-        """Reject stale Space authority at submit/retry/claim, before Task work.
+        """Reject owner takeover and stale Space authority before Task work.
 
-        The gateway *also* rechecks at the exact file use-point. This check
-        never grants raw host access or bypasses normal Computer permissions.
+        The Computer runtime and Space gateway also recheck at the final
+        use-point; this validation never adds new Computer permissions.
         """
+        # The durable owner takeover fence applies to every Agent Computer
+        # action, not only the narrower Task-bound Space file gateway.
+        # Refuse before recording an Agent Task as well as at retry/claim;
+        # runtime control revalidation still protects out-of-band takeovers.
         activation_id = computer_spec.space_activation_id
+        if agent_execution is not None and human_takeover_unreleased(
+            session, agent_execution.agent_instance_id
+        ):
+            code = (
+                "computer_space_activation_invalid"
+                if activation_id is not None
+                else "computer_human_control_active"
+            )
+            raise DomainError(code, 409)
         if activation_id is None:
             return
         if (
@@ -798,11 +811,6 @@ class TaskService:
             _path_components,
         )
 
-        # A Core owner takeover is a durable pre-network event. Refuse new
-        # or retried Space Task admission even if its backend control GET is
-        # still showing the former bot state.
-        if human_takeover_unreleased(session, agent_execution.agent_instance_id):
-            raise DomainError("computer_space_activation_invalid", 409)
         try:
             if computer_spec.action == "files_list":
                 _directory_components(computer_spec.path)
@@ -3300,9 +3308,13 @@ class TaskService:
                         endpoint_id=task.payload.get("endpoint_id"),
                         space_activation_id=task.payload.get("space_activation_id"),
                     )
-                    self._check_space_approval(
-                        session, agent_execution, refreshed_computer, selected.worker
-                    )
+                    # The takeover/Space checks issue SELECTs. Keep the new
+                    # action version and its rebound Computer identity in one
+                    # eventual flush, preserving the DB immutability trigger.
+                    with session.no_autoflush:
+                        self._check_space_approval(
+                            session, agent_execution, refreshed_computer, selected.worker
+                        )
                 except DeveloperRuntimeError as error:
                     raise DomainError(error.args[0], 422) from None
                 except ComputerRuntimeError as error:

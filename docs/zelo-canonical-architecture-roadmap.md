@@ -2,15 +2,40 @@
 
 ## Status
 
+**16 October verified integration checkpoint:** `main` is
+`f2924f15652cf51a0876fa2dd62d8cafa89c200d` after merged PR #186. Its exact-head
+PR CI 38825281940 and distinct [post-merge main CI 38872713784](https://github.com/kANoZY341/zelo-agent/actions/runs/38872713784)
+are **PASS**. PR #184 cross-Space isolation and PR #185 isolated Python
+HTTP qualification are also merged. The bounded owner-confirmed Space
+`files_list` route is implemented on main; generalized Space rights are not.
+
+**Current local Computer correction (not merged):**
+`fix/v0.15-computer-human-admission` now checks the durable owner takeover
+barrier before generic Computer Task submission, retry and claim, not only
+for Space-bound file Tasks. A retry keeps its new action version and rebound
+Computer identity in one database flush; the existing immutable-identity
+trigger is unchanged. The seven-module Computer/Space suite passed
+**144 tests, 3 warnings**, with no failures. A separate real pinned
+OpenBot/Chromium, disposable-database proof passed Core snapshot/file-list
+Tasks, authenticated operator control, early takeover denial, workspace
+persistence across container recreation and owned-resource cleanup. This is
+an isolated host proof, not a production deployment, generalized Computer
+permission, or complete R1/R3 qualification. Independent review, this
+candidate's full exact-head CI and post-merge main CI remain required.
+
+The full operational v0.15 scope remains **HOLD**; the four exhausted Media
+proof attempts, private-provider Skill publication blocker, remaining Worker
+and integration qualifications, final audit and operator release decision
+are not waived.
+
 **16 October scope affirmation:** v0.15 must fulfill the full originally
 approved operational capability ecosystem; the reduced Core-only foundation
 release is **not approved**. Inert third-party code and unqualified Workers
-remain blockers, not completed deliverables. The active R1 implementation
-extends owner-confirmed Space file resources from a single bounded read to
-independently granted, Task-bound, bounded directory listing with real
-execution and audit. This is a feature candidate, not a declaration that
-general Space permissions or the v0.15 release are complete. No new
-native Media reader proof attempt is authorized.
+remain blockers, not completed deliverables. Merged PR #186 extends
+owner-confirmed Space file resources from a single bounded read to
+independently granted, Task-bound, bounded directory listing with execution
+and audit. This does not complete general Space permissions or the v0.15
+release. No new native Media reader proof attempt is authorized.
 
 
 **Active engineering priority (12 October 2026): complete and qualify
@@ -22,7 +47,7 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 
-**15 October evidence checkpoint:** `main` reached
+**Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
 release-retry SHA revocation fix. Its
 [exact-head CI 38751369757](https://github.com/kANoZY341/zelo-agent/actions/runs/38751369757)
