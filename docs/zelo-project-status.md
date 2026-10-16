@@ -7,16 +7,33 @@ must be operationally qualified before v0.15 can ship. No disabled foundation
 counts as complete. The four consumed native Media reader proof attempts still
 cannot be reset or extended without separate explicit authorization.
 
-**Current R1 feature candidate (not yet merged):** the bounded Core Space
-`files_list` action is being connected through actual immutable Computer Task
-claim, owner-approved operation-specific intent, descriptor-relative listing,
-Task result and audit. The isolated Space/Computer regression group passed
-118 tests and 2 warnings, but no real installed Computer backend proof, final
-source merge or post-merge CI exists for this candidate. This does not close
-general Space, Browser, Terminal, Memory, write or delegation authority.
+**16 October verified integration checkpoint:** `main` is
+`f2924f15652cf51a0876fa2dd62d8cafa89c200d` after merged PR #186. Its exact-head
+PR CI 38825281940 and distinct [post-merge main CI 38872713784](https://github.com/kANoZY341/zelo-agent/actions/runs/38872713784)
+are **PASS**. PR #184 cross-Space isolation and PR #185 isolated Python
+HTTP qualification are also merged. The bounded owner-confirmed Space
+`files_list` route is implemented on main; generalized Space rights are not.
 
+**Current local Computer correction (not merged):**
+`fix/v0.15-computer-human-admission` now checks the durable owner takeover
+barrier before generic Computer Task submission, retry and claim, not only
+for Space-bound file Tasks. A retry keeps its new action version and rebound
+Computer identity in one database flush; the existing immutable-identity
+trigger is unchanged. The seven-module Computer/Space suite passed
+**144 tests, 3 warnings**, with no failures. A separate real pinned
+OpenBot/Chromium, disposable-database proof passed Core snapshot/file-list
+Tasks, authenticated operator control, early takeover denial, workspace
+persistence across container recreation and owned-resource cleanup. This is
+an isolated host proof, not a production deployment, generalized Computer
+permission, or complete R1/R3 qualification. Independent review, this
+candidate's full exact-head CI and post-merge main CI remain required.
 
-Latest priority decision: **12 October 2026**. Verified 15 October Core
+The full operational v0.15 scope remains **HOLD**; the four exhausted Media
+proof attempts, private-provider Skill publication blocker, remaining Worker
+and integration qualifications, final audit and operator release decision
+are not waived.
+
+Latest priority decision: **12 October 2026**. Historical 15 October Core
 `main` checkpoint: `a603a136623778abe30f98bb4bf74d932c2441a7`
 (merged [PR #183](https://github.com/kANoZY341/zelo-agent/pull/183),
 revoked release-SHA retry protection). PR #183's
