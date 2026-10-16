@@ -1,5 +1,30 @@
 # Zelo live project status
 
+**17 October resumed Space owner-provisioning candidate:** main is now
+`1ad0e819d9988b44bb52083f42ae76db93b43d6e` after merged #188, and its distinct
+post-merge CI **38926255055 is PASS**. Zelo remote access is restored. The
+interrupted six-module local result was recovered: **107 passed, 3 warnings**.
+The ten saved edited files were preserved byte-for-byte while integrating main.
+
+The authenticated owner can create a new private, bounded text resource through
+the normal Space API, then use separate confirmation and ordinary read/list
+Tasks. See [Space owner provisioning](v0.15-space-owner-provisioning.md).
+An initial real loopback HTTP/native Computer proof passed this workflow, but
+it preceded the review corrections below and is not final-source acceptance.
+
+Independent review found a published-directory replacement race and incomplete
+rechecking of earlier seed files. Four controlled failing regressions reproduced
+them. The correction prepares privately, retains an exclusive retry reservation,
+checks the complete bounded seed set and uses atomic no-replace publication.
+The 30-case corrected suite and separate three-case publication/DB-recovery
+suite passed. A fresh nine-module regression then passed **148 tests, 3 warnings**,
+with no failures; these are separate runs, not additive release totals.
+Independent follow-up review found no actionable defects in the corrected
+uncommitted source. Final committed-source review, native acceptance and full
+CI remain separate gates.
+No automatic Agent grant, runtime activation, additional Media attempt or
+release scope reduction occurred; full v0.15 remains HOLD.
+
 **16 October current integration:** PR #187 merged at
 `ba0fc1dab59fac6a9eff5a9cd597d6141a6b377c` after exact-head CI
 [38889367738](https://github.com/kANoZY341/zelo-agent/actions/runs/38889367738)

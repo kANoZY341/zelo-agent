@@ -3,9 +3,13 @@
 No endpoint returns file bytes, starts a Worker or changes the Computer grants.
 """
 
+from collections.abc import Awaitable, Callable
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, Response
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_space_resources import (
@@ -32,6 +36,36 @@ class SpaceResourceCreate(BaseModel):
         return self
 
 
+class SpaceProvisionRoute(APIRoute):
+    """This document-input route never reflects invalid body content."""
+
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        handler = super().get_route_handler()
+
+        async def validated(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except RequestValidationError:
+                # Default errors echo input, and malformed Unicode cannot be
+                # encoded safely in that response. Keep this route's denial fixed.
+                return JSONResponse(
+                    status_code=422,
+                    content={"detail": "Space provisioning request invalid"},
+                )
+
+        return validated
+
+
+class SpaceSeedFile(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str = Field(min_length=1, max_length=96)
+    text: str = Field(max_length=65536)
+
+
+class SpaceResourceProvision(SpaceResourceCreate):
+    files: tuple[SpaceSeedFile, ...] = Field(default=(), max_length=16)
+
+
 class SpaceActivationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     resource_record_id: str = Field(min_length=36, max_length=36)
@@ -55,6 +89,29 @@ def register_space_resource(
         resource_id=body.resource_id,
         operations=body.operations,
     )
+
+
+def provision_space_resource(
+    instance_id: str, body: SpaceResourceProvision, request: Request
+) -> SpaceResourceReceipt:
+    """Owner-supplied text initializes a new resource; no Agent write grant."""
+    return _service(request).provision(
+        instance_id=instance_id,
+        space_id=body.space_id,
+        resource_id=body.resource_id,
+        operations=body.operations,
+        files=tuple((item.name, item.text) for item in body.files),
+    )
+
+
+router.add_api_route(
+    "/{instance_id}/space-resources/provision",
+    provision_space_resource,
+    methods=["POST"],
+    response_model=SpaceResourceReceipt,
+    status_code=201,
+    route_class_override=SpaceProvisionRoute,
+)
 
 
 @router.get(

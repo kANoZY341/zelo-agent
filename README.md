@@ -23,6 +23,10 @@ connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
 Space file operations. It requires an exact operator-reviewed registry selection,
 a configured backend and separate per-instance grants; defaults are unchanged.
 
+The owner can also [create a new populated Space through Core](docs/v0.15-space-owner-provisioning.md),
+using bounded UTF-8 text and logical IDs instead of manually editing host paths.
+Creation never overwrites a resource or grants Agent access.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):
