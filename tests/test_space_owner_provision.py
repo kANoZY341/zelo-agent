@@ -585,3 +585,96 @@ def test_database_commit_failure_preserves_published_files_without_resource_or_g
     )
     assert retry.status_code == 409
     assert (root / "notes.txt").read_text() == "owner-provided evidence"
+
+
+def test_resume_snapshot_barrier_requires_explicit_observation_before_space_retry(
+    owner_env, monkeypatch
+):
+    client, _database, _settings, backend, _project, instance = owner_env
+    agent = f"/agents/{instance['id']}"
+    resource = client.post(agent + "/space-resources/provision", json=provision_body())
+    assert resource.status_code == 201
+    assert (
+        client.patch(
+            agent + "/computer/permissions",
+            json={
+                "enabled": True,
+                "browser": True,
+                "files": True,
+            },
+        ).status_code
+        == 200
+    )
+    assert client.post(agent + "/computer/start").status_code == 200
+    intent = client.post(
+        agent + "/space-intents",
+        json={
+            "space_id": "workroom",
+            "resource_kind": "files",
+            "resource_id": "documents",
+            "operations": ["read"],
+            "ttl_seconds": 600,
+        },
+    )
+    assert intent.status_code == 201
+    activation = client.post(
+        agent + f"/space-intents/{intent.json()['id']}/activate",
+        json={
+            "resource_record_id": resource.json()["id"],
+        },
+    )
+    assert activation.status_code == 201
+    backend.control_state = backend.control_state.model_copy(
+        update={"resume_snapshot_required": True}
+    )
+    submitted = client.post(
+        agent + "/tasks",
+        json={
+            "task": {
+                "kind": "computer_run",
+                "payload": {
+                    "action": "files_read",
+                    "path": "notes.txt",
+                    "space_activation_id": activation.json()["id"],
+                },
+            }
+        },
+    )
+    assert submitted.status_code == 201
+    task_id = submitted.json()["id"]
+    denied = _finished(client, task_id)
+    assert denied["status"] == "failed" and denied["error"] == "computer_space_read_denied"
+    assert denied["result"] is None
+    assert "space_file_read_completed" not in {
+        item["event"] for item in client.get(f"/tasks/{task_id}/events").json()
+    }
+
+    original_read_action = backend.read_action
+
+    async def observe_fresh_snapshot(instance_id, action, *, path=""):
+        result = await original_read_action(instance_id, action, path=path)
+        if action == "browser_snapshot":
+            # External backend state transition observed in native qualification;
+            # the real Core gateway and permission checks are not replaced.
+            backend.control_state = backend.control_state.model_copy(
+                update={"resume_snapshot_required": False}
+            )
+        return result
+
+    monkeypatch.setattr(backend, "read_action", observe_fresh_snapshot)
+    snapshot = client.post(
+        agent + "/tasks",
+        json={
+            "task": {
+                "kind": "computer_run",
+                "payload": {"action": "browser_snapshot"},
+            }
+        },
+    )
+    assert snapshot.status_code == 201
+    assert _finished(client, snapshot.json()["id"])["status"] == "succeeded"
+    retried = client.post(f"/tasks/{task_id}/retry")
+    assert retried.status_code == 202, retried.text
+    completed = _finished(client, task_id)
+    assert completed["status"] == "succeeded", completed
+    assert completed["result"]["files_read"]["text"] == "owner-provided evidence"
