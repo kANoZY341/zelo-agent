@@ -42,6 +42,7 @@ from app.community_review_api import router as community_review_router
 from app.community_review_fixed_eval_api import router as community_review_fixed_eval_router
 from app.computer_egress import ComputerEgressPolicy
 from app.computer_egress_proxy import ComputerEgressProxy
+from app.computer_observer import admitted_computer_observer_registry
 from app.computer_worker import ComputerRuntime
 from app.config import ROOT, Settings
 from app.context import ContextResolver
@@ -205,6 +206,12 @@ def create_app(
                     configuration.youtube_company_approved_registry_sha256
                 ),
             )
+            agent_registry = admitted_computer_observer_registry(
+                database,
+                agent_registry,
+                approved_registry_sha256=(configuration.computer_observer_approved_registry_sha256),
+                backend_configured=agent_computers.configured,
+            )
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(
                 available_task_kinds=BUILTIN_AGENT_TASK_KINDS,
@@ -258,7 +265,12 @@ def create_app(
                 configuration,
             )
             computer_egress_policy.validate_agents(agent_registry.list_agents())
-            if configuration.computer_egress_proxy_host is not None:
+            # Observation-only computers need no outbound proxy listener.
+            # Named navigation still requires both topology and approved endpoints.
+            if (
+                configuration.computer_egress_proxy_host is not None
+                and computer_browser_endpoint_registry.list()
+            ):
                 computer_egress_proxy = ComputerEgressProxy(
                     computer_egress_policy,
                     host=configuration.computer_egress_proxy_host,

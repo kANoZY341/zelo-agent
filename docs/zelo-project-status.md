@@ -1,5 +1,46 @@
 # Zelo live project status
 
+**16 October current integration:** PR #187 merged at
+`ba0fc1dab59fac6a9eff5a9cd597d6141a6b377c` after exact-head CI
+[38889367738](https://github.com/kANoZY341/zelo-agent/actions/runs/38889367738)
+**PASS: 6,240 passed, 2 skipped** and independent patch review. The distinct
+post-merge main CI
+[38893887444](https://github.com/kANoZY341/zelo-agent/actions/runs/38893887444)
+is **IN PROGRESS, not a PASS** at this checkpoint.
+
+The new normal-Core Computer startup candidate has **182 passed, 3 warnings**
+in its final 12-module Computer/Space/activation suite, and a separate
+**12/12** new startup suite. Real loopback HTTP and native OpenBot/Chromium
+qualified all four read actions, explicit Computer/Space revocation, human
+control, container-recreation persistence and full Core restart without any
+registry/service/Runner injection. Independent exact-source review found no
+actionable defects. Candidate integration with merged #187 preserved its
+source tree exactly. Its own full CI and final merge remain separate gates.
+
+A separate real normal-Core API Worker proof also passed on exact candidate
+source `5fe8251b0d6a56351ab7f5a446efea2326d7a103`: credential-free HTTPS GET
+of the fixed public GitHub `python/cpython` repository metadata through actual
+DNS/IP pinning/TLS, persisted Task/audit, unauthenticated/write-method
+refusal and removal of the endpoint on restart. All temporary Core services
+and data were cleaned. This qualifies that one public GET route, not arbitrary
+APIs, credentialed providers or production deployment. The historical blocked
+API attempt stays **NOT RUN**; it is not reclassified by this fresh success.
+
+The real private GitHub branch-policy read still returns **403** (provider
+plan/visibility requirement). No purchase, visibility change, Skill-policy
+bypass, fifth Media proof or release tag was performed. Full v0.15 stays HOLD.
+
+**16 October normal-Core Computer candidate (not merged):** the fixed,
+operator-selected `computer_observer` Specialist now has a normal startup
+path, reusing the existing registry, permissions and Runner rather than
+injecting a test Agent. A real loopback HTTP / full-lifespan / native
+OpenBot-Computer proof passed Task execution, Space read/list/revocation,
+owner control, workspace persistence across container replacement, and a
+second Core startup preserving Agent, Task result and revocation state.
+Temporary proof-owned resources were cleaned. This is a local functional
+candidate, not production activation or full v0.15 qualification. See
+[v0.15 Computer Specialist startup](v0.15-computer-specialist-startup.md).
+
 **16 October full-scope mandate:** The Managing Director explicitly rejects
 a reduced-scope v0.15 release. Worker execution, effective per-Agent Space
 rights, governed learned-Skill publication, Media, and the selected integrations

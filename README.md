@@ -18,6 +18,11 @@ v0.16/v0.17 code does not mean those versions, or v0.15, are released.
 The [live project status](docs/zelo-project-status.md) records implementation
 and qualification evidence. UI #61 and unrelated later features are parked.
 
+The optional [Computer Specialist startup workflow](docs/v0.15-computer-specialist-startup.md)
+connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
+Space file operations. It requires an exact operator-reviewed registry selection,
+a configured backend and separate per-instance grants; defaults are unchanged.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):
