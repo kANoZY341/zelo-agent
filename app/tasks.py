@@ -786,13 +786,17 @@ class TaskService:
             agent_execution is None
             or agent_execution.delegation is not None
             or self.agent_factory is None
-            or computer_spec.action != "files_read"
+            or computer_spec.action not in ("files_read", "files_list")
         ):
             # The only qualified Space file Task is owner-confirmed and
             # nondelegated. Refuse delegated execution before resource lookups
             # at submission, retry and claim, not only at the file use point.
             raise DomainError("computer_space_activation_invalid", 409)
-        from app.space_file_gateway import SpaceFileReadGateway, _path_components
+        from app.space_file_gateway import (
+            SpaceFileReadGateway,
+            _directory_components,
+            _path_components,
+        )
 
         # A Core owner takeover is a durable pre-network event. Refuse new
         # or retried Space Task admission even if its backend control GET is
@@ -800,7 +804,10 @@ class TaskService:
         if human_takeover_unreleased(session, agent_execution.agent_instance_id):
             raise DomainError("computer_space_activation_invalid", 409)
         try:
-            _path_components(computer_spec.path)
+            if computer_spec.action == "files_list":
+                _directory_components(computer_spec.path)
+            else:
+                _path_components(computer_spec.path)
             SpaceFileReadGateway(
                 self.database,
                 self.agent_factory,
@@ -810,6 +817,7 @@ class TaskService:
                 session,
                 instance_id=agent_execution.agent_instance_id,
                 activation_id=activation_id,
+                operation="list" if computer_spec.action == "files_list" else "read",
             )
         except DomainError:
             raise DomainError("computer_space_activation_invalid", 409) from None

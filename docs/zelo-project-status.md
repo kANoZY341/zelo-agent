@@ -1,5 +1,21 @@
 # Zelo live project status
 
+**16 October full-scope mandate:** The Managing Director explicitly rejects
+a reduced-scope v0.15 release. Worker execution, effective per-Agent Space
+rights, governed learned-Skill publication, Media, and the selected integrations
+must be operationally qualified before v0.15 can ship. No disabled foundation
+counts as complete. The four consumed native Media reader proof attempts still
+cannot be reset or extended without separate explicit authorization.
+
+**Current R1 feature candidate (not yet merged):** the bounded Core Space
+`files_list` action is being connected through actual immutable Computer Task
+claim, owner-approved operation-specific intent, descriptor-relative listing,
+Task result and audit. The isolated Space/Computer regression group passed
+118 tests and 2 warnings, but no real installed Computer backend proof, final
+source merge or post-merge CI exists for this candidate. This does not close
+general Space, Browser, Terminal, Memory, write or delegation authority.
+
+
 Latest priority decision: **12 October 2026**. Verified 15 October Core
 `main` checkpoint: `a603a136623778abe30f98bb4bf74d932c2441a7`
 (merged [PR #183](https://github.com/kANoZY341/zelo-agent/pull/183),

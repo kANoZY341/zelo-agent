@@ -63,6 +63,174 @@ def test_agent_submits_claims_and_finishes_real_mediated_read(database, settings
     assert "computer_completed" in event_names
 
 
+def _list_activation(env):
+    intent = env["intents"].create(
+        instance_id=env["instance"].id,
+        space_id="workroom",
+        resource_kind="files",
+        resource_id="documents",
+        operations=("list",),
+        ttl_seconds=600,
+    )
+    return env["resources"].activate(
+        instance_id=env["instance"].id,
+        intent_id=intent.id,
+        resource_record_id=env["resource"].id,
+    )
+
+
+def _list_task(env, activation_id, *, path=""):
+    return env["agent_submit"].submit(
+        env["instance"].id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run",
+                payload={
+                    "action": "files_list",
+                    "path": path,
+                    "space_activation_id": activation_id,
+                },
+            )
+        ),
+        None,
+    )[0]
+
+
+def test_space_list_is_an_operational_scoped_task_not_unrestricted_backend(database, settings):
+    env = _fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("sensitive contents")
+    (env["root"] / "readme.md").write_text("# text")
+    (env["root"] / "nested").mkdir()
+    (env["root"] / "symlink.txt").symlink_to("notes.txt")
+    activation = _list_activation(env)
+
+    task = _list_task(env, activation.id)
+    execution = env["tasks"].claim()
+    assert execution is not None and execution.task_id == task.id
+    runner = Runner(
+        env["tasks"], computer_supervisor=env["supervisor"], space_file_gateway=env["gateway"]
+    )
+    asyncio.run(runner._run(execution))
+    completed = env["tasks"].get(task.id)
+    assert completed.status == State.SUCCEEDED
+    assert completed.result["action"] == "files_list"
+    listed = completed.result["files_list"]
+    assert listed["path"] == ""
+    assert listed["truncated"] is False
+    assert [entry["path"] for entry in listed["entries"]] == [
+        "nested",
+        "notes.txt",
+        "readme.md",
+    ]
+    assert [entry["kind"] for entry in listed["entries"]] == ["folder", "file", "file"]
+    assert all(call[0] == "control" for call in env["backend"].calls)
+    events = env["tasks"].events(task.id, 100, 0)
+    audits = [event for event in events if event.event == "space_file_list_completed"]
+    assert len(audits) == 1
+    assert "sensitive contents" not in str(audits[0].details)
+    assert "notes.txt" not in str(audits[0].details)
+
+
+def test_space_list_and_read_are_separately_granted_at_task_submission(database, settings):
+    env = _fixture(database, settings)
+    listing = _list_activation(env)
+    before = env["tasks"].list_tasks(limit=100, offset=0).total
+
+    with pytest.raises(DomainError, match="computer_space_activation_invalid"):
+        _space_task(env, activation_id=listing.id)
+    with pytest.raises(DomainError, match="computer_space_activation_invalid"):
+        _list_task(env, env["activation"].id)
+    for path in ("../", "/etc", "nested/..", "nested\\name"):
+        with pytest.raises((DomainError, ValidationError)):
+            _list_task(env, listing.id, path=path)
+    assert env["tasks"].list_tasks(limit=100, offset=0).total == before
+    assert not env["backend"].calls
+
+
+def test_revoked_space_list_activation_refuses_at_claim(database, settings):
+    env = _fixture(database, settings)
+    listing = _list_activation(env)
+    task = _list_task(env, listing.id)
+    env["resources"].revoke(instance_id=env["instance"].id, activation_id=listing.id)
+    assert env["tasks"].claim() is None
+    assert env["tasks"].get(task.id).status == State.CANCELLED
+    assert not env["backend"].calls
+
+
+def test_space_list_revoked_during_control_lookup_refuses_use(database, settings, monkeypatch):
+    env = _fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("private")
+    listing = _list_activation(env)
+    task = _list_task(env, listing.id)
+    claimed = env["tasks"].claim()
+    assert claimed is not None
+    original = env["backend"].control
+
+    async def revoke_then_report(instance_id):
+        env["resources"].revoke(instance_id=env["instance"].id, activation_id=listing.id)
+        return await original(instance_id)
+
+    monkeypatch.setattr(env["backend"], "control", revoke_then_report)
+    runner = Runner(
+        env["tasks"], computer_supervisor=env["supervisor"], space_file_gateway=env["gateway"]
+    )
+    asyncio.run(runner._run(claimed))
+    result = env["tasks"].get(task.id)
+    assert result.status == State.FAILED
+    assert result.error == "computer_space_list_denied"
+    assert all(call[0] == "control" for call in env["backend"].calls)
+    assert "space_file_list_completed" not in [
+        event.event for event in env["tasks"].events(task.id, 100, 0)
+    ]
+
+
+def test_space_list_refuses_symlinked_directories(database, settings):
+    env = _fixture(database, settings)
+    (env["root"] / "private").mkdir()
+    (env["root"] / "link").symlink_to("private", target_is_directory=True)
+    listing = _list_activation(env)
+    task = _list_task(env, listing.id, path="link")
+    claimed = env["tasks"].claim()
+    assert claimed is not None
+    runner = Runner(
+        env["tasks"], computer_supervisor=env["supervisor"], space_file_gateway=env["gateway"]
+    )
+    asyncio.run(runner._run(claimed))
+    result = env["tasks"].get(task.id)
+    assert result.status == State.FAILED
+    assert result.error == "computer_space_list_denied"
+    assert not [
+        event
+        for event in env["tasks"].events(task.id, 100, 0)
+        if event.event == "space_file_list_completed"
+    ]
+
+
+def test_space_list_refuses_unbounded_directory_without_partial_result(database, settings):
+    from app.space_file_gateway import MAX_SPACE_LIST_ENTRIES
+
+    env = _fixture(database, settings)
+    for index in range(MAX_SPACE_LIST_ENTRIES + 1):
+        (env["root"] / f"doc{index:03d}.txt").write_text("text")
+    listing = _list_activation(env)
+    task = _list_task(env, listing.id)
+    claimed = env["tasks"].claim()
+    assert claimed is not None
+    runner = Runner(
+        env["tasks"], computer_supervisor=env["supervisor"], space_file_gateway=env["gateway"]
+    )
+    asyncio.run(runner._run(claimed))
+    result = env["tasks"].get(task.id)
+    assert result.status == State.FAILED
+    assert result.error == "computer_space_list_denied"
+    assert result.result is None
+    assert not [
+        event
+        for event in env["tasks"].events(task.id, 100, 0)
+        if event.event == "space_file_list_completed"
+    ]
+
+
 def test_gateway_unavailable_never_falls_back_to_openbot(database, settings):
     env = _fixture(database, settings)
     (env["root"] / "notes.txt").write_text("must remain local")
@@ -156,7 +324,7 @@ def test_cross_agent_confirmation_cannot_be_attached(database, settings):
 
 
 def test_space_id_only_supported_on_file_reads():
-    for action in ("browser_read", "files_list", "browser_snapshot"):
+    for action in ("browser_read", "browser_snapshot", "browser_navigate"):
         with pytest.raises(ValidationError, match="computer_space_activation_files_read_only"):
             ComputerRunInput(
                 kind="computer_run",

@@ -56,7 +56,8 @@ class SpecialistSpaceRoute(BaseModel):
     resource_record_id: str
     space_id: str
     resource_id: str
-    eligible_operation: Literal["read"] = "read"
+    eligible_operation: Literal["read", "list"] = "read"
+    declared_operations: tuple[Literal["read", "list"], ...] = ()
     expires_at: datetime
     owner_confirmation_recorded: Literal[True] = True
     eligible_for_scoped_file_task: bool
@@ -165,7 +166,12 @@ class SpecialistSpaceAccessService:
                 )
                 retired = session.get(AgentSpaceResourceRetirement, resource.id) is not None
                 integrity_unavailable = False
+                declared_operations: tuple[Literal["read", "list"], ...] = ()
                 try:
+                    intent_receipt = self.resources.intents.get(
+                        instance_id=instance_id, intent_id=intent.id
+                    )
+                    declared_operations = intent_receipt.operations
                     receipt = self.resources.get_activation(
                         instance_id=instance_id, activation_id=activation.id
                     )
@@ -173,6 +179,7 @@ class SpecialistSpaceAccessService:
                     verified = receipt.eligible_for_mediation
                     root_attested = resource_info.root_attested
                 except (DomainError, ValueError, TypeError):
+                    declared_operations = ()
                     verified = False
                     root_attested = False
                     integrity_unavailable = True
@@ -215,6 +222,14 @@ class SpecialistSpaceAccessService:
                         resource_record_id=activation.resource_record_id,
                         space_id=resource.space_id,
                         resource_id=resource.resource_id,
+                        eligible_operation=(
+                            "read"
+                            if "read" in declared_operations
+                            else "list"
+                            if "list" in declared_operations
+                            else "read"
+                        ),
+                        declared_operations=declared_operations,
                         expires_at=activation.expires_at,
                         eligible_for_scoped_file_task=(reason == "eligible_for_scoped_file_task"),
                         reason=reason,
