@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     browser_worker_runtime: Path | None = None
     browser_worker_admission: Path | None = None
     api_worker_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
+    # Exact reviewed registry opt-in. This never grants per-instance access.
+    computer_observer_approved_registry_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$"
+    )
     computer_browser_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
     computer_internal_network_cidr: str | None = None
     computer_network_name: str = Field(

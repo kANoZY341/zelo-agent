@@ -1,5 +1,16 @@
 # Zelo live project status
 
+**16 October normal-Core Computer candidate (not merged):** the fixed,
+operator-selected `computer_observer` Specialist now has a normal startup
+path, reusing the existing registry, permissions and Runner rather than
+injecting a test Agent. A real loopback HTTP / full-lifespan / native
+OpenBot-Computer proof passed Task execution, Space read/list/revocation,
+owner control, workspace persistence across container replacement, and a
+second Core startup preserving Agent, Task result and revocation state.
+Temporary proof-owned resources were cleaned. This is a local functional
+candidate, not production activation or full v0.15 qualification. See
+[v0.15 Computer Specialist startup](v0.15-computer-specialist-startup.md).
+
 **16 October full-scope mandate:** The Managing Director explicitly rejects
 a reduced-scope v0.15 release. Worker execution, effective per-Agent Space
 rights, governed learned-Skill publication, Media, and the selected integrations
