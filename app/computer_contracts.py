@@ -3,7 +3,7 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app.api_contracts import API_PATH_LIMIT, ApiEndpointBinding
 from app.developer_contracts import WorkerSelectionSnapshot
@@ -32,6 +32,7 @@ class ComputerExecutionSpec(ComputerContract):
     schema_version: Literal[
         "zelo-computer-execution-v1",
         "zelo-computer-execution-v2",
+        "zelo-computer-execution-v3",
     ] = "zelo-computer-execution-v2"
     agent_instance_id: str = Field(
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -43,14 +44,50 @@ class ComputerExecutionSpec(ComputerContract):
         default=None,
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     )
+    parent_space_activation_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    parent_agent_instance_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+    parent_permission_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     endpoint: ApiEndpointBinding | None = None
     egress_policy_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     permission_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     backend_identity: str = Field(pattern=r"^[0-9a-f]{64}$")
     timeout_seconds: float = Field(ge=1.0, le=30.0, allow_inf_nan=False)
 
+    @model_serializer(mode="wrap")
+    def _preserve_legacy_wire_shape(self, handler):
+        data = handler(self)
+        if self.schema_version != "zelo-computer-execution-v3":
+            for name in (
+                "parent_space_activation_id",
+                "parent_agent_instance_id",
+                "parent_permission_version",
+            ):
+                data.pop(name, None)
+        return data
+
     @model_validator(mode="after")
     def _validate_action_path(self):
+        parent_fields = (
+            self.parent_space_activation_id,
+            self.parent_agent_instance_id,
+            self.parent_permission_version,
+        )
+        if any(value is not None for value in parent_fields):
+            if (
+                not all(value is not None for value in parent_fields)
+                or self.schema_version != "zelo-computer-execution-v3"
+                or self.space_activation_id is None
+                or self.action not in ("files_read", "files_list")
+                or self.parent_agent_instance_id == self.agent_instance_id
+                or self.parent_space_activation_id == self.space_activation_id
+            ):
+                raise ValueError("computer_parent_space_binding_invalid")
+        elif self.schema_version == "zelo-computer-execution-v3":
+            raise ValueError("computer_parent_space_binding_required")
         path = self.path
         if self.space_activation_id is not None and self.action not in ("files_read", "files_list"):
             raise ValueError("computer_space_activation_files_read_only")

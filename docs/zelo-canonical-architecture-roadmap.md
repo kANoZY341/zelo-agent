@@ -2,6 +2,22 @@
 
 ## Status
 
+**17 October delegated file execution candidate (local, unmerged):** a new
+v3 Computer Task can bind independently approved parent and child confirmations
+for the same resource and read/list operation, under the existing one-hop
+Delegation/Campaign budget. Admission, retry, claim and final serialized file
+use revalidate both sides; no grant inheritance or nested delegation is enabled.
+The old single-observer registry digest and legacy v1/v2 wire forms are preserved.
+The corrected initial/compatibility group passed 32 tests, 3 warnings. A
+separate fourteen-module regression subsequently passed **180 tests, 3 warnings**,
+including normal Core HTTP/background Runner with actual private Space files
+and controlled Computer backends. Independent follow-up review found no
+actionable defects. Exact committed-source review/tests and full CI remain
+separate gates. Native test-script creation was refused by the
+tool safety layer, so native qualification is **NOT RUN**, not PASS; no fallback
+attempt was made. See [delegated Space design and evidence](v0.15-delegated-space-file-execution.md).
+This does not close R1 or release v0.15. Existing PR192/193 merge order is preserved.
+
 **17 October approval-history continuation (unmerged):** owner-only paginated
 intent/confirmation discovery reuses the existing immutable records and receipt
 checks. History remains available after an Agent/Project stop or registry change

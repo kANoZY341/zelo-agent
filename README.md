@@ -33,6 +33,11 @@ The authenticated owner can also rediscover prior Space intents and confirmation
 including while an Agent is paused, and revoke them without saved IDs. See the
 [approval recovery workflow](docs/v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
 
+The [dual-approved delegated Space read candidate](docs/v0.15-delegated-space-file-execution.md)
+adds a separately selected, fixed Manager/observer team and a v3 Task binding.
+It requires independent parent/child confirmations; native acceptance is not yet
+qualified, and existing single-observer defaults remain unchanged.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):

@@ -154,7 +154,18 @@ class ComputerRuntime:
         *,
         endpoint_id: str | None = None,
         space_activation_id: str | None = None,
+        parent_space_activation_id: str | None = None,
     ) -> ComputerExecutionSpec:
+        parent_id = None
+        parent_permission_version = None
+        if parent_space_activation_id is not None:
+            if (
+                agent_execution.delegation is None
+                or space_activation_id is None
+                or action not in ("files_read", "files_list")
+            ):
+                raise ComputerRuntimeError("computer_parent_space_binding_invalid")
+            parent_id = agent_execution.delegation.parent_instance_id
         profile = agent_execution.spec.computer
         if profile is None:
             raise ComputerRuntimeError("computer_profile_unavailable")
@@ -194,9 +205,22 @@ class ComputerRuntime:
             if not self._permission_allows(row, action):
                 raise ComputerRuntimeError("computer_permission_denied")
             permission_version = self._permission_version(row)
+            if parent_id is not None:
+                parent_row = self._permission_row(session, parent_id)
+                if not self._permission_allows(parent_row, action):
+                    raise ComputerRuntimeError("computer_parent_permission_denied")
+                parent_permission_version = self._permission_version(parent_row)
 
         try:
             return ComputerExecutionSpec(
+                schema_version=(
+                    "zelo-computer-execution-v3"
+                    if parent_id is not None
+                    else "zelo-computer-execution-v2"
+                ),
+                parent_space_activation_id=parent_space_activation_id,
+                parent_agent_instance_id=parent_id,
+                parent_permission_version=parent_permission_version,
                 agent_instance_id=agent_execution.agent_instance_id,
                 worker_selection=worker_selection,
                 action=action,
@@ -230,6 +254,13 @@ class ComputerRuntime:
             return False
         try:
             with self.database.read() as session:
+                if spec.parent_agent_instance_id is not None:
+                    parent = self._permission_row(session, spec.parent_agent_instance_id)
+                    if (
+                        not self._permission_allows(parent, spec.action)
+                        or self._permission_version(parent) != spec.parent_permission_version
+                    ):
+                        return False
                 row = self._permission_row(session, spec.agent_instance_id)
                 return (
                     self._permission_allows(row, spec.action)
@@ -250,6 +281,7 @@ class ComputerRuntime:
             and payload.get("endpoint_id") == endpoint_id
             and payload.get("path", "") == spec.path
             and payload.get("space_activation_id") == spec.space_activation_id
+            and payload.get("parent_space_activation_id") == spec.parent_space_activation_id
             and timeout_seconds == spec.timeout_seconds
         )
 
