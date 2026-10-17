@@ -75,3 +75,32 @@ def test_review_result_roundtrip_keeps_exact_validated_provenance(developer_case
             forged[field] = "f" * 64
         with pytest.raises(ValidationError):
             IndependentReviewResult.model_validate(forged)
+
+
+def test_saved_summary_cannot_change_without_invalidating_review_evidence(developer_case):
+    import copy
+
+    from app.schemas import IndependentReviewResult
+
+    runtime, _, _, _ = _ocr_runtime(developer_case)
+    repo, request = _prepared(runtime)
+    result = run_review(runtime, repo, request, lambda *_: None)
+    forged = copy.deepcopy(result)
+    forged["report"]["summary"] = "A different conclusion not produced by the reviewer"
+    with pytest.raises(ValidationError):
+        IndependentReviewResult.model_validate(forged)
+
+
+def test_review_evidence_from_another_base_cannot_validate_for_same_candidate(developer_case):
+    from uuid import uuid4
+
+    from app.schemas import DeveloperRunResult
+
+    runtime, _, _, _ = _ocr_runtime(developer_case)
+    request = runtime.request("Add fixture note", "zelo_core", 60)
+    result = asyncio.run(runtime.run(str(uuid4()), str(uuid4()), request, lambda *_: None))
+    assert result["error"] is None
+    DeveloperRunResult.model_validate(result)
+    result["base_sha"] = "f" * 40
+    with pytest.raises(ValidationError):
+        DeveloperRunResult.model_validate(result)

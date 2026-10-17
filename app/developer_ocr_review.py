@@ -85,6 +85,7 @@ class CandidateOcrScope:
             "schema_version": "zelo-ocr-candidate-review-v1",
             "origin": "isolated_candidate_snapshot",
             "candidate_content_sha256": self.candidate_content_sha256,
+            "summary_sha256": hashlib.sha256(report.summary.encode("utf-8")).hexdigest(),
             "line_evidence": evidence.model_dump(mode="json"),
         }
 

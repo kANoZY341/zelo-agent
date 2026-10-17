@@ -1,6 +1,7 @@
 """Validated API and worker contracts. No executable or opaque serialized state."""
 
 from datetime import datetime
+from hashlib import sha256
 from typing import Annotated, Any, Literal
 
 import httpx
@@ -598,6 +599,8 @@ class IndependentReviewResult(StrictModel):
             )
             if (
                 self.ocr_evidence.candidate_content_sha256 != self.candidate_content_sha256
+                or self.ocr_evidence.summary_sha256
+                != sha256(self.report.summary.encode("utf-8")).hexdigest()
                 or self.report != expected
             ):
                 raise ValueError("ocr_review_result_identity_mismatch")
@@ -642,7 +645,10 @@ class DeveloperRunResult(StrictModel):
         if (
             self.independent_review is not None
             and self.independent_review.ocr_evidence is not None
-            and self.independent_review.candidate_content_sha256 != self.candidate_content_sha256
+            and (
+                self.independent_review.candidate_content_sha256 != self.candidate_content_sha256
+                or self.independent_review.ocr_evidence.line_evidence.base_sha != self.base_sha
+            )
         ):
             raise ValueError("ocr_developer_result_identity_mismatch")
         return self

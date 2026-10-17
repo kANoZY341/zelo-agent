@@ -103,6 +103,7 @@ class OcrCandidateReviewEvidence(BaseModel):
     schema_version: Literal["zelo-ocr-candidate-review-v1"] = "zelo-ocr-candidate-review-v1"
     origin: Literal["isolated_candidate_snapshot"] = "isolated_candidate_snapshot"
     candidate_content_sha256: Sha256
+    summary_sha256: Sha256
     line_evidence: OcrEvidenceEnvelope
 
     @field_validator("line_evidence", mode="before")
