@@ -2,10 +2,10 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.agent_space_intents import AgentSpaceIntentService, SpaceIntentReceipt
+from app.agent_space_intents import AgentSpaceIntentService, SpaceIntentPage, SpaceIntentReceipt
 from app.auth import require_operator
 
 router = APIRouter(prefix="/agents", dependencies=[Depends(require_operator)])
@@ -28,6 +28,16 @@ class SpaceIntentCreate(BaseModel):
 
 def _service(request: Request) -> AgentSpaceIntentService:
     return AgentSpaceIntentService(request.app.state.storage, request.app.state.agent_factory)
+
+
+@router.get("/{instance_id}/space-intents", response_model=SpaceIntentPage)
+def list_space_intents(
+    instance_id: str,
+    request: Request,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=1_000_000),
+) -> SpaceIntentPage:
+    return _service(request).list_intents(instance_id=instance_id, limit=limit, offset=offset)
 
 
 @router.post("/{instance_id}/space-intents", response_model=SpaceIntentReceipt, status_code=201)
