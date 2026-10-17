@@ -289,6 +289,32 @@ def test_workspace_listing_bounds_directory_enumeration(settings, monkeypatch) -
         assert scanned <= 100
 
 
+def test_workspace_read_rejects_fifo_without_blocking(settings, monkeypatch) -> None:
+    import os
+
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("FIFO files are only available on POSIX systems")
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "workspace"
+        root.mkdir()
+        os.mkfifo(root / "pipe")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        original_open = os.open
+
+        def require_nonblocking_fifo_open(path, flags, *args, **kwargs):
+            if path == "pipe":
+                assert flags & os.O_NONBLOCK
+            return original_open(path, flags, *args, **kwargs)
+
+        monkeypatch.setattr(os, "open", require_nonblocking_fifo_open)
+        result = gateway.execute("list_workspace_files", {})
+        assert result["entries"] == []
+        with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
+            gateway.execute("read_workspace_file", {"path": "pipe"})
+
+
 def test_workspace_listing_hides_sensitive_names_and_roots(settings) -> None:
     (ROOT / "workspaces").mkdir(exist_ok=True)
     with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
