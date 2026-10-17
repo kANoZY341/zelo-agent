@@ -22,8 +22,7 @@ from app.schemas import (
 )
 from app.storage import SessionStore
 
-MEMORY_RETRIEVAL_CANDIDATES = 256
-MEMORY_RETRIEVAL_FILTERED_CANDIDATES = 2048
+MEMORY_RETRIEVAL_CANDIDATES = 2048
 MEMORY_HIT_CONTENT_CHARS = 1200
 _MEMORY_TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_STOP_TERMS = frozenset(
@@ -302,21 +301,14 @@ class MemoryService:
                 )
 
             minimum_matches = 1 if len(terms) == 1 else 2
-            # SQLite's lower() folds ASCII and leaves caseless scripts such as
-            # Arabic unchanged. Other Unicode casefold matches cannot be safely
-            # prefiltered, so they retain the original bounded fallback.
-            content_condition = None
-            sql_casefold_safe = all(
-                char.isascii() or char.lower() == char.upper() == char
-                for term in terms
-                for char in term
+            # Core SQLite connections register the same Unicode casefold as
+            # Python's token matcher. A substring prefilter may admit decoys,
+            # but cannot drop an exact matching token due to Unicode casing.
+            folded_content = func.zelo_casefold(MemoryRecord.content)
+            term_presence = (
+                case((func.instr(folded_content, term) > 0, 1), else_=0) for term in terms
             )
-            if sql_casefold_safe:
-                term_presence = (
-                    case((func.instr(func.lower(MemoryRecord.content), term) > 0, 1), else_=0)
-                    for term in terms
-                )
-                content_condition = sum(term_presence, 0) >= minimum_matches
+            content_condition = sum(term_presence, 0) >= minimum_matches
 
             replacement = aliased(MemoryRecord)
             records = list(
@@ -326,14 +318,10 @@ class MemoryService:
                         or_(*scope_conditions),
                         or_(MemoryRecord.expires_at.is_(None), MemoryRecord.expires_at > now),
                         ~exists(select(1).where(replacement.replaces_id == MemoryRecord.id)),
-                        *([content_condition] if content_condition is not None else []),
+                        content_condition,
                     )
                     .order_by(MemoryRecord.created_at.desc(), MemoryRecord.id)
-                    .limit(
-                        MEMORY_RETRIEVAL_FILTERED_CANDIDATES
-                        if content_condition is not None
-                        else MEMORY_RETRIEVAL_CANDIDATES
-                    )
+                    .limit(MEMORY_RETRIEVAL_CANDIDATES)
                 )
             )
 

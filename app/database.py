@@ -44,6 +44,13 @@ class Database:
 
     @staticmethod
     def _configure(connection: sqlite3.Connection, record: Any) -> None:
+        # Match Python Memory token normalization inside bounded SQL prefilters.
+        connection.create_function(
+            "zelo_casefold",
+            1,
+            lambda value: value.casefold() if value is not None else None,
+            deterministic=True,
+        )
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA busy_timeout=5000")
