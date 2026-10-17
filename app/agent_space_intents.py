@@ -31,6 +31,7 @@ SpaceReadOperation = Literal["read", "list"]
 _ID = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 MAX_ACTIVE_INTENTS_PER_AGENT = 16
+MAX_INTENT_HISTORY_PER_AGENT = 256
 MIN_INTENT_TTL = 60
 MAX_INTENT_TTL = 3600
 
@@ -251,7 +252,10 @@ class AgentSpaceIntentService:
                 )
                 or 0
             )
-            if active_count >= MAX_ACTIVE_INTENTS_PER_AGENT or history_count >= 256:
+            if (
+                active_count >= MAX_ACTIVE_INTENTS_PER_AGENT
+                or history_count >= MAX_INTENT_HISTORY_PER_AGENT
+            ):
                 raise DomainError("Space intent limit reached", 409)
             snapshot_sha = _hash(spec.model_dump(mode="json"))
             record = AgentSpaceIntentRecord(
