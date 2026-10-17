@@ -2,6 +2,15 @@
 
 ## Status
 
+**17 October owner-control status correction (local candidate):** Specialist
+Space eligibility now reflects the existing durable owner-takeover barrier.
+Three normal-Core regressions first reproduced false-positive eligibility
+while Task admission already denied access. No execution check or permission
+was weakened. See [Space status](v0.15-specialist-space-access-status.md#owner-takeover-and-handback).
+The broader eight-module regression passed **106 tests, 3 warnings**.
+Independent exact-source review, native qualification and full CI remain
+separate gates; the full v0.15 scope and HOLD remain unchanged.
+
 **17 October live integration / Space discovery continuation:** PR #189
 is merged at `5266eed20b7b91be028065b09a91c2a37d97ea41`; its independent
 post-merge main CI [38988550329](https://github.com/kANoZY341/zelo-agent/actions/runs/38988550329)
