@@ -1,5 +1,18 @@
 # Zelo live project status
 
+**17 October approval-history continuation (unmerged):** owner-only paginated
+intent/confirmation discovery reuses the existing immutable records and receipt
+checks. History remains available after an Agent/Project stop or registry change
+so old approvals can be located and explicitly revoked; visibility grants no
+execution authority. The first regression group passed 36 tests; the final
+nine-module group passed **142 tests, 3 warnings**, as a separate run. A normal
+Core loopback HTTP/native Computer proof exercised restart, rediscovered
+approval execution, paused revocation and denied post-resume access. Read-only
+review found no actionable defects. Exact committed-source review/native checks
+and full CI remain separate integration gates. Resource
+discovery PR #190 and all full v0.15 release requirements remain tracked without
+scope reduction. See the [operator workflow](v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
+
 **17 October live integration / Space discovery continuation:** PR #189
 is merged at `5266eed20b7b91be028065b09a91c2a37d97ea41`; its independent
 post-merge main CI [38988550329](https://github.com/kANoZY341/zelo-agent/actions/runs/38988550329)

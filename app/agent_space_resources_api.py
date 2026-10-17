@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_space_resources import (
     AgentSpaceResourceService,
+    SpaceActivationPage,
     SpaceActivationReceipt,
     SpaceResourcePage,
     SpaceResourceReceipt,
@@ -162,6 +163,16 @@ def confirm_space_intent(
         intent_id=intent_id,
         resource_record_id=body.resource_record_id,
     )
+
+
+@router.get("/{instance_id}/space-activations", response_model=SpaceActivationPage)
+def list_space_activations(
+    instance_id: str,
+    request: Request,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=1_000_000),
+) -> SpaceActivationPage:
+    return _service(request).list_activations(instance_id=instance_id, limit=limit, offset=offset)
 
 
 @router.get(

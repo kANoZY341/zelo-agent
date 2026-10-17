@@ -21,6 +21,7 @@ from app.agent_space_intents import (
     AgentSpaceIntentService,
     _hash,
     _snapshot,
+    _validate_history_page,
     _validate_operations,
 )
 from app.models import (
@@ -84,6 +85,14 @@ class SpaceActivationReceipt:
     effective_resource_access: Literal[False] = False
     worker_authority: Literal[False] = False
     tool_authority: Literal[False] = False
+
+
+@dataclass(frozen=True, slots=True)
+class SpaceActivationPage:
+    items: tuple[SpaceActivationReceipt, ...]
+    total: int
+    limit: int
+    offset: int
 
 
 def _resource_digest(record: AgentSpaceResourceRecord) -> str:
@@ -496,6 +505,32 @@ class AgentSpaceResourceService:
             session.add(record)
             session.flush()
         return self.get_activation(instance_id=instance_id, activation_id=record.id)
+
+    def list_activations(
+        self, *, instance_id: str, limit: int = 25, offset: int = 0
+    ) -> SpaceActivationPage:
+        """Keep owner confirmation discovery available for emergency revocation."""
+        _validate_history_page(limit, offset)
+        with self.store.read() as session:
+            instance = self.intents._load_instance(session, instance_id)
+            scope = (
+                AgentSpaceActivationRecord.agent_instance_id == instance.id,
+                AgentSpaceActivationRecord.project_id == instance.project_id,
+            )
+            total = (
+                session.scalar(select(func.count(AgentSpaceActivationRecord.id)).where(*scope)) or 0
+            )
+            ids = session.scalars(
+                select(AgentSpaceActivationRecord.id)
+                .where(*scope)
+                .order_by(AgentSpaceActivationRecord.created_at, AgentSpaceActivationRecord.id)
+                .offset(offset)
+                .limit(limit)
+            ).all()
+        items = tuple(
+            self.get_activation(instance_id=instance_id, activation_id=key) for key in ids
+        )
+        return SpaceActivationPage(items=items, total=total, limit=limit, offset=offset)
 
     def get_activation(self, *, instance_id: str, activation_id: str) -> SpaceActivationReceipt:
         with self.store.read() as session:

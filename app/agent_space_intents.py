@@ -59,6 +59,24 @@ class SpaceIntentReceipt:
     model_context_admission: Literal[False] = False
 
 
+@dataclass(frozen=True, slots=True)
+class SpaceIntentPage:
+    items: tuple[SpaceIntentReceipt, ...]
+    total: int
+    limit: int
+    offset: int
+
+
+def _validate_history_page(limit: int, offset: int) -> None:
+    if (
+        type(limit) is not int
+        or not 1 <= limit <= 100
+        or type(offset) is not int
+        or not 0 <= offset <= 1_000_000
+    ):
+        raise DomainError("Space history pagination invalid", 422)
+
+
 def _hash(value: object) -> str:
     return hashlib.sha256(
         json.dumps(
@@ -255,6 +273,30 @@ class AgentSpaceIntentService:
             session.add(record)
             session.flush()
             return self._receipt(record, revoked=False, current=True)
+
+    def list_intents(
+        self, *, instance_id: str, limit: int = 25, offset: int = 0
+    ) -> SpaceIntentPage:
+        """Discover owned historical records even when current execution is stopped."""
+        _validate_history_page(limit, offset)
+        with self.store.read() as session:
+            instance = self._load_instance(session, instance_id)
+            scope = (
+                AgentSpaceIntentRecord.agent_instance_id == instance.id,
+                AgentSpaceIntentRecord.project_id == instance.project_id,
+            )
+            total = session.scalar(select(func.count(AgentSpaceIntentRecord.id)).where(*scope)) or 0
+            ids = session.scalars(
+                select(AgentSpaceIntentRecord.id)
+                .where(*scope)
+                .order_by(AgentSpaceIntentRecord.created_at, AgentSpaceIntentRecord.id)
+                .offset(offset)
+                .limit(limit)
+            ).all()
+        # Reuse the current single-record integrity/expiry/lifecycle projection.
+        # Historical visibility is not permission to execute or reactivate.
+        items = tuple(self.get(instance_id=instance_id, intent_id=key) for key in ids)
+        return SpaceIntentPage(items=items, total=total, limit=limit, offset=offset)
 
     def get(self, *, instance_id: str, intent_id: str) -> SpaceIntentReceipt:
         with self.store.read() as session:
