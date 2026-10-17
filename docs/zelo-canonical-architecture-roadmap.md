@@ -12,8 +12,7 @@ passed **6,311 tests, 2 skipped**; its distinct post-merge main run
 **39033985522** subsequently passed. Owner-takeover status PR #192 merged
 at `077f6a5e6fd7dc3f259765cb284d9cd9e1f5efb5` after exact-head CI
 passed **6,318 tests, 2 skipped**, native proof and independent review.
-Its separate post-merge main run **39043578016** is queued at this
-checkpoint. The full operational v0.15 release remains HOLD.
+Its separate post-merge main run **39043578016** passed **6,318 tests, 2 skipped, 42 warnings**. The full operational v0.15 release remains HOLD.
 
 **17 October owner-control status correction (merged #192):** Specialist
 Space eligibility now reflects the existing durable owner-takeover barrier.
