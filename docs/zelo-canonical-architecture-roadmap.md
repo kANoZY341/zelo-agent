@@ -2,7 +2,7 @@
 
 ## Status
 
-**17 October current mainline:** PR #193 bulk Space withdrawal merged at `c603b5300475a507a23e6333b01baa4a67a00083`. Its distinct post-merge main CI `39058416557` is in progress, not a pass.
+**17 October current mainline:** PR #193 bulk Space withdrawal merged at `c603b5300475a507a23e6333b01baa4a67a00083`. Its distinct post-merge main CI `39058416557` **passed**: 6,335 tests passed, 2 skipped, 42 warnings.
 
 **17 October delegated Space read candidate (draft PR #194):** the candidate binds separate parent/child owner confirmations to one resource and read/list operation under one-hop delegation. It remains unmerged; native acceptance was not run, and exact reconciled-head CI/review are pending. Full v0.15 remains HOLD.
 
