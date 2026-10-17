@@ -29,6 +29,10 @@ Creation never overwrites a resource or grants Agent access.
 The same authenticated API can list existing resources with pagination and a
 Space filter, so the owner can rediscover them after restarting Core.
 
+The authenticated owner can also rediscover prior Space intents and confirmations,
+including while an Agent is paused, and revoke them without saved IDs. See the
+[approval recovery workflow](docs/v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):

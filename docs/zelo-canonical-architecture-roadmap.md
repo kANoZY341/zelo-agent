@@ -2,6 +2,16 @@
 
 ## Status
 
+**17 October integration checkpoint:** approval-history PR #191 is merged
+at `0471c29e43386202fbb3535aa6df3e4d0191a645` after its exact-content full CI
+passed **6,311 tests, 2 skipped** and predecessor main CI passed. The distinct
+post-merge main run **39033985522** is pending, not PASS at this checkpoint.
+This owner-takeover status correction is being reconciled with that main;
+its original five production lines are unchanged. Both historical feature
+notes are preserved below. The new-base three-module regression passed
+**34 tests, 3 warnings**; exact-source review/native proof and full CI remain
+required. The full operational v0.15 release is HOLD.
+
 **17 October owner-control status correction (local candidate):** Specialist
 Space eligibility now reflects the existing durable owner-takeover barrier.
 Three normal-Core regressions first reproduced false-positive eligibility
@@ -10,6 +20,19 @@ was weakened. See [Space status](v0.15-specialist-space-access-status.md#owner-t
 The broader eight-module regression passed **106 tests, 3 warnings**.
 Independent exact-source review, native qualification and full CI remain
 separate gates; the full v0.15 scope and HOLD remain unchanged.
+
+**Historical 17 October approval-history candidate:** owner-only paginated
+intent/confirmation discovery reuses the existing immutable records and receipt
+checks. History remains available after an Agent/Project stop or registry change
+so old approvals can be located and explicitly revoked; visibility grants no
+execution authority. The first regression group passed 36 tests; the final
+nine-module group passed **142 tests, 3 warnings**, as a separate run. A normal
+Core loopback HTTP/native Computer proof exercised restart, rediscovered
+approval execution, paused revocation and denied post-resume access. Read-only
+review found no actionable defects. Exact committed-source review/native checks
+and full CI remain separate integration gates. Resource
+discovery PR #190 and all full v0.15 release requirements remain tracked without
+scope reduction. See the [operator workflow](v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
 
 **17 October live integration / Space discovery continuation:** PR #189
 is merged at `5266eed20b7b91be028065b09a91c2a37d97ea41`; its independent
