@@ -38,6 +38,10 @@ one authenticated, transactional command; see
 [bulk Space withdrawal](docs/v0.15-space-owner-provisioning.md#revoke-all-existing-approvals-for-one-agent).
 The command preserves files/history and does not ban later explicit owner approvals.
 
+The existing independent Coding reviewer can optionally produce
+[grounded Open Code Review findings](docs/v0.15-ocr-independent-review.md).
+This uses the normal approval-bound review workflow, not a separate review engine.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):
