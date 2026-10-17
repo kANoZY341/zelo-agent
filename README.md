@@ -772,6 +772,16 @@ four tools are `system_info`, `repo_status`, `list_workspace_files`, and
 approval. Other risks and approval-required tools fail closed. A future approval
 flow belongs at this policy/gateway boundary; an agent never bypasses it.
 
+Workspace file tools walk pinned directory descriptors beneath `workspaces/` and do
+not follow symlinks. Reads refuse hardlinked or special files and path components
+matched case-insensitively: `.git`, `secrets`, `runtime`, `.env`, `.envrc`, any
+`.env.*` name, or any `.sqlite`, `.sqlite3`, or `.db` suffix. Listings hide those
+components and skip symlinks. File content remains bounded UTF-8 text.
+A concurrent path replacement cannot redirect a read or listing outside its
+checked directory.
+Directory enumeration is also capped and reports a truncated result when its scan
+budget is reached.
+
 | Setting | Default | Bound |
 | --- | --- | --- |
 | `ZELO_MAX_AGENT_STEPS` | 6 | 1–20 model calls, including parse retries |
