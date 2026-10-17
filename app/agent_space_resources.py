@@ -1,8 +1,8 @@
-"""Operator-owned Space resource roots and reviewed activations, never Worker access.
+"""Owner-created/registered Space roots and independently reviewed confirmations.
 
-This stage records a trusted, bounded resource binding and an independent
-confirmation of a previously recorded intent. It deliberately does not expose
-file bytes or install a Computer/Worker/Tool authorization hook.
+Explicit owner provisioning may seed a new private root with bounded text.
+No resource receipt or confirmation alone grants Computer/Worker/Tool access;
+file reading remains behind the separate Task-bound gateway.
 """
 
 import json
@@ -115,7 +115,7 @@ def _activation_digest(record: AgentSpaceActivationRecord) -> str:
 
 
 class AgentSpaceResourceService:
-    """Owner-only metadata. No file-opening or Worker authority exists here."""
+    """Owner resource management and confirmations, never Worker authority."""
 
     def __init__(self, store: SessionStore, factory: AgentFactory, runtime_dir: Path):
         self.store = store
@@ -203,6 +203,78 @@ class AgentSpaceResourceService:
             retired=session.get(AgentSpaceResourceRetirement, record.id) is not None,
             root_attested=root_attested,
         )
+
+    def provision(
+        self,
+        *,
+        instance_id: str,
+        space_id: str,
+        resource_id: str,
+        operations: tuple[str, ...],
+        files: tuple[tuple[str, str], ...],
+    ) -> SpaceResourceReceipt:
+        """Initialize a new private owner resource, without granting Agent access."""
+        from app.space_owner_provision import encode_seed_files, provision_seeded_root
+
+        _validate_operations("files", operations, resource_id, space_id)
+        encoded = encode_seed_files(files)
+        with self.store.transaction() as session:
+            instance, spec = self._project_and_agent(session, instance_id)
+            if space_id not in spec.space_permissions:
+                raise DomainError("Space not in trusted AgentSpec", 403)
+            if spec.computer is None or not spec.computer.files:
+                raise DomainError("AgentSpec has no file resource capability", 403)
+            existing = session.scalar(
+                select(AgentSpaceResourceRecord.id).where(
+                    AgentSpaceResourceRecord.project_id == instance.project_id,
+                    AgentSpaceResourceRecord.space_id == space_id,
+                    AgentSpaceResourceRecord.resource_kind == "files",
+                    AgentSpaceResourceRecord.resource_id == resource_id,
+                )
+            )
+            if existing is not None:
+                raise DomainError("Space resource identity already recorded", 409)
+            count = (
+                session.scalar(
+                    select(func.count(AgentSpaceResourceRecord.id)).where(
+                        AgentSpaceResourceRecord.project_id == instance.project_id
+                    )
+                )
+                or 0
+            )
+            if count >= MAX_RESOURCES_PER_PROJECT:
+                raise DomainError("Space resource registry limit reached", 409)
+            device, inode = provision_seeded_root(
+                self.runtime_dir,
+                project_id=instance.project_id,
+                space_id=space_id,
+                resource_id=resource_id,
+                files=encoded,
+            )
+            root, visible_device, visible_inode = self._root(
+                instance.project_id, space_id, resource_id
+            )
+            if (device, inode) != (visible_device, visible_inode):
+                raise DomainError("Provisioned Space root changed; data preserved", 409)
+            record = AgentSpaceResourceRecord(
+                id=new_id(),
+                project_id=instance.project_id,
+                space_id=space_id,
+                resource_kind="files",
+                resource_id=resource_id,
+                operations_json=json.dumps(list(operations), separators=(",", ":")),
+                root_path=str(root),
+                root_device=device,
+                root_inode=inode,
+                created_at=utcnow(),
+            )
+            record.resource_sha256 = _resource_digest(record)
+            session.add(record)
+            session.flush()
+            receipt = self._resource_receipt(session, record)
+            if not receipt.root_attested:
+                raise DomainError("Provisioned Space root changed; data preserved", 409)
+            return receipt
 
     def register(
         self, *, instance_id: str, space_id: str, resource_id: str, operations: tuple[str, ...]
