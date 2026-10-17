@@ -16,6 +16,7 @@ from sqlalchemy import select
 from app.agent_factory import AgentFactory, AgentSpec
 from app.agent_space_resources import AgentSpaceResourceService
 from app.agent_specialist_profile import AgentSpecialistProfileService
+from app.computer_control_fence import human_takeover_unreleased
 from app.models import (
     AgentComputerPermission,
     AgentInstance,
@@ -42,6 +43,7 @@ SpaceRouteStatus = Literal[
     "unverified_binding",
     "agent_file_capability_missing",
     "computer_file_permission_denied",
+    "computer_human_control_active",
     "computer_backend_unavailable",
 ]
 
@@ -130,6 +132,7 @@ class SpecialistSpaceAccessService:
             except ValueError:
                 raise DomainError("Specialist Space snapshot unavailable", 409) from None
             permission = session.get(AgentComputerPermission, instance_id)
+            owner_control_active = human_takeover_unreleased(session, instance_id)
             activations = session.scalars(
                 select(AgentSpaceActivationRecord)
                 .where(AgentSpaceActivationRecord.agent_instance_id == instance_id)
@@ -210,6 +213,8 @@ class SpecialistSpaceAccessService:
                     reason = "agent_file_capability_missing"
                 elif permission is None or not permission.enabled or not permission.files:
                     reason = "computer_file_permission_denied"
+                elif owner_control_active:
+                    reason = "computer_human_control_active"
                 elif not self.computer_backend_available:
                     reason = "computer_backend_unavailable"
                 else:
