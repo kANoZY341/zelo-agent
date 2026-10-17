@@ -72,7 +72,10 @@ def test_workspace_tools_confine_and_validate(settings, database) -> None:
         gateway = ToolGateway(configured)
         assert gateway.execute("read_workspace_file", {"path": "readme.txt"})["text"] == "hello"
         assert gateway.execute("list_workspace_files", {})["entries"][0]["path"] == "binary"
-        for path in ("../../outside", "/etc/passwd", "link"):
+        (root / ".env.local").write_text("private", encoding="utf-8")
+        (root / ".git").mkdir()
+        (root / ".git" / "config").write_text("private", encoding="utf-8")
+        for path in ("../../outside", "/etc/passwd", "link", ".env.local", ".git/config"):
             with pytest.raises(ToolRuntimeError):
                 gateway.execute("read_workspace_file", {"path": path})
         for path in ("binary", "large", "missing"):
@@ -111,3 +114,109 @@ def test_tool_call_task_persists_result_and_audit(settings, database) -> None:
             assert "tool_selected" in events
             assert "tool_execution_started" in events
             assert "tool_execution_completed" in events
+
+
+def test_workspace_read_uses_checked_directory_after_name_swap(settings, monkeypatch) -> None:
+    """A concurrent name swap cannot redirect a read to another directory."""
+    import os
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        base = Path(directory)
+        root = base / "workspace"
+        safe = root / "dir"
+        private = base / "private"
+        safe.mkdir(parents=True)
+        private.mkdir()
+        (safe / "note.txt").write_text("safe", encoding="utf-8")
+        (private / "note.txt").write_text("private", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        swapped = False
+        original_is_file = Path.is_file
+        original_open = os.open
+
+        def swap() -> None:
+            nonlocal swapped
+            if not swapped:
+                safe.rename(root / "saved")
+                safe.symlink_to(private, target_is_directory=True)
+                swapped = True
+
+        def checked_is_file(path: Path, *args, **kwargs) -> bool:
+            result = original_is_file(path, *args, **kwargs)
+            if path == safe / "note.txt" and result:
+                swap()
+            return result
+
+        def checked_open(path, flags, *args, **kwargs):
+            fd = original_open(path, flags, *args, **kwargs)
+            if path == "dir" and kwargs.get("dir_fd") is not None:
+                swap()
+            return fd
+
+        monkeypatch.setattr(Path, "is_file", checked_is_file)
+        monkeypatch.setattr(os, "open", checked_open)
+        result = gateway.execute("read_workspace_file", {"path": "dir/note.txt"})
+        assert swapped
+        assert result["text"] == "safe"
+
+
+def test_workspace_list_uses_checked_directory_after_name_swap(settings, monkeypatch) -> None:
+    """A concurrent name swap cannot list entries outside the workspace."""
+    import os
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        base = Path(directory)
+        root = base / "workspace"
+        safe = root / "dir"
+        private = base / "private"
+        safe.mkdir(parents=True)
+        private.mkdir()
+        (safe / "safe.txt").write_text("safe", encoding="utf-8")
+        (private / "private.txt").write_text("private", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        swapped = False
+        original_is_dir = Path.is_dir
+        original_open = os.open
+
+        def swap() -> None:
+            nonlocal swapped
+            if not swapped:
+                safe.rename(root / "saved")
+                safe.symlink_to(private, target_is_directory=True)
+                swapped = True
+
+        def checked_is_dir(path: Path, *args, **kwargs) -> bool:
+            result = original_is_dir(path, *args, **kwargs)
+            if path == safe and result:
+                swap()
+            return result
+
+        def checked_open(path, flags, *args, **kwargs):
+            fd = original_open(path, flags, *args, **kwargs)
+            if path == "dir" and kwargs.get("dir_fd") is not None:
+                swap()
+            return fd
+
+        monkeypatch.setattr(Path, "is_dir", checked_is_dir)
+        monkeypatch.setattr(os, "open", checked_open)
+        result = gateway.execute("list_workspace_files", {"path": "dir"})
+        assert swapped
+        assert [entry["path"] for entry in result["entries"]] == ["dir/safe.txt"]
+
+
+def test_workspace_read_refuses_hardlinked_file_outside_root(settings) -> None:
+    import os
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        base = Path(directory)
+        root = base / "workspace"
+        root.mkdir()
+        private = base / "private.txt"
+        private.write_text("private", encoding="utf-8")
+        os.link(private, root / "alias.txt")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
+            gateway.execute("read_workspace_file", {"path": "alias.txt"})
