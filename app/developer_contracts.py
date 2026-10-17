@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 
 class Contract(BaseModel):
@@ -175,6 +175,14 @@ class WorkerSelectionSnapshot(Contract):
 class ReviewerBinding(Contract):
     worker: WorkerIdentity
     worker_selection: WorkerSelectionSnapshot
+    report_format: Literal["zelo", "open_code_review"] = "zelo"
+
+    @model_serializer(mode="wrap")
+    def _preserve_default_wire(self, handler):
+        value = handler(self)
+        if self.report_format == "zelo":
+            value.pop("report_format", None)
+        return value
 
 
 class ReviewFinding(Contract):
