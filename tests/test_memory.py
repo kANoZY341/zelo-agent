@@ -449,6 +449,31 @@ def test_retrieval_survives_newer_substring_only_candidates(client, database):
     assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
 
 
+def test_retrieval_recalls_old_arabic_memory_without_widening_scope(client, database):
+    remembered = _create_personal(client, "نافذة الضوء تطل على البحر.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Daily lunch record {index}.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "نافذة الضوء البحر", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
+
+
 def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):
     _create_personal(client, "A memory that should not be scanned for empty intent.")
     response = client.post(

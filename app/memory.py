@@ -302,11 +302,16 @@ class MemoryService:
                 )
 
             minimum_matches = 1 if len(terms) == 1 else 2
-            # SQLite's lower() folds ASCII only. Use it to eliminate newer, unrelated
-            # records *before* the candidate cap; retain the old bounded path for
-            # non-ASCII queries so Unicode casefold matches are not lost.
+            # SQLite's lower() folds ASCII and leaves caseless scripts such as
+            # Arabic unchanged. Other Unicode casefold matches cannot be safely
+            # prefiltered, so they retain the original bounded fallback.
             content_condition = None
-            if all(term.isascii() for term in terms):
+            sql_casefold_safe = all(
+                char.isascii() or char.lower() == char.upper() == char
+                for term in terms
+                for char in term
+            )
+            if sql_casefold_safe:
                 term_presence = (
                     case((func.instr(func.lower(MemoryRecord.content), term) > 0, 1), else_=0)
                     for term in terms
