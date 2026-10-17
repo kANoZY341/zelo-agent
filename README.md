@@ -773,9 +773,10 @@ approval. Other risks and approval-required tools fail closed. A future approval
 flow belongs at this policy/gateway boundary; an agent never bypasses it.
 
 Workspace file tools walk pinned directory descriptors beneath `workspaces/` and do
-not follow symlinks. Reads refuse hardlinked or special files, `.git`, `secrets`,
-`runtime`, `.env` variants and database paths; directory listing hides those
-private names and skips symlinks. File content remains bounded UTF-8 text.
+not follow symlinks. Reads refuse hardlinked or special files and paths containing
+`.git`, `secrets`, `runtime`, `.env`, `.envrc`, case-insensitive `.env.*` names or
+database paths. Listings hide those names and skip symlinks. File content remains
+bounded UTF-8 text.
 A concurrent path replacement cannot redirect a read or listing outside its
 checked directory.
 Directory enumeration is also capped and reports a truncated result when its scan

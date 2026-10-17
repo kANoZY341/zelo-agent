@@ -331,3 +331,20 @@ def test_workspace_listing_does_not_open_directory_at_depth_limit(settings) -> N
             assert result["truncated"] is False
         finally:
             child.chmod(0o700)
+
+
+def test_workspace_envrc_is_never_read_or_listed(settings) -> None:
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "workspace"
+        root.mkdir()
+        private_names = (".envrc", ".ENVRC", ".ENV.local")
+        for name in private_names:
+            (root / name).write_text("export TOKEN=private\n", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+
+        names = [entry["path"] for entry in gateway.execute("list_workspace_files", {})["entries"]]
+        assert names == []
+        for name in private_names:
+            with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
+                gateway.execute("read_workspace_file", {"path": name})
