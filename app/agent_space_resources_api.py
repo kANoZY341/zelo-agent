@@ -16,6 +16,7 @@ from app.agent_space_resources import (
     AgentSpaceResourceService,
     SpaceActivationPage,
     SpaceActivationReceipt,
+    SpaceApprovalRevocationReceipt,
     SpaceResourcePage,
     SpaceResourceReceipt,
 )
@@ -66,6 +67,17 @@ class SpaceSeedFile(BaseModel):
 
 class SpaceResourceProvision(SpaceResourceCreate):
     files: tuple[SpaceSeedFile, ...] = Field(default=(), max_length=16)
+
+
+class SpaceRevokeAllRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    confirm: bool
+
+    @model_validator(mode="after")
+    def _confirmed(self):
+        if self.confirm is not True:
+            raise ValueError("space_revocation_requires_explicit_confirmation")
+        return self
 
 
 class SpaceActivationCreate(BaseModel):
@@ -192,3 +204,14 @@ def revoke_space_activation(
     instance_id: str, activation_id: str, request: Request
 ) -> SpaceActivationReceipt:
     return _service(request).revoke(instance_id=instance_id, activation_id=activation_id)
+
+
+@router.post(
+    "/{instance_id}/space-approvals/revoke-all",
+    response_model=SpaceApprovalRevocationReceipt,
+)
+def revoke_all_space_approvals(
+    instance_id: str, body: SpaceRevokeAllRequest, request: Request
+) -> SpaceApprovalRevocationReceipt:
+    """One authenticated owner command withdraws only this Agent's old approvals."""
+    return _service(request).revoke_all(instance_id=instance_id)

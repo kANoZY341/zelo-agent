@@ -33,10 +33,12 @@ The authenticated owner can also rediscover prior Space intents and confirmation
 including while an Agent is paused, and revoke them without saved IDs. See the
 [approval recovery workflow](docs/v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
 
-The [dual-approved delegated Space read candidate](docs/v0.15-delegated-space-file-execution.md)
-adds a separately selected, fixed Manager/observer team and a v3 Task binding.
-It requires independent parent/child confirmations; native acceptance is not yet
-qualified, and existing single-observer defaults remain unchanged.
+An owner can also revoke an Agent's existing Space approvals together with
+one authenticated, transactional command; see
+[bulk Space withdrawal](docs/v0.15-space-owner-provisioning.md#revoke-all-existing-approvals-for-one-agent).
+The command preserves files/history and does not ban later explicit owner approvals.
+
+A separate [dual-approved delegated Space read candidate](docs/v0.15-delegated-space-file-execution.md) is in draft PR #194. It binds independently confirmed parent and child approvals for one resource and read/list operation. Native acceptance has not been run, and the candidate is not a release or activation approval.
 
 ## Setup
 

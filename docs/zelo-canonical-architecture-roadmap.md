@@ -2,23 +2,47 @@
 
 ## Status
 
-**17 October delegated file execution candidate (local, unmerged):** a new
-v3 Computer Task can bind independently approved parent and child confirmations
-for the same resource and read/list operation, under the existing one-hop
-Delegation/Campaign budget. Admission, retry, claim and final serialized file
-use revalidate both sides; no grant inheritance or nested delegation is enabled.
-The old single-observer registry digest and legacy v1/v2 wire forms are preserved.
-The corrected initial/compatibility group passed 32 tests, 3 warnings. A
-separate fourteen-module regression subsequently passed **180 tests, 3 warnings**,
-including normal Core HTTP/background Runner with actual private Space files
-and controlled Computer backends. Independent follow-up review found no
-actionable defects. Exact committed-source review/tests and full CI remain
-separate gates. Native test-script creation was refused by the
-tool safety layer, so native qualification is **NOT RUN**, not PASS; no fallback
-attempt was made. See [delegated Space design and evidence](v0.15-delegated-space-file-execution.md).
-This does not close R1 or release v0.15. Existing PR192/193 merge order is preserved.
+**17 October current mainline:** PR #193 bulk Space withdrawal merged at `c603b5300475a507a23e6333b01baa4a67a00083`. Its distinct post-merge main CI `39058416557` is in progress, not a pass.
 
-**17 October approval-history continuation (unmerged):** owner-only paginated
+**17 October delegated Space read candidate (draft PR #194):** the candidate binds separate parent/child owner confirmations to one resource and read/list operation under one-hop delegation. It remains unmerged; native acceptance was not run, and exact reconciled-head CI/review are pending. Full v0.15 remains HOLD.
+
+**17 October integration checkpoint:** approval-history PR #191 merged
+at `0471c29e43386202fbb3535aa6df3e4d0191a645` after exact-content full CI
+passed **6,311 tests, 2 skipped**; its distinct post-merge main run
+**39033985522** subsequently passed. Owner-takeover status PR #192 merged
+at `077f6a5e6fd7dc3f259765cb284d9cd9e1f5efb5` after exact-head CI
+passed **6,318 tests, 2 skipped**, native proof and independent review.
+Its separate post-merge main run **39043578016** is queued at this
+checkpoint. The full operational v0.15 release remains HOLD.
+
+**17 October owner-control status correction (merged #192):** Specialist
+Space eligibility now reflects the existing durable owner-takeover barrier.
+Three normal-Core regressions first reproduced false-positive eligibility
+while Task admission already denied access. No execution check or permission
+was weakened. See [Space status](v0.15-specialist-space-access-status.md#owner-takeover-and-handback).
+The broader eight-module regression passed **106 tests, 3 warnings**.
+Independent exact-source review, native qualification and full CI passed
+for #192; the full v0.15 scope and HOLD remain unchanged.
+
+**17 October bulk Space withdrawal candidate (not merged):** a confirmed
+owner POST can withdraw an Agent's recorded intents and confirmations in one
+Core database transaction, without deleting resources/history or affecting
+other Agents. It remains usable for inactive/stale bindings and does not
+silently ban future explicit owner approvals. Two missing-route regressions
+failed first; the focused implementation group then passed **17 tests,
+3 warnings** including rollback, concurrent requests, pending/claimed reads,
+and revocation during a suspended backend check. A stale-fixture attempt
+correctly hit the immutable-identity trigger; only the fixture was corrected
+to use a changed registry. The separate nine-module regression passed
+**125 tests, 3 warnings**, and a pre-commit real loopback HTTP/native Computer
+journey passed paused bulk withdrawal, other-Agent isolation, restart,
+retained file/results and later explicit owner re-approval. Read-only review
+found no actionable findings. Final exact-commit review/native acceptance
+and full CI remain separate gates. See the
+[owner workflow](v0.15-space-owner-provisioning.md#revoke-all-existing-approvals-for-one-agent).
+No release, Media budget, production permissions or schedule was changed.
+
+**Historical 17 October approval-history candidate:** owner-only paginated
 intent/confirmation discovery reuses the existing immutable records and receipt
 checks. History remains available after an Agent/Project stop or registry change
 so old approvals can be located and explicitly revoked; visibility grants no
