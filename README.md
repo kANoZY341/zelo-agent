@@ -26,6 +26,8 @@ a configured backend and separate per-instance grants; defaults are unchanged.
 The owner can also [create a new populated Space through Core](docs/v0.15-space-owner-provisioning.md),
 using bounded UTF-8 text and logical IDs instead of manually editing host paths.
 Creation never overwrites a resource or grants Agent access.
+The same authenticated API can list existing resources with pagination and a
+Space filter, so the owner can rediscover them after restarting Core.
 
 ## Setup
 

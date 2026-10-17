@@ -1,5 +1,20 @@
 # Zelo live project status
 
+**17 October live integration / Space discovery continuation:** PR #189
+is merged at `5266eed20b7b91be028065b09a91c2a37d97ea41`; its independent
+post-merge main CI [38988550329](https://github.com/kANoZY341/zelo-agent/actions/runs/38988550329)
+is verified **PASS**. Owner-created text Spaces are integrated, not a draft.
+
+The current local candidate adds authenticated, paginated discovery of existing
+resource receipts within the selected Agent's Project and trusted Spaces.
+Retirement and root-attestation state remain visible; contents and effective
+grants are not returned. Three baseline tests reproduced the missing GET route
+before implementation. See [owner Space workflow](v0.15-space-owner-provisioning.md).
+Candidate review, full CI and exact-source operational acceptance are separate
+gates, not satisfied by this status entry. All earlier dated checkpoints below
+are historical. Full operational v0.15 remains HOLD; no scope reduction,
+production activation, schedule restart or Media proof-budget change is made.
+
 **17 October resumed Space owner-provisioning candidate:** main is now
 `1ad0e819d9988b44bb52083f42ae76db93b43d6e` after merged #188, and its distinct
 post-merge CI **38926255055 is PASS**. Zelo remote access is restored. The

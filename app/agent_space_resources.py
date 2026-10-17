@@ -58,6 +58,14 @@ class SpaceResourceReceipt:
 
 
 @dataclass(frozen=True, slots=True)
+class SpaceResourcePage:
+    items: tuple[SpaceResourceReceipt, ...]
+    total: int
+    limit: int
+    offset: int
+
+
+@dataclass(frozen=True, slots=True)
 class SpaceActivationReceipt:
     id: str
     intent_id: str
@@ -323,6 +331,60 @@ class AgentSpaceResourceService:
             session.add(record)
             session.flush()
             return self._resource_receipt(session, record)
+
+    def list_resources(
+        self,
+        *,
+        instance_id: str,
+        limit: int = 25,
+        offset: int = 0,
+        space_id: str | None = None,
+    ) -> SpaceResourcePage:
+        """Discover owner records, never file contents or effective grants.
+
+        Counts and rows share the same Project/AgentSpec filter. Retired roots
+        remain visible for recovery, and each receipt reuses integrity/identity
+        attestation. Separate Task admission still decides actual resource use.
+        """
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 100
+            or type(offset) is not int
+            or not 0 <= offset <= 1_000_000
+        ):
+            raise DomainError("Space resource pagination invalid", 422)
+        if space_id is not None and (type(space_id) is not str or not _ID.fullmatch(space_id)):
+            raise DomainError("Space resource filter invalid", 422)
+        with self.store.read() as session:
+            instance, spec = self._project_and_agent(session, instance_id)
+            if spec.computer is None or not spec.computer.files:
+                raise DomainError("AgentSpec has no file resource capability", 403)
+            allowed = spec.space_permissions
+            if space_id is not None and space_id not in allowed:
+                raise DomainError("Space not in trusted AgentSpec", 403)
+            filters = (
+                AgentSpaceResourceRecord.project_id == instance.project_id,
+                AgentSpaceResourceRecord.resource_kind == "files",
+                AgentSpaceResourceRecord.space_id.in_(allowed),
+            )
+            if space_id is not None:
+                filters += (AgentSpaceResourceRecord.space_id == space_id,)
+            total = (
+                session.scalar(select(func.count(AgentSpaceResourceRecord.id)).where(*filters)) or 0
+            )
+            records = session.scalars(
+                select(AgentSpaceResourceRecord)
+                .where(*filters)
+                .order_by(AgentSpaceResourceRecord.created_at, AgentSpaceResourceRecord.id)
+                .offset(offset)
+                .limit(limit)
+            ).all()
+            return SpaceResourcePage(
+                items=tuple(self._resource_receipt(session, record) for record in records),
+                total=total,
+                limit=limit,
+                offset=offset,
+            )
 
     def get_resource(self, *, instance_id: str, resource_record_id: str) -> SpaceResourceReceipt:
         with self.store.read() as session:

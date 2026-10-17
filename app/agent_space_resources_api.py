@@ -6,7 +6,7 @@ No endpoint returns file bytes, starts a Worker or changes the Computer grants.
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.agent_space_resources import (
     AgentSpaceResourceService,
     SpaceActivationReceipt,
+    SpaceResourcePage,
     SpaceResourceReceipt,
 )
 from app.auth import require_operator
@@ -76,6 +77,19 @@ def _service(request: Request) -> AgentSpaceResourceService:
         request.app.state.storage,
         request.app.state.agent_factory,
         request.app.state.settings.runtime_dir,
+    )
+
+
+@router.get("/{instance_id}/space-resources", response_model=SpaceResourcePage)
+def list_space_resources(
+    instance_id: str,
+    request: Request,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=1_000_000),
+    space_id: str | None = Query(default=None, min_length=1, max_length=64),
+) -> SpaceResourcePage:
+    return _service(request).list_resources(
+        instance_id=instance_id, limit=limit, offset=offset, space_id=space_id
     )
 
 
