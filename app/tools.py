@@ -281,7 +281,7 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
                             kind="directory" if is_directory else "file",
                         )
                     )
-                    if is_directory and not truncated:
+                    if is_directory and not truncated and depth + 1 < settings.workspace_max_depth:
                         child_fd = os.open(name, flags, dir_fd=directory_fd)
                         try:
                             visit(child_fd, relative, depth + 1)

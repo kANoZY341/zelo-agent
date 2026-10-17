@@ -311,3 +311,23 @@ def test_workspace_listing_hides_sensitive_names_and_roots(settings) -> None:
         )
         with pytest.raises(ToolRuntimeError, match="workspace_directory_not_allowed"):
             sensitive_root.execute("list_workspace_files", {})
+
+
+def test_workspace_listing_does_not_open_directory_at_depth_limit(settings) -> None:
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "workspace"
+        root.mkdir()
+        child = root / "unreadable"
+        child.mkdir()
+        (child / "private.txt").write_text("private", encoding="utf-8")
+        child.chmod(0)
+        try:
+            gateway = ToolGateway(
+                settings.model_copy(update={"workspace_root": root, "workspace_max_depth": 1})
+            )
+            result = gateway.execute("list_workspace_files", {})
+            assert [entry["path"] for entry in result["entries"]] == ["unreadable"]
+            assert result["truncated"] is False
+        finally:
+            child.chmod(0o700)
