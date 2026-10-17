@@ -216,6 +216,19 @@ def _open_workspace_directory(root: Path, parts: tuple[str, ...]) -> int:
         raise ToolRuntimeError("workspace_directory_unavailable") from None
 
 
+def _private_workspace_component(component: str) -> bool:
+    return (
+        component in {"secrets", "runtime", ".git"}
+        or component == ".env"
+        or component.startswith(".env.")
+        or Path(component).suffix in {".sqlite", ".sqlite3", ".db"}
+    )
+
+
+def _private_workspace_path(root: Path, parts: tuple[str, ...]) -> bool:
+    return any(_private_workspace_component(part) for part in (*root.parts, *parts))
+
+
 class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult]):
     def __init__(self) -> None:
         super().__init__(
@@ -227,6 +240,8 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
 
     def run(self, arguments: WorkspacePathInput, settings: Settings) -> ListWorkspaceFilesResult:
         parts = _workspace_parts(arguments.path, allow_empty=True)
+        if _private_workspace_path(settings.workspace_root, parts):
+            raise ToolRuntimeError("workspace_directory_not_allowed")
         entries: list[WorkspaceEntry] = []
         truncated = False
         scanned = 0
@@ -248,6 +263,8 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
                         names.append(item.name)
                 names.sort()
                 for name in names:
+                    if _private_workspace_component(name):
+                        continue
                     mode = os.stat(name, dir_fd=directory_fd, follow_symlinks=False).st_mode
                     if stat.S_ISLNK(mode):
                         continue
@@ -298,14 +315,7 @@ class ReadWorkspaceFileTool(Tool[WorkspaceFileInput, ReadWorkspaceFileResult]):
 
     def run(self, arguments: WorkspaceFileInput, settings: Settings) -> ReadWorkspaceFileResult:
         parts = _workspace_parts(arguments.path, allow_empty=False)
-        if (
-            (parts[-1] == ".env" or parts[-1].startswith(".env."))
-            or any(
-                part in {"secrets", "runtime", ".git"}
-                for part in (*settings.workspace_root.parts, *parts)
-            )
-            or Path(parts[-1]).suffix in {".sqlite", ".sqlite3", ".db"}
-        ):
+        if _private_workspace_path(settings.workspace_root, parts):
             raise ToolRuntimeError("workspace_file_not_allowed")
         directory_fd = _open_workspace_directory(settings.workspace_root, parts[:-1])
         fd: int | None = None

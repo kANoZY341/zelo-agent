@@ -765,9 +765,10 @@ flow belongs at this policy/gateway boundary; an agent never bypasses it.
 
 Workspace file tools walk pinned directory descriptors beneath `workspaces/` and do
 not follow symlinks. Reads refuse hardlinked or special files, `.git`, `secrets`,
-`runtime`, `.env` variants and database paths; directory listing skips symlinks. File
-content remains bounded UTF-8 text. A concurrent path replacement cannot redirect
-a read or listing outside its checked directory.
+`runtime`, `.env` variants and database paths; directory listing hides those
+private names and skips symlinks. File content remains bounded UTF-8 text.
+A concurrent path replacement cannot redirect a read or listing outside its
+checked directory.
 Directory enumeration is also capped and reports a truncated result when its scan
 budget is reached.
 

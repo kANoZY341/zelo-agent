@@ -287,3 +287,27 @@ def test_workspace_listing_bounds_directory_enumeration(settings, monkeypatch) -
         assert result["truncated"] is True
         assert len(result["entries"]) == 1
         assert scanned <= 100
+
+
+def test_workspace_listing_hides_sensitive_names_and_roots(settings) -> None:
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "workspace"
+        root.mkdir()
+        (root / "visible.txt").write_text("okay", encoding="utf-8")
+        (root / ".env.local").write_text("private", encoding="utf-8")
+        for name in ("secrets", "runtime", ".git"):
+            protected = root / name
+            protected.mkdir()
+            (protected / "private.txt").write_text("private", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        names = [entry["path"] for entry in gateway.execute("list_workspace_files", {})["entries"]]
+        assert names == ["visible.txt"]
+        for name in ("secrets", "runtime", ".git"):
+            with pytest.raises(ToolRuntimeError, match="workspace_directory_not_allowed"):
+                gateway.execute("list_workspace_files", {"path": name})
+        sensitive_root = ToolGateway(
+            settings.model_copy(update={"workspace_root": root / "secrets"})
+        )
+        with pytest.raises(ToolRuntimeError, match="workspace_directory_not_allowed"):
+            sensitive_root.execute("list_workspace_files", {})
