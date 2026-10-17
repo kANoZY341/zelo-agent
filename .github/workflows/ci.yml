@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - '*'
   pull_request:
 
 permissions:
@@ -18,8 +22,7 @@ jobs:
       - Linux
       - X64
       - zelo-ci
-    # The full Core suite now exceeds 30 minutes on the pinned self-hosted runner.
-    # Keep the same full pytest/Ruff/diff gates; allow completion and traceback reporting.
+    # Keep the full pytest/Ruff/diff gates while running test files in parallel.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -48,4 +51,5 @@ jobs:
       - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - run: .venv/bin/python -m pytest -q
+      - name: Run full test suite (four workers)
+        run: .venv/bin/python -m pytest -q -n 4 --dist=loadfile --durations=30

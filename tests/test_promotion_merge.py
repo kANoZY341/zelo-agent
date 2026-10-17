@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import ROOT, Settings
+from app.config import Settings
 from app.developer_contracts import WorkerIdentity
 from app.developer_process import DeveloperError
 from app.promotion_contracts import (
@@ -20,6 +20,7 @@ from app.promotion_contracts import (
     PromotionReview,
 )
 from app.promotion_merge import PromotionMergeRuntime
+from tests.runtime_helpers import isolated_runtime_dir
 
 
 class ScriptedTransport:
@@ -48,13 +49,13 @@ class FakeCIVerifier:
 
 
 def fixture(tmp_path):
-    (ROOT / "runtime").mkdir(exist_ok=True)
+    runtime_dir = isolated_runtime_dir(tmp_path)
     gh_config = tmp_path / "gh"
     gh_config.mkdir(mode=0o700)
     executable = Path("/usr/bin/true")
     settings = Settings(
         _env_file=None,
-        runtime_dir=ROOT / "runtime",
+        runtime_dir=runtime_dir,
         promotion_repository="kANoZY341/zelo-agent",
         promotion_gh_executable=executable,
         promotion_gh_config_dir=gh_config,
