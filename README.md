@@ -33,6 +33,9 @@ The authenticated owner can also rediscover prior Space intents and confirmation
 including while an Agent is paused, and revoke them without saved IDs. See the
 [approval recovery workflow](docs/v0.15-space-owner-provisioning.md#recover-and-revoke-prior-approvals).
 
+The existing independent Coding reviewer can optionally produce [grounded Open Code Review findings](docs/v0.15-ocr-independent-review.md).
+This uses the normal approval-bound review workflow, not a separate review engine.
+
 ## Setup
 
 Use Python 3.12 and run commands from the repository root (`~/zelo/core`):

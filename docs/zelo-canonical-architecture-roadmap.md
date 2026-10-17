@@ -1549,3 +1549,23 @@ platform/ABI/native/decoder/Core authority. Continue the fixed Ubuntu origin
 evidence design in [platform origin](v0.15-media-platform-origin.md), cleared for
 offline implementation only. Native GPG, index and package stages retain distinct
 source/execution gates. Original resources/filter gates remain before decoder.
+
+## 17 October — OCR independent-review integration candidate
+
+The operator-selectable `open_code_review` output now connects the existing
+independent Coding reviewer to the pinned OCR adapter and real frozen-candidate
+Git line anchors. The normal report remains default with unchanged nested wire
+form. Approval/claim compatibility captures the selection; inspection, Worker
+identity, snapshot isolation, cleanup and promotion gates remain separate.
+The public Task-result contract validates the exact candidate/evidence binding.
+No new Worker, model provider, Tool, source import or GitHub publication is added.
+See [the independent review workflow](v0.15-ocr-independent-review.md).
+
+This is an unmerged local candidate on post-#191 main, not v0.15 completion.
+Initial four regressions reproduced missing integration. Further tests reproduced
+and corrected prompt overflow, forced binary diff handling and missing saved
+result contract; invalid-result and stale-state failures remain recorded.
+Final exact-source tests, independent review, native model observation and full
+CI must be read from the current candidate/issue #166 evidence, not inferred
+from this implementation note. Media, delegated native acceptance, private
+Skill publication and all other required release gates remain unchanged.
