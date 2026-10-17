@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.community_sources import CommunitySourceRefusal, verify_community_sources
 from app.developer_contracts import ReviewerReport, ReviewFinding
@@ -94,6 +94,50 @@ class OcrEvidenceEnvelope(BaseModel):
         if self.review_evidence_sha256 != _digest(material):
             raise ValueError("ocr_evidence_digest_invalid")
         return self
+
+
+class OcrCandidateReviewEvidence(BaseModel):
+    """Exact candidate-content binding for an uncommitted reviewer snapshot."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    schema_version: Literal["zelo-ocr-candidate-review-v1"] = "zelo-ocr-candidate-review-v1"
+    origin: Literal["isolated_candidate_snapshot"] = "isolated_candidate_snapshot"
+    candidate_content_sha256: Sha256
+    summary_sha256: Sha256
+    line_evidence: OcrEvidenceEnvelope
+
+    @field_validator("line_evidence", mode="before")
+    @classmethod
+    def _decode_json_evidence(cls, value):
+        # Runner validates a JSON-shaped result dict. Use the same strict JSON
+        # contract as external evidence instead of treating JSON arrays as
+        # invalid Python tuples; all hashes and forbidden-field checks remain.
+        if type(value) is dict:
+            return OcrEvidenceEnvelope.model_validate_json(json.dumps(value))
+        return value
+
+    @model_validator(mode="after")
+    def _uncommitted_snapshot_base(self):
+        if self.line_evidence.base_sha != self.line_evidence.head_sha:
+            raise ValueError("ocr_candidate_snapshot_base_mismatch")
+        return self
+
+
+def normalize_ocr_report(summary: str, comments: tuple[OcrReviewComment, ...]) -> ReviewerReport:
+    """Normalize already validated comments; this function grants no authority."""
+    return ReviewerReport(
+        summary=summary,
+        findings=tuple(
+            ReviewFinding(
+                severity=item.severity,
+                path=item.path,
+                message=(
+                    f"[{item.category}, lines {item.start_line}-{item.end_line}] {item.content}"
+                ),
+            )
+            for item in comments
+        ),
+    )
 
 
 def _digest(value: object) -> str:
@@ -199,19 +243,7 @@ def bind_ocr_review(
         evidence = OcrEvidenceEnvelope(
             **evidence_values, review_evidence_sha256=_digest(evidence_values)
         )
-        report = ReviewerReport(
-            summary=payload["summary"],
-            findings=tuple(
-                ReviewFinding(
-                    severity=item.severity,
-                    path=item.path,
-                    message=(
-                        f"[{item.category}, lines {item.start_line}-{item.end_line}] {item.content}"
-                    ),
-                )
-                for item in items
-            ),
-        )
+        report = normalize_ocr_report(payload["summary"], items)
         return report, evidence
     except CommunitySourceRefusal:
         # A trusted reference-source-integrity failure is availability, not

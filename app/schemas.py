@@ -1,15 +1,17 @@
 """Validated API and worker contracts. No executable or opaque serialized state."""
 
 from datetime import datetime
+from hashlib import sha256
 from typing import Annotated, Any, Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app.agent_execution_contracts import AgentExecutionBinding
 from app.agent_factory import AgentComputerSpec, AgentSpec
 from app.api_contracts import API_PATH_LIMIT, API_QUERY_LIMIT, ApiExecutionSpec
 from app.browser_contracts import BrowserExecutionSpec
+from app.community_review import OcrCandidateReviewEvidence, normalize_ocr_report
 from app.computer_contracts import ComputerAction, ComputerExecutionSpec
 from app.developer_contracts import (
     DeveloperRequest,
@@ -580,6 +582,29 @@ class IndependentReviewResult(StrictModel):
     started_at: datetime
     completed_at: datetime
     duration_seconds: float
+    ocr_evidence: OcrCandidateReviewEvidence | None = None
+
+    @model_serializer(mode="wrap")
+    def _legacy_result_shape(self, handler):
+        value = handler(self)
+        if self.ocr_evidence is None:
+            value.pop("ocr_evidence", None)
+        return value
+
+    @model_validator(mode="after")
+    def _ocr_result_matches_candidate(self):
+        if self.ocr_evidence is not None:
+            expected = normalize_ocr_report(
+                self.report.summary, self.ocr_evidence.line_evidence.comments
+            )
+            if (
+                self.ocr_evidence.candidate_content_sha256 != self.candidate_content_sha256
+                or self.ocr_evidence.summary_sha256
+                != sha256(self.report.summary.encode("utf-8")).hexdigest()
+                or self.report != expected
+            ):
+                raise ValueError("ocr_review_result_identity_mismatch")
+        return self
 
 
 class DeveloperRunResult(StrictModel):
@@ -614,6 +639,19 @@ class DeveloperRunResult(StrictModel):
     boundary_error: str | None
     original_error: str | None
     cancelled: bool
+
+    @model_validator(mode="after")
+    def _ocr_candidate_matches_result(self):
+        if (
+            self.independent_review is not None
+            and self.independent_review.ocr_evidence is not None
+            and (
+                self.independent_review.candidate_content_sha256 != self.candidate_content_sha256
+                or self.independent_review.ocr_evidence.line_evidence.base_sha != self.base_sha
+            )
+        ):
+            raise ValueError("ocr_developer_result_identity_mismatch")
+        return self
 
 
 class AttemptResponse(StrictModel):

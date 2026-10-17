@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     mind_admission_timeout_seconds: float = Field(
         default=1.0, ge=0.01, le=30.0, allow_inf_nan=False
     )
+    developer_review_format: Literal["zelo", "open_code_review"] = "zelo"
     developer_timeout_seconds: float = Field(default=900.0, ge=1, le=3600)
     developer_validation_timeout_seconds: float = Field(default=600.0, ge=1, le=1800)
     developer_worker_timeout_seconds: float = Field(default=600.0, ge=1, le=1800)
