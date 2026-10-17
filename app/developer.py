@@ -657,7 +657,10 @@ class DeveloperRuntime:
             reviewer = ReviewerBinding(
                 worker=review_identity,
                 worker_selection=review_selection,
+                report_format=self.settings.developer_review_format,
             )
+        if reviewer is None and self.settings.developer_review_format != "zelo":
+            raise DeveloperError("ocr_review_requires_independent_worker")
 
         return DeveloperRequest(
             instruction=instruction,
@@ -706,13 +709,14 @@ class DeveloperRuntime:
             and request.worker.implementation == selection.descriptor.implementation
             and self.supervisor.matches(selection)
         )
-        reviewer_compatible = True
+        reviewer_compatible = self.settings.developer_review_format == "zelo"
         if request.reviewer is not None:
             reviewer = request.reviewer
             review_selection = reviewer.worker_selection
             producer_id = selection.descriptor.worker_id
             reviewer_compatible = (
-                review_selection.requested_role == "reviewer"
+                reviewer.report_format == self.settings.developer_review_format
+                and review_selection.requested_role == "reviewer"
                 and review_selection.descriptor.role == "reviewer"
                 and "code_review" in review_selection.requested_capabilities
                 and review_selection.authority_profile == "workspace-read-no-network-v1"
@@ -1101,6 +1105,10 @@ class DeveloperRuntime:
         binding = request.reviewer
         if binding is None:
             return None
+        if binding.report_format != self.settings.developer_review_format:
+            raise DeveloperError("reviewer_configuration_changed")
+        # Multiple checks use these inputs; do not consume caller iterators twice.
+        changed_files = tuple(changed_files)
         selection = binding.worker_selection
         registration = self.registry.get(selection.descriptor.worker_id)
         if registration is None or not self.supervisor.matches(selection):
@@ -1180,8 +1188,32 @@ class DeveloperRuntime:
                 ignored_paths=ignored_paths,
                 candidate_content_sha256=candidate_content_sha256,
             )
+            ocr_scope = None
+            if binding.report_format == "open_code_review":
+                from app.developer_ocr_review import candidate_ocr_scope
+
+                ocr_scope = await candidate_ocr_scope(
+                    self,
+                    snapshot_repo,
+                    request,
+                    changed_files=changed_files,
+                    ignored_paths=ignored_paths,
+                    candidate_content_sha256=candidate_content_sha256,
+                )
+                instruction = ocr_scope.instruction() + review_context
+                if len(instruction) > 65536:
+                    raise DeveloperError("ocr_review_instruction_limit")
+                review_request = ReviewerExecutionRequest.model_validate(
+                    review_request.model_copy(update={"instruction": instruction}).model_dump(
+                        mode="json"
+                    )
+                )
+            if binding.report_format != self.settings.developer_review_format:
+                raise DeveloperError("reviewer_configuration_changed")
             before = await asyncio.to_thread(tree_digest, snapshot_repo)
             result = await bound.run(review_request, snapshot_repo)
+            if binding.report_format != self.settings.developer_review_format:
+                raise DeveloperError("reviewer_configuration_changed")
             if result.exit_code:
                 raise DeveloperError("reviewer_nonzero_exit", exit_code=result.exit_code)
             if await asyncio.to_thread(tree_digest, snapshot_repo) != before:
@@ -1194,7 +1226,11 @@ class DeveloperRuntime:
             )
             if reviewed_identity != candidate_content_sha256:
                 raise DeveloperError("reviewer_boundary_violation")
-            report = parse_reviewer_report(result.summary)
+            ocr_evidence = None
+            if ocr_scope is None:
+                report = parse_reviewer_report(result.summary)
+            else:
+                report, ocr_evidence = ocr_scope.bind(result.summary)
             payload = {
                 "worker_id": registration.descriptor.worker_id,
                 "implementation": registration.descriptor.implementation,
@@ -1207,6 +1243,8 @@ class DeveloperRuntime:
                 "completed_at": result.completed_at.isoformat(),
                 "duration_seconds": result.duration_seconds,
             }
+            if ocr_evidence is not None:
+                payload["ocr_evidence"] = ocr_evidence
             emit(
                 "review_completed",
                 {
