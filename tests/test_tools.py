@@ -220,3 +220,70 @@ def test_workspace_read_refuses_hardlinked_file_outside_root(settings) -> None:
         gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
         with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
             gateway.execute("read_workspace_file", {"path": "alias.txt"})
+
+
+def test_workspace_tool_rejects_nul_without_leaking_directory_descriptors(settings) -> None:
+    import os
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": Path(directory)}))
+        before = len(os.listdir("/proc/self/fd"))
+        for _ in range(3):
+            with pytest.raises(ToolRuntimeError):
+                gateway.execute("list_workspace_files", {"path": "bad\x00"})
+            with pytest.raises(ToolRuntimeError):
+                gateway.execute("read_workspace_file", {"path": "bad\x00/note.txt"})
+        assert len(os.listdir("/proc/self/fd")) == before
+
+
+def test_workspace_read_rejects_sensitive_configured_root(settings) -> None:
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "project" / "secrets"
+        root.mkdir(parents=True)
+        (root / "key.txt").write_text("private", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+        with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
+            gateway.execute("read_workspace_file", {"path": "key.txt"})
+
+
+def test_workspace_listing_bounds_directory_enumeration(settings, monkeypatch) -> None:
+    import os
+
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory)
+        for number in range(150):
+            (root / f"entry-{number:03d}").touch()
+        gateway = ToolGateway(
+            settings.model_copy(update={"workspace_root": root, "workspace_max_entries": 1})
+        )
+        original_scandir = os.scandir
+        scanned = 0
+
+        class CountedScan:
+            def __init__(self, iterator):
+                self.iterator = iterator
+
+            def __enter__(self):
+                self.iterator.__enter__()
+                return self
+
+            def __exit__(self, *args):
+                return self.iterator.__exit__(*args)
+
+            def __iter__(self):
+                nonlocal scanned
+                for entry in self.iterator:
+                    scanned += 1
+                    if scanned > 100:
+                        raise AssertionError("directory scan exceeded bound")
+                    yield entry
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "scandir", lambda path: CountedScan(original_scandir(path)))
+            result = gateway.execute("list_workspace_files", {})
+        assert result["truncated"] is True
+        assert len(result["entries"]) == 1
+        assert scanned <= 100

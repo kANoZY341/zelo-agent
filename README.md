@@ -768,6 +768,8 @@ not follow symlinks. Reads refuse hardlinked or special files, `.git`, `secrets`
 `runtime`, `.env` variants and database paths; directory listing skips symlinks. File
 content remains bounded UTF-8 text. A concurrent path replacement cannot redirect
 a read or listing outside its checked directory.
+Directory enumeration is also capped and reports a truncated result when its scan
+budget is reached.
 
 | Setting | Default | Bound |
 | --- | --- | --- |

@@ -180,7 +180,11 @@ class RepoStatusTool(Tool[RepoStatusInput, RepoStatusResult]):
 
 def _workspace_parts(relative: str, *, allow_empty: bool) -> tuple[str, ...]:
     candidate = Path(relative)
-    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+    if (
+        "\x00" in relative
+        or candidate.is_absolute()
+        or any(part == ".." for part in candidate.parts)
+    ):
         raise ToolRuntimeError("invalid_workspace_path")
     parts = candidate.parts
     if not allow_empty and not parts:
@@ -206,7 +210,7 @@ def _open_workspace_directory(root: Path, parts: tuple[str, ...]) -> int:
             os.close(fd)
             fd = next_fd
         return fd
-    except OSError:
+    except (OSError, ValueError):
         if fd is not None:
             os.close(fd)
         raise ToolRuntimeError("workspace_directory_unavailable") from None
@@ -225,15 +229,24 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
         parts = _workspace_parts(arguments.path, allow_empty=True)
         entries: list[WorkspaceEntry] = []
         truncated = False
+        scanned = 0
+        scan_limit = max(64, settings.workspace_max_entries * 4)
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 
         def visit(directory_fd: int, prefix: tuple[str, ...], depth: int) -> None:
-            nonlocal truncated
-            if depth >= settings.workspace_max_depth:
+            nonlocal truncated, scanned
+            if depth >= settings.workspace_max_depth or truncated:
                 return
             try:
                 with os.scandir(directory_fd) as scan:
-                    names = sorted(item.name for item in scan)
+                    names = []
+                    for item in scan:
+                        if scanned >= scan_limit:
+                            truncated = True
+                            break
+                        scanned += 1
+                        names.append(item.name)
+                names.sort()
                 for name in names:
                     mode = os.stat(name, dir_fd=directory_fd, follow_symlinks=False).st_mode
                     if stat.S_ISLNK(mode):
@@ -251,7 +264,7 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
                             kind="directory" if is_directory else "file",
                         )
                     )
-                    if is_directory:
+                    if is_directory and not truncated:
                         child_fd = os.open(name, flags, dir_fd=directory_fd)
                         try:
                             visit(child_fd, relative, depth + 1)
@@ -287,7 +300,10 @@ class ReadWorkspaceFileTool(Tool[WorkspaceFileInput, ReadWorkspaceFileResult]):
         parts = _workspace_parts(arguments.path, allow_empty=False)
         if (
             (parts[-1] == ".env" or parts[-1].startswith(".env."))
-            or any(part in {"secrets", "runtime", ".git"} for part in parts)
+            or any(
+                part in {"secrets", "runtime", ".git"}
+                for part in (*settings.workspace_root.parts, *parts)
+            )
             or Path(parts[-1]).suffix in {".sqlite", ".sqlite3", ".db"}
         ):
             raise ToolRuntimeError("workspace_file_not_allowed")
@@ -317,7 +333,7 @@ class ReadWorkspaceFileTool(Tool[WorkspaceFileInput, ReadWorkspaceFileResult]):
                 decoded = data.decode("utf-8")
             except UnicodeDecodeError:
                 raise ToolRuntimeError("workspace_file_not_utf8") from None
-        except OSError:
+        except (OSError, ValueError):
             raise ToolRuntimeError("workspace_file_unavailable") from None
         finally:
             if fd is not None:
