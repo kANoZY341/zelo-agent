@@ -218,10 +218,11 @@ def _open_workspace_directory(root: Path, parts: tuple[str, ...]) -> int:
 
 def _private_workspace_component(component: str) -> bool:
     normalized = component.casefold()
+    database_extension = Path(normalized).suffix or normalized
     return (
         normalized in {"secrets", "runtime", ".git", ".env", ".envrc"}
         or normalized.startswith(".env.")
-        or Path(normalized).suffix in {".sqlite", ".sqlite3", ".db"}
+        or database_extension in {".sqlite", ".sqlite3", ".db"}
     )
 
 

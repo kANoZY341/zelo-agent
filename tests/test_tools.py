@@ -348,3 +348,20 @@ def test_workspace_envrc_is_never_read_or_listed(settings) -> None:
         for name in private_names:
             with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
                 gateway.execute("read_workspace_file", {"path": name})
+
+
+def test_workspace_database_dotfiles_are_never_read_or_listed(settings) -> None:
+    (ROOT / "workspaces").mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=ROOT / "workspaces") as directory:
+        root = Path(directory) / "workspace"
+        root.mkdir()
+        private_names = (".db", ".sqlite", ".sqlite3", ".DB", ".SQLITE", ".SQLITE3")
+        for name in private_names:
+            (root / name).write_text("private", encoding="utf-8")
+        gateway = ToolGateway(settings.model_copy(update={"workspace_root": root}))
+
+        names = [entry["path"] for entry in gateway.execute("list_workspace_files", {})["entries"]]
+        assert names == []
+        for name in private_names:
+            with pytest.raises(ToolRuntimeError, match="workspace_file_not_allowed"):
+                gateway.execute("read_workspace_file", {"path": name})
