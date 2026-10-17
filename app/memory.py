@@ -3,8 +3,10 @@
 import re
 from collections.abc import Callable
 from datetime import datetime
+from time import monotonic
 
-from sqlalchemy import and_, case, exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, aliased
 
 from app.models import MemoryRecord, Project, utcnow
@@ -301,29 +303,48 @@ class MemoryService:
                 )
 
             minimum_matches = 1 if len(terms) == 1 else 2
-            # Core SQLite connections register the same Unicode casefold as
-            # Python's token matcher. A substring prefilter may admit decoys,
-            # but cannot drop an exact matching token due to Unicode casing.
-            folded_content = func.zelo_casefold(MemoryRecord.content)
-            term_presence = (
-                case((func.instr(folded_content, term) > 0, 1), else_=0) for term in terms
+            # Core SQLite connections fold content once using Python's Unicode
+            # normalization. Substring decoys may pass this prefilter, but a
+            # matching token cannot be lost due to casing.
+            content_condition = (
+                func.zelo_casefold_overlap(MemoryRecord.content, minimum_matches, *terms) == 1
             )
-            content_condition = sum(term_presence, 0) >= minimum_matches
 
             replacement = aliased(MemoryRecord)
-            records = list(
-                session.scalars(
-                    select(MemoryRecord)
-                    .where(
-                        or_(*scope_conditions),
-                        or_(MemoryRecord.expires_at.is_(None), MemoryRecord.expires_at > now),
-                        ~exists(select(1).where(replacement.replaces_id == MemoryRecord.id)),
-                        content_condition,
+            # The result cap alone does not bound a no-match SQL scan. Interrupt
+            # an expensive scan before it monopolizes the Core read connection.
+            # The progress handler belongs to this pooled DB-API connection,
+            # so always remove it before returning that connection to the pool.
+            dbapi = session.connection().connection.driver_connection
+            deadline = monotonic() + 2.0
+            interrupted = False
+
+            def exceeded_budget() -> int:
+                nonlocal interrupted
+                interrupted = monotonic() >= deadline
+                return int(interrupted)
+
+            dbapi.set_progress_handler(exceeded_budget, 1000)
+            try:
+                records = list(
+                    session.scalars(
+                        select(MemoryRecord)
+                        .where(
+                            or_(*scope_conditions),
+                            or_(MemoryRecord.expires_at.is_(None), MemoryRecord.expires_at > now),
+                            ~exists(select(1).where(replacement.replaces_id == MemoryRecord.id)),
+                            content_condition,
+                        )
+                        .order_by(MemoryRecord.created_at.desc(), MemoryRecord.id)
+                        .limit(MEMORY_RETRIEVAL_CANDIDATES)
                     )
-                    .order_by(MemoryRecord.created_at.desc(), MemoryRecord.id)
-                    .limit(MEMORY_RETRIEVAL_CANDIDATES)
                 )
-            )
+            except OperationalError:
+                if interrupted:
+                    raise DomainError("Memory retrieval exceeded work budget", 503) from None
+                raise
+            finally:
+                dbapi.set_progress_handler(None, 0)
 
             meaningful_phrase = " ".join(terms)
             ranked: list[tuple[int, datetime, str, MemoryRecord, tuple[str, ...]]] = []
