@@ -2,7 +2,26 @@
 
 ## Status
 
-**17 October approval-history continuation (unmerged):** owner-only paginated
+**17 October integration checkpoint:** approval-history PR #191 is merged
+at `0471c29e43386202fbb3535aa6df3e4d0191a645` after its exact-content full CI
+passed **6,311 tests, 2 skipped** and predecessor main CI passed. The distinct
+post-merge main run **39033985522** is pending, not PASS at this checkpoint.
+This owner-takeover status correction is being reconciled with that main;
+its original five production lines are unchanged. Both historical feature
+notes are preserved below. The new-base three-module regression passed
+**34 tests, 3 warnings**; exact-source review/native proof and full CI remain
+required. The full operational v0.15 release is HOLD.
+
+**17 October owner-control status correction (local candidate):** Specialist
+Space eligibility now reflects the existing durable owner-takeover barrier.
+Three normal-Core regressions first reproduced false-positive eligibility
+while Task admission already denied access. No execution check or permission
+was weakened. See [Space status](v0.15-specialist-space-access-status.md#owner-takeover-and-handback).
+The broader eight-module regression passed **106 tests, 3 warnings**.
+Independent exact-source review, native qualification and full CI remain
+separate gates; the full v0.15 scope and HOLD remain unchanged.
+
+**Historical 17 October approval-history candidate:** owner-only paginated
 intent/confirmation discovery reuses the existing immutable records and receipt
 checks. History remains available after an Agent/Project stop or registry change
 so old approvals can be located and explicitly revoked; visibility grants no
