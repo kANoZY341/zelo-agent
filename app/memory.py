@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.models import MemoryRecord, Project, utcnow
@@ -23,6 +23,7 @@ from app.schemas import (
 from app.storage import SessionStore
 
 MEMORY_RETRIEVAL_CANDIDATES = 256
+MEMORY_RETRIEVAL_FILTERED_CANDIDATES = 2048
 MEMORY_HIT_CONTENT_CHARS = 1200
 _MEMORY_TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_STOP_TERMS = frozenset(
@@ -300,6 +301,18 @@ class MemoryService:
                     limit=body.limit,
                 )
 
+            minimum_matches = 1 if len(terms) == 1 else 2
+            # SQLite's lower() folds ASCII only. Use it to eliminate newer, unrelated
+            # records *before* the candidate cap; retain the old bounded path for
+            # non-ASCII queries so Unicode casefold matches are not lost.
+            content_condition = None
+            if all(term.isascii() for term in terms):
+                term_presence = (
+                    case((func.instr(func.lower(MemoryRecord.content), term) > 0, 1), else_=0)
+                    for term in terms
+                )
+                content_condition = sum(term_presence, 0) >= minimum_matches
+
             replacement = aliased(MemoryRecord)
             records = list(
                 session.scalars(
@@ -308,14 +321,18 @@ class MemoryService:
                         or_(*scope_conditions),
                         or_(MemoryRecord.expires_at.is_(None), MemoryRecord.expires_at > now),
                         ~exists(select(1).where(replacement.replaces_id == MemoryRecord.id)),
+                        *([content_condition] if content_condition is not None else []),
                     )
                     .order_by(MemoryRecord.created_at.desc(), MemoryRecord.id)
-                    .limit(MEMORY_RETRIEVAL_CANDIDATES)
+                    .limit(
+                        MEMORY_RETRIEVAL_FILTERED_CANDIDATES
+                        if content_condition is not None
+                        else MEMORY_RETRIEVAL_CANDIDATES
+                    )
                 )
             )
 
             meaningful_phrase = " ".join(terms)
-            minimum_matches = 1 if len(terms) == 1 else 2
             ranked: list[tuple[int, datetime, str, MemoryRecord, tuple[str, ...]]] = []
             for record in records:
                 content_terms = set(_memory_terms(record.content))
