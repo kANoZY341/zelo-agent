@@ -18,6 +18,7 @@ from app.agent_factory import AgentFactory
 from app.agent_space_intents import (
     _ID,
     _UUID,
+    MAX_INTENT_HISTORY_PER_AGENT,
     AgentSpaceIntentService,
     _hash,
     _snapshot,
@@ -93,6 +94,20 @@ class SpaceActivationPage:
     total: int
     limit: int
     offset: int
+
+
+@dataclass(frozen=True, slots=True)
+class SpaceApprovalRevocationReceipt:
+    agent_instance_id: str
+    project_id: str
+    revoked_at: datetime
+    total_intents: int
+    total_activations: int
+    newly_revoked_intent_ids: tuple[str, ...]
+    newly_revoked_activation_ids: tuple[str, ...]
+    scope: Literal["existing_agent_space_approvals"] = "existing_agent_space_approvals"
+    future_owner_approvals_blocked: Literal[False] = False
+    resources_deleted: Literal[False] = False
 
 
 def _resource_digest(record: AgentSpaceResourceRecord) -> str:
@@ -590,6 +605,64 @@ class AgentSpaceResourceService:
                 and binding["expires_at"] > utcnow()
             ),
         )
+
+    def revoke_all(self, *, instance_id: str) -> SpaceApprovalRevocationReceipt:
+        """Withdraw existing owned approvals in the same writer as grant/use checks.
+
+        Emergency withdrawal must work with inactive/stale AgentSpec bindings
+        or unavailable roots. Only persisted ownership and history bounds are
+        needed; inspecting or executing the stored approval contents is not.
+        This is not a permanent ban on separately approved future intentions.
+        """
+        with self.store.transaction() as session:
+            instance = self.intents._load_instance(session, instance_id)
+            intents = session.execute(
+                select(AgentSpaceIntentRecord.id, AgentSpaceIntentRecord.project_id)
+                .where(AgentSpaceIntentRecord.agent_instance_id == instance.id)
+                .order_by(AgentSpaceIntentRecord.created_at, AgentSpaceIntentRecord.id)
+                .limit(MAX_INTENT_HISTORY_PER_AGENT + 1)
+            ).all()
+            activations = session.execute(
+                select(AgentSpaceActivationRecord.id, AgentSpaceActivationRecord.project_id)
+                .where(AgentSpaceActivationRecord.agent_instance_id == instance.id)
+                .order_by(AgentSpaceActivationRecord.created_at, AgentSpaceActivationRecord.id)
+                .limit(MAX_CONFIRMATIONS_PER_AGENT + 1)
+            ).all()
+            if (
+                len(intents) > MAX_INTENT_HISTORY_PER_AGENT
+                or len(activations) > MAX_CONFIRMATIONS_PER_AGENT
+                or any(project != instance.project_id for _, project in (*intents, *activations))
+            ):
+                raise DomainError("Space approval ownership or history integrity failure", 503)
+            now = utcnow()
+            intent_ids = []
+            activation_ids = []
+            # Keep both classes in one transaction/flush. A failure at either
+            # table rolls back all newly added terminal revocation records.
+            with session.no_autoflush:
+                for key, _ in intents:
+                    if session.get(AgentSpaceIntentRevocation, key) is None:
+                        session.add(AgentSpaceIntentRevocation(intent_id=key, revoked_at=now))
+                        intent_ids.append(key)
+                for key, _ in activations:
+                    if session.get(AgentSpaceActivationRevocation, key) is None:
+                        session.add(
+                            AgentSpaceActivationRevocation(activation_id=key, revoked_at=now)
+                        )
+                        activation_ids.append(key)
+            session.flush()
+            receipt = SpaceApprovalRevocationReceipt(
+                agent_instance_id=instance.id,
+                project_id=instance.project_id,
+                revoked_at=now,
+                total_intents=len(intents),
+                total_activations=len(activations),
+                newly_revoked_intent_ids=tuple(intent_ids),
+                newly_revoked_activation_ids=tuple(activation_ids),
+            )
+        # Return only after the Core writer actually commits, never from a
+        # speculative pre-commit state. Existing row timestamps are untouched.
+        return receipt
 
     def revoke(self, *, instance_id: str, activation_id: str) -> SpaceActivationReceipt:
         with self.store.transaction() as session:
