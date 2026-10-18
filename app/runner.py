@@ -617,6 +617,7 @@ class Runner:
             query=execution.payload.get("query", {}),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            authorize_request=lambda: self.service.api_request_allowed(execution),
         )
 
     async def _browser_worker(self, execution: Execution) -> dict[str, Any]:

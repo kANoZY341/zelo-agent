@@ -251,9 +251,10 @@ passed one real public HTTPS read with default-deny checks. Initial #211 CI
 failed approval pagination ordering. #211 merged after revised review/CI
 passed; distinct main CI 39145729567 failed a scheduler order assertion.
 #212 follow-through passed exact-head and distinct main CI (6,388 passed,
-2 skipped); earlier failures remain historical. A Research use-point
-authorization fix is under qualification. Worker and authority gates keep
-v0.15 on HOLD.
+2 skipped); #213 Research use-point authority passed independent review,
+exact-head and distinct main CI (6,393 passed, 2 skipped). Earlier failures
+remain historical. An API network send authority correction is under
+qualification. Worker and authority gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's

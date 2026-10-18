@@ -4193,6 +4193,40 @@ class TaskService:
             except (DomainError, ValueError):
                 return False
 
+    def api_request_allowed(self, execution: Execution) -> bool:
+        """Recheck the current Core Task and endpoint binding before API I/O."""
+        if execution.kind != "api_run" or execution.api_request is None:
+            return False
+        with self.database.read() as session:
+            task = session.get(Task, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if (
+                task is None
+                or attempt is None
+                or attempt.task_id != execution.task_id
+                or task.kind != "api_run"
+                or task.status != State.RUNNING
+                or attempt.outcome != State.RUNNING
+                or task.cancel_requested
+                or task.api_spec is None
+                or self.api_supervisor is None
+                or task.agent_execution_spec is not None
+                or execution.agent_execution is not None
+            ):
+                return False
+            try:
+                spec = ApiExecutionSpec.model_validate(task.api_spec)
+            except ValueError:
+                return False
+            selection = spec.worker_selection
+            selected = self.api_supervisor.registry.get(selection.descriptor.worker_id)
+            return (
+                spec == execution.api_request
+                and selected is not None
+                and self.api_supervisor.matches(selection)
+                and selected.worker.matches(spec)
+            )
+
     def finish(
         self,
         execution: Execution,
