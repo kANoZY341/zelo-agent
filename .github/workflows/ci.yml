@@ -52,4 +52,4 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - name: Run full test suite (four workers)
-        run: .venv/bin/python -m pytest -q -n 4 --dist=loadfile --durations=30
+        run: .venv/bin/python -m pytest -q -n 4 --dist=loadgroup --durations=30
