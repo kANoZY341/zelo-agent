@@ -257,14 +257,17 @@ exact-head CI 39124001164 **PASS**. Its distinct main CI 39125109612
 assumed creation order where the API sorts by `(created_at, id)`. A narrow
 test correction merged as #208 at `b6d6f94`; its exact-head CI 39126561224
 and distinct main CI 39127790513 both **PASS** (6,388 passed, 2 skipped).
-The #207 failed receipt remains failed. A separate current-main isolated Python
-loopback run passed real Task execution, default admission denials, network and
-write refusal; a narrow qualification candidate also observed native child
-cancellation and cleanup. Initial #209 CI 39132453181 **FAILED** in a separate
-Shell optimized-Python subprocess test whose 10-second deadline expired after
-the expected refusal text appeared. A 30-second test deadline preserves the
-same refusal/no-native-evidence assertions; new exact-head CI is pending.
-These do not complete R3 or authorize release.
+The #207 failed receipt remains failed. #209 merged at `f71c06d` after
+revised exact-head CI 39133794701 and distinct main CI 39135020569 both
+**PASS** (6,388 passed, 2 skipped). Its isolated Core loopback proof observed
+native Python child cancellation/reap, persisted cancelled Task/attempt and no
+result, along with execution and default-deny checks. Initial #209 CI
+39132453181 remains **FAILED** in a separate Shell optimized-Python refusal
+test's ten-second subprocess deadline; the revised test retained the refusal
+and no-native-evidence assertions. A follow-up local candidate also proved
+Python Task timeout/error audit, absent result and native child reap, pending
+its exact-head review/CI and main follow-through. These do not complete R3 or
+authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;

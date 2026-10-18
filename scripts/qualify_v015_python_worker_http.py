@@ -252,6 +252,62 @@ async def run():
                     assert not Path(f"/proc/{native_pid}").exists(), "Native child not reaped"
                     assert await total() == original + 4
                     print("PYTHON_RUNNING_TASK_CANCELLATION_AND_REAP=PASS", flush=True)
+
+                    assert not direct_bwrap_children(), "Prior sandbox child remains"
+                    submitted = await client.post(
+                        "/tasks",
+                        headers=headers,
+                        json={
+                            "kind": "python_run",
+                            "payload": {"code": "import time; time.sleep(30)"},
+                            "timeout_seconds": 8,
+                        },
+                    )
+                    assert submitted.status_code == 201, submitted.text[:240]
+                    timed_out_id = submitted.json()["id"]
+                    for _ in range(100):
+                        events = await client.get(f"/tasks/{timed_out_id}/events", headers=headers)
+                        assert events.status_code == 200
+                        if any(e["event"] == "python_execution_started" for e in events.json()):
+                            break
+                        await asyncio.sleep(0.05)
+                    else:
+                        raise AssertionError("Python Worker did not begin before timeout")
+                    for _ in range(100):
+                        native_children = direct_bwrap_children()
+                        if native_children:
+                            break
+                        await asyncio.sleep(0.05)
+                    assert len(native_children) == 1, "Timed Python sandbox did not start"
+                    native_pid = next(iter(native_children))
+                    for _ in range(200):
+                        response = await client.get(f"/tasks/{timed_out_id}", headers=headers)
+                        assert response.status_code == 200
+                        timed_out = response.json()
+                        if timed_out["status"] in (
+                            "failed",
+                            "succeeded",
+                            "cancelled",
+                            "interrupted",
+                        ):
+                            break
+                        await asyncio.sleep(0.1)
+                    assert timed_out["status"] == "failed", timed_out
+                    assert timed_out["error"] == "python_timeout"
+                    assert timed_out["result"] is None
+                    assert timed_out["attempts"][0]["outcome"] == "failed"
+                    events = await client.get(f"/tasks/{timed_out_id}/events", headers=headers)
+                    assert events.status_code == 200
+                    names = [e["event"] for e in events.json()]
+                    assert "python_execution_started" in names
+                    assert "python_failed" in names
+                    assert "python_execution_completed" not in names
+                    assert native_pid not in direct_bwrap_children(), "Timed sandbox child remains"
+                    assert not Path(f"/proc/{native_pid}").exists(), (
+                        "Timed sandbox child not reaped"
+                    )
+                    assert await total() == original + 5
+                    print("PYTHON_TASK_TIMEOUT_AND_REAP=PASS", flush=True)
             finally:
                 server.should_exit = True
                 await asyncio.wait_for(server_task, timeout=20)
