@@ -256,7 +256,9 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 cancellation, timeout and native child reap. Their initial failed CI receipts
 remain in the closeout ledger. An opt-in API Worker candidate passed one
 public HTTPS Task and denied unregistered/unsafe requests. Initial #211 CI
-failed approval pagination ordering; revised review/CI is pending.
+failed approval pagination ordering. #211 merged after revised review/CI
+passed; distinct main CI 39145729567 failed a scheduler order assertion.
+Follow-through remains open.
 These bounded receipts do not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and

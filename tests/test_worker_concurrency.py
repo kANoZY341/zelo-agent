@@ -238,12 +238,21 @@ def _approved(service: TaskService, instruction: str):
     return service.get(task.id)
 
 
+def _set_claim_order(database, *tasks):
+    # Scheduler order is persisted (created_at, id), not request submission order.
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    with database.transaction() as session:
+        for seconds, task in enumerate(tasks):
+            session.get(Task, task.id).created_at = base + timedelta(seconds=seconds)
+
+
 def test_scheduler_enforces_worker_capacity_and_can_skip_to_another_worker(settings, database):
     runtime = CapacityRuntime(settings)
     service = TaskService(database, settings, developer_runtime=runtime)
     alpha_one = _approved(service, "alpha-one")
     alpha_two = _approved(service, "alpha-two")
     beta = _approved(service, "beta-one")
+    _set_claim_order(database, alpha_one, alpha_two, beta)
 
     first = service.claim()
     assert first is not None and first.task_id == alpha_one.id
@@ -278,7 +287,8 @@ def test_non_developer_task_is_exclusive_barrier(settings, database):
     assert first is not None and first.task_id == alpha.id
 
     echo, _ = service.submit(EchoInput(kind="echo", payload={"text": "barrier"}), None)
-    _approved(service, "beta-one")
+    beta = _approved(service, "beta-one")
+    _set_claim_order(database, echo, beta)
     assert service.claim() is None
 
     assert first.developer_request is not None
@@ -349,6 +359,7 @@ def test_scheduler_allows_same_worker_up_to_max_concurrency(settings, database):
     alpha_one = _approved(service, "alpha-one")
     alpha_two = _approved(service, "alpha-two")
     alpha_three = _approved(service, "alpha-three")
+    _set_claim_order(database, alpha_one, alpha_two, alpha_three)
 
     first = service.claim()
     second = service.claim()
@@ -425,6 +436,7 @@ def test_cancel_before_first_operation_step_is_finalized(settings, database):
     service = TaskService(database, settings, developer_runtime=runtime)
     first = _approved(service, "alpha-one")
     second = _approved(service, "alpha-two")
+    _set_claim_order(database, first, second)
 
     async def exercise():
         runner = Runner(service, developer_runtime=runtime)
