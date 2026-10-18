@@ -7,9 +7,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+from app.agent_execution_contracts import AgentExecutionBinding
+from app.agent_factory import AgentSpec, WorkerRequirement
 from app.api_contracts import ApiEndpointRegistry
 from app.api_worker import API_RESPONSE_LIMIT, ApiRuntime, ApiRuntimeError
 from app.models import Task
+from app.policy import DomainError
 from app.runner import Runner
 from app.schemas import ApiRunInput
 from app.tasks import TaskService
@@ -354,6 +357,34 @@ def test_api_task_cannot_send_after_authority_changes_during_dns(settings, datab
     assert current.status == ("cancelled" if invalidate == "cancel" else "failed")
     assert current.result is None
     assert requests == []
+
+
+def test_agent_api_task_refused_before_database_write(settings, database):
+    spec = AgentSpec(
+        agent_id="api_reader",
+        role="api_reader",
+        objective="Read a configured API",
+        capabilities=("api_read",),
+        allowed_task_kinds=("api_run",),
+        memory_namespace="agent/api_reader",
+        worker_requirement=WorkerRequirement(role="api", capabilities=("api_read",)),
+        lifecycle="active",
+    )
+    binding = AgentExecutionBinding(
+        agent_instance_id="11111111-1111-4111-8111-111111111111",
+        project_id="22222222-2222-4222-8222-222222222222",
+        registry_version="a" * 64,
+        spec=spec,
+        task_kind="api_run",
+    )
+    service = TaskService(database, settings, api_supervisor=supervisor(task_runtime()))
+
+    with pytest.raises(DomainError, match="Agent API execution unavailable"):
+        service.submit(
+            ApiRunInput(kind="api_run", payload={"endpoint_id": "example", "path": "/v1"}),
+            None,
+            binding,
+        )
 
 
 def test_api_runner_marks_non_success_http_status_failed(settings, database):

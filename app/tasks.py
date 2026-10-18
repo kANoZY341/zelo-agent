@@ -1838,8 +1838,9 @@ class TaskService:
         key: str | None,
         agent_execution: AgentExecutionBinding | None = None,
     ) -> tuple[TaskResponse, bool]:
+        if agent_execution is not None and request.kind == "api_run":
+            raise DomainError("Agent API execution unavailable", 422)
         if agent_execution is not None and request.kind not in {
-            "api_run",
             "browser_run",
             "computer_run",
             "shell_run",
