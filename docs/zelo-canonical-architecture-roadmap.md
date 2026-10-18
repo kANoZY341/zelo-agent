@@ -246,7 +246,10 @@ The 18 October #207 exact-head suite passed, but its distinct main CI
 CI 39127790513 (6,388 passed, 2 skipped). The failed #207 receipt remains
 historical. An isolated current-main Python Worker host run passed execution
 and default-deny boundaries; a narrow candidate added observed native child
-cancellation/reap. The remaining Worker and authority gates keep v0.15 on HOLD.
+cancellation/reap. Its initial CI 39132453181 failed on a separate Shell
+optimized-Python test deadline after the expected refusal was captured;
+the narrow deadline correction needs fresh exact-head CI. The remaining Worker
+and authority gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
