@@ -11,13 +11,24 @@ import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+from app.agent_execution import AgentExecutionService
+from app.agent_factory import AgentFactory, default_agent_registry
+from app.agent_instances import AgentInstanceService
 from app.config import ROOT
 from app.gateway import ModelGateway, ModelGatewayError, ModelResult, OllamaProvider
 from app.main import create_app
+from app.memory import MemoryService
 from app.models import Task
+from app.projects import ProjectService
 from app.research import RESEARCH_ACTION, ResearchRuntime, ResearchRuntimeError
 from app.runner import Runner
-from app.schemas import ResearchRunInput
+from app.schemas import (
+    AgentInstanceCreate,
+    AgentInstanceTransition,
+    AgentTaskCreate,
+    ProjectCreate,
+    ResearchRunInput,
+)
 from app.tasks import TaskService, _project_task_result
 from app.tools import (
     ListWorkspaceFilesTool,
@@ -31,6 +42,8 @@ from app.tools import (
 )
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
 from tests.conftest import AUTH
+from tests.test_agent_execution import direct_services
+from tests.test_agent_execution import project as agent_project
 from tests.test_api import wait_for
 from tests.test_campaigns import campaign_fixture
 from tests.test_mind import new_conversation, send_turn
@@ -735,6 +748,174 @@ def research_supervisor(worker_id: str = "research_core") -> Supervisor[object]:
         ((descriptor_for_research_worker(worker_id=worker_id), object()),)
     )
     return Supervisor[object](registry)
+
+
+@pytest.mark.parametrize("pause_before_model_reply", [False, True])
+def test_research_agent_checks_live_authority_before_workspace_read(
+    research_settings, database, pause_before_model_reply
+):
+    class HeldProvider(ResearchProvider):
+        def __init__(self):
+            super().__init__(
+                call("read_workspace_file", path="facts.txt"),
+                final("The workspace proof is green. [S1]", "S1"),
+            )
+            self.entered = asyncio.Event()
+            self.proceed = asyncio.Event()
+
+        async def generate(self, request):
+            if not self.requests:
+                self.entered.set()
+                await self.proceed.wait()
+            return await super().generate(request)
+
+    provider = HeldProvider()
+    gateway = research_gateway(research_settings, provider)
+    tools = ToolGateway(research_settings)
+    runtime = ResearchRuntime(research_settings, gateway, tools)
+    supervisor = Supervisor(WorkerRegistry(((descriptor_for_research_worker(), runtime),)))
+    factory = AgentFactory(default_agent_registry())
+    instances = AgentInstanceService(database, factory, MemoryService(database))
+    tasks = TaskService(
+        database,
+        research_settings,
+        gateway=gateway,
+        tool_gateway=tools,
+        agent_factory=factory,
+        research_supervisor=supervisor,
+    )
+    project = ProjectService(database).create(
+        ProjectCreate(name="Research read boundary", summary="Pause before tool dispatch.")
+    )
+    instance = instances.create(AgentInstanceCreate(agent_id="research", project_id=project.id))
+    created, _ = AgentExecutionService(database, factory, tasks).submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ResearchRunInput(
+                kind="research_run", payload={"query": "Read the workspace proof."}
+            )
+        ),
+        "research:pause-before-tool",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == created.id
+    assert claimed.agent_execution is not None
+
+    async def exercise():
+        running = asyncio.create_task(Runner(tasks, research_supervisor=supervisor)._run(claimed))
+        await asyncio.wait_for(provider.entered.wait(), timeout=5)
+        if pause_before_model_reply:
+            instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+        provider.proceed.set()
+        await asyncio.wait_for(running, timeout=5)
+
+    asyncio.run(exercise())
+
+    current = tasks.get(created.id)
+    events = [event.event for event in tasks.events(created.id, 100, 0)]
+    if pause_before_model_reply:
+        assert current.status == "cancelled"
+        assert current.error == "agent_execution_invalidated"
+        assert "research_tool_requested" not in events
+        assert "research_tool_completed" not in events
+    else:
+        assert current.status == "succeeded"
+        assert current.result["answer"] == "The workspace proof is green. [S1]"
+        assert "research_tool_requested" in events
+        assert "research_tool_completed" in events
+
+
+def test_bound_research_runtime_requires_live_core_tool_guard(research_settings, database):
+    _factory, instances, tasks, agent_execution = direct_services(database, research_settings)
+    owned_project = agent_project(database, "Guarded research")
+    instance = instances.create(
+        AgentInstanceCreate(agent_id="research", project_id=owned_project.id)
+    )
+    created, _ = agent_execution.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ResearchRunInput(
+                kind="research_run", payload={"query": "Read the workspace proof."}
+            )
+        ),
+        "research:missing-use-guard",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == created.id
+    assert claimed.agent_execution is not None
+
+    provider = ResearchProvider(
+        call("read_workspace_file", path="facts.txt"),
+        final("The workspace proof is green. [S1]", "S1"),
+    )
+    gateway = research_gateway(research_settings, provider)
+    runtime = ResearchRuntime(research_settings, gateway, ToolGateway(research_settings))
+    alias, model = gateway.select("general")
+    with pytest.raises(ResearchRuntimeError, match="research_tool_authority_unavailable"):
+        asyncio.run(
+            runtime.run(
+                query="Read the workspace proof.",
+                selected_alias=alias,
+                selected_model=model,
+                timeout_seconds=30,
+                emit=lambda _event, _details: None,
+                agent_execution=claimed.agent_execution,
+            )
+        )
+    assert provider.requests == []
+
+
+def test_research_rechecks_authority_inside_tool_thread(research_settings, monkeypatch):
+    provider = ResearchProvider(call("read_workspace_file", path="facts.txt"))
+    gateway = research_gateway(research_settings, provider)
+    tools = ToolGateway(research_settings)
+    executed = []
+
+    def forbidden(*args, **kwargs):
+        executed.append((args, kwargs))
+        raise AssertionError("Revoked tool reached the executor")
+
+    monkeypatch.setattr(tools, "execute", forbidden)
+    runtime = ResearchRuntime(research_settings, gateway, tools)
+    events = []
+    authorized = True
+
+    def emit(event, _details):
+        nonlocal authorized
+        events.append(event)
+        if event == "research_tool_requested":
+            authorized = False
+
+    alias, model = gateway.select("general")
+    with pytest.raises(ResearchRuntimeError, match="research_tool_authority_invalid"):
+        asyncio.run(
+            runtime.run(
+                query="Read the workspace proof.",
+                selected_alias=alias,
+                selected_model=model,
+                timeout_seconds=30,
+                emit=emit,
+                authorize_tool=lambda _name: authorized,
+            )
+        )
+    assert "research_tool_requested" in events
+    assert "research_tool_completed" not in events
+    assert executed == []
+
+
+def test_research_tool_use_check_rejects_cancelled_unbound_task(settings, database):
+    supervisor = research_supervisor()
+    service = TaskService(
+        database, settings, gateway=research_gateway(settings), research_supervisor=supervisor
+    )
+    created, _ = service.submit(
+        ResearchRunInput(kind="research_run", payload={"query": "Find evidence."}), None
+    )
+    claimed = service.claim()
+    assert claimed is not None and claimed.task_id == created.id
+    assert service.research_tool_allowed(claimed, "repo_status")
+    service.cancel(created.id)
+    assert not service.research_tool_allowed(claimed, "repo_status")
 
 
 def test_runner_requires_bound_research_worker_selection(settings, database):

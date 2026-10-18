@@ -233,7 +233,10 @@ def test_paused_research_agent_cannot_publish_a_claimed_result(database, setting
     claimed = tasks.claim()
     assert claimed is not None and claimed.task_id == task.id
 
+    assert tasks.research_tool_allowed(claimed, "read_workspace_file")
+    assert not tasks.research_tool_allowed(claimed, "system_info")
     instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+    assert not tasks.research_tool_allowed(claimed, "read_workspace_file")
     tasks.finish(
         claimed,
         State.SUCCEEDED,
@@ -273,8 +276,10 @@ def test_resumed_research_agent_cannot_publish_result_from_before_pause(
     claimed = tasks.claim()
     assert claimed is not None and claimed.task_id == task.id
 
+    assert tasks.research_tool_allowed(claimed, "read_workspace_file")
     instances.transition(instance.id, AgentInstanceTransition(action="pause"))
     instances.transition(instance.id, AgentInstanceTransition(action="resume"))
+    assert not tasks.research_tool_allowed(claimed, "read_workspace_file")
     tasks.finish(
         claimed,
         State.SUCCEEDED,
@@ -517,10 +522,12 @@ def test_revoked_delegation_cannot_publish_a_claimed_research_result(
     claimed = tasks.claim()
     assert claimed is not None and claimed.task_id == task.id
 
+    assert tasks.research_tool_allowed(claimed, "read_workspace_file")
     delegations.revoke(
         delegation.id,
         AgentDelegationRevoke(reason="Delegation no longer authorized."),
     )
+    assert not tasks.research_tool_allowed(claimed, "read_workspace_file")
     tasks.finish(
         claimed,
         State.SUCCEEDED,

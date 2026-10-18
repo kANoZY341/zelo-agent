@@ -568,6 +568,7 @@ class Runner:
             selected_model=execution.selected_model or "",
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            authorize_tool=lambda name: self.service.research_tool_allowed(execution, name),
             **agent_kwargs,
         )
 

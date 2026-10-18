@@ -528,6 +528,7 @@ def test_research_runtime_restricts_tools_to_agent_allowlist(settings):
                 timeout_seconds=worker_settings.agent_timeout_seconds,
                 emit=lambda *_: None,
                 agent_execution=binding,
+                authorize_tool=lambda _name: True,
             )
         )
         assert output["tool_calls"] == 1
@@ -595,6 +596,7 @@ def test_untrusted_model_cannot_dispatch_tool_outside_bound_agent_allowlist(sett
                     timeout_seconds=worker_settings.agent_timeout_seconds,
                     emit=lambda event, _details: events.append(event),
                     agent_execution=binding,
+                    authorize_tool=lambda _name: True,
                 )
             )
         assert executed == []
