@@ -251,11 +251,9 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 `docs/v0.15-release-closeout.md`. The last published version is still
 `v0.14.0`; v0.15.0 is **not released or ready to tag**.
 
-18 October: #209/#210 proved bounded Python execution, cancellation,
-timeout and child reap; #211 proved one opt-in public API GET. #212 passed
-exact-head and main CI (6,388 passed, 2 skipped). Earlier failed runs remain
-in the closeout ledger. Research tool use-point authority is under
-qualification. These receipts do not complete R3 or authorize release.
+18 October: #209–#213 passed reviewed CI for bounded Python, API and
+Research work; earlier failed runs remain recorded. API send authority is
+under qualification. R3 and release remain HOLD.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;

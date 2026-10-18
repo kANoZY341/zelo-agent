@@ -7,9 +7,12 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+from app.agent_execution_contracts import AgentExecutionBinding
+from app.agent_factory import AgentSpec, WorkerRequirement
 from app.api_contracts import ApiEndpointRegistry
 from app.api_worker import API_RESPONSE_LIMIT, ApiRuntime, ApiRuntimeError
 from app.models import Task
+from app.policy import DomainError
 from app.runner import Runner
 from app.schemas import ApiRunInput
 from app.tasks import TaskService
@@ -56,6 +59,7 @@ def run_api(value: ApiRuntime, *, path="/v1/data", query=None) -> dict:
             query=query or {},
             timeout_seconds=2,
             emit=lambda *_: None,
+            authorize_request=lambda: True,
         )
     )
 
@@ -87,6 +91,28 @@ def test_endpoint_registry_version_is_deterministic_and_material():
     )
     assert first.version == second.version
     assert first.version != changed.version
+
+
+def test_api_runtime_requires_core_request_authority():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(200, headers={"content-type": "application/json"}, json={})
+
+    value = runtime(handle)
+    _, selection = supervisor(value).select(role="api", capabilities=("api_read",))
+    with pytest.raises(ApiRuntimeError, match="api_request_authority_unavailable"):
+        asyncio.run(
+            value.run(
+                spec=value.bind(selection, "example"),
+                path="/v1",
+                query={},
+                timeout_seconds=2,
+                emit=lambda *_: None,
+            )
+        )
+    assert requests == []
 
 
 def test_runtime_pins_public_ip_and_preserves_https_host():
@@ -287,6 +313,78 @@ def test_runner_rejects_stale_api_execution_spec(settings, database):
 
     with pytest.raises(ApiRuntimeError, match="api_execution_spec_stale"):
         asyncio.run(runner._api_worker(execution))
+
+
+@pytest.mark.parametrize("invalidate", ["cancel", "endpoint_change"])
+def test_api_task_cannot_send_after_authority_changes_during_dns(settings, database, invalidate):
+    entered = asyncio.Event()
+    proceed = asyncio.Event()
+    requests = []
+
+    async def held_resolver(host, port):
+        entered.set()
+        await proceed.wait()
+        return await public_resolver(host, port)
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(200, headers={"content-type": "application/json"}, json={"ok": True})
+
+    value = runtime(handle, resolver=held_resolver)
+    api_supervisor = supervisor(value)
+    service = TaskService(database, settings, api_supervisor=api_supervisor)
+    created, _ = service.submit(
+        ApiRunInput(kind="api_run", payload={"endpoint_id": "example", "path": "/v1"}),
+        None,
+    )
+    execution = service.claim()
+    assert execution is not None and execution.task_id == created.id
+
+    async def exercise():
+        running = asyncio.create_task(
+            Runner(service, api_supervisor=api_supervisor)._run(execution)
+        )
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        if invalidate == "cancel":
+            service.cancel(created.id)
+        else:
+            service.api_supervisor = supervisor(task_runtime("https://other.example.com"))
+        proceed.set()
+        await asyncio.wait_for(running, timeout=5)
+
+    asyncio.run(exercise())
+    current = service.get(created.id)
+    assert current.status == ("cancelled" if invalidate == "cancel" else "failed")
+    assert current.result is None
+    assert requests == []
+
+
+def test_agent_api_task_refused_before_database_write(settings, database):
+    spec = AgentSpec(
+        agent_id="api_reader",
+        role="api_reader",
+        objective="Read a configured API",
+        capabilities=("api_read",),
+        allowed_task_kinds=("api_run",),
+        memory_namespace="agent/api_reader",
+        worker_requirement=WorkerRequirement(role="api", capabilities=("api_read",)),
+        lifecycle="active",
+    )
+    binding = AgentExecutionBinding(
+        agent_instance_id="11111111-1111-4111-8111-111111111111",
+        project_id="22222222-2222-4222-8222-222222222222",
+        registry_version="a" * 64,
+        spec=spec,
+        task_kind="api_run",
+    )
+    service = TaskService(database, settings, api_supervisor=supervisor(task_runtime()))
+
+    with pytest.raises(DomainError, match="Agent API execution unavailable"):
+        service.submit(
+            ApiRunInput(kind="api_run", payload={"endpoint_id": "example", "path": "/v1"}),
+            None,
+            binding,
+        )
 
 
 def test_api_runner_marks_non_success_http_status_failed(settings, database):
@@ -502,6 +600,7 @@ def test_dns_resolution_is_inside_total_deadline():
                 query={},
                 timeout_seconds=0.1,
                 emit=lambda *_: None,
+                authorize_request=lambda: True,
             )
         )
 

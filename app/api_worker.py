@@ -31,6 +31,7 @@ API_RESPONSE_LIMIT = 262_144
 API_USER_AGENT = "Zelo-API-Worker/0.15"
 ApiEventSink = Callable[[str, dict[str, Any]], None]
 ApiResolver = Callable[[str, int], Awaitable[tuple[str, ...]]]
+ApiRequestAuthorization = Callable[[], bool]
 
 
 class ApiRuntimeError(Exception):
@@ -68,6 +69,7 @@ def api_policy_semantics() -> dict[str, object]:
         "path": "ascii-pchar-no-percent-backslash-dot-segments-double-slash",
         "timeout": "total-dns-and-request-0.1..30-seconds",
         "endpoint_registry": "immutable-canonical-https-origins-max-32-v1",
+        "core_request_authority": "required-live-before-dns-and-network-send",
     }
 
 
@@ -233,6 +235,7 @@ class ApiRuntime:
         query: dict[str, str],
         timeout_seconds: float,
         emit: ApiEventSink,
+        authorize_request: ApiRequestAuthorization | None = None,
     ) -> dict[str, Any]:
         if (
             not self.matches(spec)
@@ -246,6 +249,10 @@ class ApiRuntime:
             payload = ApiPayload(endpoint_id=endpoint.endpoint_id, path=path, query=query)
         except ValueError:
             raise ApiRuntimeError("api_input_invalid") from None
+        if authorize_request is None:
+            raise ApiRuntimeError("api_request_authority_unavailable")
+        if not authorize_request():
+            raise ApiRuntimeError("api_request_authority_invalid")
         emit("api_execution_started", {"endpoint_id": endpoint.endpoint_id})
         try:
             async with asyncio.timeout(timeout_seconds):
@@ -275,6 +282,9 @@ class ApiRuntime:
                         },
                         extensions={"sni_hostname": endpoint.host},
                     )
+                    # DNS and client setup may yield after a Task was cancelled.
+                    if not authorize_request():
+                        raise ApiRuntimeError("api_request_authority_invalid")
                     response = await client.send(request, stream=True, follow_redirects=False)
                     try:
                         data = await _read_response(response)
