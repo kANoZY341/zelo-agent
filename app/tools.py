@@ -2,6 +2,7 @@
 
 import os
 import platform
+import stat
 import subprocess
 from enum import StrEnum
 from pathlib import Path
@@ -177,23 +178,56 @@ class RepoStatusTool(Tool[RepoStatusInput, RepoStatusResult]):
         )
 
 
-def _workspace_path(root: Path, relative: str, *, allow_empty: bool) -> Path:
-    if not allow_empty and not relative:
-        raise ToolRuntimeError("workspace_path_required")
+def _workspace_parts(relative: str, *, allow_empty: bool) -> tuple[str, ...]:
     candidate = Path(relative)
-    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+    if (
+        "\x00" in relative
+        or candidate.is_absolute()
+        or any(part == ".." for part in candidate.parts)
+    ):
         raise ToolRuntimeError("invalid_workspace_path")
-    candidate_path = root / candidate
-    if candidate_path.is_symlink():
-        raise ToolRuntimeError("workspace_symlink_not_allowed")
-    try:
-        root_resolved = root.resolve(strict=True)
-        resolved = candidate_path.resolve(strict=False)
-    except OSError:
-        raise ToolRuntimeError("workspace_path_unavailable") from None
-    if not resolved.is_relative_to(root_resolved):
+    parts = candidate.parts
+    if not allow_empty and not parts:
+        raise ToolRuntimeError("workspace_path_required")
+    return parts
+
+
+def _open_workspace_directory(root: Path, parts: tuple[str, ...]) -> int:
+    """Walk only directory descriptors anchored under the trusted workspaces root."""
+
+    anchor = ROOT / "workspaces"
+    if not root.is_absolute() or not root.is_relative_to(anchor):
         raise ToolRuntimeError("workspace_path_outside_root")
-    return resolved
+    root_parts = root.relative_to(anchor).parts
+    if any(component in {".", ".."} for component in root_parts):
+        raise ToolRuntimeError("workspace_path_outside_root")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd: int | None = None
+    try:
+        fd = os.open(anchor, flags)
+        for component in (*root_parts, *parts):
+            next_fd = os.open(component, flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except (OSError, ValueError):
+        if fd is not None:
+            os.close(fd)
+        raise ToolRuntimeError("workspace_directory_unavailable") from None
+
+
+def _private_workspace_component(component: str) -> bool:
+    normalized = component.casefold()
+    database_extension = Path(normalized).suffix or normalized
+    return (
+        normalized in {"secrets", "runtime", ".git", ".env", ".envrc"}
+        or normalized.startswith(".env.")
+        or database_extension in {".sqlite", ".sqlite3", ".db"}
+    )
+
+
+def _private_workspace_path(root: Path, parts: tuple[str, ...]) -> bool:
+    return any(_private_workspace_component(part) for part in (*root.parts, *parts))
 
 
 class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult]):
@@ -206,32 +240,66 @@ class ListWorkspaceFilesTool(Tool[WorkspacePathInput, ListWorkspaceFilesResult])
         )
 
     def run(self, arguments: WorkspacePathInput, settings: Settings) -> ListWorkspaceFilesResult:
-        root = settings.workspace_root
-        target = _workspace_path(root, arguments.path, allow_empty=True)
-        if not target.exists() or not target.is_dir():
-            raise ToolRuntimeError("workspace_directory_unavailable")
+        parts = _workspace_parts(arguments.path, allow_empty=True)
+        if _private_workspace_path(settings.workspace_root, parts):
+            raise ToolRuntimeError("workspace_directory_not_allowed")
         entries: list[WorkspaceEntry] = []
         truncated = False
-        base_depth = len(target.relative_to(root.resolve()).parts)
-        for path in sorted(target.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
-            if path.is_symlink():
-                resolved = path.resolve(strict=False)
-                if not resolved.is_relative_to(root.resolve()):
-                    raise ToolRuntimeError("workspace_symlink_escape")
-                continue
-            if len(path.relative_to(root).parts) - base_depth > settings.workspace_max_depth:
-                continue
-            if len(entries) >= settings.workspace_max_entries:
-                truncated = True
-                break
-            entries.append(
-                WorkspaceEntry(
-                    path=path.relative_to(root).as_posix(),
-                    kind="directory" if path.is_dir() else "file",
-                )
-            )
+        scanned = 0
+        scan_limit = max(64, settings.workspace_max_entries * 4)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+        def visit(directory_fd: int, prefix: tuple[str, ...], depth: int) -> None:
+            nonlocal truncated, scanned
+            if depth >= settings.workspace_max_depth or truncated:
+                return
+            try:
+                with os.scandir(directory_fd) as scan:
+                    names = []
+                    for item in scan:
+                        if scanned >= scan_limit:
+                            truncated = True
+                            break
+                        scanned += 1
+                        names.append(item.name)
+                names.sort()
+                for name in names:
+                    if _private_workspace_component(name):
+                        continue
+                    mode = os.stat(name, dir_fd=directory_fd, follow_symlinks=False).st_mode
+                    if stat.S_ISLNK(mode):
+                        continue
+                    is_directory = stat.S_ISDIR(mode)
+                    if not is_directory and not stat.S_ISREG(mode):
+                        continue
+                    if len(entries) >= settings.workspace_max_entries:
+                        truncated = True
+                        return
+                    relative = (*prefix, name)
+                    entries.append(
+                        WorkspaceEntry(
+                            path="/".join(relative),
+                            kind="directory" if is_directory else "file",
+                        )
+                    )
+                    if is_directory and not truncated and depth + 1 < settings.workspace_max_depth:
+                        child_fd = os.open(name, flags, dir_fd=directory_fd)
+                        try:
+                            visit(child_fd, relative, depth + 1)
+                        finally:
+                            os.close(child_fd)
+                        if truncated:
+                            return
+            except OSError:
+                raise ToolRuntimeError("workspace_directory_unavailable") from None
+
+        fd = _open_workspace_directory(settings.workspace_root, parts)
+        try:
+            visit(fd, parts, 0)
+        finally:
+            os.close(fd)
         return ListWorkspaceFilesResult(
-            path=target.relative_to(root.resolve()).as_posix() or ".",
+            path="/".join(parts) or ".",
             entries=entries,
             truncated=truncated,
         )
@@ -247,29 +315,44 @@ class ReadWorkspaceFileTool(Tool[WorkspaceFileInput, ReadWorkspaceFileResult]):
         )
 
     def run(self, arguments: WorkspaceFileInput, settings: Settings) -> ReadWorkspaceFileResult:
-        root = settings.workspace_root
-        target = _workspace_path(root, arguments.path, allow_empty=False)
-        if not target.exists() or not target.is_file():
-            raise ToolRuntimeError("workspace_file_unavailable")
-        if (
-            target.name in {".env", ".env.example"}
-            or any(part in {"secrets", "runtime"} for part in target.parts)
-            or target.suffix in {".sqlite", ".sqlite3", ".db"}
-        ):
+        parts = _workspace_parts(arguments.path, allow_empty=False)
+        if _private_workspace_path(settings.workspace_root, parts):
             raise ToolRuntimeError("workspace_file_not_allowed")
+        directory_fd = _open_workspace_directory(settings.workspace_root, parts[:-1])
+        fd: int | None = None
         try:
-            size = target.stat().st_size
-            if size > settings.workspace_max_file_size:
+            fd = os.open(
+                parts[-1],
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                dir_fd=directory_fd,
+            )
+            identity = os.fstat(fd)
+            if not stat.S_ISREG(identity.st_mode) or identity.st_nlink != 1:
+                raise ToolRuntimeError("workspace_file_not_allowed")
+            limit = settings.workspace_max_file_size
+            if identity.st_size > limit:
                 raise ToolRuntimeError("workspace_file_too_large")
-            data = target.read_bytes()
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            raise ToolRuntimeError("workspace_file_not_utf8") from None
-        except OSError:
+            data = bytearray()
+            while len(data) <= limit:
+                chunk = os.read(fd, limit + 1 - len(data))
+                if not chunk:
+                    break
+                data.extend(chunk)
+            if len(data) > limit:
+                raise ToolRuntimeError("workspace_file_too_large")
+            try:
+                decoded = data.decode("utf-8")
+            except UnicodeDecodeError:
+                raise ToolRuntimeError("workspace_file_not_utf8") from None
+        except (OSError, ValueError):
             raise ToolRuntimeError("workspace_file_unavailable") from None
+        finally:
+            if fd is not None:
+                os.close(fd)
+            os.close(directory_fd)
         return ReadWorkspaceFileResult(
-            path=target.relative_to(root.resolve()).as_posix(),
-            text=text,
+            path="/".join(parts),
+            text=decoded,
             truncated=False,
         )
 
