@@ -26,6 +26,23 @@ from app.database import Database
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def direct_bwrap_children() -> set[int]:
+    """Observe only this qualifier's direct native sandbox children on Linux."""
+    children = set()
+    for thread in Path("/proc/self/task").iterdir():
+        try:
+            pids = (thread / "children").read_text().split()
+        except FileNotFoundError:
+            continue  # A short-lived thread ended during enumeration.
+        for pid in pids:
+            try:
+                if os.readlink(f"/proc/{pid}/exe") == "/usr/bin/bwrap":
+                    children.add(int(pid))
+            except FileNotFoundError:
+                continue  # A child exited during observation.
+    return children
+
+
 async def run():
     if not __debug__:
         raise RuntimeError("Qualification requires enabled Python assertions")
@@ -183,6 +200,58 @@ async def run():
                     assert "python_execution_completed" in names
                     assert "python_completed" in names
                     print("TASKS_PERSISTED_AND_AUDITED=PASS", flush=True)
+
+                    assert not direct_bwrap_children(), "Prior sandbox child remains"
+                    submitted = await client.post(
+                        "/tasks",
+                        headers=headers,
+                        json={
+                            "kind": "python_run",
+                            "payload": {"code": "import time; time.sleep(30)"},
+                            "timeout_seconds": 45,
+                        },
+                    )
+                    assert submitted.status_code == 201, submitted.text[:240]
+                    cancelled_id = submitted.json()["id"]
+                    for _ in range(100):
+                        events = await client.get(f"/tasks/{cancelled_id}/events", headers=headers)
+                        assert events.status_code == 200
+                        if any(e["event"] == "python_execution_started" for e in events.json()):
+                            break
+                        await asyncio.sleep(0.05)
+                    else:
+                        raise AssertionError("Python Worker did not begin before cancellation")
+                    for _ in range(100):
+                        native_children = direct_bwrap_children()
+                        if native_children:
+                            break
+                        await asyncio.sleep(0.05)
+                    assert len(native_children) == 1, "Native Python sandbox did not start"
+                    native_pid = next(iter(native_children))
+                    cancelled = await client.post(f"/tasks/{cancelled_id}/cancel", headers=headers)
+                    assert cancelled.status_code == 202, cancelled.text[:240]
+                    assert cancelled.json()["cancel_requested"] is True
+                    for _ in range(100):
+                        response = await client.get(f"/tasks/{cancelled_id}", headers=headers)
+                        assert response.status_code == 200
+                        stopped = response.json()
+                        if stopped["status"] != "running":
+                            break
+                        await asyncio.sleep(0.05)
+                    assert stopped["status"] == "cancelled", stopped
+                    assert stopped["error"] == "cancelled_by_operator"
+                    assert stopped["result"] is None
+                    assert stopped["attempts"][0]["outcome"] == "cancelled"
+                    events = await client.get(f"/tasks/{cancelled_id}/events", headers=headers)
+                    assert events.status_code == 200
+                    names = [e["event"] for e in events.json()]
+                    assert "cancellation_requested" in names
+                    assert "cancellation_completed" in names
+                    assert "python_failed" in names
+                    assert native_pid not in direct_bwrap_children(), "Native sandbox child remains"
+                    assert not Path(f"/proc/{native_pid}").exists(), "Native child not reaped"
+                    assert await total() == original + 4
+                    print("PYTHON_RUNNING_TASK_CANCELLATION_AND_REAP=PASS", flush=True)
             finally:
                 server.should_exit = True
                 await asyncio.wait_for(server_task, timeout=20)

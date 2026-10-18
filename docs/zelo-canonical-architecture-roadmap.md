@@ -241,9 +241,12 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 The 18 October #207 exact-head suite passed, but its distinct main CI
-39125109612 failed in a pagination test with a submission-order assumption;
-a narrow deterministic correction is pending. That failed receipt is retained
-and v0.15 remains release HOLD.
+39125109612 failed in a pagination test with a submission-order assumption.
+#208 corrected the test and passed exact-head CI 39126561224 plus distinct main
+CI 39127790513 (6,388 passed, 2 skipped). The failed #207 receipt remains
+historical. An isolated current-main Python Worker host run passed execution
+and default-deny boundaries; a narrow candidate added observed native child
+cancellation/reap. The remaining Worker and authority gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
