@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from app.config import ROOT
 from app.developer_contracts import WorkerIdentity
 from app.developer_process import DeveloperError
 from app.promotion_ci import PromotionCIVerifier
@@ -16,6 +15,7 @@ from app.promotion_contracts import (
     PromotionRequest,
     PromotionReview,
 )
+from tests.runtime_helpers import isolated_runtime_dir
 
 
 class ScriptedTransport:
@@ -43,8 +43,8 @@ def fixture(tmp_path):
     }
     from app.config import Settings
 
-    (ROOT / "runtime").mkdir(exist_ok=True)
-    settings = Settings(_env_file=None, runtime_dir=ROOT / "runtime", **settings_data)
+    runtime_dir = isolated_runtime_dir(tmp_path)
+    settings = Settings(_env_file=None, runtime_dir=runtime_dir, **settings_data)
     publisher = PromotionPublisherIdentity(
         gateway_version="github-promotion-v1",
         repository="kANoZY341/zelo-agent",
