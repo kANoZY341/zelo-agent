@@ -1,5 +1,28 @@
 # Zelo live project status
 
+**18 October integration checkpoint:** GitHub `main` is
+`0ba11482201d6921eeb7af1f167e3c83c92e6bb5` after merged [PR #202](https://github.com/kANoZY341/zelo-agent/pull/202).
+Its exact-head [PR CI 39092313046](https://github.com/kANoZY341/zelo-agent/actions/runs/39092313046)
+passed **6,383 tests, 2 skipped**; the distinct
+[main CI 39093559445](https://github.com/kANoZY341/zelo-agent/actions/runs/39093559445)
+is **PASS: 6,383 passed, 2 skipped**. The earlier [post-#196 main CI 39090795090](https://github.com/kANoZY341/zelo-agent/actions/runs/39090795090)
+failed on a shared REA vendor-inventory test race; its failure remains recorded.
+The correction groups its mutating tests with the real verifier readers under
+four-worker CI. It changes test scheduling, not the vendor integrity gate.
+
+Since the previous status checkpoint, OCR review [#195](https://github.com/kANoZY341/zelo-agent/pull/195),
+workspace descriptor binding [#198](https://github.com/kANoZY341/zelo-agent/pull/198),
+Media proof-ledger durability [#197](https://github.com/kANoZY341/zelo-agent/pull/197),
+and bounded Memory recall [#196](https://github.com/kANoZY341/zelo-agent/pull/196)
+merged. The #197 [post-merge main CI 39088141588](https://github.com/kANoZY341/zelo-agent/actions/runs/39088141588)
+passed. The four native Media refusals remain terminal with no fifth proof;
+no Media runtime qualification or release authority follows. Delegated Space
+read [#194](https://github.com/kANoZY341/zelo-agent/pull/194) remains draft
+with native acceptance blocked, while Skill publication, remaining Worker
+proofs and the independent release audit are open. The complete v0.15 scope
+and release remain **HOLD**; the last published release is `v0.14.0`.
+Dated candidate notes below retain their historical state at the time recorded.
+
 **17 October integration checkpoint:** approval-history PR #191 merged
 at `0471c29e43386202fbb3535aa6df3e4d0191a645` after exact-content full CI
 passed **6,311 tests, 2 skipped**; its distinct post-merge main run
@@ -741,11 +764,13 @@ The public Task-result contract validates the exact candidate/evidence binding.
 No new Worker, model provider, Tool, source import or GitHub publication is added.
 See [the independent review workflow](v0.15-ocr-independent-review.md).
 
-This is an unmerged candidate reconciled onto post-#193 main, not v0.15 completion.
+At this 17 October checkpoint it was an unmerged candidate; PR #195 later
+merged at `1979ed8fa84fd1b7a4ed527c9a79a631bba32706` with distinct
+post-merge main CI `39067157256` PASS. This does not complete v0.15.
 Initial four regressions reproduced missing integration. Further tests reproduced
 and corrected prompt overflow, forced binary diff handling and missing saved
 result contract; invalid-result and stale-state failures remain recorded.
-Final exact-source tests, independent review, native model observation and full
-CI must be read from the current candidate/issue #166 evidence, not inferred
-from this implementation note. Media, delegated native acceptance, private
-Skill publication and all other required release gates remain unchanged.
+The merged-source CI receipt belongs to PR #195; this historical candidate
+note does not qualify other release gates. Media, delegated native
+acceptance, private Skill publication and all other required release gates
+remain unchanged.
