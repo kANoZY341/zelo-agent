@@ -240,6 +240,10 @@ release is still `v0.14.0`; merging ahead-of-version code does **not**
 complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
+The 18 October #207 exact-head suite passed, but its distinct main CI
+39125109612 failed in a pagination test with a submission-order assumption;
+a narrow deterministic correction is pending. That failed receipt is retained
+and v0.15 remains release HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's

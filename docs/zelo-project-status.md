@@ -251,6 +251,12 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 `docs/v0.15-release-closeout.md`. The last published version is still
 `v0.14.0`; v0.15.0 is **not released or ready to tag**.
 
+18 October: #207's Research late-result fence merged at `c8d3cff`, with
+exact-head CI 39124001164 **PASS**. Its distinct main CI 39125109612
+**FAILED** (1 failed, 6,387 passed, 2 skipped) because a pagination test
+assumed creation order where the API sorts by `(created_at, id)`. A narrow
+test correction is in progress; the failed receipt remains failed.
+
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;
 exact-head qualification of all included Workers and third-party adapters;
