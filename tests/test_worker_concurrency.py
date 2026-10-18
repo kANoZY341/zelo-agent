@@ -459,7 +459,9 @@ def test_cancel_before_first_operation_step_is_finalized(settings, database):
     asyncio.run(exercise())
 
 
-def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
+def test_slot_exhaustion_defers_without_consuming_approval(settings, database, monkeypatch):
+    now = utcnow()
+    monkeypatch.setattr("app.tasks.utcnow", lambda: now)
     runtime = CapacityRuntime(settings, error="developer_worker_capacity_exhausted")
     service = TaskService(database, settings, developer_runtime=runtime)
     task = _approved(service, "alpha-one")
@@ -474,7 +476,12 @@ def test_slot_exhaustion_defers_without_consuming_approval(settings, database):
     assert current.approvals[0].status == "approved"
     assert current.attempts[0].outcome == State.INTERRUPTED
     assert service.claim() is None
-    asyncio.run(asyncio.sleep(0.3))
+    with database.read() as session:
+        eligible_at = session.get(Task, task.id).capacity_backoff_until
+    assert eligible_at == now + timedelta(seconds=CAPACITY_BACKOFF_INITIAL_SECONDS)
+    now = eligible_at - timedelta(microseconds=1)
+    assert service.claim() is None
+    now = eligible_at
     retry = service.claim()
     assert retry is not None and retry.task_id == task.id
 
