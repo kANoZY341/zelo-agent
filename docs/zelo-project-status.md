@@ -255,7 +255,16 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 exact-head CI 39124001164 **PASS**. Its distinct main CI 39125109612
 **FAILED** (1 failed, 6,387 passed, 2 skipped) because a pagination test
 assumed creation order where the API sorts by `(created_at, id)`. A narrow
-test correction is in progress; the failed receipt remains failed.
+test correction merged as #208 at `b6d6f94`; its exact-head CI 39126561224
+and distinct main CI 39127790513 both **PASS** (6,388 passed, 2 skipped).
+The #207 failed receipt remains failed. A separate current-main isolated Python
+loopback run passed real Task execution, default admission denials, network and
+write refusal; a narrow qualification candidate also observed native child
+cancellation and cleanup. Initial #209 CI 39132453181 **FAILED** in a separate
+Shell optimized-Python subprocess test whose 10-second deadline expired after
+the expected refusal text appeared. A 30-second test deadline preserves the
+same refusal/no-native-evidence assertions; new exact-head CI is pending.
+These do not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;

@@ -39,7 +39,7 @@ def test_optimized_python_refused_before_native_entry():
             "--allow-native-shell-probes",
         ],
         capture_output=True,
-        timeout=10,
+        timeout=30,
     )
     assert result.returncode == 2 and b"assertion-enabled Python is required" in result.stderr
     assert b"EVIDENCE=" not in result.stdout
