@@ -832,3 +832,101 @@ def test_precondition_diagnostic_does_not_echo_untrusted_exception_text():
     assert str(result) == "reader_native_precondition_docker_readiness_unclassified"
     assert "/private/runtime" not in str(result)
     assert "secret" not in str(result)
+
+
+def test_attempt_directory_durably_records_new_ledger_entry(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    base = runtime / q.RUNTIME_PROOF_BASE
+    base.mkdir(parents=True, mode=0o700)
+    original_fsync = q.os.fsync
+    synced_directories = set()
+
+    def record_fsync(fd):
+        info = q.os.fstat(fd)
+        if stat.S_ISDIR(info.st_mode):
+            synced_directories.add(info.st_ino)
+        return original_fsync(fd)
+
+    monkeypatch.setattr(q.os, "fsync", record_fsync)
+    attempt = q._attempt_directory(runtime)
+    assert base.stat().st_ino in synced_directories
+    assert attempt.stat().st_ino in synced_directories
+
+
+def test_native_proof_store_fsyncs_entry_and_fences_failed_persistence(tmp_path, monkeypatch):
+    attempt = tmp_path / "attempt"
+    attempt.mkdir(mode=0o700)
+    state = q._State()
+    original_fsync = q.os.fsync
+    synced_directories = set()
+
+    def record_fsync(fd):
+        info = q.os.fstat(fd)
+        if stat.S_ISDIR(info.st_mode):
+            synced_directories.add(info.st_ino)
+        return original_fsync(fd)
+
+    monkeypatch.setattr(q.os, "fsync", record_fsync)
+    store = q._DurableStore(attempt, state)
+    store.json("policy.json", {"schema": "offline-test"})
+    assert attempt.stat().st_ino in synced_directories
+
+    def refuse_directory_sync(path):
+        raise OSError("synthetic proof directory fsync failure")
+
+    monkeypatch.setattr(q, "_fsync_directory", refuse_directory_sync)
+    with pytest.raises(OSError, match="synthetic proof directory"):
+        store.json("cases.json", {"status": "refused"})
+    assert state.close_ok is False
+    assert (attempt / "cases.json").exists()
+
+
+def test_cleanup_directory_sync_failure_keeps_admission_fenced(tmp_path, monkeypatch):
+    runtime = tmp_path / "runtime"
+    (runtime / q.RUNTIME_PROOF_BASE).mkdir(parents=True, mode=0o700)
+    (runtime / q.RUNTIME_ADMISSION).mkdir(mode=0o700)
+    finish_calls = []
+
+    class FakeLease:
+        identity = "a" * 64
+
+        def finish(self, *, cleanup_confirmed):
+            finish_calls.append(cleanup_confirmed)
+
+    class FakeAdmission:
+        def __init__(self, path):
+            assert path == runtime / q.RUNTIME_ADMISSION
+
+        def acquire(self, digest):
+            return FakeLease()
+
+    def refuse_build(attempt, *args):
+        (attempt / "build").mkdir(mode=0o700)
+        raise RuntimeError("synthetic build refusal")
+
+    original_sync = q._fsync_directory
+
+    def refuse_final_sync(path):
+        path = Path(path)
+        if (
+            path.parent == runtime / q.RUNTIME_PROOF_BASE
+            and (path / "cases.json").exists()
+            and not (path / "docker-config").exists()
+        ):
+            raise OSError("synthetic cleanup directory fsync failure")
+        return original_sync(path)
+
+    monkeypatch.setattr(q.scope, "validate_runtime_scope", lambda path: {})
+    monkeypatch.setattr(q, "_docker_readiness", lambda path: {"ready": True})
+    monkeypatch.setattr(q, "AdmissionController", FakeAdmission)
+    monkeypatch.setattr(q, "_require_empty_lease", lambda *args: None)
+    monkeypatch.setattr(q, "_build_and_attest", refuse_build)
+    monkeypatch.setattr(q, "_cleanup_owned", lambda *args: True)
+    monkeypatch.setattr(q, "_fsync_directory", refuse_final_sync)
+
+    with pytest.raises(RuntimeError, match="synthetic build refusal"):
+        run(q._qualify(runtime))
+    assert finish_calls == [False]
+    attempts = list((runtime / q.RUNTIME_PROOF_BASE).iterdir())
+    assert len(attempts) == 1
+    assert (attempts[0] / "cases.json").exists()
