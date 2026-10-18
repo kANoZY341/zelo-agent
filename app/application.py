@@ -359,7 +359,11 @@ def create_app(
             tasks.expire_approvals()
             agent_runtime = AgentRuntime(configuration, gateway, tool_gateway)
             space_file_gateway = SpaceFileReadGateway(
-                database, agent_factory, configuration.runtime_dir, computer_runtime
+                database,
+                agent_factory,
+                configuration.runtime_dir,
+                computer_runtime,
+                task_service=tasks,
             )
             runner = Runner(
                 tasks,
