@@ -1,27 +1,38 @@
 # Zelo live project status
 
-**18 October integration checkpoint:** GitHub `main` is
-`0ba11482201d6921eeb7af1f167e3c83c92e6bb5` after merged [PR #202](https://github.com/kANoZY341/zelo-agent/pull/202).
-Its exact-head [PR CI 39092313046](https://github.com/kANoZY341/zelo-agent/actions/runs/39092313046)
-passed **6,383 tests, 2 skipped**; the distinct
-[main CI 39093559445](https://github.com/kANoZY341/zelo-agent/actions/runs/39093559445)
-is **PASS: 6,383 passed, 2 skipped**. The earlier [post-#196 main CI 39090795090](https://github.com/kANoZY341/zelo-agent/actions/runs/39090795090)
-failed on a shared REA vendor-inventory test race; its failure remains recorded.
-The correction groups its mutating tests with the real verifier readers under
-four-worker CI. It changes test scheduling, not the vendor integrity gate.
+**18 October integration checkpoint:** GitHub main is
+b9b79d927798d0196482d33625b35b114e24956c after merged [PR #203](https://github.com/kANoZY341/zelo-agent/pull/203).
+Its exact-head [CI 39094793614](https://github.com/kANoZY341/zelo-agent/actions/runs/39094793614)
+passed **6,383 tests, 2 skipped, 60 warnings** in 922.80 seconds (15:22.8).
+The distinct post-merge main CI
+[39095733816](https://github.com/kANoZY341/zelo-agent/actions/runs/39095733816)
+is **QUEUED, not a PASS** at this checkpoint.
+
+For comparison, the four-worker runs after #202 passed the same 6,383 tests:
+exact-head CI 39092313046 took 1,227.87 seconds (20:27.9), and post-main
+CI 39093559445 took 1,216.94 seconds (20:16.9), each with 52 warnings.
+The eight-worker pytest time is **24.5% below their mean**. The full suite,
+xdist load grouping, shared developer-capacity group, diff check, Ruff lint
+and format checks are preserved. The eight-worker run reports eight more
+warnings, including repeated import-time deprecation warnings; it has no test
+failures. PR #203 changes only the pytest worker count and step label.
+
+The earlier post-#196 main CI 39090795090 failed on a shared REA
+vendor-inventory test race; that failure remains recorded. PR #202 groups
+the mutating tests with the real verifier readers. It changes test scheduling,
+not the vendor-integrity gate.
 
 Since the previous status checkpoint, OCR review [#195](https://github.com/kANoZY341/zelo-agent/pull/195),
 workspace descriptor binding [#198](https://github.com/kANoZY341/zelo-agent/pull/198),
 Media proof-ledger durability [#197](https://github.com/kANoZY341/zelo-agent/pull/197),
 and bounded Memory recall [#196](https://github.com/kANoZY341/zelo-agent/pull/196)
-merged. The #197 [post-merge main CI 39088141588](https://github.com/kANoZY341/zelo-agent/actions/runs/39088141588)
-passed. The four native Media refusals remain terminal with no fifth proof;
-no Media runtime qualification or release authority follows. Delegated Space
-read [#194](https://github.com/kANoZY341/zelo-agent/pull/194) remains draft
-with native acceptance blocked, while Skill publication, remaining Worker
-proofs and the independent release audit are open. The complete v0.15 scope
-and release remain **HOLD**; the last published release is `v0.14.0`.
-Dated candidate notes below retain their historical state at the time recorded.
+merged. The #197 post-merge main CI 39088141588 passed. Four native Media
+refusals remain terminal with no fifth proof; no Media runtime qualification
+or release authority follows. Delegated Space read [#194](https://github.com/kANoZY341/zelo-agent/pull/194)
+remains draft with native acceptance blocked. Skill publication, remaining
+Worker proofs and the independent release audit remain open. The complete
+v0.15 scope and release remain **HOLD**. Dated candidate notes below retain
+their historical state at the time recorded.
 
 **17 October integration checkpoint:** approval-history PR #191 merged
 at `0471c29e43386202fbb3535aa6df3e4d0191a645` after exact-content full CI
