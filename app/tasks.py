@@ -31,6 +31,7 @@ from app.gateway import ModelGateway
 from app.models import (
     AgentDelegation,
     AgentInstance,
+    AgentInstanceEvent,
     Approval,
     AuditEvent,
     Campaign,
@@ -132,6 +133,7 @@ class Execution:
     agent_execution: AgentExecutionBinding | None = None
     shell_request: ShellExecutionSpec | None = None
     computer_request: ComputerExecutionSpec | None = None
+    research_agent_lifecycle: tuple[int, int | None] | None = None
 
 
 def audit(
@@ -867,6 +869,17 @@ class TaskService:
             return AgentBinding(spec=spec, registry_version=instance.registry_version)
         except ValueError:
             raise DomainError("Agent execution identity is invalid", 409) from None
+
+    @staticmethod
+    def _agent_lifecycle_sequence(session: Session, instance_id: str) -> int:
+        return (
+            session.scalar(
+                select(func.max(AgentInstanceEvent.sequence)).where(
+                    AgentInstanceEvent.agent_instance_id == instance_id
+                )
+            )
+            or 0
+        )
 
     def _validate_agent_execution(
         self,
@@ -3590,6 +3603,7 @@ class TaskService:
                 return None
 
             agent_execution = None
+            research_agent_lifecycle = None
             if task.agent_execution_spec is not None:
                 try:
                     agent_execution = AgentExecutionBinding.model_validate(
@@ -3616,6 +3630,16 @@ class TaskService:
                         else None
                     ),
                 )
+                if task.kind == "research_run":
+                    # Capture a monotonic fence so a pause/resume cannot restore
+                    # authority to this already-claimed execution.
+                    delegated = agent_execution.delegation
+                    research_agent_lifecycle = (
+                        self._agent_lifecycle_sequence(session, agent_execution.agent_instance_id),
+                        self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                        if delegated is not None
+                        else None,
+                    )
 
             if task.kind in {
                 "approval_demo",
@@ -4114,6 +4138,7 @@ class TaskService:
                 agent_execution,
                 shell_request=shell_request,
                 computer_request=computer_request,
+                research_agent_lifecycle=research_agent_lifecycle,
             )
 
     def finish(
@@ -4132,6 +4157,27 @@ class TaskService:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
                 if task.kind != "developer_run":
                     result = None
+            elif task.kind == "research_run" and (
+                task.agent_execution_spec is not None or execution.agent_execution is not None
+            ):
+                try:
+                    binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                    if binding != execution.agent_execution:
+                        raise ValueError("Research Agent execution binding changed")
+                    self._validate_agent_execution(
+                        session, binding, campaign_id=_task_campaign_id(session, task)
+                    )
+                    delegated = binding.delegation
+                    lifecycle = (
+                        self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                        self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                        if delegated is not None
+                        else None,
+                    )
+                    if lifecycle != execution.research_agent_lifecycle:
+                        raise ValueError("Research Agent lifecycle changed after claim")
+                except (ValueError, DomainError):
+                    outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
             task.capacity_backoff_attempts = 0
             task.capacity_backoff_until = None
             task.result, task.error = result, error
