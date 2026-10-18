@@ -41,6 +41,7 @@ RESEARCH_ACTION = TypeAdapter(
     Annotated[ResearchFinalAction | ResearchToolAction, Field(discriminator="type")]
 )
 ResearchEventSink = Callable[[str, dict[str, Any]], None]
+ResearchToolAuthorization = Callable[[str], bool]
 
 SYSTEM_PROMPT = """You are Zelo's bounded Research specialist.
 Your only job is to investigate the operator's question using the registered read-only retrieval
@@ -168,6 +169,17 @@ class ResearchRuntime:
             truncated=truncated,
         )
 
+    def _execute_authorized_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        authorize_tool: ResearchToolAuthorization | None,
+    ) -> dict[str, Any]:
+        # A timed-out thread may keep running; check Core immediately before the read.
+        if authorize_tool is not None and not authorize_tool(name):
+            raise ResearchRuntimeError("research_tool_authority_invalid")
+        return self.tools.execute(name, arguments)
+
     async def run(
         self,
         *,
@@ -177,6 +189,7 @@ class ResearchRuntime:
         timeout_seconds: float,
         emit: ResearchEventSink,
         agent_execution: AgentExecutionBinding | None = None,
+        authorize_tool: ResearchToolAuthorization | None = None,
     ) -> dict[str, Any]:
         if agent_execution is not None and (
             not isinstance(agent_execution, AgentExecutionBinding)
@@ -184,6 +197,8 @@ class ResearchRuntime:
             or agent_execution.spec.lifecycle != "active"
         ):
             raise ResearchRuntimeError("research_agent_binding_invalid")
+        if agent_execution is not None and authorize_tool is None:
+            raise ResearchRuntimeError("research_tool_authority_unavailable")
         emit(
             "research_started",
             {
@@ -196,7 +211,11 @@ class ResearchRuntime:
                 if selected_alias != "local_general":
                     raise ResearchRuntimeError("invalid_research_profile")
                 return await self._loop(
-                    query, selected_model, emit, agent_execution=agent_execution
+                    query,
+                    selected_model,
+                    emit,
+                    agent_execution=agent_execution,
+                    authorize_tool=authorize_tool,
                 )
         except TimeoutError:
             emit("research_limit_reached", {"limit": "agent_timeout_seconds"})
@@ -220,6 +239,7 @@ class ResearchRuntime:
         emit: ResearchEventSink,
         *,
         agent_execution: AgentExecutionBinding | None = None,
+        authorize_tool: ResearchToolAuthorization | None = None,
     ) -> dict[str, Any]:
         messages = [ModelMessage("user", query)]
         permitted = (
@@ -344,6 +364,8 @@ class ResearchRuntime:
                 tool = self.tools.registry.get(action.tool)
             except ToolRuntimeError:
                 raise ResearchRuntimeError("research_tool_unavailable") from None
+            if authorize_tool is not None and not authorize_tool(tool.name):
+                raise ResearchRuntimeError("research_tool_authority_invalid")
             emit("research_tool_requested", {"step": step, "tool": tool.name})
             try:
                 self.tools.validate(action.tool, action.arguments)
@@ -360,12 +382,14 @@ class ResearchRuntime:
                 break
 
             tool_calls += 1
+
             try:
                 async with asyncio.timeout(tool.timeout_seconds or 5.0):
                     output = await asyncio.to_thread(
-                        self.tools.execute,
+                        self._execute_authorized_tool,
                         action.tool,
                         action.arguments,
+                        authorize_tool,
                     )
             except TimeoutError:
                 raise ResearchRuntimeError("tool_timeout") from None
@@ -373,6 +397,8 @@ class ResearchRuntime:
                 raise ResearchRuntimeError("tool_policy_denied") from None
             except ToolRuntimeError as error:
                 raise ResearchRuntimeError(error.args[0]) from None
+            except ResearchRuntimeError:
+                raise
             except Exception:
                 raise ResearchRuntimeError("tool_failed") from None
 

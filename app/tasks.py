@@ -4141,6 +4141,58 @@ class TaskService:
                 research_agent_lifecycle=research_agent_lifecycle,
             )
 
+    def research_tool_allowed(self, execution: Execution, tool_name: str) -> bool:
+        """Recheck live Core authority at each Research tool use point."""
+        if (
+            execution.kind != "research_run"
+            or execution.research_selection is None
+            or not tool_name
+        ):
+            return False
+        with self.database.read() as session:
+            task = session.get(Task, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if (
+                task is None
+                or attempt is None
+                or attempt.task_id != execution.task_id
+                or task.kind != "research_run"
+                or task.status != State.RUNNING
+                or attempt.outcome != State.RUNNING
+                or task.cancel_requested
+                or task.research_spec is None
+                or self.research_supervisor is None
+            ):
+                return False
+            try:
+                selection = WorkerSelectionSnapshot.model_validate(task.research_spec)
+                if (
+                    selection != execution.research_selection
+                    or not self.research_supervisor.matches(selection)
+                ):
+                    return False
+                if task.agent_execution_spec is None:
+                    return execution.agent_execution is None
+                binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                if (
+                    binding != execution.agent_execution
+                    or tool_name not in binding.spec.allowed_tools
+                ):
+                    return False
+                self._validate_agent_execution(
+                    session, binding, campaign_id=_task_campaign_id(session, task)
+                )
+                delegated = binding.delegation
+                lifecycle = (
+                    self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                    self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                    if delegated is not None
+                    else None,
+                )
+                return lifecycle == execution.research_agent_lifecycle
+            except (DomainError, ValueError):
+                return False
+
     def finish(
         self,
         execution: Execution,

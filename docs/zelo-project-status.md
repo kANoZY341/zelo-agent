@@ -251,15 +251,11 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 `docs/v0.15-release-closeout.md`. The last published version is still
 `v0.14.0`; v0.15.0 is **not released or ready to tag**.
 
-18 October: #209/#210 merged after exact-head and main CI passed
-(6,388 passed, 2 skipped). Isolated Python Tasks proved execution,
-cancellation, timeout and native child reap. Their initial failed CI receipts
-remain in the closeout ledger. An opt-in API Worker candidate passed one
-public HTTPS Task and denied unregistered/unsafe requests. Initial #211 CI
-failed approval pagination ordering. #211 merged after revised review/CI
-passed; distinct main CI 39145729567 failed a scheduler order assertion.
-Follow-through remains open.
-These bounded receipts do not complete R3 or authorize release.
+18 October: #209/#210 proved bounded Python execution, cancellation,
+timeout and child reap; #211 proved one opt-in public API GET. #212 passed
+exact-head and main CI (6,388 passed, 2 skipped). Earlier failed runs remain
+in the closeout ledger. Research tool use-point authority is under
+qualification. These receipts do not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;
