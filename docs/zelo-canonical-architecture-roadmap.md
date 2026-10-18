@@ -2,6 +2,23 @@
 
 ## Status
 
+**18 October follow-through (local candidate):** [PR #206](https://github.com/kANoZY341/zelo-agent/pull/206)
+merged at `41f14b5d5facf922f3f321e5e9b0bacc320239fc`; distinct
+[post-merge main CI 39122322474](https://github.com/kANoZY341/zelo-agent/actions/runs/39122322474)
+passed **6,384 tests, 2 skipped, 60 warnings**. Operator-only post-attempt
+Skill history is durable and GET-only. The sender remains default-disabled;
+private-repository branch protection qualification returns HTTP 403. No live
+learned-Skill publication or activation is claimed.
+
+The isolated Research correction candidate revalidates a claimed Task's bound
+Agent/delegation in the result transaction. A pause or revocation discards late
+completion. Its regression failed on merged main (Task incorrectly succeeded);
+the affected three-module group then passed **60 tests, 4 warnings**.
+In-flight tool use and the rest of R3 remain unqualified. Exact-head PR CI,
+independent review and post-merge main CI remain pending for this candidate.
+Full v0.15 scope stays **HOLD**; four refused Media proofs remain terminal
+with no fifth authorized.
+
 **18 October integration checkpoint:** GitHub main is
 d19a05fba11cdd88315b042608b454b36e57d0f9 after merged [PR #205](https://github.com/kANoZY341/zelo-agent/pull/205).
 Exact-head [CI 39099067273](https://github.com/kANoZY341/zelo-agent/actions/runs/39099067273)

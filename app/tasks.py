@@ -4132,6 +4132,18 @@ class TaskService:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
                 if task.kind != "developer_run":
                     result = None
+            elif task.kind == "research_run" and (
+                task.agent_execution_spec is not None or execution.agent_execution is not None
+            ):
+                try:
+                    binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                    if binding != execution.agent_execution:
+                        raise ValueError("Research Agent execution binding changed")
+                    self._validate_agent_execution(
+                        session, binding, campaign_id=_task_campaign_id(session, task)
+                    )
+                except (ValueError, DomainError):
+                    outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
             task.capacity_backoff_attempts = 0
             task.capacity_backoff_until = None
             task.result, task.error = result, error
