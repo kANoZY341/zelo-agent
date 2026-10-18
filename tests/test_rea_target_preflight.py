@@ -15,6 +15,9 @@ from qualification.rea_target_preflight import ReaPreflightInput, ReaTargetPrefl
 from scripts import preflight_rea_target as cli
 from tests.conftest import AUTH
 
+# The live vendor inventory is shared with mutation tests in test_rea_source_vendor.
+pytestmark = pytest.mark.xdist_group("rea_vendor_inventory")
+
 
 @pytest.fixture
 def admitted_target(tmp_path, monkeypatch):

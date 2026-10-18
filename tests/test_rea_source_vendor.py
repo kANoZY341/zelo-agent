@@ -12,6 +12,8 @@ from qualification.rea_source_vendor import (
     verify_vendored_rea_source,
 )
 
+pytestmark = pytest.mark.xdist_group("rea_vendor_inventory")
+
 
 def test_full_vendored_rea_release_has_exact_source_provenance():
     receipt = verify_vendored_rea_source()
