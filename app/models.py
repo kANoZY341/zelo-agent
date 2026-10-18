@@ -1348,6 +1348,74 @@ class SkillPublicationMergeFailureRecord(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class SkillPublicationPostAttemptReconciliationRecord(Base):
+    """Append-only GET observation after a durable possible external send."""
+
+    __tablename__ = "skill_publication_post_attempt_reconciliations"
+    __table_args__ = (
+        UniqueConstraint(
+            "observation_fingerprint", name="uq_skill_pub_post_attempt_reconcile_digest"
+        ),
+        CheckConstraint(
+            "status IN ('open_unmerged','closed_unmerged','merged_single_parent_content_observed')",
+            name="ck_skill_pub_post_attempt_reconcile_status",
+        ),
+        CheckConstraint(
+            "(status='merged_single_parent_content_observed' AND merge_commit_sha IS NOT NULL) "
+            "OR (status!='merged_single_parent_content_observed' AND merge_commit_sha IS NULL)",
+            name="ck_skill_pub_post_attempt_reconcile_merge_sha",
+        ),
+        CheckConstraint("send_may_have_occurred=1", name="ck_skill_pub_post_attempt_may_have_sent"),
+        CheckConstraint("automatic_retry_allowed=0", name="ck_skill_pub_post_attempt_no_retry"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_post_attempt_no_runtime"),
+        CheckConstraint(
+            "remote_actor_identity_unproven=1",
+            name="ck_skill_pub_post_attempt_actor_unproven",
+        ),
+        CheckConstraint(
+            "remote_merge_method_unproven=1",
+            name="ck_skill_pub_post_attempt_method_unproven",
+        ),
+        CheckConstraint(
+            "no_skill_promotion_or_runtime_authority=1",
+            name="ck_skill_pub_post_attempt_no_activation",
+        ),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_post_attempt_owner"),
+        CheckConstraint(
+            "pr_number >= 1 AND length(pr_head_sha)=40 AND length(pr_base_sha)=40 "
+            "AND length(attempt_fingerprint)=64 AND length(fence_fingerprint)=64 "
+            "AND length(merge_request_sha256)=64 AND length(observation_fingerprint)=64 "
+            "AND (merge_commit_sha IS NULL OR length(merge_commit_sha)=40)",
+            name="ck_skill_pub_post_attempt_digest_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    attempt_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_merge_attempts.id"), index=True
+    )
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), index=True)
+    attempt_fingerprint: Mapped[str] = mapped_column(String(64))
+    fence_fingerprint: Mapped[str] = mapped_column(String(64))
+    merge_request_sha256: Mapped[str] = mapped_column(String(64))
+    repository: Mapped[str] = mapped_column(String(256))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    pr_base_sha: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(64))
+    merge_commit_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    observation_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    send_may_have_occurred: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_retry_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    remote_actor_identity_unproven: Mapped[bool] = mapped_column(Boolean, default=True)
+    remote_merge_method_unproven: Mapped[bool] = mapped_column(Boolean, default=True)
+    no_skill_promotion_or_runtime_authority: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class ReaOperatorTargetSelectionRecord(Base):
     """Operator-asserted inert target identity; NOT verified bytes or tool authority."""
 
