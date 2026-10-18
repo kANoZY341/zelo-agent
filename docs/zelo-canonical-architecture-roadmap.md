@@ -247,7 +247,8 @@ and post-merge main CI at `f71c06d` and `1d0340f`, respectively. Isolated
 Python Worker loopback proofs observed real Task execution, cancellation,
 timeout and native child reap. Initial #209 CI 39132453181 and #210 CI
 39136564066 remain failed historical receipts. An opt-in API Worker candidate
-passed one real public HTTPS read with default-deny checks, pending review/CI.
+passed one real public HTTPS read with default-deny checks. Initial #211 CI
+failed approval pagination ordering; revised review/CI is pending.
 Worker and authority gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached

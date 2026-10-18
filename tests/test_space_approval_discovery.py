@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.models import AgentSpaceActivationRecord, AgentSpaceIntentRecord
 from tests.test_space_owner_provision import owner_env as _owner_env
 from tests.test_space_owner_provision import provision_body
 
@@ -38,11 +39,20 @@ def _approval(client, agent, name="documents"):
 
 @pytest.mark.parametrize("collection", ["space-intents", "space-activations"])
 def test_owner_can_page_and_revoke_existing_approvals_while_agent_paused(owner_env, collection):
-    client, _database, _settings, backend, _project, instance = owner_env
+    client, database, _settings, backend, _project, instance = owner_env
     agent = f"/agents/{instance['id']}"
     triples = [_approval(client, agent, name) for name in ("alpha", "bravo", "charlie")]
     index = 1 if collection == "space-intents" else 2
-    expected = [triple[index]["id"] for triple in triples]
+    model = AgentSpaceIntentRecord if index == 1 else AgentSpaceActivationRecord
+    # Persisted ordering may differ from submission order when timestamps tie.
+    with database.read() as session:
+        expected = [
+            row.id
+            for row in sorted(
+                (session.get(model, triple[index]["id"]) for triple in triples),
+                key=lambda row: (row.created_at, row.id),
+            )
+        ]
     assert client.post(agent + "/transition", json={"action": "pause"}).status_code == 200
     before = list(backend.calls)
     first = client.get(agent + "/" + collection, params={"limit": 2})

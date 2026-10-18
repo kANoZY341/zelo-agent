@@ -255,7 +255,8 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 (6,388 passed, 2 skipped). Isolated Python Tasks proved execution,
 cancellation, timeout and native child reap. Their initial failed CI receipts
 remain in the closeout ledger. An opt-in API Worker candidate passed one
-public HTTPS Task and denied unregistered/unsafe requests, pending review/CI.
+public HTTPS Task and denied unregistered/unsafe requests. Initial #211 CI
+failed approval pagination ordering; revised review/CI is pending.
 These bounded receipts do not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
