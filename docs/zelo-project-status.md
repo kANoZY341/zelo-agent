@@ -1,21 +1,27 @@
 # Zelo live project status
 
 **18 October integration checkpoint:** GitHub main is
-b9b79d927798d0196482d33625b35b114e24956c after merged [PR #203](https://github.com/kANoZY341/zelo-agent/pull/203).
-Its exact-head [CI 39094793614](https://github.com/kANoZY341/zelo-agent/actions/runs/39094793614)
-passed **6,383 tests, 2 skipped, 60 warnings** in 922.80 seconds (15:22.8).
-The distinct post-merge main CI
-[39095733816](https://github.com/kANoZY341/zelo-agent/actions/runs/39095733816)
-is **QUEUED, not a PASS** at this checkpoint.
+d19a05fba11cdd88315b042608b454b36e57d0f9 after merged [PR #205](https://github.com/kANoZY341/zelo-agent/pull/205).
+Exact-head [CI 39099067273](https://github.com/kANoZY341/zelo-agent/actions/runs/39099067273)
+passed **6,383 tests, 2 skipped, 60 warnings** in 925.87 seconds (15:25.9).
+The distinct post-merge main
+[CI 39100015028](https://github.com/kANoZY341/zelo-agent/actions/runs/39100015028)
+passed the same suite in 928.64 seconds (15:28.6).
 
-For comparison, the four-worker runs after #202 passed the same 6,383 tests:
-exact-head CI 39092313046 took 1,227.87 seconds (20:27.9), and post-main
-CI 39093559445 took 1,216.94 seconds (20:16.9), each with 52 warnings.
-The eight-worker pytest time is **24.5% below their mean**. The full suite,
-xdist load grouping, shared developer-capacity group, diff check, Ruff lint
-and format checks are preserved. The eight-worker run reports eight more warnings, including repeated
-FastAPI deprecation and app/schema import warnings under xdist; it has no test
-failures. PR #203 changes only the pytest worker count and step label.
+PR #205 corrected two load-sensitive test assumptions exposed by the earlier
+post-#203 main run 39095733816: wall-clock timestamp ordering despite ordered
+audit events, and a one-second timeout that could expire during test setup.
+It changes tests only; runtime behavior and policy are unchanged.
+
+The ten-worker benchmark
+[39098151008](https://github.com/kANoZY341/zelo-agent/actions/runs/39098151008)
+passed the same 6,383 tests in 912.72 seconds; the comparable eight-worker
+run 39097237959 took 912.79 seconds. That is no meaningful improvement, so CI
+retains eight workers. The original four-worker runs after #202 passed the same
+suite in 1,227.87 and 1,216.94 seconds; the #203 eight-worker exact-head
+run was **24.5% faster** than their mean, and this #205 exact-head run is
+**24.3% faster**. The full suite, shared xdist groups, diff check, Ruff lint and
+format checks remain enabled.
 
 The earlier post-#196 main CI 39090795090 failed on a shared REA
 vendor-inventory test race; that failure remains recorded. PR #202 groups
@@ -26,12 +32,14 @@ Since the previous status checkpoint, OCR review [#195](https://github.com/kANoZ
 workspace descriptor binding [#198](https://github.com/kANoZY341/zelo-agent/pull/198),
 Media proof-ledger durability [#197](https://github.com/kANoZY341/zelo-agent/pull/197),
 and bounded Memory recall [#196](https://github.com/kANoZY341/zelo-agent/pull/196)
-merged. The #197 post-merge main CI 39088141588 passed. Four native Media
-refusals remain terminal with no fifth proof; no Media runtime qualification
-or release authority follows. Delegated Space read [#194](https://github.com/kANoZY341/zelo-agent/pull/194)
-remains draft with native acceptance blocked. Skill publication, remaining
-Worker proofs and the independent release audit remain open. The complete
-v0.15 scope and release remain **HOLD**. Dated candidate notes below retain
+merged. The #197 post-merge main CI 39088141588 passed. Four native Media refusals remain terminal with no fifth proof; no
+Media runtime qualification or release authority follows. Delegated Space
+read [#194](https://github.com/kANoZY341/zelo-agent/pull/194) remains draft
+with native acceptance blocked. Skill publication, remaining Worker proofs
+and the independent release audit remain open. The complete v0.15 scope and
+release remain **HOLD**.
+
+Dated candidate notes below retain
 their historical state at the time recorded.
 
 **17 October integration checkpoint:** approval-history PR #191 merged
