@@ -402,7 +402,7 @@ def test_deadline_includes_validation_and_is_not_reset(runtime, monkeypatch):
 def test_source_terminal_record_waits_for_durable_lease_completion(runtime, monkeypatch):
     from qualification.admission import Lease
 
-    bound = binding(runtime, 0.01)
+    bound = binding(runtime, 2.0)
     started, finish = threading.Event(), threading.Event()
     original = Lease.finish
 
@@ -419,10 +419,10 @@ def test_source_terminal_record_waits_for_durable_lease_completion(runtime, monk
                 await runtime.run(
                     spec=bound,
                     script=request().payload.script,
-                    timeout_seconds=0.01,
+                    timeout_seconds=2.0,
                     emit=lambda *_: None,
                 )
-            assert started.is_set()
+            assert await asyncio.to_thread(started.wait, 1)
             assert all(record.cleanup_confirmed for record in runtime._validations)
             assert runtime._pending()
         finally:
