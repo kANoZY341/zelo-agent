@@ -51,5 +51,5 @@ jobs:
       - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - name: Run full test suite (ten workers)
-        run: .venv/bin/python -m pytest -q -n 10 --dist=loadgroup --durations=30
+      - name: Run full test suite (eight workers)
+        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --durations=30
