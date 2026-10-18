@@ -24,6 +24,7 @@ from app.skill_publication_claim import (
     SkillPublicationClaim,
     SkillPublicationClaimService,
 )
+from app.skill_publication_dispatch_fence import SkillPublicationDispatchFenceService
 from app.skill_publication_merge_preview import (
     SkillPublicationMergePreview,
     SkillPublicationMergePreviewService,
@@ -31,6 +32,11 @@ from app.skill_publication_merge_preview import (
 from app.skill_publication_operator_decision import (
     SkillPublicationOperatorDecision,
     SkillPublicationOperatorDecisionService,
+)
+from app.skill_publication_post_attempt_reconciliation import (
+    POST_ATTEMPT_RECONCILIATION_CONFIRMATION,
+    SkillPublicationPostAttemptReconciliation,
+    SkillPublicationPostAttemptReconciliationService,
 )
 from app.skill_publication_remote_evidence import (
     SkillPublicationRemoteEvidence,
@@ -53,6 +59,13 @@ class SkillDecisionReviewRequest(BaseModel):
     merge_request: MergeRequest
 
 
+class SkillPostAttemptReconciliationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    confirmation: Literal[POST_ATTEMPT_RECONCILIATION_CONFIRMATION]
+    merge_request: MergeRequest
+
+
 def _claims(request: Request) -> SkillPublicationClaimService:
     return SkillPublicationClaimService(request.app.state.skill_learning_store)
 
@@ -67,6 +80,12 @@ def _remote(request: Request) -> SkillPublicationRemoteEvidenceService:
     return SkillPublicationRemoteEvidenceService(
         SkillPublicationMergePreviewService(_claims(request)), configuration
     )
+
+
+def _post_attempt_reconciler(request: Request) -> SkillPublicationPostAttemptReconciliationService:
+    remote = _remote(request)
+    fences = SkillPublicationDispatchFenceService(SkillPublicationBlobEvidenceService(remote))
+    return SkillPublicationPostAttemptReconciliationService(fences, transport=remote.transport)
 
 
 def _refuse_code(error: ValueError | PermissionError, default: str) -> HTTPException:
@@ -170,6 +189,44 @@ async def inspect_exact_immutable_blob(
         raise _remote_error(error) from None
     except (PermissionError, ValueError) as error:
         raise _refuse_code(error, "skill_publication_blob_refused") from None
+
+
+@router.post(
+    "/claims/{claim_id}/post-attempt-reconciliation",
+    response_model=SkillPublicationPostAttemptReconciliation,
+    status_code=201,
+)
+async def record_post_attempt_reconciliation(
+    claim_id: str,
+    body: SkillPostAttemptReconciliationRequest,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationPostAttemptReconciliation:
+    try:
+        return await _post_attempt_reconciler(request).reconcile(
+            claim_id, body.merge_request, body.confirmation, principal
+        )
+    except DeveloperError as error:
+        raise _remote_error(error) from None
+    except (PermissionError, ValueError) as error:
+        raise _refuse_code(error, "skill_publication_post_attempt_reconciliation_refused") from None
+
+
+@router.get(
+    "/claims/{claim_id}/post-attempt-reconciliations",
+    response_model=list[SkillPublicationPostAttemptReconciliation],
+)
+def read_post_attempt_reconciliations(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> list[SkillPublicationPostAttemptReconciliation]:
+    try:
+        return SkillPublicationPostAttemptReconciliationService.list_recent_for_store(
+            request.app.state.skill_learning_store, claim_id, principal
+        )
+    except (PermissionError, ValueError) as error:
+        raise _refuse_code(error, "skill_publication_post_attempt_reconciliation_refused") from None
 
 
 @router.post(

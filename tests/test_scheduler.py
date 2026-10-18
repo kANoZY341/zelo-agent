@@ -1286,8 +1286,15 @@ def test_task_link_failure_retries_same_persisted_occurrence(
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=3)
         conversation = create_conversation(client)
-        schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
 
         original_link = scheduler.mind._link_core_task
         failed_once = False
@@ -2092,7 +2099,7 @@ def test_scheduler_migration_preserves_existing_control_state(settings):
         with database.read() as session:
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0046_skill_publication_one_attempt"
+                == "0047_skill_publication_post_attempt_reconciliation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM campaigns")) == 1
             assert session.scalar(text("SELECT COUNT(*) FROM campaign_budget_limits")) == 1

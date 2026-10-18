@@ -173,3 +173,165 @@ def test_public_bad_json_and_unknown_claim_fail_closed_without_data_disclosure(c
         ).status_code
         == 422
     )
+
+
+def test_post_attempt_reconciliation_persists_only_after_an_attempt_and_appends(
+    proposal_case, database, client, tmp_path, monkeypatch
+):
+    from app import skill_publication_api
+    from app.models import SkillPublicationMergeAttemptRecord, new_id
+    from app.skill_publication_intent import _digest
+    from tests.test_skill_publication_one_attempt import _approved_source
+    from tests.test_skill_publication_reconciliation import (
+        _prepare_merged_pr,
+        _prepared,
+        _response,
+    )
+
+    store, claim, _decision, request, transport, fence, service = _prepared(
+        database, proposal_case, tmp_path
+    )
+    client.app.state.skill_learning_store = store
+    monkeypatch.setattr(skill_publication_api, "_remote", lambda _: service.fences.blob.remote)
+    path = f"/skill-publication/claims/{claim.id}/post-attempt-reconciliation"
+    list_path = f"/skill-publication/claims/{claim.id}/post-attempt-reconciliations"
+    merge_payload = request.model_dump(mode="json")
+    payload = {
+        "confirmation": "RECONCILE_EXACT_SKILL_PUBLICATION_ATTEMPT_GET_ONLY",
+        "merge_request": merge_payload,
+    }
+
+    invalid_confirmation = client.post(
+        path, json={"confirmation": "yes", "merge_request": merge_payload}
+    )
+    assert invalid_confirmation.status_code == 422
+    assert transport.calls == []
+
+    missing = client.post(path, json=payload)
+    assert missing.status_code == 409
+    assert missing.json()["detail"] == (
+        "skill_publication_post_attempt_reconciliation_attempt_missing"
+    )
+    assert transport.calls == []
+
+    _approved_source(database, request)
+    attempt_id = new_id()
+    attempt_material = {
+        "schema": "zelo-skill-publication-single-attempt-v1",
+        "fence_id": fence.id,
+        "claim_id": claim.id,
+        "promotion_task_id": request.promotion_task_id,
+        "repository": fence.repository,
+        "pr_number": fence.pr_number,
+        "pr_head_sha": fence.pr_head_sha,
+        "pr_base_sha": fence.pr_base_sha,
+        "fence_fingerprint": fence.fence_fingerprint,
+        "merge_request_sha256": fence.merge_request_sha256,
+        "operator_subject": "ahmad",
+    }
+    with database.transaction() as session:
+        session.add(
+            SkillPublicationMergeAttemptRecord(
+                id=attempt_id,
+                fence_id=fence.id,
+                claim_id=claim.id,
+                promotion_task_id=request.promotion_task_id,
+                repository=fence.repository,
+                pr_number=fence.pr_number,
+                pr_head_sha=fence.pr_head_sha,
+                pr_base_sha=fence.pr_base_sha,
+                fence_fingerprint=fence.fence_fingerprint,
+                merge_request_sha256=fence.merge_request_sha256,
+                attempt_fingerprint=_digest(attempt_material),
+                operator_subject="ahmad",
+                phase="send_outcome_unresolved",
+                send_may_have_occurred=True,
+                automatic_retry_allowed=False,
+                runtime_authority=False,
+            )
+        )
+
+    endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"
+    transport.responses = [("GET", endpoint, _response(request))]
+    first = client.post(path, json=payload)
+    assert first.status_code == 201, first.text
+    first_observation = first.json()
+    assert first_observation["attempt_id"] == attempt_id
+    assert first_observation["status"] == "open_unmerged"
+    assert first_observation["automatic_retry_allowed"] is False
+    assert first_observation["runtime_authority"] is False
+    assert first_observation["remote_actor_identity_unproven"] is True
+    assert first_observation["remote_merge_method_unproven"] is True
+    assert all(method == "GET" for method, _, _ in transport.calls)
+
+    remote = service.fences.blob.remote
+
+    def no_remote_required_for_read(_request):
+        raise AssertionError("historical observation reads must use only the database")
+
+    monkeypatch.setattr(skill_publication_api, "_remote", no_remote_required_for_read)
+    saved_once = client.get(list_path)
+    assert saved_once.status_code == 200, saved_once.text
+    assert saved_once.json() == [first_observation]
+    monkeypatch.setattr(skill_publication_api, "_remote", lambda _: remote)
+
+    transport.responses = [("GET", endpoint, _response(request))]
+    second = client.post(path, json=payload)
+    assert second.status_code == 201, second.text
+    saved_twice = client.get(list_path)
+    assert saved_twice.status_code == 200
+    assert [item["attempt_id"] for item in saved_twice.json()] == [attempt_id, attempt_id]
+    assert saved_twice.json()[0]["id"] != saved_twice.json()[1]["id"]
+
+    merge_sha = _prepare_merged_pr(request, fence, transport)
+    merged = client.post(path, json=payload)
+    assert merged.status_code == 201, merged.text
+    merged_observation = merged.json()
+    assert merged_observation["status"] == "merged_single_parent_content_observed"
+    assert merged_observation["merge_commit_sha"] == merge_sha
+    saved_three = client.get(list_path)
+    assert saved_three.status_code == 200
+    assert len(saved_three.json()) == 3
+    assert all(method == "GET" for method, _, _ in transport.calls)
+
+    calls_before_denials = len(transport.calls)
+    changed = request.model_copy(
+        update={"merge_commit_message": "A different, unreviewed merge request"}
+    )
+    changed_response = client.post(
+        path,
+        json={
+            "confirmation": "RECONCILE_EXACT_SKILL_PUBLICATION_ATTEMPT_GET_ONLY",
+            "merge_request": changed.model_dump(mode="json"),
+        },
+    )
+    assert changed_response.status_code == 409
+    assert changed_response.json()["detail"] == (
+        "skill_publication_post_attempt_reconciliation_request_changed"
+    )
+    unauthorized = client.post(path, json=payload, headers={"Authorization": "Bearer invalid"})
+    assert unauthorized.status_code == 401
+    assert len(transport.calls) == calls_before_denials
+
+    invalid_pr = _response(request)
+    invalid_pr["head"]["sha"] = "e" * 40
+    transport.responses = [("GET", endpoint, invalid_pr)]
+    failed_observation = client.post(path, json=payload)
+    assert failed_observation.status_code == 409
+    assert failed_observation.json()["detail"] == ("skill_publication_remote_evidence_unavailable")
+    assert all(method == "GET" for method, _, _ in transport.calls)
+    assert len(client.get(list_path).json()) == 3
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    for statement in (
+        "UPDATE skill_publication_post_attempt_reconciliations "
+        "SET status='closed_unmerged' WHERE id=:id",
+        "DELETE FROM skill_publication_post_attempt_reconciliations WHERE id=:id",
+    ):
+        with pytest.raises(IntegrityError):
+            with database.transaction() as session:
+                session.execute(text(statement), {"id": first_observation["id"]})
+
+    assert store.get_promotion_link(claim.proposal_id) is None

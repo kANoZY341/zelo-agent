@@ -76,6 +76,7 @@ def test_migration_from_empty_database(settings) -> None:
             "skill_publication_merge_attempts",
             "skill_publication_merge_receipts",
             "skill_publication_merge_failures",
+            "skill_publication_post_attempt_reconciliations",
         }
         assert not any(
             table.startswith("_alembic_tmp_")
@@ -218,7 +219,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0046_skill_publication_one_attempt"
+                == "0047_skill_publication_post_attempt_reconciliation"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -445,7 +446,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0046_skill_publication_one_attempt"
+                "0047_skill_publication_post_attempt_reconciliation"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1
