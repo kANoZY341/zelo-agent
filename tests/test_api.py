@@ -2,6 +2,7 @@
 
 import inspect
 import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.database import Database
 from app.main import create_app
+from app.models import Task
 from app.task_api import decide_approval
 from tests.conftest import AUTH
 from tests.developer_helpers import FakeWorker
@@ -164,11 +166,16 @@ def test_invalid_task_inputs(client: TestClient, body: dict) -> None:
     assert client.get("/tasks").json()["total"] == 0
 
 
-def test_listing_pagination_and_not_found(client: TestClient) -> None:
+def test_listing_pagination_and_not_found(client: TestClient, database: Database) -> None:
     created = [submit(client, "approval_demo") for _ in range(3)]
+    # Simulate a nonmonotonic clock so the page order is tested explicitly.
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    with database.transaction() as session:
+        for task, seconds in zip(created, (2, 0, 1), strict=True):
+            session.get(Task, task["id"]).created_at = base + timedelta(seconds=seconds)
     page = client.get("/tasks?limit=1&offset=1").json()
     assert page["total"] == 3 and page["limit"] == 1 and page["offset"] == 1
-    assert [task["id"] for task in page["items"]] == [created[1]["id"]]
+    assert [task["id"] for task in page["items"]] == [created[2]["id"]]
     for query in ("limit=0", "limit=101", "offset=-1"):
         assert client.get(f"/tasks?{query}").status_code == 422
     assert client.get("/tasks/missing").status_code == 404
