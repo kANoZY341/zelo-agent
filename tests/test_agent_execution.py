@@ -254,6 +254,39 @@ def test_paused_research_agent_cannot_publish_a_claimed_result(database, setting
     assert "research_completed" not in [event.event for event in tasks.events(task.id, 100, 0)]
 
 
+def test_resumed_research_agent_cannot_publish_result_from_before_pause(
+    database,
+    settings,
+):
+    _factory, instances, tasks, execution = direct_services(database, settings)
+    owned_project = project(database)
+    instance = instances.create(
+        AgentInstanceCreate(agent_id="research", project_id=owned_project.id)
+    )
+    task, _ = execution.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ResearchRunInput(kind="research_run", payload={"query": "Inspect evidence."})
+        ),
+        "agent-research:pause-resume",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+
+    instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+    instances.transition(instance.id, AgentInstanceTransition(action="resume"))
+    tasks.finish(
+        claimed,
+        State.SUCCEEDED,
+        result={"answer": "Late result", "model_steps": 2, "tool_calls": 1, "sources": []},
+    )
+
+    completed = tasks.get(task.id)
+    assert completed.status == State.CANCELLED
+    assert completed.error == "agent_execution_invalidated"
+    assert completed.result is None
+
+
 def test_coding_agent_approval_revalidates_identity(
     database,
     developer_case,
@@ -499,6 +532,50 @@ def test_revoked_delegation_cannot_publish_a_claimed_research_result(
     assert completed.error == "agent_execution_invalidated"
     assert completed.result is None
     assert completed.attempts[0].result is None
+
+
+def test_resumed_delegating_parent_cannot_publish_claimed_research_result(
+    database,
+    settings,
+):
+    (
+        instances,
+        _controls,
+        _delegations,
+        tasks,
+        execution,
+        run_campaign,
+        parent,
+        child,
+        delegation,
+    ) = make_delegation(database, settings)
+    task, _ = execution.submit(
+        child.id,
+        AgentTaskCreate(
+            task=ResearchRunInput(
+                kind="research_run",
+                payload={"query": "Investigate delegated evidence."},
+                campaign_id=run_campaign.id,
+            ),
+            delegation_id=delegation.id,
+        ),
+        "agent-child:parent-pause-resume",
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+
+    instances.transition(parent.id, AgentInstanceTransition(action="pause"))
+    instances.transition(parent.id, AgentInstanceTransition(action="resume"))
+    tasks.finish(
+        claimed,
+        State.SUCCEEDED,
+        result={"answer": "Late result", "model_steps": 2, "tool_calls": 1, "sources": []},
+    )
+
+    completed = tasks.get(task.id)
+    assert completed.status == State.CANCELLED
+    assert completed.error == "agent_execution_invalidated"
+    assert completed.result is None
 
 
 def test_execution_binding_is_database_immutable_and_campaign_scoped(
