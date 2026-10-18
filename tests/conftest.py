@@ -12,6 +12,15 @@ from app.database import Database
 from app.main import create_app
 from tests.developer_helpers import developer_case  # noqa: F401
 
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Keep tests sharing the repository-wide developer capacity lock together."""
+    for item in items:
+        if "developer_case" in item.fixturenames:
+            item.add_marker(pytest.mark.xdist_group("developer_capacity"))
+
+
 TEST_TOKEN = "test-only-operator-token-not-a-real-credential"
 AUTH = {"Authorization": f"Bearer {TEST_TOKEN}"}
 

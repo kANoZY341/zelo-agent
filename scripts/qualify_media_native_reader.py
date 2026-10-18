@@ -179,6 +179,25 @@ def _private_runtime_path(path, runtime_root):
     return path
 
 
+def _fsync_directory(path):
+    """Make a created/removed evidence entry durable before clearing admission."""
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+class _DurableStore(_Store):
+    def save(self, name, value):
+        super().save(name, value)
+        try:
+            _fsync_directory(self.path)
+        except BaseException:
+            self.state.close_ok = False
+            raise
+
+
 def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version=1):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     base = runtime / RUNTIME_PROOF_BASE
@@ -245,6 +264,8 @@ def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version
                 raise ValueError("reader_native_old_entry")
     path = Path(tempfile.mkdtemp(prefix=PREFIX, dir=base))
     os.chmod(path, 0o700)
+    _fsync_directory(path)
+    _fsync_directory(base)
     return path
 
 
@@ -940,7 +961,7 @@ async def _qualify(runtime_root=None):
         attempt = _attempt_directory(
             runtime, extra_grant=extra_grant, recovery_version=recovery_version or 1
         )
-        store = _Store(attempt, state)
+        store = _DurableStore(attempt, state)
         store.json("policy.json", spec)
         docker_config = attempt / "docker-config"
         docker_config.mkdir(mode=0o700)
@@ -1009,6 +1030,7 @@ async def _qualify(runtime_root=None):
                 shutil.rmtree(attempt / "build", ignore_errors=False)
                 (attempt / "image-rootfs.tar").unlink(missing_ok=True)
                 (attempt / "image-id").unlink(missing_ok=True)
+                _fsync_directory(attempt)
             except OSError:
                 cleanup_confirmed = False
         if error_type is not None and not issubclass(error_type, Exception):

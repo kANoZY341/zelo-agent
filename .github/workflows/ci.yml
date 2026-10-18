@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - '*'
   pull_request:
 
 permissions:
@@ -18,9 +22,8 @@ jobs:
       - Linux
       - X64
       - zelo-ci
-    # Full Core CI takes about 44 minutes on the pinned self-hosted runner.
-    # Preserve all pytest/Ruff/diff gates with room for ordinary runner variance.
-    timeout-minutes: 60
+    # Keep the full pytest/Ruff/diff gates while running test files in parallel.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,4 +51,5 @@ jobs:
       - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - run: .venv/bin/python -m pytest -q
+      - name: Run full test suite (four workers)
+        run: .venv/bin/python -m pytest -q -n 4 --dist=loadgroup --durations=30

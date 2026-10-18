@@ -8,7 +8,7 @@ import pytest
 
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
-from app.config import ROOT, Settings
+from app.config import Settings
 from app.developer_process import DeveloperError
 from app.memory import MemoryService
 from app.schemas import AgentInstanceTransition
@@ -19,6 +19,7 @@ from app.skill_publication_remote_evidence import (
 from tests import test_promotion_ci as ci_tests
 from tests import test_promotion_merge as merge_tests
 from tests import test_skill_learning_store as learning_store_tests
+from tests.runtime_helpers import isolated_runtime_dir
 from tests.test_skill_publication_merge_preview import _qualified
 
 OPERATOR = OperatorPrincipal()
@@ -33,9 +34,10 @@ def _remote_fixture(database, proposal_case, tmp_path, *, checks=None, final_pr=
     store, agent, _intent, claim, previews, request = _qualified(database, proposal_case, tmp_path)
     # Reuse the pre-created fixture publisher identity and known local
     # executable. No real GitHub requests or external token is used here.
+    runtime_dir = isolated_runtime_dir(tmp_path)
     settings = Settings(
         _env_file=None,
-        runtime_dir=ROOT / "runtime",
+        runtime_dir=runtime_dir,
         promotion_repository=request.promotion.repository,
         promotion_gh_executable=Path("/usr/bin/true"),
         promotion_gh_config_dir=tmp_path / "gh",
