@@ -422,7 +422,8 @@ def test_source_terminal_record_waits_for_durable_lease_completion(runtime, monk
                     timeout_seconds=0.01,
                     emit=lambda *_: None,
                 )
-            assert started.is_set()
+            # Wait for the validation worker to reach the blocked durable finish.
+            assert await asyncio.to_thread(started.wait, 5)
             assert all(record.cleanup_confirmed for record in runtime._validations)
             assert runtime._pending()
         finally:
