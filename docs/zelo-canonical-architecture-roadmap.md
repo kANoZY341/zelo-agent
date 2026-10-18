@@ -251,8 +251,9 @@ cancellation/reap, persisted Task/attempt and audit, plus execution and
 default-deny boundaries. Initial CI 39132453181 remains failed on a separate
 Shell test deadline; the narrow correction retained refusal assertions.
 A local follow-up candidate passed a real Python Task timeout and child reap;
-exact-head review/CI remain pending. Worker and authority gates keep v0.15
-on HOLD.
+initial #210 CI 39136564066 failed in bounded-context and test-wait
+assertions. A narrow correction needs revised review/CI. Worker and authority
+gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
