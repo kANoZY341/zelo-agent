@@ -25,6 +25,9 @@ from app.rea_operator_targets import (
 )
 from tests.conftest import AUTH
 
+# The live vendor inventory is shared with mutation tests in test_rea_source_vendor.
+pytestmark = pytest.mark.xdist_group("rea_vendor_inventory")
+
 OPERATOR = OperatorPrincipal()
 SNAPSHOT_ID = "target-" + "a" * 32
 
