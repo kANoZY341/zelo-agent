@@ -1286,8 +1286,15 @@ def test_task_link_failure_retries_same_persisted_occurrence(
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=3)
         conversation = create_conversation(client)
-        schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime(2026, 9, 26, 12, 0, tzinfo=UTC))
+        scheduler.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value,
+        )
 
         original_link = scheduler.mind._link_core_task
         failed_once = False
