@@ -244,12 +244,16 @@ The 18 October #207 exact-head suite passed, but its distinct main CI
 39125109612 failed in a pagination test with a submission-order assumption.
 #208 corrected the test and passed exact-head CI 39126561224 plus distinct main
 CI 39127790513 (6,388 passed, 2 skipped). The failed #207 receipt remains
-historical. An isolated current-main Python Worker host run passed execution
-and default-deny boundaries; a narrow candidate added observed native child
-cancellation/reap. Its initial CI 39132453181 failed on a separate Shell
-optimized-Python test deadline after the expected refusal was captured;
-the narrow deadline correction needs fresh exact-head CI. The remaining Worker
-and authority gates keep v0.15 on HOLD.
+historical. #209 merged at `f71c06d` after revised exact-head CI
+39133794701 and distinct main CI 39135020569 both passed (6,388 tests,
+2 skipped). Its isolated Python Worker loopback proof observed native child
+cancellation/reap, persisted Task/attempt and audit, plus execution and
+default-deny boundaries. Initial CI 39132453181 remains failed on a separate
+Shell test deadline; the narrow correction retained refusal assertions.
+A local follow-up candidate passed a real Python Task timeout and child reap;
+initial #210 CI 39136564066 failed in bounded-context and test-wait
+assertions. A narrow correction needs revised review/CI. Worker and authority
+gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's

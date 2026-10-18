@@ -251,20 +251,17 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 `docs/v0.15-release-closeout.md`. The last published version is still
 `v0.14.0`; v0.15.0 is **not released or ready to tag**.
 
-18 October: #207's Research late-result fence merged at `c8d3cff`, with
-exact-head CI 39124001164 **PASS**. Its distinct main CI 39125109612
-**FAILED** (1 failed, 6,387 passed, 2 skipped) because a pagination test
-assumed creation order where the API sorts by `(created_at, id)`. A narrow
-test correction merged as #208 at `b6d6f94`; its exact-head CI 39126561224
-and distinct main CI 39127790513 both **PASS** (6,388 passed, 2 skipped).
-The #207 failed receipt remains failed. A separate current-main isolated Python
-loopback run passed real Task execution, default admission denials, network and
-write refusal; a narrow qualification candidate also observed native child
-cancellation and cleanup. Initial #209 CI 39132453181 **FAILED** in a separate
-Shell optimized-Python subprocess test whose 10-second deadline expired after
-the expected refusal text appeared. A 30-second test deadline preserves the
-same refusal/no-native-evidence assertions; new exact-head CI is pending.
-These do not complete R3 or authorize release.
+18 October: #207's Research fence passed exact-head CI, but its distinct
+main CI 39125109612 **FAILED** in a pagination ordering test. #208 corrected
+it; exact-head and main CI passed (6,388 passed, 2 skipped). #209's bounded
+Python cancellation/reap proof merged at `f71c06d` after exact-head CI
+39133794701 and main CI 39135020569 passed the same suite. Initial #209 CI
+39132453181 remains **FAILED** on a separate Shell test deadline; the
+correction retained refusal assertions. Initial #210 CI 39136564066
+**FAILED** (2 failed, 6,386 passed, 2 skipped): this active section exceeded
+the context budget, and a self-improvement Task crossed a three-second test
+wait. A narrow correction is pending revised-head CI. Its local Python
+Task timeout/reap proof does not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;

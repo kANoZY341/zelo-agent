@@ -147,7 +147,7 @@ def test_self_improvement_task_prepares_approval_gated_developer_child(settings,
         assert submitted["selected_alias"] == "local_general"
         assert submitted["selected_model"] == "qwen3:4b-instruct"
 
-        completed = wait_for(client, submitted["id"], "succeeded")
+        completed = wait_for(client, submitted["id"], "succeeded", timeout=15)
         result = completed["result"]
         assert result["goal"] == "Improve Zelo safely."
         assert result["proposal"]["goal"] == "Improve Zelo safely."
