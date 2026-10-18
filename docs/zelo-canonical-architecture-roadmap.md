@@ -2,6 +2,48 @@
 
 ## Status
 
+**18 October integration checkpoint:** GitHub main is
+d19a05fba11cdd88315b042608b454b36e57d0f9 after merged [PR #205](https://github.com/kANoZY341/zelo-agent/pull/205).
+Exact-head [CI 39099067273](https://github.com/kANoZY341/zelo-agent/actions/runs/39099067273)
+passed **6,383 tests, 2 skipped, 60 warnings** in 925.87 seconds (15:25.9).
+The distinct post-merge main
+[CI 39100015028](https://github.com/kANoZY341/zelo-agent/actions/runs/39100015028)
+passed the same suite in 928.64 seconds (15:28.6).
+
+PR #205 corrected two load-sensitive test assumptions exposed by the earlier
+post-#203 main run 39095733816: wall-clock timestamp ordering despite ordered
+audit events, and a one-second timeout that could expire during test setup.
+It changes tests only; runtime behavior and policy are unchanged.
+
+The ten-worker benchmark
+[39098151008](https://github.com/kANoZY341/zelo-agent/actions/runs/39098151008)
+passed the same 6,383 tests in 912.72 seconds; the comparable eight-worker
+run 39097237959 took 912.79 seconds. That is no meaningful improvement, so CI
+retains eight workers. The original four-worker runs after #202 passed the same
+suite in 1,227.87 and 1,216.94 seconds; the #203 eight-worker exact-head
+run was **24.5% faster** than their mean, and this #205 exact-head run is
+**24.3% faster**. The full suite, shared xdist groups, diff check, Ruff lint and
+format checks remain enabled.
+
+The earlier post-#196 main CI 39090795090 failed on a shared REA
+vendor-inventory test race; that failure remains recorded. PR #202 groups
+the mutating tests with the real verifier readers. It changes test scheduling,
+not the vendor-integrity gate.
+
+Since the previous status checkpoint, OCR review [#195](https://github.com/kANoZY341/zelo-agent/pull/195),
+workspace descriptor binding [#198](https://github.com/kANoZY341/zelo-agent/pull/198),
+Media proof-ledger durability [#197](https://github.com/kANoZY341/zelo-agent/pull/197),
+and bounded Memory recall [#196](https://github.com/kANoZY341/zelo-agent/pull/196)
+merged. The #197 post-merge main CI 39088141588 passed. Four native Media refusals remain terminal with no fifth proof; no
+Media runtime qualification or release authority follows. Delegated Space
+read [#194](https://github.com/kANoZY341/zelo-agent/pull/194) remains draft
+with native acceptance blocked. Skill publication, remaining Worker proofs
+and the independent release audit remain open. The complete v0.15 scope and
+release remain **HOLD**.
+
+Dated candidate notes below retain
+their historical state at the time recorded.
+
 **17 October integration checkpoint:** approval-history PR #191 merged
 at `0471c29e43386202fbb3535aa6df3e4d0191a645` after exact-content full CI
 passed **6,311 tests, 2 skipped**; its distinct post-merge main run
@@ -1597,11 +1639,13 @@ The public Task-result contract validates the exact candidate/evidence binding.
 No new Worker, model provider, Tool, source import or GitHub publication is added.
 See [the independent review workflow](v0.15-ocr-independent-review.md).
 
-This is an unmerged candidate reconciled onto post-#193 main, not v0.15 completion.
+At this 17 October checkpoint it was an unmerged candidate; PR #195 later
+merged at `1979ed8fa84fd1b7a4ed527c9a79a631bba32706` with distinct
+post-merge main CI `39067157256` PASS. This does not complete v0.15.
 Initial four regressions reproduced missing integration. Further tests reproduced
 and corrected prompt overflow, forced binary diff handling and missing saved
 result contract; invalid-result and stale-state failures remain recorded.
-Final exact-source tests, independent review, native model observation and full
-CI must be read from the current candidate/issue #166 evidence, not inferred
-from this implementation note. Media, delegated native acceptance, private
-Skill publication and all other required release gates remain unchanged.
+The merged-source CI receipt belongs to PR #195; this historical candidate
+note does not qualify other release gates. Media, delegated native
+acceptance, private Skill publication and all other required release gates
+remain unchanged.
