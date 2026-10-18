@@ -251,17 +251,13 @@ The Managing Director directed completion of **v0.15 first**. Tracker:
 `docs/v0.15-release-closeout.md`. The last published version is still
 `v0.14.0`; v0.15.0 is **not released or ready to tag**.
 
-18 October: #207's Research fence passed exact-head CI, but its distinct
-main CI 39125109612 **FAILED** in a pagination ordering test. #208 corrected
-it; exact-head and main CI passed (6,388 passed, 2 skipped). #209's bounded
-Python cancellation/reap proof merged at `f71c06d` after exact-head CI
-39133794701 and main CI 39135020569 passed the same suite. Initial #209 CI
-39132453181 remains **FAILED** on a separate Shell test deadline; the
-correction retained refusal assertions. Initial #210 CI 39136564066
-**FAILED** (2 failed, 6,386 passed, 2 skipped): this active section exceeded
-the context budget, and a self-improvement Task crossed a three-second test
-wait. A narrow correction is pending revised-head CI. Its local Python
-Task timeout/reap proof does not complete R3 or authorize release.
+18 October: #209/#210 merged after exact-head and main CI passed
+(6,388 passed, 2 skipped). Isolated Python Tasks proved execution,
+cancellation, timeout and native child reap. Their initial failed CI receipts
+remain in the closeout ledger. An opt-in API Worker candidate passed one
+public HTTPS Task and denied unregistered/unsafe requests. Initial #211 CI
+failed approval pagination ordering; revised review/CI is pending.
+These bounded receipts do not complete R3 or authorize release.
 
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;

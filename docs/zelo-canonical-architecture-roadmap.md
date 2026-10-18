@@ -241,19 +241,15 @@ complete the earlier version. Existing later-version code and worktrees stay
 preserved but new nonessential feature promotions are paused. Final v0.15
 scope or exclusions cannot change without an explicit operator decision.
 The 18 October #207 exact-head suite passed, but its distinct main CI
-39125109612 failed in a pagination test with a submission-order assumption.
-#208 corrected the test and passed exact-head CI 39126561224 plus distinct main
-CI 39127790513 (6,388 passed, 2 skipped). The failed #207 receipt remains
-historical. #209 merged at `f71c06d` after revised exact-head CI
-39133794701 and distinct main CI 39135020569 both passed (6,388 tests,
-2 skipped). Its isolated Python Worker loopback proof observed native child
-cancellation/reap, persisted Task/attempt and audit, plus execution and
-default-deny boundaries. Initial CI 39132453181 remains failed on a separate
-Shell test deadline; the narrow correction retained refusal assertions.
-A local follow-up candidate passed a real Python Task timeout and child reap;
-initial #210 CI 39136564066 failed in bounded-context and test-wait
-assertions. A narrow correction needs revised review/CI. Worker and authority
-gates keep v0.15 on HOLD.
+39125109612 failed in a pagination test; #208 corrected it and passed both
+gates (6,388 passed, 2 skipped). #209 and #210 then passed separate exact-head
+and post-merge main CI at `f71c06d` and `1d0340f`, respectively. Isolated
+Python Worker loopback proofs observed real Task execution, cancellation,
+timeout and native child reap. Initial #209 CI 39132453181 and #210 CI
+39136564066 remain failed historical receipts. An opt-in API Worker candidate
+passed one real public HTTPS read with default-deny checks. Initial #211 CI
+failed approval pagination ordering; revised review/CI is pending.
+Worker and authority gates keep v0.15 on HOLD.
 
 **Historical 15 October evidence checkpoint:** `main` reached
 `a603a136623778abe30f98bb4bf74d932c2441a7` after #183's
