@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from app.models import MemoryRecord
 from tests.conftest import AUTH
 
 
@@ -396,6 +397,137 @@ def test_retrieval_is_bounded_and_rejects_duplicate_scopes(client):
         },
     )
     assert duplicate_agent.status_code == 422
+
+
+def test_retrieval_recalls_old_relevant_memory_beyond_new_unrelated_records(client, database):
+    remembered = _create_personal(client, "The violet comet passes the observatory.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Unrelated daily comet entry number {index} about breakfast.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "violet comet observatory", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
+
+
+def test_retrieval_survives_newer_substring_only_candidates(client, database):
+    remembered = _create_personal(client, "The violet comet passes the observatory.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Violetish cometary breakfast note {index}.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "violet comet observatory", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
+
+
+def test_retrieval_recalls_old_arabic_memory_without_widening_scope(client, database):
+    remembered = _create_personal(client, "نافذة الضوء تطل على البحر.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Daily lunch record {index}.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "نافذة الضوء البحر", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
+
+
+def test_retrieval_preserves_unicode_casefold_matches_behind_newer_records(client, database):
+    remembered = _create_personal(client, "The Kelvin report is archived.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Daily lunch record {index}.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    response = client.post(
+        "/memories/retrieve",
+        headers=AUTH,
+        json={"query": "kelvin report", "scopes": [{"kind": "personal"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [remembered["id"]]
+
+
+def test_retrieval_work_budget_interrupts_and_does_not_poison_connection(
+    client, database, monkeypatch
+):
+    remembered = _create_personal(client, "The violet comet passes the observatory.")
+    with database.transaction() as session:
+        session.add_all(
+            MemoryRecord(
+                scope_kind="personal",
+                scope_id=None,
+                kind="fact",
+                content=f"Daily lunch record {index}.",
+                provenance_kind="operator",
+                provenance_ref=None,
+                provenance_note="",
+            )
+            for index in range(300)
+        )
+
+    query = {"query": "violet comet observatory", "scopes": [{"kind": "personal"}]}
+    ticks = iter([0.0, 10.0])
+    with monkeypatch.context() as patch:
+        patch.setattr("app.memory.monotonic", lambda: next(ticks, 10.0), raising=False)
+        interrupted = client.post("/memories/retrieve", headers=AUTH, json=query)
+    assert interrupted.status_code == 503, interrupted.text
+    assert "work budget" in interrupted.json()["detail"].lower()
+
+    recovered = client.post("/memories/retrieve", headers=AUTH, json=query)
+    assert recovered.status_code == 200, recovered.text
+    assert [item["id"] for item in recovered.json()["items"]] == [remembered["id"]]
 
 
 def test_retrieval_short_circuits_when_query_has_no_meaningful_terms(client):

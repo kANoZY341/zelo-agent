@@ -19,6 +19,20 @@ from app.config import ROOT
 from app.storage import SQLITE_STORAGE
 
 
+def _casefold_overlap(content: str | None, minimum_matches: int, *terms: str) -> int:
+    """Bounded lexical SQL prefilter with Python Unicode token normalization."""
+    if not content:
+        return 0
+    folded = content.casefold()
+    matched = 0
+    for term in terms:
+        if term in folded:
+            matched += 1
+            if matched >= minimum_matches:
+                return 1
+    return 0
+
+
 def migration_config() -> Config:
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(ROOT / "migrations"))
@@ -44,6 +58,10 @@ class Database:
 
     @staticmethod
     def _configure(connection: sqlite3.Connection, record: Any) -> None:
+        # Fold once per candidate and stop on sufficient query-term overlap.
+        connection.create_function(
+            "zelo_casefold_overlap", -1, _casefold_overlap, deterministic=True
+        )
         cursor = connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA busy_timeout=5000")
