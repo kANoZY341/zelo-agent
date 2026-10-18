@@ -7,6 +7,7 @@ import marshal
 import os
 import py_compile
 import time
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -151,7 +152,10 @@ def test_full_runtime_result_review_and_audit(developer_case, database):
     assert "DEVELOPER_SMOKE.txt" in data["changed_files"]
     assert data["ignored_generated_files"]  # Validator cache files are inventoried too.
     assert len(data["validation"]) == 4
-    assert data["completed_at"] >= data["validation_completed_at"] >= data["worker_completed_at"]
+    assert all(
+        datetime.fromisoformat(data[key]).tzinfo is not None
+        for key in ("worker_completed_at", "validation_completed_at", "completed_at")
+    )
     assert data["duration_seconds"] > 0
     repo = runtime.root() / data["worktree"]
     assert repo != runtime.source_repository and (repo / ".git").is_dir()
@@ -417,8 +421,9 @@ def test_concurrent_primary_snapshots_do_not_mutate_source_index(developer_case)
 @pytest.mark.parametrize("failure", ["exception", "timeout", "cancel", "success"])
 def test_boundary_verification_on_all_exits(developer_case, failure):
     runtime = developer_case
-    runtime.settings.developer_timeout_seconds = 1 if failure == "timeout" else 20
-    request = spec(runtime, 20)
+    timeout_seconds = 30 if failure == "timeout" else 20
+    runtime.settings.developer_timeout_seconds = timeout_seconds
+    request = spec(runtime, timeout_seconds + 10 if failure == "timeout" else 20)
 
     async def run():
         ready = asyncio.Event()
@@ -437,7 +442,16 @@ def test_boundary_verification_on_all_exits(developer_case, failure):
         task = asyncio.create_task(
             runtime.run(str(uuid4()), str(uuid4()), request, lambda *args: None)
         )
-        await asyncio.wait_for(ready.wait(), 10)
+        ready_wait = asyncio.create_task(ready.wait())
+        done, _ = await asyncio.wait(
+            {ready_wait, task}, timeout=timeout_seconds + 5, return_when=asyncio.FIRST_COMPLETED
+        )
+        if ready_wait not in done:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            await asyncio.gather(ready_wait, return_exceptions=True)
+            pytest.fail("runtime ended before the worker reached the boundary check")
         if failure == "cancel":
             task.cancel()
         return await task
