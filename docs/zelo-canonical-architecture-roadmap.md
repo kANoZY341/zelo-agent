@@ -2,6 +2,26 @@
 
 ## Status
 
+**19 October integration checkpoint:** [PR #216](https://github.com/kANoZY341/zelo-agent/pull/216)
+merged at `a78be09c1225b26a46275a42fc775344f1c821e2` after exact-head
+[CI 39178619273](https://github.com/kANoZY341/zelo-agent/actions/runs/39178619273)
+and distinct [main CI 39179855054](https://github.com/kANoZY341/zelo-agent/actions/runs/39179855054)
+both passed (6,397 tests, 2 skipped, 60 warnings). It replaces a timing-sensitive
+Worker capacity retry assertion with checks against the persisted deadline.
+The earlier post-#215 main CI 39177379934 remains a failed receipt.
+
+[PR #217](https://github.com/kANoZY341/zelo-agent/pull/217) merged at
+`d7291fbd356adc5041b1c925be978a391078f5d9` after independent exact-head
+review and [CI 39181179012](https://github.com/kANoZY341/zelo-agent/actions/runs/39181179012)
+passed (6,403 tests, 2 skipped, 60 warnings). A child Agent can use bounded
+`files_read`/`files_list` only with its own Space activation and a live
+Computer delegation. Core rechecks the delegation, campaign, budget and
+parent capability at file use. Its distinct [main CI 39182417806](https://github.com/kANoZY341/zelo-agent/actions/runs/39182417806)
+passed on `d7291fb` (6,403 tests, 2 skipped, 60 warnings). This is one
+Space authority slice; host acceptance, other Space operations, Skill
+publication, Worker proofs, Media scope and independent release audit remain
+open. The full v0.15 release remains **HOLD**.
+
 **18 October follow-through (local candidate):** [PR #206](https://github.com/kANoZY341/zelo-agent/pull/206)
 merged at `41f14b5d5facf922f3f321e5e9b0bacc320239fc`; distinct
 [post-merge main CI 39122322474](https://github.com/kANoZY341/zelo-agent/actions/runs/39122322474)
