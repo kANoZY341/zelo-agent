@@ -211,6 +211,9 @@ def create_app(
                 agent_registry,
                 approved_registry_sha256=(configuration.computer_observer_approved_registry_sha256),
                 backend_configured=agent_computers.configured,
+                delegated_approved_registry_sha256=(
+                    configuration.delegated_computer_approved_registry_sha256
+                ),
             )
             available_tools = {item["name"] for item in tool_gateway.registry.metadata()}
             agent_registry.validate_activation(

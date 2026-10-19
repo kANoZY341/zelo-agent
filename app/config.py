@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     computer_observer_approved_registry_sha256: str | None = Field(
         default=None, pattern=r"^[a-f0-9]{64}$"
     )
+    # Separate exact catalog for one Computer parent and one Specialist child.
+    delegated_computer_approved_registry_sha256: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$"
+    )
     computer_browser_endpoints: tuple[str, ...] = Field(default=(), max_length=32)
     computer_internal_network_cidr: str | None = None
     computer_network_name: str = Field(
