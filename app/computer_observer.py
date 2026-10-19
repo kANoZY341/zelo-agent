@@ -49,14 +49,56 @@ def computer_observer_registry() -> AgentRegistry:
     )
 
 
+def delegated_computer_registry() -> AgentRegistry:
+    """Exact opt-in parent/child catalog; per-instance grants remain separate."""
+    baseline = default_agent_registry()
+    parent = computer_observer_spec().model_copy(
+        update={
+            "agent_id": "computer_delegate",
+            "role": "computer_delegate",
+            "objective": "Delegate one bounded, owner-approved Computer observation.",
+            "instructions": (
+                "Delegate only a bounded Computer read under a live Campaign and "
+                "reserved budget. A child must obtain its own Space confirmation. "
+                "Do not lend a parent activation, grant a write, run a shell, or "
+                "publish a Skill."
+            ),
+            "memory_namespace": "agent/computer_delegate",
+            "allow_subagents": True,
+            "max_subagents": 1,
+        }
+    )
+    return AgentRegistry(
+        (*baseline.list_agents(), computer_observer_spec(), parent),
+        baseline.list_departments(),
+    )
+
+
 def admitted_computer_observer_registry(
     database: SessionStore,
     baseline: AgentRegistry,
     *,
     approved_registry_sha256: str | None,
     backend_configured: bool,
+    delegated_approved_registry_sha256: str | None = None,
 ) -> AgentRegistry:
-    candidate = computer_observer_registry()
+    if approved_registry_sha256 is not None and delegated_approved_registry_sha256 is not None:
+        raise ComputerObserverActivationRefusal("computer_registry_optins_conflicting")
+    candidate = (
+        delegated_computer_registry()
+        if delegated_approved_registry_sha256 is not None
+        else computer_observer_registry()
+    )
+    if delegated_approved_registry_sha256 is not None:
+        if (
+            type(delegated_approved_registry_sha256) is not str
+            or delegated_approved_registry_sha256 != candidate.version
+        ):
+            raise ComputerObserverActivationRefusal("delegated_computer_operator_approval_stale")
+        if baseline.version != default_agent_registry().version:
+            raise ComputerObserverActivationRefusal("delegated_computer_other_optins_incompatible")
+        if not backend_configured:
+            raise ComputerObserverActivationRefusal("delegated_computer_backend_required")
     if approved_registry_sha256 is not None:
         if (
             type(approved_registry_sha256) is not str
@@ -71,7 +113,7 @@ def admitted_computer_observer_registry(
             raise ComputerObserverActivationRefusal("computer_observer_backend_required")
 
     with database.transaction() as session:
-        if approved_registry_sha256 is not None:
+        if approved_registry_sha256 is not None or delegated_approved_registry_sha256 is not None:
             incompatible = session.scalar(
                 select(func.count())
                 .select_from(AgentInstance)
@@ -93,8 +135,10 @@ def admitted_computer_observer_registry(
                 .where(
                     AgentInstance.status != "retired",
                     or_(
-                        AgentInstance.registry_version == candidate.version,
-                        AgentInstance.agent_id == "computer_observer",
+                        AgentInstance.registry_version.in_(
+                            (candidate.version, delegated_computer_registry().version)
+                        ),
+                        AgentInstance.agent_id.in_(("computer_observer", "computer_delegate")),
                     ),
                 )
             )
@@ -102,4 +146,8 @@ def admitted_computer_observer_registry(
                 raise ComputerObserverActivationRefusal(
                     "computer_observer_disable_requires_retiring_live_instances"
                 )
-    return candidate if approved_registry_sha256 is not None else baseline
+    return (
+        candidate
+        if approved_registry_sha256 is not None or delegated_approved_registry_sha256 is not None
+        else baseline
+    )
