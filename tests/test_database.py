@@ -683,3 +683,117 @@ def test_api_migration_preserves_existing_trigger_definitions(settings):
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
         database.close()
+
+
+def test_skill_reconciliation_migration_failure_preserves_data_and_retries(settings) -> None:
+    """An interrupted latest migration must leave the prior schema and Task intact."""
+    database = Database(settings.database_path)
+    table = "skill_publication_post_attempt_reconciliations"
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0046_skill_publication_one_attempt")
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO tasks (id,kind,payload,timeout_seconds,status,"
+                    "action_version,action_hash,request_hash,cancel_requested,"
+                    "created_at,updated_at) "
+                    "VALUES ('preserve-task','echo','{}',30,'succeeded',1,:action,:request,0,"
+                    "'2026-01-01 00:00:00','2026-01-01 00:00:00')"
+                ),
+                {"action": "a" * 64, "request": "b" * 64},
+            )
+
+        def fail_after_trigger(
+            _connection, _cursor, statement, _parameters, _context, _executemany
+        ) -> None:
+            if f"CREATE TRIGGER {table}_no_update" in statement:
+                raise RuntimeError("injected reconciliation migration failure")
+
+        with database.engine.connect() as connection:
+            event.listen(connection, "after_cursor_execute", fail_after_trigger)
+            try:
+                config = migration_config()
+                config.attributes["connection"] = connection
+                with pytest.raises(RuntimeError, match="injected reconciliation migration failure"):
+                    command.upgrade(config, "head")
+            finally:
+                event.remove(connection, "after_cursor_execute", fail_after_trigger)
+
+        # Reopen the database as a new process would after the interrupted upgrade.
+        database.close()
+        database = Database(settings.database_path)
+        assert table not in inspect(database.engine).get_table_names()
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0046_skill_publication_one_attempt"
+            )
+            assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='preserve-task'")) == 1
+        with pytest.raises(RuntimeError, match="migration required"):
+            database.check_schema()
+
+        database.migrate()
+        database.check_schema()
+        assert table in inspect(database.engine).get_table_names()
+        with database.read() as session:
+            assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='preserve-task'")) == 1
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    finally:
+        database.close()
+
+
+def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None:
+    """A stopped Core can return to its prior SQLite snapshot and retry upgrade."""
+    database = Database(settings.database_path)
+    backup_path = settings.runtime_dir / "before-skill-reconciliation.sqlite3"
+    table = "skill_publication_post_attempt_reconciliations"
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0046_skill_publication_one_attempt")
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO tasks (id,kind,payload,timeout_seconds,status,"
+                    "action_version,action_hash,request_hash,cancel_requested,"
+                    "created_at,updated_at) VALUES ('backup-task','echo','{}',30,"
+                    "'succeeded',1,:action,:request,0,'2026-01-01 00:00:00',"
+                    "'2026-01-01 00:00:00')"
+                ),
+                {"action": "a" * 64, "request": "b" * 64},
+            )
+        with sqlite3.connect(settings.database_path) as source:
+            with sqlite3.connect(backup_path) as destination:
+                source.backup(destination)
+        database.migrate()
+        database.check_schema()
+        assert table in inspect(database.engine).get_table_names()
+        database.close()
+
+        # The disposable instance is stopped before restoring through SQLite's
+        # backup API, so WAL state and the database snapshot remain consistent.
+        with sqlite3.connect(backup_path) as source:
+            with sqlite3.connect(settings.database_path) as destination:
+                source.backup(destination)
+        database = Database(settings.database_path)
+        assert table not in inspect(database.engine).get_table_names()
+        with pytest.raises(RuntimeError, match="migration required"):
+            database.check_schema()
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0046_skill_publication_one_attempt"
+            )
+            assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert session.scalar(text("PRAGMA integrity_check")) == "ok"
+
+        database.migrate()
+        database.check_schema()
+        assert table in inspect(database.engine).get_table_names()
+        with database.read() as session:
+            assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    finally:
+        database.close()
