@@ -2,6 +2,18 @@
 
 ## Status
 
+**19 October delegated Computer pilot integration:** [PR #219](https://github.com/kANoZY341/zelo-agent/pull/219)
+merged at `875b766099fe06ad56e69405e564983704031541` after independent
+exact-head review and [CI 39186742127](https://github.com/kANoZY341/zelo-agent/actions/runs/39186742127)
+passed (6,409 tests, 2 skipped, 60 warnings). A separate exact-pinned,
+default-disabled catalog pairs an unchanged Computer Observer child with
+one Specialist parent authorized for one bounded delegation. A red
+regression exposed an opt-out that stranded a live baseline Agent; the
+startup guard now recognizes both Computer catalog digests. Distinct [main CI 39188013218](https://github.com/kANoZY341/zelo-agent/actions/runs/39188013218)
+passed on `875b766` (6,409 tests, 2 skipped, 60 warnings). Native host
+acceptance, broader Space rights and release gates remain open; v0.15
+remains **HOLD**.
+
 **19 October integration checkpoint:** [PR #216](https://github.com/kANoZY341/zelo-agent/pull/216)
 merged at `a78be09c1225b26a46275a42fc775344f1c821e2` after exact-head
 [CI 39178619273](https://github.com/kANoZY341/zelo-agent/actions/runs/39178619273)
