@@ -427,12 +427,10 @@ def test_runtime_human_takeover_during_space_route_fails_closed(database, settin
 def test_delegated_space_activation_denied_before_any_resource_lookup(
     database, settings, monkeypatch
 ):
-    """The nondelegated Space file grant cannot be inherited by a child Agent.
+    """A forged delegation cannot borrow a child's Space activation.
 
-    Use a real persisted valid owner-bound Computer Task and a schema-valid
-    delegated execution snapshot, then exercise the shared admission gate
-    called by submit/retry/claim. No additional historical Task or backend
-    file read can arise from this denied authority.
+    A real Task and a schema-valid but unpersisted delegation exercise the
+    shared admission gate. No resource lookup or backend read can follow.
     """
     from app.space_file_gateway import SpaceFileReadGateway
 

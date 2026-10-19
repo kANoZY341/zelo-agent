@@ -40,9 +40,10 @@ def _fixture(
     path="notes.txt",
     root_resource="documents",
     space_permissions=("workroom",),
+    extra_specs=(),
 ):
     spec = computer_agent_spec().model_copy(update={"space_permissions": space_permissions})
-    factory = AgentFactory(AgentRegistry([spec]))
+    factory = AgentFactory(AgentRegistry([spec, *extra_specs]))
     backend = FakeReadBackend()
     computer = ComputerRuntime(database, backend)
     supervisor = Supervisor(WorkerRegistry(((descriptor_for_computer_worker(), computer),)))
@@ -80,7 +81,9 @@ def _fixture(
     activation = resources.activate(
         instance_id=instance.id, intent_id=intent.id, resource_record_id=resource.id
     )
-    gateway = SpaceFileReadGateway(database, factory, settings.runtime_dir, computer)
+    gateway = SpaceFileReadGateway(
+        database, factory, settings.runtime_dir, computer, task_service=tasks
+    )
     return {
         "factory": factory,
         "backend": backend,

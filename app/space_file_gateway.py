@@ -37,6 +37,7 @@ from app.models import (
     AgentSpaceResourceRecord,
     AgentSpaceResourceRetirement,
     AuditEvent,
+    CampaignTaskLink,
     Project,
     Task,
     TaskAttempt,
@@ -44,7 +45,7 @@ from app.models import (
 )
 from app.policy import DomainError, State
 from app.storage import SessionStore
-from app.tasks import Execution
+from app.tasks import Execution, TaskService
 
 MAX_SPACE_TEXT_BYTES = 65536
 MAX_SPACE_FILE_PARTS = 4
@@ -304,11 +305,13 @@ class SpaceFileReadGateway:
         factory: AgentFactory,
         runtime_dir: Path,
         computer: ComputerRuntime,
+        task_service: TaskService | None = None,
     ) -> None:
         self.store = store
         self.factory = factory
         self.runtime_dir = runtime_dir
         self.computer = computer
+        self.task_service = task_service
         self.resources = AgentSpaceResourceService(store, factory, runtime_dir)
 
     def _verify_execution(
@@ -350,7 +353,6 @@ class SpaceFileReadGateway:
             agent != execution.agent_execution
             or computer != execution.computer_request
             or agent.task_kind != "computer_run"
-            or agent.delegation is not None  # delegation needs its own use-point gate
             or computer.agent_instance_id != agent.agent_instance_id
             or computer.space_activation_id is None
             or computer.space_activation_id != execution.payload.get("space_activation_id")
@@ -368,6 +370,24 @@ class SpaceFileReadGateway:
             or not agent.spec.computer.files
         ):
             raise DomainError("Space read does not match exact task authority", 403)
+        if agent.delegation is not None:
+            link = session.get(CampaignTaskLink, task.id)
+            if self.task_service is None or link is None:
+                raise DomainError("Space delegated authority unavailable", 403)
+            # Recheck the live delegation, parent, campaign and budget under
+            # the same Core transaction used for the exact file operation.
+            self.task_service._validate_agent_execution(
+                session, agent, campaign_id=link.campaign_id
+            )
+            delegated = agent.delegation
+            parent = session.get(AgentInstance, delegated.parent_instance_id)
+            if (
+                "computer_read" not in delegated.required_capabilities
+                or parent is None
+                or "computer_read"
+                not in self.task_service._current_agent_binding(parent).spec.capabilities
+            ):
+                raise DomainError("Space delegated computer authority invalid", 403)
         instance = session.get(AgentInstance, agent.agent_instance_id)
         project = session.get(Project, agent.project_id)
         if (
