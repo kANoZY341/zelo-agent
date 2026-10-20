@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -177,3 +179,107 @@ def validate_snapshot(
         "source_tree": source_tree,
         "proof_history_sha256": expected["proof_history_sha256"],
     }
+
+
+def fetch_validated_snapshot(
+    *,
+    get: Callable[[str], dict],
+    expected_comment_id: int,
+    md_account_id: int | None,
+    expected_root: Path,
+    source_head: str,
+    source_tree: str,
+    proof_history: list[dict],
+    clock: Callable[[], datetime],
+) -> dict:
+    """Read fixed GitHub resources and validate evidence, without granting a run."""
+    if type(expected_comment_id) is not int or expected_comment_id <= 0:
+        _refuse("comment_id")
+    base = "/repos/kANoZY341/zelo-agent"
+    endpoints = (
+        base,
+        f"{base}/issues/{ISSUE_NUMBER}",
+        f"{base}/issues/comments/{expected_comment_id}",
+    )
+    responses = []
+    for endpoint in endpoints:
+        try:
+            response = get(endpoint)
+        except Exception:
+            _refuse("fetch_failed")
+        if type(response) is not dict:
+            _refuse("fetch_shape")
+        responses.append(response)
+    return validate_snapshot(
+        repository=responses[0],
+        issue=responses[1],
+        comment=responses[2],
+        expected_comment_id=expected_comment_id,
+        md_account_id=md_account_id,
+        expected_root=expected_root,
+        source_head=source_head,
+        source_tree=source_tree,
+        proof_history=proof_history,
+        now=clock(),
+    )
+
+
+def recheck_snapshot(
+    *,
+    get: Callable[[str], dict],
+    original: dict,
+    expected_comment_id: int,
+    md_account_id: int | None,
+    expected_root: Path,
+    source_head: str,
+    source_tree: str,
+    proof_history: list[dict],
+    clock: Callable[[], datetime],
+) -> dict:
+    """Revalidate a fresh snapshot against prior evidence; this grants nothing."""
+    fresh = fetch_validated_snapshot(
+        get=get,
+        expected_comment_id=expected_comment_id,
+        md_account_id=md_account_id,
+        expected_root=expected_root,
+        source_head=source_head,
+        source_tree=source_tree,
+        proof_history=proof_history,
+        clock=clock,
+    )
+    if (
+        type(original) is not dict
+        or set(original) != set(fresh)
+        or any(original[key] != value for key, value in fresh.items() if key != "checked_utc")
+    ):
+        _refuse("comment_drift")
+    return fresh
+
+
+def gh_api_get(endpoint: str) -> dict:
+    """Read a pinned GitHub resource with existing CLI credentials, without writing."""
+    base = "/repos/kANoZY341/zelo-agent"
+    if type(endpoint) is not str or (
+        endpoint not in (base, f"{base}/issues/{ISSUE_NUMBER}")
+        and re.fullmatch(rf"{base}/issues/comments/[1-9][0-9]*", endpoint) is None
+    ):
+        _refuse("endpoint")
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--hostname", "github.com", "--method", "GET", endpoint],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        _refuse("fetch_failed")
+    if result.returncode != 0 or len(result.stdout.encode("utf-8")) > 131072:
+        _refuse("fetch_failed")
+    try:
+        response = json.loads(result.stdout, object_pairs_hook=_unique_pairs)
+    except (ValueError, UnicodeError, RecursionError):
+        _refuse("fetch_shape")
+    if type(response) is not dict:
+        _refuse("fetch_shape")
+    return response

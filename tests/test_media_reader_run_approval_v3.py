@@ -166,3 +166,130 @@ def test_caller_cannot_substitute_a_different_md_account_mapping(tmp_path):
     with pytest.raises(approval.ApprovalRefused, match="md_mapping"):
         check(tmp_path, repository, issue, comment, md_account_id=MD_ID + 1)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_live_snapshot_reads_only_three_fixed_endpoints_and_rechecks_changed_comment(tmp_path):
+    repository, issue, comment = evidence(tmp_path)
+    fetched = {
+        "/repos/kANoZY341/zelo-agent": repository,
+        "/repos/kANoZY341/zelo-agent/issues/166": issue,
+        f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}": comment,
+    }
+    calls = []
+
+    def get(endpoint):
+        calls.append(endpoint)
+        return copy.deepcopy(fetched[endpoint])
+
+    binding = {
+        "expected_comment_id": COMMENT_ID,
+        "md_account_id": MD_ID,
+        "expected_root": tmp_path,
+        "source_head": "a" * 40,
+        "source_tree": "b" * 40,
+        "proof_history": HISTORY,
+        "clock": lambda: NOW,
+    }
+    snapshot = approval.fetch_validated_snapshot(get=get, **binding)
+    assert calls == list(fetched)
+    assert list(tmp_path.iterdir()) == []
+
+    fetched[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
+    with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
+        approval.recheck_snapshot(get=get, original=snapshot, **binding)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_live_snapshot_refuses_fetch_failure_and_nonobject_response(tmp_path):
+    binding = {
+        "expected_comment_id": COMMENT_ID,
+        "md_account_id": MD_ID,
+        "expected_root": tmp_path,
+        "source_head": "a" * 40,
+        "source_tree": "b" * 40,
+        "proof_history": HISTORY,
+        "clock": lambda: NOW,
+    }
+
+    def failure(_endpoint):
+        raise OSError("private token or network diagnostic must not escape")
+
+    with pytest.raises(approval.ApprovalRefused, match="fetch_failed") as error:
+        approval.fetch_validated_snapshot(get=failure, **binding)
+    assert "private token" not in str(error.value)
+    with pytest.raises(approval.ApprovalRefused, match="fetch_shape"):
+        approval.fetch_validated_snapshot(get=lambda _endpoint: [], **binding)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_live_snapshot_refuses_invalid_comment_id_before_fetch(tmp_path):
+    called = False
+
+    def get(_endpoint):
+        nonlocal called
+        called = True
+        raise AssertionError("must not fetch")
+
+    with pytest.raises(approval.ApprovalRefused, match="comment_id"):
+        approval.fetch_validated_snapshot(
+            get=get,
+            expected_comment_id="../../123",
+            md_account_id=MD_ID,
+            expected_root=tmp_path,
+            source_head="a" * 40,
+            source_tree="b" * 40,
+            proof_history=HISTORY,
+            clock=lambda: NOW,
+        )
+    assert not called
+
+
+def test_gh_reader_uses_get_only_and_never_exposes_cli_diagnostics(monkeypatch):
+    import subprocess
+
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, stdout='{"id":1373657980}', stderr="")
+
+    monkeypatch.setattr(approval.subprocess, "run", run)
+    assert approval.gh_api_get("/repos/kANoZY341/zelo-agent") == {"id": 1373657980}
+    assert calls[0][0] == [
+        "gh",
+        "api",
+        "--hostname",
+        "github.com",
+        "--method",
+        "GET",
+        "/repos/kANoZY341/zelo-agent",
+    ]
+    assert calls[0][1]["timeout"] == 10
+    with pytest.raises(approval.ApprovalRefused, match="endpoint"):
+        approval.gh_api_get("/repos/kANoZY341/zelo-agent/issues/comments/123/../../other")
+    assert len(calls) == 1
+
+    def failed(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr="secret diagnostic")
+
+    monkeypatch.setattr(approval.subprocess, "run", failed)
+    with pytest.raises(approval.ApprovalRefused) as error:
+        approval.gh_api_get("/repos/kANoZY341/zelo-agent")
+    assert "secret diagnostic" not in str(error.value)
+
+
+def test_live_snapshot_checks_expiry_after_remote_reads(tmp_path):
+    repository, issue, comment = evidence(tmp_path)
+    fetched = iter((repository, issue, comment))
+    with pytest.raises(approval.ApprovalRefused, match="expired"):
+        approval.fetch_validated_snapshot(
+            get=lambda _endpoint: next(fetched),
+            expected_comment_id=COMMENT_ID,
+            md_account_id=MD_ID,
+            expected_root=tmp_path,
+            source_head="a" * 40,
+            source_tree="b" * 40,
+            proof_history=HISTORY,
+            clock=lambda: datetime(2026, 10, 20, 19, 0, tzinfo=UTC),
+        )
+    assert list(tmp_path.iterdir()) == []
