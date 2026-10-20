@@ -368,3 +368,63 @@ def test_expiry_between_recheck_and_grant_fences_receipt_without_grant(tmp_path,
     assert not (root / v3.BASE).exists()
     assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
     assert len(list((root / "media-native-reader").iterdir())) == 4
+
+
+def test_no_standalone_writer_and_tampered_live_recheck_cannot_grant(tmp_path, monkeypatch):
+    assert not hasattr(capture, "_persist_held_grant")
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    original = capture._persist_recheck
+
+    def tamper_after_durable_write(runtime, snapshot):
+        original(runtime, snapshot)
+        snapshot["comment_body"] = snapshot["comment_body"].replace(
+            "2026-10-20T19:00:00Z", "2026-10-21T19:00:00Z"
+        )
+
+    monkeypatch.setattr(capture, "_persist_recheck", tamper_after_durable_write)
+    with pytest.raises(capture.CaptureRefused, match="grant_recheck_drift"):
+        clock = iter((ISSUED, CHECKED, RECHECKED, RECHECKED)).__next__
+        capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+            "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
+        )
+    assert (root / capture.BASE / capture.RECHECK).is_file()
+    assert not (root / v3.BASE).exists()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+
+
+def test_expiry_during_grant_preparation_refuses_at_mkdir_boundary(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    times = iter((ISSUED, CHECKED, RECHECKED))
+    current = [RECHECKED]
+    original_history = v3._history
+
+    def delayed_grant_history(runtime):
+        outcome = original_history(runtime)
+        if (root / capture.BASE / capture.RECHECK).exists():
+            current[0] = datetime(2026, 10, 20, 19, 0, tzinfo=UTC)
+        return outcome
+
+    def clock():
+        try:
+            return next(times)
+        except StopIteration:
+            return current[0]
+
+    monkeypatch.setattr(v3, "_history", delayed_grant_history)
+    with pytest.raises(capture.CaptureRefused, match="grant_expired"):
+        capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+            "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
+        )
+    assert not (root / v3.BASE).exists()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+    assert len(list((root / "media-native-reader").iterdir())) == 4
