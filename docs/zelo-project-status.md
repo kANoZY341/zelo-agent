@@ -325,9 +325,9 @@ Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;
 exact-head qualification of all included Workers and third-party adapters;
 Media native-reader's four exhausted refused proof attempts; and independent
-full-repo review. The Managing Director reaffirmed the full originally planned
-v0.15 build; a disabled native Reader cannot close the release. No fifth native
-proof is authorized by that scope decision.
+full-repo review. No fifth native proof is authorized. The Managing Director
+reaffirmed the full originally planned v0.15 build; a disabled native Reader
+cannot close the release.
 
 New v0.16, v0.17, v0.18 and UI feature promotion is paused except for necessary
 security/regression repairs. Existing code and branches are preserved:
