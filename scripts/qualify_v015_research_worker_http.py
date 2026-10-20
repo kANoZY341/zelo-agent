@@ -19,6 +19,7 @@ from app.database import Database
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIGEST = "2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd"
 FACT = "The fictional Cedar Lantern project launch date is 14 June 2031."
+FACT_SOURCE_SHA256 = "4598ba07e84b77e1c80889a4cb3f3851e8b7390632a94d5b87d3a36b58660bce"
 
 
 async def inspect_model():
@@ -145,6 +146,8 @@ async def run():
                         assert any(
                             s["tool"] == "read_workspace_file"
                             and s["locator"] == "workspace:facts.txt"
+                            and s["sha256"] == FACT_SOURCE_SHA256
+                            and s["truncated"] is False
                             and f"[{s['id']}]" in result["answer"]
                             for s in result["sources"]
                         )
