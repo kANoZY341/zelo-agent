@@ -19,7 +19,7 @@ from app.gateway import ModelResult
 from app.main import create_app
 from app.policy import DomainError, fingerprint
 from app.scheduler import WakeAuthorityUnavailable
-from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire
+from app.schemas import CampaignBudgetReserve, CampaignLeaseAcquire, CampaignLeaseRelease
 from tests.conftest import AUTH
 from tests.test_api import wait_for
 
@@ -236,7 +236,8 @@ def test_due_selection_skips_campaign_with_active_wake_lease(settings, database)
         assert scheduler._next_due_id() != first_schedule["id"]
 
 
-def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database):
+@pytest.mark.parametrize("previous_lease", [False, True])
+def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database, previous_lease):
     provider = SchedulerMindProvider(reply("Scheduled wake complete."))
     configured = settings.model_copy(
         update={
@@ -248,6 +249,22 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database):
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=3)
         conversation = create_conversation(client)
+        if previous_lease:
+            controls = client.app.state.campaign_controls
+            prior = controls.acquire_lease(
+                campaign["id"],
+                "mind-wake",
+                CampaignLeaseAcquire(holder_id="prior-wake", ttl_seconds=600),
+            )
+            controls.release_lease(
+                campaign["id"],
+                "mind-wake",
+                CampaignLeaseRelease(
+                    holder_id="prior-wake",
+                    lease_token=prior.lease_token,
+                    generation=prior.generation,
+                ),
+            )
         schedule = create_schedule(client, campaign["id"], conversation["id"])
 
         completed = wait_schedule(client, schedule["id"], "completed")
@@ -260,7 +277,7 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database):
         run = runs["items"][0]
         assert run["sequence"] == 1
         assert run["status"] == "succeeded"
-        assert run["lease_generation"] == 1
+        assert run["lease_generation"] >= 1
         assert run["budget_reservation_id"] is not None
         assert run["conversation_turn_id"] is not None
         assert "lease_token" not in run
@@ -290,6 +307,25 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database):
         assert "schedule_wake_started" in names
         assert "budget_reconciled" in names
         assert "schedule_wake_finished" in names
+        assert (
+            sum(
+                event["event"] == "lease_acquired"
+                and event["details"].get("scope") == "mind-wake"
+                and event["details"].get("holder_id") == f"schedule:{schedule['id']}"
+                and event["details"].get("generation") == run["lease_generation"]
+                for event in events
+            )
+            == 1
+        )
+        assert (
+            sum(
+                event["event"] == "schedule_wake_started"
+                and event["details"].get("schedule_run_id") == run["id"]
+                and event["details"].get("lease_generation") == run["lease_generation"]
+                for event in events
+            )
+            == 1
+        )
 
 
 def test_scheduled_mind_core_task_is_forced_into_same_campaign(settings, database):
