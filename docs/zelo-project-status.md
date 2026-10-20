@@ -3,8 +3,8 @@
 **20 October full-scope checkpoint:** Current merged main is `4e6cf84`
 (after #228); its distinct main CI 39359165343 passed. Draft #194 is an
 older open PR at `b4435ef`, with passing exact-head CI but its required native
-two-Computer acceptance still blocked. The isolated Media v3 preparation through
-`262b78d` adds no run permit; its four retained refusals are unchanged.
+two-Computer acceptance still blocked. The isolated Media v3 preparation
+adds no run permit; its four retained refusals are unchanged.
 Independent review rejected a proposed local receipt writer because a failed
 directory sync plus crash could erase its consumption fence. The full native
 Reader, Skill publication, Space/Worker acceptance and release audit remain
