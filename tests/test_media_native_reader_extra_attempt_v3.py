@@ -257,3 +257,36 @@ def test_v3_cli_requires_confirmation_before_observation(tmp_path, monkeypatch):
     )
     assert grant_cli.main() == 1
     assert not list(root.iterdir())
+
+
+def test_uncertain_seal_cleanup_remains_inert_before_docker(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    original_fsync = v3.os.fsync
+    original_unlink = v3.os.unlink
+    calls = 0
+
+    def fail_seal_directory_sync(fd):
+        nonlocal calls
+        calls += 1
+        if calls == 5:
+            raise OSError("injected seal directory sync failure")
+        return original_fsync(fd)
+
+    def fail_seal_cleanup(path, *args, **kwargs):
+        if Path(path) == root / v3.BASE / v3.SEAL:
+            raise OSError("injected seal cleanup failure")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(v3.os, "fsync", fail_seal_directory_sync)
+    monkeypatch.setattr(v3.os, "unlink", fail_seal_cleanup)
+    with pytest.raises(OSError, match="seal directory sync failure"):
+        v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
+    assert (root / v3.BASE / v3.SEAL).exists()
+    # Readable ledger bytes are not evidence that the grant returned successfully.
+    assert v3.validate(root)["attempts_used_before"] == 4
+    monkeypatch.setattr(reader, "_docker_readiness", lambda _: pytest.fail("reached Docker"))
+    with pytest.raises(
+        ValueError, match="reader_native_precondition_scope_reader_native_scope_attempt_count"
+    ):
+        asyncio.run(reader._qualify(root))
+    assert len(list((root / scope.PROOF_BASE).iterdir())) == 4
