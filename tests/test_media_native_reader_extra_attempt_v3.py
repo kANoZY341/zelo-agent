@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from qualification import media_reader_approval_capture_v3 as capture
 from qualification import media_reader_extra_attempt_v2 as v2
 from qualification import media_reader_extra_attempt_v3 as v3
 from qualification import media_reader_scope as scope
@@ -63,6 +64,34 @@ def _synthetic_record(root: Path) -> dict:
     """Offline validation fixture; no public grant writer is invoked."""
     _, record = v3._history(root)
     record["source_head"], record["source_tree"] = v3._source_identity()
+    snapshot = {
+        "schema": "zelo-media-native-reader-v3-approval-snapshot-v1",
+        "repository_id": 1373657980,
+        "issue_id": 5806214593,
+        "md_account_id": 64309771,
+        "source_head": record["source_head"],
+        "source_tree": record["source_tree"],
+        "comment_body": "synthetic fixture only",
+        "runtime_root": str(root),
+        "proof_history_sha256": hashlib.sha256(
+            json.dumps(record["proof_history"], sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "comment_id": 123456,
+        "comment_body_sha256": hashlib.sha256(b"synthetic fixture only").hexdigest(),
+        "challenge_sha256": "b" * 64,
+    }
+    evidence = root / capture.BASE
+    evidence.mkdir(mode=0o700)
+    _write(
+        evidence / capture.RECHECK,
+        {
+            "schema": "zelo-media-native-reader-v3-approval-recheck-v1",
+            "snapshot": snapshot,
+        },
+    )
+    record["approval_comment_id"] = snapshot["comment_id"]
+    record["approval_body_sha256"] = snapshot["comment_body_sha256"]
+    record["approval_challenge_sha256"] = snapshot["challenge_sha256"]
     record["created_utc"] = "2026-10-20T00:00:00Z"
     base = root / v3.BASE
     base.mkdir(mode=0o700)
@@ -114,7 +143,8 @@ def test_current_qualifier_refuses_four_even_with_synthetic_record(tmp_path, mon
 
 
 @pytest.mark.parametrize(
-    "corruption", ["fourth_proof", "v2_grant", "limit", "source", "seal", "extra_attempt"]
+    "corruption",
+    ["fourth_proof", "v2_grant", "limit", "source", "seal", "extra_attempt", "approval"],
 )
 def test_v3_refuses_changed_history_or_record(tmp_path, monkeypatch, corruption):
     root = four_attempt_runtime(tmp_path, monkeypatch)
@@ -128,6 +158,8 @@ def test_v3_refuses_changed_history_or_record(tmp_path, monkeypatch, corruption)
         _write(root / v3.BASE / v3.SEAL, {"schema": "wrong"})
     elif corruption == "extra_attempt":
         (root / scope.PROOF_BASE / "native-reader-proof-unapproved").mkdir(mode=0o700)
+    elif corruption == "approval":
+        (root / capture.BASE / capture.RECHECK).write_bytes(b"{}")
     else:
         data = json.loads(target.read_bytes())
         data["attempt_limit_after" if corruption == "limit" else "source_head"] = (

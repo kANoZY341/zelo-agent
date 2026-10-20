@@ -61,7 +61,7 @@ def _github_fixture(root, history, challenge):
     }
 
 
-def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant_or_proof(
+def test_capture_generates_challenge_under_lock_and_writes_receipt_and_inert_grant(
     tmp_path, monkeypatch
 ):
     root = four_attempt_runtime(tmp_path, monkeypatch)
@@ -84,7 +84,7 @@ def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant
         return COMMENT_ID
 
     session = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40))
-    clock = iter((ISSUED, CHECKED, CHECKED)).__next__
+    clock = iter((ISSUED, CHECKED, CHECKED, CHECKED)).__next__
     lease, snapshot = session.acquire("a" * 64, request, clock=clock)
     assert seen == [32, 32]  # Challenge and the admission lease identity.
     assert snapshot["comment_id"] == COMMENT_ID
@@ -93,7 +93,7 @@ def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant
     assert (
         receipt["snapshot"]["challenge_sha256"] == hashlib.sha256(("c" * 64).encode()).hexdigest()
     )
-    assert not (root / v3.BASE).exists()
+    assert v3.validate(root, held_admission=True)["approval_comment_id"] == COMMENT_ID
     assert len(list((root / "media-native-reader").iterdir())) == 4
     lease.finish(cleanup_confirmed=True)
     with pytest.raises(capture.CaptureRefused, match="already_used"):
@@ -254,7 +254,7 @@ def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeyp
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
     monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
-    clock = iter((ISSUED, CHECKED, RECHECKED)).__next__
+    clock = iter((ISSUED, CHECKED, RECHECKED, RECHECKED)).__next__
     lease, snapshot = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
         "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
     )
@@ -267,7 +267,7 @@ def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeyp
         }
         assert initial["snapshot"]["checked_utc"] == "2026-10-20T18:00:00Z"
         assert snapshot["checked_utc"] == "2026-10-20T18:01:00Z"
-        assert not (root / v3.BASE).exists()
+        assert v3.validate(root, held_admission=True)["approval_comment_id"] == COMMENT_ID
     finally:
         lease.finish(cleanup_confirmed=True)
 
@@ -294,4 +294,77 @@ def test_capture_refetch_sync_failure_fences_without_marker_or_grant(tmp_path, m
     assert (root / capture.BASE / capture.RECEIPT).is_file()
     assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
     assert not (root / v3.BASE).exists()
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+
+
+def test_live_capture_persists_one_approval_bound_grant_under_lock(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    clock = iter((ISSUED, CHECKED, RECHECKED, RECHECKED)).__next__
+    lease, snapshot = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+        "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
+    )
+    try:
+        grant = v3.validate(root, held_admission=True)
+        assert grant["approval_comment_id"] == COMMENT_ID
+        assert grant["approval_body_sha256"] == snapshot["comment_body_sha256"]
+        assert grant["approval_challenge_sha256"] == snapshot["challenge_sha256"]
+        assert len(list((root / "media-native-reader").iterdir())) == 4
+        with pytest.raises(ValueError, match="reader_native_attempt_limit"):
+            from scripts import qualify_media_native_reader as reader
+
+            reader._attempt_directory(root, extra_grant=True, recovery_version=3)
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_grant_seal_sync_failure_fences_without_marker_or_attempt(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    original_fsync = capture.os.fsync
+
+    def fail_seal(fd):
+        if os.readlink(f"/proc/self/fd/{fd}").endswith("/seal.json"):
+            raise OSError("simulated seal sync failure")
+        return original_fsync(fd)
+
+    monkeypatch.setattr(capture.os, "fsync", fail_seal)
+    session = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40))
+    with pytest.raises(capture.CaptureRefused, match="grant_storage"):
+        clock = iter((ISSUED, CHECKED, RECHECKED, RECHECKED)).__next__
+        session.acquire("a" * 64, lambda challenge, history: COMMENT_ID, clock=clock)
+    assert (root / capture.BASE / capture.RECHECK).is_file()
+    assert (root / v3.BASE).is_dir()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+    with pytest.raises(capture.CaptureRefused, match="preflight"):
+        capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+            "a" * 64, lambda challenge, history: COMMENT_ID
+        )
+
+
+def test_expiry_between_recheck_and_grant_fences_receipt_without_grant(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    expired = datetime(2026, 10, 20, 19, 0, tzinfo=UTC)
+    with pytest.raises(capture.CaptureRefused, match="grant_expired"):
+        clock = iter((ISSUED, CHECKED, RECHECKED, expired)).__next__
+        capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+            "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
+        )
+    assert (root / capture.BASE / capture.RECHECK).is_file()
+    assert not (root / v3.BASE).exists()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
     assert len(list((root / "media-native-reader").iterdir())) == 4
