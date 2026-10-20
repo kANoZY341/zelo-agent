@@ -1,5 +1,16 @@
 # Zelo live project status
 
+**20 October v0.15 Worker checkpoint:** [PR #225](https://github.com/kANoZY341/zelo-agent/pull/225)
+merged the opt-in Research HTTP qualifier at `2e878f2` after independent
+review. Exact-head [CI 39346191121](https://github.com/kANoZY341/zelo-agent/actions/runs/39346191121)
+and separate [main CI 39347957713](https://github.com/kANoZY341/zelo-agent/actions/runs/39347957713)
+both passed (6,411 tests, 2 skipped). On that clean main, the existing
+Browser operator qualifier also passed two real public-document Tasks and
+cleanup with no production activation. See the
+[Worker inventory](v0.15-worker-release-inventory.md) for pinned reports and
+limits. Space rights, external learned-Skill publication, remaining Worker
+scope, Media and independent release audit remain open; v0.15 is **HOLD**.
+
 **19 October delegated Computer pilot integration:** [PR #219](https://github.com/kANoZY341/zelo-agent/pull/219)
 merged at `875b766099fe06ad56e69405e564983704031541` after independent
 exact-head review and [CI 39186742127](https://github.com/kANoZY341/zelo-agent/actions/runs/39186742127)
