@@ -242,9 +242,17 @@ class SkillPublicationOneAttemptService:
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
         bypass = reviews.get("bypass_pull_request_allowances")
-        if type(bypass) is not dict or any(
-            type(bypass.get(field)) is not list or bypass[field]
-            for field in ("users", "teams", "apps")
+        # GitHub returns null for an empty bypass list on personal repositories.
+        # A missing field or a nonempty/partial object still fails closed.
+        if "bypass_pull_request_allowances" not in reviews or (
+            bypass is not None
+            and (
+                type(bypass) is not dict
+                or any(
+                    type(bypass.get(field)) is not list or bypass[field]
+                    for field in ("users", "teams", "apps")
+                )
+            )
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
 
