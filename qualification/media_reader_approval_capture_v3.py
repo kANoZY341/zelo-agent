@@ -30,7 +30,7 @@ RECEIPT = "receipt.json"
 RECHECK = "recheck.json"
 ATTEMPT_RECHECK = "attempt-recheck.json"
 COMMENT_WAIT_SECONDS = 300
-_LIVE_ATTEMPT_GATES: dict[object, tuple[Path, Lease, Callable[[], None], int]] = {}
+_LIVE_ATTEMPT_GATES: dict[object, tuple[Path, Lease, Callable[[], None], int, int]] = {}
 _GATE_LOCK = threading.Lock()
 
 
@@ -51,10 +51,11 @@ def _consume_attempt_gate(root: Path, gate: object) -> None:
             state = None
     if state is None:
         raise ValueError("reader_native_attempt_limit")
-    expected, lease, check, owner = state
+    expected, lease, check, owner_pid, owner_thread = state
     if (
         root != expected
-        or owner != threading.get_ident()
+        or owner_pid != os.getpid()
+        or owner_thread != threading.get_ident()
         or lease._fds is None
         or not lease._lifecycle.locked()
     ):
@@ -525,6 +526,7 @@ class ApprovalCapture:
                             root,
                             lease,
                             check_before_mkdir,
+                            os.getpid(),
                             threading.get_ident(),
                         )
                     try:

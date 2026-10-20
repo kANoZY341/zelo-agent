@@ -155,3 +155,189 @@ def test_expiry_during_attempt_validation_refuses_before_mkdir(tmp_path, monkeyp
         assert not capture._LIVE_ATTEMPT_GATES
     finally:
         lease.finish(cleanup_confirmed=True)
+
+
+def test_qualifier_v3_single_process_handoff_allocates_once_without_docker(tmp_path, monkeypatch):
+    import asyncio
+
+    from qualification import media_reader_extra_attempt_v3 as v3
+    from scripts import qualify_media_native_reader as reader
+    from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
+    from tests.test_media_reader_approval_capture_v3 import CHECKED, ISSUED, _github_fixture
+
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    monkeypatch.setattr(reader, "_docker_readiness", lambda _: "ready-without-Docker")
+
+    def stop_after_allocation(_):
+        raise ValueError("test_stop_after_allocation")
+
+    monkeypatch.setattr(reader, "_docker_environment", stop_after_allocation)
+    existing = {attempt.name for attempt in (root / "media-native-reader").iterdir()}
+    times = iter((ISSUED, CHECKED, CHECKED, CHECKED, RECHECKED, RECHECKED, RECHECKED))
+    with pytest.raises(ValueError, match="test_stop_after_allocation"):
+        asyncio.run(
+            reader._qualify(
+                root,
+                v3_request_comment_id=lambda challenge, history: COMMENT_ID,
+                v3_clock=times.__next__,
+            )
+        )
+    attempts = list((root / "media-native-reader").iterdir())
+    assert len(attempts) == 5
+    fifth = next(path for path in attempts if path.name not in existing)
+    assert fifth.name.startswith(reader.PREFIX)
+    assert (fifth / "cases.json").is_file()
+
+
+def test_forked_child_cannot_consume_parent_gate(tmp_path, monkeypatch):
+    from scripts import qualify_media_native_reader as reader
+
+    root, _, session, lease, _ = _session(tmp_path, monkeypatch)
+
+    def allocate(runtime, gate):
+        read_fd, write_fd = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.close(read_fd)
+            try:
+                capture._consume_attempt_gate(runtime, gate)
+            except ValueError:
+                os.write(write_fd, b"refused")
+            else:
+                os.write(write_fd, b"accepted")
+            os.close(write_fd)
+            os._exit(0)
+        os.close(write_fd)
+        verdict = os.read(read_fd, 16)
+        os.close(read_fd)
+        _, status = os.waitpid(pid, 0)
+        assert status == 0
+        assert verdict == b"refused"
+        return reader._attempt_directory(
+            runtime, extra_grant=True, recovery_version=3, v3_before_mkdir=gate
+        )
+
+    try:
+        _, attempt = session.recheck_before_attempt(
+            lease, allocate=allocate, clock=lambda: RECHECKED
+        )
+        assert attempt.is_dir()
+        assert len(list((root / "media-native-reader").iterdir())) == 5
+    finally:
+        lease.finish(cleanup_confirmed=False)
+
+
+def test_qualifier_v3_saved_grant_refuses_before_docker(tmp_path, monkeypatch):
+    import asyncio
+
+    from scripts import qualify_media_native_reader as reader
+
+    root, _, _, lease, _ = _session(tmp_path, monkeypatch)
+    lease.finish(cleanup_confirmed=True)
+    monkeypatch.setattr(reader, "_docker_readiness", lambda _: pytest.fail("Docker reached"))
+    with pytest.raises(ValueError, match="reader_native_v3_prior_consumption"):
+        asyncio.run(
+            reader._qualify(root, v3_request_comment_id=lambda challenge, history: COMMENT_ID)
+        )
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+
+
+def test_qualifier_v3_comment_drift_refuses_without_attempt(tmp_path, monkeypatch):
+    import asyncio
+
+    from qualification import media_reader_extra_attempt_v3 as v3
+    from scripts import qualify_media_native_reader as reader
+    from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
+    from tests.test_media_reader_approval_capture_v3 import CHECKED, ISSUED, _github_fixture
+
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    comment_endpoint = f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"
+    reads = [0]
+
+    def get(endpoint):
+        if endpoint == comment_endpoint:
+            reads[0] += 1
+            if reads[0] == 3:
+                fetched[endpoint]["body"] = fetched[endpoint]["body"].replace(
+                    "19:00:00Z", "18:30:00Z"
+                )
+        return fetched[endpoint]
+
+    monkeypatch.setattr(capture.approval, "gh_api_get", get)
+    monkeypatch.setattr(reader, "_docker_readiness", lambda _: "ready-without-Docker")
+    monkeypatch.setattr(reader, "_docker_environment", lambda _: pytest.fail("Docker reached"))
+    times = iter((ISSUED, CHECKED, CHECKED, CHECKED, RECHECKED))
+    with pytest.raises(capture.approval.ApprovalRefused, match="comment_drift"):
+        asyncio.run(
+            reader._qualify(
+                root,
+                v3_request_comment_id=lambda challenge, history: COMMENT_ID,
+                v3_clock=times.__next__,
+            )
+        )
+    assert reads[0] == 3
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+
+
+def test_operator_cli_explicit_v3_flag_routes_to_live_callback(tmp_path, monkeypatch, capsys):
+    import sys
+    import time
+
+    from scripts import qualify_media_native_reader as reader
+
+    seen = []
+
+    async def fake_qualify(root, **kwargs):
+        seen.append((root, kwargs))
+        return {"status": "test-only"}, time.monotonic() + 30
+
+    monkeypatch.setattr(reader, "_qualify", fake_qualify)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "qualify_media_native_reader.py",
+            "--run",
+            "--runtime-root",
+            str(tmp_path),
+            "--one-run-v3",
+        ],
+    )
+    assert reader.main() == 0
+    assert seen[0][0] == tmp_path
+    assert callable(seen[0][1]["v3_request_comment_id"])
+    assert "test-only" in capsys.readouterr().out
+
+
+def test_operator_comment_template_matches_strict_body(tmp_path, monkeypatch, capsys):
+    import json
+
+    from qualification import media_reader_run_approval_v3 as approval
+    from scripts import qualify_media_native_reader as reader
+    from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
+
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    _, record = reader.extra_v3._history(root)
+    monkeypatch.setattr("builtins.input", lambda prompt: "123456")
+    comment_id = reader._request_v3_comment_id(root, "c" * 64, record["proof_history"])
+    lines = capsys.readouterr().out.splitlines()
+    body = json.loads(lines[-1])
+    assert comment_id == 123456
+    assert body["schema"] == approval.SCHEMA
+    assert body["decision"] == approval.DECISION
+    assert body["challenge"] == "c" * 64
+    assert body["runtime_root"] == str(root)
+    assert body["proof_history"] == record["proof_history"]
+    assert body["proof_history_sha256"] == approval._history_digest(record["proof_history"])
+    assert body["source_head"] == "e" * 40
+    assert body["source_tree"] == "f" * 40
+    assert len(lines[-1].encode()) <= approval.MAX_BODY_BYTES
