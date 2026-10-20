@@ -6,6 +6,7 @@ No standalone writer or native qualifier grants another attempt.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -240,6 +241,44 @@ def validate(
         "source_tree": grant.get("source_tree"),
     }:
         _refuse("seal_binding")
+    from qualification import media_reader_approval_capture_v3 as capture
+
+    evidence = scope._json(scope._read(root / capture.BASE / capture.RECHECK, maximum=16384))
+    if type(evidence) is not dict:
+        _refuse("approval_binding")
+    snapshot = evidence.get("snapshot")
+    if (
+        evidence.get("schema") != "zelo-media-native-reader-v3-approval-recheck-v1"
+        or set(evidence) != {"schema", "snapshot"}
+        or type(snapshot) is not dict
+        or snapshot.get("schema") != "zelo-media-native-reader-v3-approval-snapshot-v1"
+        or snapshot.get("repository_id") != 1373657980
+        or snapshot.get("issue_id") != 5806214593
+        or snapshot.get("md_account_id") != 64309771
+        or snapshot.get("runtime_root") != str(root)
+        or (snapshot.get("source_head"), snapshot.get("source_tree")) != _source_identity()
+        or type(snapshot.get("comment_body")) is not str
+        or hashlib.sha256(snapshot["comment_body"].encode()).hexdigest()
+        != snapshot.get("comment_body_sha256")
+        or snapshot.get("proof_history_sha256")
+        != hashlib.sha256(
+            json.dumps(
+                expected["proof_history"], sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode()
+        ).hexdigest()
+        or type(snapshot.get("comment_id")) is not int
+        or any(
+            type(snapshot.get(key)) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", snapshot[key]) is None
+            for key in ("comment_body_sha256", "challenge_sha256")
+        )
+    ):
+        _refuse("approval_binding")
+    expected.update(
+        approval_comment_id=snapshot["comment_id"],
+        approval_body_sha256=snapshot["comment_body_sha256"],
+        approval_challenge_sha256=snapshot["challenge_sha256"],
+    )
     expected["source_head"], expected["source_tree"] = _source_identity()
     if set(grant) != set(expected) | {"created_utc"}:
         _refuse("grant_shape")

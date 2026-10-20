@@ -1,15 +1,17 @@
-"""Inert one-process Media approval receipt capture; no grant or fifth proof.
+"""One-process Media approval capture and inert grant; no fifth proof.
 
 This class has no operator CLI and is not connected to the native qualifier.
-A future reviewed path must add resource preflight, grant and run handling under
-this same admission lock. No readable receipt is a run permit.
+A future reviewed path must add native run handling under the same lock.
+No readable receipt or grant is a run permit.
 """
 
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
+import re
 import secrets
 import stat
 import threading
@@ -191,6 +193,106 @@ class ApprovalCapture:
             _refuse("already_used")
         self._used = True
 
+        def persist_held_grant(root: Path, snapshot: dict) -> None:
+            """The only writer is this one-shot capture's held-lock callback."""
+            observed_root, record = v3._history(root)
+            if observed_root != root or v3._source_identity() != self._source:
+                _refuse("grant_drift")
+            durable = v3.scope._json(v3.scope._read(root / BASE / RECHECK, maximum=16384))
+            if durable != {
+                "schema": "zelo-media-native-reader-v3-approval-recheck-v1",
+                "snapshot": snapshot,
+            }:
+                _refuse("grant_recheck_drift")
+            if (
+                type(snapshot) is not dict
+                or snapshot.get("runtime_root") != str(root)
+                or (snapshot.get("source_head"), snapshot.get("source_tree")) != self._source
+                or snapshot.get("proof_history_sha256")
+                != approval._history_digest(record["proof_history"])
+                or type(snapshot.get("comment_id")) is not int
+                or type(snapshot.get("comment_body")) is not str
+                or hashlib.sha256(snapshot["comment_body"].encode()).hexdigest()
+                != snapshot.get("comment_body_sha256")
+                or any(
+                    type(snapshot.get(key)) is not str
+                    or re.fullmatch(r"[0-9a-f]{64}", snapshot[key]) is None
+                    for key in ("comment_body_sha256", "challenge_sha256")
+                )
+            ):
+                _refuse("grant_binding")
+            try:
+                body = json.loads(snapshot["comment_body"])
+                expiry = approval._time(body["expires_utc"])
+            except (KeyError, TypeError, ValueError):
+                _refuse("grant_binding")
+            root_fd = base_fd = -1
+            try:
+                root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+                _trusted_directory(root_fd, private=False)
+                # mkdir is the one-run consumption point. Sample expiry immediately before it.
+                now = clock()
+                if (
+                    type(now) is not datetime
+                    or now.tzinfo is None
+                    or now.utcoffset() != timedelta(0)
+                ):
+                    _refuse("grant_clock")
+                if now >= expiry:
+                    _refuse("grant_expired")
+                os.mkdir(v3.BASE, 0o700, dir_fd=root_fd)
+                os.fsync(root_fd)
+                record.update(
+                    source_head=self._source[0],
+                    source_tree=self._source[1],
+                    created_utc=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    approval_comment_id=snapshot["comment_id"],
+                    approval_body_sha256=snapshot["comment_body_sha256"],
+                    approval_challenge_sha256=snapshot["challenge_sha256"],
+                )
+                raw = (
+                    json.dumps(record, sort_keys=True, indent=2, allow_nan=False) + "\n"
+                ).encode()
+                seal = {
+                    "schema": "zelo-media-native-reader-extra-attempt-v3-seal-v1",
+                    "grant_sha256": hashlib.sha256(raw).hexdigest(),
+                    "source_head": self._source[0],
+                    "source_tree": self._source[1],
+                }
+                seal_raw = (json.dumps(seal, sort_keys=True, allow_nan=False) + "\n").encode()
+                base_fd = os.open(
+                    v3.BASE,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=root_fd,
+                )
+                _trusted_directory(base_fd, private=True)
+                for name, payload in ((v3.GRANT, raw), (v3.SEAL, seal_raw)):
+                    fd = os.open(
+                        name,
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                        0o600,
+                        dir_fd=base_fd,
+                    )
+                    try:
+                        view = memoryview(payload)
+                        while view:
+                            count = os.write(fd, view)
+                            if count <= 0:
+                                _refuse("grant_write")
+                            view = view[count:]
+                        os.fsync(fd)
+                    finally:
+                        os.close(fd)
+                    os.fsync(base_fd)
+                if v3.validate(root, held_admission=True) != record:
+                    _refuse("grant_readback")
+            except OSError:
+                _refuse("grant_storage")
+            finally:
+                for fd in (base_fd, root_fd):
+                    if fd >= 0:
+                        os.close(fd)
+
         def before_marker() -> None:
             root, record = v3._history(self._root)
             if (
@@ -254,6 +356,7 @@ class ApprovalCapture:
                 clock=clock,
             )
             _persist_recheck(root, fresh)
+            persist_held_grant(root, fresh)
             self._snapshot = fresh
 
         lease = AdmissionController(self._root / "media-elf-metadata-admission").acquire_after(
