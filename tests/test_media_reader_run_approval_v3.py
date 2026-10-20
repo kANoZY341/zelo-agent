@@ -23,6 +23,7 @@ HISTORY = [
 HISTORY_SHA256 = approval._history_digest(HISTORY)
 NOW = datetime(2026, 10, 20, 18, 0, tzinfo=UTC)
 COMMENT_ID = 123456
+CHALLENGE = "c" * 64
 MD_ID = approval.MD_ACCOUNT_ID  # Confirmed identity; still no fifth-run decision.
 
 
@@ -30,6 +31,7 @@ def evidence(root):
     body = {
         "schema": approval.SCHEMA,
         "decision": approval.DECISION,
+        "challenge": CHALLENGE,
         "runtime_root": str(root),
         "source_head": "a" * 40,
         "source_tree": "b" * 40,
@@ -69,6 +71,7 @@ def check(root, repository, issue, comment, **changes):
         "issue": issue,
         "comment": comment,
         "expected_comment_id": COMMENT_ID,
+        "expected_challenge": CHALLENGE,
         "md_account_id": MD_ID,
         "expected_root": root,
         "source_head": "a" * 40,
@@ -85,6 +88,7 @@ def test_exact_snapshot_is_bounded_audit_evidence_without_any_side_effect(tmp_pa
     result = check(tmp_path, repository, issue, comment)
     assert result["comment_body_sha256"] == hashlib.sha256(comment["body"].encode()).hexdigest()
     assert result["comment_id"] == COMMENT_ID
+    assert result["challenge_sha256"] == hashlib.sha256(CHALLENGE.encode()).hexdigest()
     assert result["repository_id"] == approval.REPOSITORY_ID
     assert result["issue_id"] == approval.ISSUE_ID
     assert result["proof_history_sha256"] == HISTORY_SHA256
@@ -112,6 +116,8 @@ def test_exact_snapshot_is_bounded_audit_evidence_without_any_side_effect(tmp_pa
         "invalid_source_type",
         "invalid_history_type",
         "invalid_clock_type",
+        "wrong_challenge",
+        "invalid_challenge_type",
     ],
 )
 def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_path, change):
@@ -137,6 +143,8 @@ def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_
         changes["proof_history"] = [None] * 4
     elif change == "invalid_clock_type":
         changes["now"] = None
+    elif change == "invalid_challenge_type":
+        changes["expected_challenge"] = None
     elif change == "oversized_body":
         comment["body"] = "x" * 4097
     elif change == "duplicate_key":
@@ -145,7 +153,9 @@ def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_
         )
     else:
         body = json.loads(comment["body"])
-        if change == "source_drift":
+        if change == "wrong_challenge":
+            body["challenge"] = "d" * 64
+        elif change == "source_drift":
             body["source_head"] = "c" * 40
         elif change == "wrong_history_name":
             body["proof_history"][0]["attempt"] = "native-reader-proof-other"
@@ -184,6 +194,7 @@ def test_live_snapshot_reads_only_three_fixed_endpoints_and_rechecks_changed_com
 
     binding = {
         "expected_comment_id": COMMENT_ID,
+        "expected_challenge": CHALLENGE,
         "md_account_id": MD_ID,
         "expected_root": tmp_path,
         "source_head": "a" * 40,
@@ -204,6 +215,7 @@ def test_live_snapshot_reads_only_three_fixed_endpoints_and_rechecks_changed_com
 def test_live_snapshot_refuses_fetch_failure_and_nonobject_response(tmp_path):
     binding = {
         "expected_comment_id": COMMENT_ID,
+        "expected_challenge": CHALLENGE,
         "md_account_id": MD_ID,
         "expected_root": tmp_path,
         "source_head": "a" * 40,
@@ -236,6 +248,7 @@ def test_live_snapshot_refuses_invalid_comment_id_before_fetch(tmp_path):
         approval.fetch_validated_snapshot(
             get=get,
             expected_comment_id="../../123",
+            expected_challenge=CHALLENGE,
             md_account_id=MD_ID,
             expected_root=tmp_path,
             source_head="a" * 40,
@@ -296,11 +309,28 @@ def test_live_snapshot_checks_expiry_after_remote_reads(tmp_path):
         approval.fetch_validated_snapshot(
             get=lambda _endpoint: next(fetched),
             expected_comment_id=COMMENT_ID,
+            expected_challenge=CHALLENGE,
             md_account_id=MD_ID,
             expected_root=tmp_path,
             source_head="a" * 40,
             source_tree="b" * 40,
             proof_history=HISTORY,
             clock=lambda: datetime(2026, 10, 20, 19, 0, tzinfo=UTC),
+        )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_live_snapshot_refuses_malformed_challenge_before_remote_fetch(tmp_path):
+    with pytest.raises(approval.ApprovalRefused, match="challenge"):
+        approval.fetch_validated_snapshot(
+            get=lambda _endpoint: pytest.fail("remote fetch before challenge validation"),
+            expected_comment_id=COMMENT_ID,
+            expected_challenge="fixed-reusable-approval",
+            md_account_id=MD_ID,
+            expected_root=tmp_path,
+            source_head="a" * 40,
+            source_tree="b" * 40,
+            proof_history=HISTORY,
+            clock=lambda: NOW,
         )
     assert list(tmp_path.iterdir()) == []

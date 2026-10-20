@@ -66,6 +66,7 @@ def validate_snapshot(
     issue: dict,
     comment: dict,
     expected_comment_id: int,
+    expected_challenge: str,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -78,6 +79,8 @@ def validate_snapshot(
         _refuse("md_mapping_missing")
     if type(expected_comment_id) is not int or expected_comment_id <= 0:
         _refuse("comment_id")
+    if type(expected_challenge) is not str or HEX64.fullmatch(expected_challenge) is None:
+        _refuse("challenge")
     if type(now) is not datetime or now.tzinfo is None or now.utcoffset() != timedelta(0):
         _refuse("clock")
     if (
@@ -143,6 +146,7 @@ def validate_snapshot(
     expected = {
         "schema": SCHEMA,
         "decision": DECISION,
+        "challenge": expected_challenge,
         "runtime_root": root,
         "source_head": source_head,
         "source_tree": source_tree,
@@ -168,6 +172,7 @@ def validate_snapshot(
         "repository_id": REPOSITORY_ID,
         "issue_id": ISSUE_ID,
         "comment_id": expected_comment_id,
+        "challenge_sha256": hashlib.sha256(expected_challenge.encode("ascii")).hexdigest(),
         "md_account_id": md_account_id,
         "comment_created_utc": comment["created_at"],
         "comment_updated_utc": comment["updated_at"],
@@ -185,6 +190,7 @@ def fetch_validated_snapshot(
     *,
     get: Callable[[str], dict],
     expected_comment_id: int,
+    expected_challenge: str,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -195,6 +201,8 @@ def fetch_validated_snapshot(
     """Read fixed GitHub resources and validate evidence, without granting a run."""
     if type(expected_comment_id) is not int or expected_comment_id <= 0:
         _refuse("comment_id")
+    if type(expected_challenge) is not str or HEX64.fullmatch(expected_challenge) is None:
+        _refuse("challenge")
     base = "/repos/kANoZY341/zelo-agent"
     endpoints = (
         base,
@@ -215,6 +223,7 @@ def fetch_validated_snapshot(
         issue=responses[1],
         comment=responses[2],
         expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
         md_account_id=md_account_id,
         expected_root=expected_root,
         source_head=source_head,
@@ -229,6 +238,7 @@ def recheck_snapshot(
     get: Callable[[str], dict],
     original: dict,
     expected_comment_id: int,
+    expected_challenge: str,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -240,6 +250,7 @@ def recheck_snapshot(
     fresh = fetch_validated_snapshot(
         get=get,
         expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
         md_account_id=md_account_id,
         expected_root=expected_root,
         source_head=source_head,
