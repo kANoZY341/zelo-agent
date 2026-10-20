@@ -34,7 +34,7 @@ class ApprovalRefused(ValueError):
 
 
 def _refuse(reason: str) -> None:
-    raise ApprovalRefused("reader_native_v3_approval_" + reason)
+    raise ApprovalRefused("reader_native_v3_approval_" + reason) from None
 
 
 def _time(value: Any) -> datetime:

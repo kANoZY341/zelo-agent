@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import json
+import traceback
 from datetime import UTC, datetime
 
 import pytest
@@ -217,6 +218,7 @@ def test_live_snapshot_refuses_fetch_failure_and_nonobject_response(tmp_path):
     with pytest.raises(approval.ApprovalRefused, match="fetch_failed") as error:
         approval.fetch_validated_snapshot(get=failure, **binding)
     assert "private token" not in str(error.value)
+    assert "private token" not in "".join(traceback.format_exception(error.value))
     with pytest.raises(approval.ApprovalRefused, match="fetch_shape"):
         approval.fetch_validated_snapshot(get=lambda _endpoint: [], **binding)
     assert list(tmp_path.iterdir()) == []
@@ -276,6 +278,15 @@ def test_gh_reader_uses_get_only_and_never_exposes_cli_diagnostics(monkeypatch):
     with pytest.raises(approval.ApprovalRefused) as error:
         approval.gh_api_get("/repos/kANoZY341/zelo-agent")
     assert "secret diagnostic" not in str(error.value)
+    assert "secret diagnostic" not in "".join(traceback.format_exception(error.value))
+
+    def raised(_argv, **_kwargs):
+        raise OSError("private credential diagnostic")
+
+    monkeypatch.setattr(approval.subprocess, "run", raised)
+    with pytest.raises(approval.ApprovalRefused, match="fetch_failed") as raised_error:
+        approval.gh_api_get("/repos/kANoZY341/zelo-agent")
+    assert "private credential" not in "".join(traceback.format_exception(raised_error.value))
 
 
 def test_live_snapshot_checks_expiry_after_remote_reads(tmp_path):
