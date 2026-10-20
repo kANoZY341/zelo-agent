@@ -15,6 +15,7 @@ from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
 
 ISSUED = datetime(2026, 10, 20, 17, 29, tzinfo=UTC)
 CHECKED = datetime(2026, 10, 20, 18, 0, tzinfo=UTC)
+RECHECKED = datetime(2026, 10, 20, 18, 1, tzinfo=UTC)
 COMMENT_ID = 123456
 
 
@@ -181,17 +182,19 @@ def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeyp
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
     monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
-    clock = iter((ISSUED, CHECKED, CHECKED)).__next__
+    clock = iter((ISSUED, CHECKED, RECHECKED)).__next__
     lease, snapshot = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
         "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
     )
     try:
+        initial = json.loads((root / capture.BASE / capture.RECEIPT).read_bytes())
         durable = json.loads((root / capture.BASE / capture.RECHECK).read_bytes())
         assert durable == {
             "schema": "zelo-media-native-reader-v3-approval-recheck-v1",
             "snapshot": snapshot,
         }
-        assert snapshot["checked_utc"] == "2026-10-20T18:00:00Z"
+        assert initial["snapshot"]["checked_utc"] == "2026-10-20T18:00:00Z"
+        assert snapshot["checked_utc"] == "2026-10-20T18:01:00Z"
         assert not (root / v3.BASE).exists()
     finally:
         lease.finish(cleanup_confirmed=True)
