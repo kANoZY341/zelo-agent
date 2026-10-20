@@ -4,6 +4,7 @@ import fcntl
 import hashlib
 import json
 import os
+import threading
 from datetime import UTC, datetime
 
 import pytest
@@ -97,6 +98,38 @@ def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant
     lease.finish(cleanup_confirmed=True)
     with pytest.raises(capture.CaptureRefused, match="already_used"):
         session.acquire("a" * 64, request, clock=lambda: CHECKED)
+
+
+def test_capture_bounded_comment_wait_releases_lock_without_receipt(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture, "COMMENT_WAIT_SECONDS", 0.01, raising=False)
+    finished = threading.Event()
+    returned = threading.Event()
+
+    def stalled_comment(challenge, history):
+        finished.wait(0.2)
+        returned.set()
+        return COMMENT_ID
+
+    try:
+        with pytest.raises(capture.CaptureRefused, match="comment_timeout"):
+            capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+                "a" * 64, stalled_comment, clock=lambda: ISSUED
+            )
+        assert not (root / capture.BASE).exists()
+        assert not (root / v3.BASE).exists()
+        assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+        assert len(list((root / "media-native-reader").iterdir())) == 4
+        fd = os.open(root / "media-elf-metadata-admission" / "admission.lock", os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
+    finally:
+        finished.set()
+    assert returned.wait(1)
+    assert not (root / capture.BASE).exists()
+    assert not (root / v3.BASE).exists()
 
 
 def test_capture_refuses_owned_resources_under_lock_before_receipt(tmp_path, monkeypatch):
