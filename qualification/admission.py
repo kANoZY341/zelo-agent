@@ -12,7 +12,9 @@ import json
 import os
 import secrets
 import stat
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from qualification.runtime_contracts import validate_digest
@@ -56,6 +58,7 @@ class Lease:
         self._identity = identity
         self._policy_digest = digest
         self._fds: tuple[int, int, int] | None = (directory, lock, marker)
+        self._lifecycle = threading.Lock()
 
     @property
     def identity(self) -> str:
@@ -65,22 +68,31 @@ class Lease:
     def policy_digest(self) -> str:
         return self._policy_digest
 
+    @contextmanager
+    def retained(self) -> Iterator[None]:
+        """Keep the exact lease lock open while a trusted admission action runs."""
+        with self._lifecycle:
+            if self._fds is None:
+                raise AdmissionDenied("lease_finished")
+            yield
+
     def finish(self, *, cleanup_confirmed: bool) -> None:
-        if self._fds is None:
-            return
-        directory, lock, marker = self._fds
-        try:
-            if cleanup_confirmed is True:
-                _private(marker)
-                os.ftruncate(marker, 0)
-                os.fsync(marker)
-                os.fsync(directory)
-        finally:
-            self._fds = None
-            # Never unlink either file: all contenders must lock the same inode.
-            os.close(marker)
-            os.close(lock)
-            os.close(directory)
+        with self._lifecycle:
+            if self._fds is None:
+                return
+            directory, lock, marker = self._fds
+            try:
+                if cleanup_confirmed is True:
+                    _private(marker)
+                    os.ftruncate(marker, 0)
+                    os.fsync(marker)
+                    os.fsync(directory)
+            finally:
+                self._fds = None
+                # Never unlink either file: all contenders must lock the same inode.
+                os.close(marker)
+                os.close(lock)
+                os.close(directory)
 
 
 class AdmissionController:
