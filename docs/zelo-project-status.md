@@ -1,5 +1,15 @@
 # Zelo live project status
 
+**20 October full-scope checkpoint:** Current merged main is `4e6cf84`
+(after #228); its distinct main CI 39359165343 passed. Draft #194 is an
+older open PR at `b4435ef`, with passing exact-head CI but its required native
+two-Computer acceptance still blocked. The isolated Media v3 preparation
+adds no run permit; its four retained refusals are unchanged.
+Independent review rejected a proposed local receipt writer because a failed
+directory sync plus crash could erase its consumption fence. The full native
+Reader, Skill publication, Space/Worker acceptance and release audit remain
+required. No fifth Media proof, production activation or v0.15 tag occurred.
+
 **20 October scheduler CI checkpoint:** [PR #226](https://github.com/kANoZY341/zelo-agent/pull/226)
 merged at `15ccac6` after exact-head CI passed, but distinct
 [main CI 39351580374](https://github.com/kANoZY341/zelo-agent/actions/runs/39351580374)
@@ -314,9 +324,10 @@ under qualification. R3 and release remain HOLD.
 Priority release blockers include complete Space/Core permission scope and
 negative path tests; publication-time exclusive learned-skill approval/claim;
 exact-head qualification of all included Workers and third-party adapters;
-Media native-reader's four exhausted refused proof attempts; independent
-full-repo review; and an explicit operator release-scope decision where
-a required runtime remains disabled. No fifth native proof is authorized.
+Media native-reader's four exhausted refused proof attempts; and independent
+full-repo review. No fifth native proof is authorized. The Managing Director
+reaffirmed the full originally planned v0.15 build; a disabled native Reader
+cannot close the release.
 
 New v0.16, v0.17, v0.18 and UI feature promotion is paused except for necessary
 security/regression repairs. Existing code and branches are preserved:

@@ -12,6 +12,7 @@ import json
 import os
 import secrets
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 from qualification.runtime_contracts import validate_digest
@@ -87,6 +88,19 @@ class AdmissionController:
         self._path = runtime_directory
 
     def acquire(self, policy_digest: str) -> Lease:
+        return self._acquire(policy_digest, before_marker=None)
+
+    def acquire_after(self, policy_digest: str, before_marker: Callable[[], None]) -> Lease:
+        """Run a trusted, synchronous writer under the admission lock before lease marking.
+
+        The writer must fence its own uncertain durable side effects; this API never
+        rolls them back. It must return normally only after its work is durable.
+        """
+        if not callable(before_marker):
+            raise AdmissionDenied("admission_writer_missing")
+        return self._acquire(policy_digest, before_marker=before_marker)
+
+    def _acquire(self, policy_digest: str, *, before_marker: Callable[[], None] | None) -> Lease:
         validate_digest(policy_digest)
         descriptors: list[int] = []
         try:
@@ -102,6 +116,10 @@ class AdmissionController:
             descriptors.append(marker)
             if os.fstat(marker).st_size != 0:
                 raise AdmissionDenied("runtime_fenced")
+            if before_marker is not None:
+                before_marker()
+                if os.fstat(marker).st_size != 0:
+                    raise AdmissionDenied("runtime_fenced")
             identity = secrets.token_hex(32)
             payload = json.dumps(
                 {"version": 1, "lease": identity, "policy": policy_digest}

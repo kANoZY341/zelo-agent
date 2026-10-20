@@ -2,6 +2,15 @@
 
 ## Status
 
+**20 October full-scope checkpoint:** Main `4e6cf84` (post-#228) passed
+CI 39359165343. Draft #194 is still pending native two-Computer acceptance.
+The isolated Media v3 branch through `262b78d` contains only inert ledger and offline
+admission preparation; four refused attempts remain terminal, and the unsafe
+local receipt-writer candidate was discarded after independent review. The
+Managing Director requires the full originally planned Reader and v0.15 build.
+Skill publication, broad Space/Worker proofs and release audit remain open;
+there is no v0.15 tag or fifth-run authorization.
+
 **20 October scheduler CI checkpoint:** [PR #226](https://github.com/kANoZY341/zelo-agent/pull/226)
 merged at `15ccac6`, then distinct
 [main CI 39351580374](https://github.com/kANoZY341/zelo-agent/actions/runs/39351580374)
