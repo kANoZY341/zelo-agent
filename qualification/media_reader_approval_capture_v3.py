@@ -12,9 +12,11 @@ import json
 import os
 import secrets
 import stat
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from queue import Empty, Queue
 
 from qualification import media_reader_extra_attempt_v3 as v3
 from qualification import media_reader_resource_preflight_v3 as preflight
@@ -24,6 +26,7 @@ from qualification.admission import AdmissionController, Lease
 BASE = "media-native-reader-run-approval-v3"
 RECEIPT = "receipt.json"
 RECHECK = "recheck.json"
+COMMENT_WAIT_SECONDS = 300
 
 
 class CaptureRefused(ValueError):
@@ -141,6 +144,32 @@ def _persist_recheck(root: Path, snapshot: dict) -> None:
                 os.close(fd)
 
 
+def _bounded_comment_id(
+    request: Callable[[str, list[dict]], int], challenge: str, history: list[dict]
+) -> int:
+    """A late callback result cannot be used after the held-lock wait expires.
+
+    The future operator process must exit after timeout; the daemon callback
+    has no grant or attempt authority and must never be reused as a permit.
+    """
+    reply: Queue[tuple[bool, object]] = Queue(maxsize=1)
+
+    def invoke() -> None:
+        try:
+            reply.put((True, request(challenge, copy.deepcopy(history))))
+        except BaseException as exc:
+            reply.put((False, exc))
+
+    threading.Thread(target=invoke, daemon=True, name="media-v3-comment-input").start()
+    try:
+        success, value = reply.get(timeout=COMMENT_WAIT_SECONDS)
+    except Empty:
+        _refuse("comment_timeout")
+    if not success:
+        _refuse("comment_input")
+    return value
+
+
 class ApprovalCapture:
     """Consume one in-memory challenge while holding one admission lock."""
 
@@ -180,10 +209,7 @@ class ApprovalCapture:
             ):
                 _refuse("clock")
             history = record["proof_history"]
-            try:
-                comment_id = request_comment_id(challenge, copy.deepcopy(history))
-            except Exception:
-                _refuse("comment_input")
+            comment_id = _bounded_comment_id(request_comment_id, challenge, history)
             snapshot = approval.fetch_validated_snapshot(
                 get=approval.gh_api_get,
                 expected_comment_id=comment_id,
