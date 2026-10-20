@@ -2,6 +2,17 @@
 
 ## Status
 
+**20 October v0.15 checkpoint:** Reviewed [PR #225](https://github.com/kANoZY341/zelo-agent/pull/225)
+merged an opt-in Research HTTP qualifier at `2e878f2`; exact-head
+[CI 39346191121](https://github.com/kANoZY341/zelo-agent/actions/runs/39346191121)
+and distinct [main CI 39347957713](https://github.com/kANoZY341/zelo-agent/actions/runs/39347957713)
+passed (6,411 tests, 2 skipped). An existing Browser operator qualifier
+then passed two real public-document Tasks, readmission and owned cleanup
+on clean exact main. The [Worker inventory](v0.15-worker-release-inventory.md)
+records report hashes and limits. Neither proof grants default Browser
+authority or closes the Space, learned-Skill publication, Media, other Worker
+and independent release gates. v0.15 remains **HOLD**.
+
 **19 October delegated Computer pilot integration:** [PR #219](https://github.com/kANoZY341/zelo-agent/pull/219)
 merged at `875b766099fe06ad56e69405e564983704031541` after independent
 exact-head review and [CI 39186742127](https://github.com/kANoZY341/zelo-agent/actions/runs/39186742127)
