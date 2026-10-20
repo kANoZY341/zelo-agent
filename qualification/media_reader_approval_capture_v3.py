@@ -23,11 +23,12 @@ from queue import Empty, Queue
 from qualification import media_reader_extra_attempt_v3 as v3
 from qualification import media_reader_resource_preflight_v3 as preflight
 from qualification import media_reader_run_approval_v3 as approval
-from qualification.admission import AdmissionController, Lease
+from qualification.admission import AdmissionController, AdmissionDenied, Lease
 
 BASE = "media-native-reader-run-approval-v3"
 RECEIPT = "receipt.json"
 RECHECK = "recheck.json"
+ATTEMPT_RECHECK = "attempt-recheck.json"
 COMMENT_WAIT_SECONDS = 300
 
 
@@ -146,6 +147,50 @@ def _persist_recheck(root: Path, snapshot: dict) -> None:
                 os.close(fd)
 
 
+def _persist_attempt_recheck(root: Path, snapshot: dict) -> None:
+    """Durably record the last fetched decision before any future attempt path."""
+    record = {"schema": "zelo-media-native-reader-v3-attempt-recheck-v1", "snapshot": snapshot}
+    raw = (json.dumps(record, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+    if len(raw) > 16384:
+        _refuse("attempt_recheck_bound")
+    root_fd = base_fd = file_fd = -1
+    try:
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        _trusted_directory(root_fd, private=False)
+        base_fd = os.open(
+            BASE, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd
+        )
+        _trusted_directory(base_fd, private=True)
+        file_fd = os.open(
+            ATTEMPT_RECHECK,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=base_fd,
+        )
+        view = memoryview(raw)
+        while view:
+            count = os.write(file_fd, view)
+            if count <= 0:
+                _refuse("attempt_recheck_write")
+            view = view[count:]
+        os.fsync(file_fd)
+        os.close(file_fd)
+        file_fd = -1
+        os.fsync(base_fd)
+        check = os.open(ATTEMPT_RECHECK, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=base_fd)
+        try:
+            if os.read(check, len(raw) + 1) != raw:
+                _refuse("attempt_recheck_readback")
+        finally:
+            os.close(check)
+    except OSError:
+        _refuse("attempt_recheck_storage")
+    finally:
+        for fd in (file_fd, base_fd, root_fd):
+            if fd >= 0:
+                os.close(fd)
+
+
 def _bounded_comment_id(
     request: Callable[[str, list[dict]], int], challenge: str, history: list[dict]
 ) -> int:
@@ -180,6 +225,12 @@ class ApprovalCapture:
         self._source = expected_source
         self._used = False
         self._snapshot: dict | None = None
+        self._challenge: str | None = None
+        self._issued: datetime | None = None
+        self._comment_id: int | None = None
+        self._history: list[dict] | None = None
+        self._lease: Lease | None = None
+        self._attempt_rechecked = False
 
     def acquire(
         self,
@@ -358,10 +409,74 @@ class ApprovalCapture:
             _persist_recheck(root, fresh)
             persist_held_grant(root, fresh)
             self._snapshot = fresh
+            self._challenge = challenge
+            self._issued = issued
+            self._comment_id = comment_id
+            self._history = copy.deepcopy(history)
 
         lease = AdmissionController(self._root / "media-elf-metadata-admission").acquire_after(
             policy_digest, before_marker
         )
         if self._snapshot is None:
             _refuse("snapshot_missing")
+        self._lease = lease
         return lease, self._snapshot
+
+    def recheck_before_attempt(
+        self,
+        lease: Lease,
+        *,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> dict:
+        """One-use read-only decision recheck under the retained lock; no run permit."""
+        if (
+            lease is not self._lease
+            or lease._fds is None
+            or self._snapshot is None
+            or self._challenge is None
+            or self._issued is None
+            or self._comment_id is None
+            or self._history is None
+        ):
+            _refuse("attempt_lease")
+        try:
+            with lease.retained():
+                if self._attempt_rechecked:
+                    _refuse("attempt_recheck_used")
+                self._attempt_rechecked = True
+                root, record = v3._history(self._root)
+                if (
+                    v3._source_identity() != self._source
+                    or record["proof_history"] != self._history
+                    or v3.validate(root, held_admission=True)["approval_comment_id"]
+                    != self._comment_id
+                ):
+                    _refuse("attempt_drift")
+                preflight.observe(root)
+                if v3._history(root)[1]["proof_history"] != self._history:
+                    _refuse("attempt_resource_drift")
+                fresh = approval.recheck_snapshot(
+                    get=approval.gh_api_get,
+                    original=self._snapshot,
+                    expected_comment_id=self._comment_id,
+                    expected_challenge=self._challenge,
+                    challenge_issued_at=self._issued,
+                    md_account_id=approval.MD_ACCOUNT_ID,
+                    expected_root=root,
+                    source_head=self._source[0],
+                    source_tree=self._source[1],
+                    proof_history=self._history,
+                    clock=clock,
+                )
+                if (
+                    lease._fds is None
+                    or v3._source_identity() != self._source
+                    or v3._history(root)[1]["proof_history"] != self._history
+                    or v3.validate(root, held_admission=True)["approval_comment_id"]
+                    != self._comment_id
+                ):
+                    _refuse("attempt_final_drift")
+                _persist_attempt_recheck(root, fresh)
+                return fresh
+        except AdmissionDenied:
+            _refuse("attempt_lease")
