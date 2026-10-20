@@ -1,5 +1,18 @@
 # Zelo live project status
 
+**20 October scheduler CI checkpoint:** [PR #226](https://github.com/kANoZY341/zelo-agent/pull/226)
+merged at `15ccac6` after exact-head CI passed, but distinct
+[main CI 39351580374](https://github.com/kANoZY341/zelo-agent/actions/runs/39351580374)
+failed one one-shot scheduler lease-generation assertion (6,410 passed,
+2 skipped). [PR #227](https://github.com/kANoZY341/zelo-agent/pull/227)
+merged a strict, test-only diagnostic at `d304af2` after independent review
+and exact-head [CI 39354284493](https://github.com/kANoZY341/zelo-agent/actions/runs/39354284493)
+passed (6,412 passed, 2 skipped). Distinct
+[main CI 39355835819](https://github.com/kANoZY341/zelo-agent/actions/runs/39355835819)
+also passed on exact `d304af2` (6,412 passed, 2 skipped). The first
+acquisition remains unexplained; no production scheduler change or release
+grant. v0.15 is **HOLD**.
+
 **20 October v0.15 Worker checkpoint:** [PR #225](https://github.com/kANoZY341/zelo-agent/pull/225)
 merged the opt-in Research HTTP qualifier at `2e878f2` after independent
 review. Exact-head [CI 39346191121](https://github.com/kANoZY341/zelo-agent/actions/runs/39346191121)
