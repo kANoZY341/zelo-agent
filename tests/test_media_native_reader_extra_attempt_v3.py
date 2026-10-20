@@ -59,22 +59,31 @@ def four_attempt_runtime(tmp_path, monkeypatch) -> Path:
     return root
 
 
-def test_four_exact_refusals_and_two_prior_grants_bind_one_inert_record(tmp_path, monkeypatch):
-    root = four_attempt_runtime(tmp_path, monkeypatch)
-    base = root / scope.PROOF_BASE
-    before = {
-        str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-        for attempt in base.iterdir()
-        for path in attempt.glob("*.json")
-    }
-    observed = []
-    record = v3.grant_once(
-        root, lambda path: observed.append(path), expected_source=("e" * 40, "f" * 40)
+def _synthetic_record(root: Path) -> dict:
+    """Offline validation fixture; no public grant writer is invoked."""
+    _, record = v3._history(root)
+    record["source_head"], record["source_tree"] = v3._source_identity()
+    record["created_utc"] = "2026-10-20T00:00:00Z"
+    base = root / v3.BASE
+    base.mkdir(mode=0o700)
+    digest = _write(base / v3.GRANT, record)
+    _write(
+        base / v3.SEAL,
+        {
+            "schema": "zelo-media-native-reader-extra-attempt-v3-seal-v1",
+            "grant_sha256": digest,
+            "source_head": record["source_head"],
+            "source_tree": record["source_tree"],
+        },
     )
-    assert observed == [root]
+    return record
+
+
+def test_four_refusals_and_two_prior_grants_bind_read_only_record(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    record = _synthetic_record(root)
     assert record["attempts_used_before"] == 4
     assert record["attempt_limit_after"] == 5
-    assert record["additional_attempts"] == 1
     assert [entry["attempt"] for entry in record["proof_history"]] == [
         "native-reader-proof-uvjet91z",
         "native-reader-proof-672ubxw7",
@@ -87,18 +96,15 @@ def test_four_exact_refusals_and_two_prior_grants_bind_one_inert_record(tmp_path
     assert record["runtime_authority"] is False
     assert record["attempt_reset"] is False
     assert record["network"] == "none"
-    assert record["pull"] is False
     assert v3.validate(root) == record
-    assert before == {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in before}
-    # This proposal does not change the current qualifier's attempt ceiling.
     with pytest.raises(ValueError, match="reader_native_attempt_limit"):
         reader._attempt_directory(root, extra_grant=True, recovery_version=3)
-    assert len(list(base.iterdir())) == 4
+    assert len(list((root / scope.PROOF_BASE).iterdir())) == 4
 
 
-def test_current_qualifier_refuses_four_even_with_valid_proposed_record(tmp_path, monkeypatch):
+def test_current_qualifier_refuses_four_even_with_synthetic_record(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
-    v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
+    _synthetic_record(root)
     monkeypatch.setattr(reader, "_docker_readiness", lambda _: pytest.fail("reached Docker"))
     with pytest.raises(
         ValueError, match="reader_native_precondition_scope_reader_native_scope_attempt_count"
@@ -112,7 +118,7 @@ def test_current_qualifier_refuses_four_even_with_valid_proposed_record(tmp_path
 )
 def test_v3_refuses_changed_history_or_record(tmp_path, monkeypatch, corruption):
     root = four_attempt_runtime(tmp_path, monkeypatch)
-    v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
+    _synthetic_record(root)
     target = root / v3.BASE / v3.GRANT
     if corruption == "fourth_proof":
         (root / scope.PROOF_BASE / v3.FOURTH / "cases.json").write_bytes(b"{}")
@@ -130,65 +136,6 @@ def test_v3_refuses_changed_history_or_record(tmp_path, monkeypatch, corruption)
         _write(target, data)
     with pytest.raises(ValueError):
         v3.validate(root)
-    with pytest.raises(ValueError, match="reader_native_attempt_limit"):
-        reader._attempt_directory(root, extra_grant=True, recovery_version=3)
-
-
-def test_v3_source_mismatch_and_repeat_record_refuse_before_observation(tmp_path, monkeypatch):
-    root = four_attempt_runtime(tmp_path, monkeypatch)
-    with pytest.raises(v3.RecoveryRefused, match="source_approval"):
-        v3.grant_once(
-            root,
-            lambda _: pytest.fail("observed before source binding"),
-            expected_source=("a" * 40, "f" * 40),
-        )
-    assert not (root / v3.BASE).exists()
-    v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
-    with pytest.raises(v3.RecoveryRefused, match="already_granted"):
-        v3.grant_once(
-            root,
-            lambda _: pytest.fail("repeat observation"),
-            expected_source=("e" * 40, "f" * 40),
-        )
-
-
-def test_v3_observation_drift_refuses_without_record(tmp_path, monkeypatch):
-    root = four_attempt_runtime(tmp_path, monkeypatch)
-
-    def corrupt(_: Path) -> None:
-        _write(root / scope.PROOF_BASE / v3.FOURTH / "cases.json", {})
-
-    with pytest.raises(v3.RecoveryRefused, match="fourth_pin"):
-        v3.grant_once(root, corrupt, expected_source=("e" * 40, "f" * 40))
-    assert not (root / v3.BASE).exists()
-
-
-@pytest.mark.parametrize("failed_fsync_call", [1, 4, 5])
-def test_v3_sync_failure_cannot_allocate_or_retry_as_fresh(
-    tmp_path, monkeypatch, failed_fsync_call
-):
-    root = four_attempt_runtime(tmp_path, monkeypatch)
-    original_fsync = v3.os.fsync
-    calls = 0
-
-    def fail_one(fd):
-        nonlocal calls
-        calls += 1
-        if calls == failed_fsync_call:
-            raise OSError("injected sync failure")
-        return original_fsync(fd)
-
-    monkeypatch.setattr(v3.os, "fsync", fail_one)
-    with pytest.raises(OSError, match="injected sync failure"):
-        v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
-    assert (root / v3.BASE / v3.GRANT).exists()
-    assert not (root / v3.BASE / v3.SEAL).exists()
-    with pytest.raises(v3.RecoveryRefused, match="grant_inventory"):
-        v3.validate(root)
-    with pytest.raises(v3.RecoveryRefused, match="already_granted"):
-        v3.grant_once(
-            root, lambda _: pytest.fail("retry observation"), expected_source=("e" * 40, "f" * 40)
-        )
     with pytest.raises(ValueError, match="reader_native_attempt_limit"):
         reader._attempt_directory(root, extra_grant=True, recovery_version=3)
 
@@ -252,41 +199,45 @@ def test_v3_cli_requires_confirmation_before_observation(tmp_path, monkeypatch):
             "wrong",
         ],
     )
-    monkeypatch.setattr(
-        grant_cli.extra, "grant_once", lambda *a, **k: pytest.fail("grant attempted")
-    )
+    monkeypatch.setattr(v3, "grant_once", lambda *a, **k: pytest.fail("grant attempted"))
     assert grant_cli.main() == 1
     assert not list(root.iterdir())
 
 
-def test_uncertain_seal_cleanup_remains_inert_before_docker(tmp_path, monkeypatch):
+def test_standalone_v3_cli_cannot_create_grant_from_fixed_phrase(tmp_path, monkeypatch, capsys):
     root = four_attempt_runtime(tmp_path, monkeypatch)
-    original_fsync = v3.os.fsync
-    original_unlink = v3.os.unlink
-    calls = 0
+    calls = []
+    monkeypatch.setattr(grant_cli, "_observe", lambda _: calls.append("observed"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "grant_media_native_reader_extra_attempt_v3.py",
+            "--grant-once",
+            "--runtime-root",
+            str(root),
+            "--source-head",
+            "e" * 40,
+            "--source-tree",
+            "f" * 40,
+            "--operator-confirmation",
+            grant_cli.CONFIRMATION,
+        ],
+    )
+    assert grant_cli.main() == 1
+    assert "approval_unavailable" in capsys.readouterr().err
+    assert calls == []
+    assert not (root / v3.BASE).exists()
+    assert len(list((root / scope.PROOF_BASE).iterdir())) == 4
 
-    def fail_seal_directory_sync(fd):
-        nonlocal calls
-        calls += 1
-        if calls == 5:
-            raise OSError("injected seal directory sync failure")
-        return original_fsync(fd)
 
-    def fail_seal_cleanup(path, *args, **kwargs):
-        if Path(path) == root / v3.BASE / v3.SEAL:
-            raise OSError("injected seal cleanup failure")
-        return original_unlink(path, *args, **kwargs)
-
-    monkeypatch.setattr(v3.os, "fsync", fail_seal_directory_sync)
-    monkeypatch.setattr(v3.os, "unlink", fail_seal_cleanup)
-    with pytest.raises(OSError, match="seal directory sync failure"):
-        v3.grant_once(root, lambda _: None, expected_source=("e" * 40, "f" * 40))
-    assert (root / v3.BASE / v3.SEAL).exists()
-    # Readable ledger bytes are not evidence that the grant returned successfully.
-    assert v3.validate(root)["attempts_used_before"] == 4
-    monkeypatch.setattr(reader, "_docker_readiness", lambda _: pytest.fail("reached Docker"))
-    with pytest.raises(
-        ValueError, match="reader_native_precondition_scope_reader_native_scope_attempt_count"
-    ):
-        asyncio.run(reader._qualify(root))
+def test_direct_v3_grant_refuses_without_approval(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    with pytest.raises(v3.RecoveryRefused, match="approval_unavailable"):
+        v3.grant_once(
+            root,
+            lambda _: pytest.fail("observed without approval"),
+            expected_source=("e" * 40, "f" * 40),
+        )
+    assert not (root / v3.BASE).exists()
     assert len(list((root / scope.PROOF_BASE).iterdir())) == 4

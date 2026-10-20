@@ -1,19 +1,14 @@
-"""Dormant, one-use continuation contract after four retained Media refusals.
+"""Read-only fifth-attempt ledger contract after four retained Media refusals.
 
-No grant is created on import or by the native qualifier. A separate operator
-step may append one exact grant only after source review and authorization.
+No standalone writer or native qualifier grants another attempt.
 """
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
-import json
-import os
 import re
-import stat
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from qualification import media_reader_extra_attempt as v1
@@ -263,125 +258,5 @@ def validate(
 def grant_once(
     runtime_root: Path, observe: Callable[[Path], None], *, expected_source: tuple[str, str]
 ) -> dict:
-    if (
-        type(expected_source) is not tuple
-        or len(expected_source) != 2
-        or any(
-            type(s) is not str or re.fullmatch(r"[0-9a-f]{40}", s) is None for s in expected_source
-        )
-    ):
-        _refuse("source_approval")
-    root, record = _history(runtime_root)
-    scope._check_unheld_admission(root)
-    source_head, source_tree = _source_identity()
-    if (source_head, source_tree) != expected_source:
-        _refuse("source_approval")
-    if (root / BASE).exists():
-        _refuse("already_granted")
-    admission = root / scope.ADMISSION_BASE
-    fd = os.open(admission / "admission.lock", os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC)
-    try:
-        info = os.fstat(fd)
-        if (
-            not stat.S_ISREG(info.st_mode)
-            or info.st_uid != os.geteuid()
-            or info.st_gid != os.getegid()
-            or stat.S_IMODE(info.st_mode) != 0o600
-            or info.st_size != 0
-            or info.st_nlink != 1
-        ):
-            _refuse("lock")
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            _refuse("live_lock")
-        _history(root)
-        v2._require_empty_marker(admission)
-        observe(root)
-        _history(root)
-        v2._require_empty_marker(admission)
-        if _source_identity() != (source_head, source_tree):
-            _refuse("source_drift")
-        if (root / BASE).exists():
-            _refuse("already_granted")
-        record["source_head"] = source_head
-        record["source_tree"] = source_tree
-        record["created_utc"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        base = root / BASE
-        base.mkdir(mode=0o700)
-        raw = (json.dumps(record, sort_keys=True, indent=2, allow_nan=False) + "\n").encode()
-        target = base / GRANT
-        out = os.open(
-            target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
-        )
-        try:
-            view = memoryview(raw)
-            while view:
-                count = os.write(out, view)
-                if count <= 0:
-                    _refuse("write")
-                view = view[count:]
-            os.fsync(out)
-        finally:
-            os.close(out)
-        directory = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        runtime_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-        try:
-            os.fsync(runtime_fd)
-        finally:
-            os.close(runtime_fd)
-        seal = {
-            "schema": "zelo-media-native-reader-extra-attempt-v3-seal-v1",
-            "grant_sha256": _digest(raw),
-            "source_head": source_head,
-            "source_tree": source_tree,
-        }
-        seal_raw = (json.dumps(seal, sort_keys=True, allow_nan=False) + "\n").encode()
-        seal_created = False
-        try:
-            seal_fd = os.open(
-                base / SEAL,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-                0o600,
-            )
-            seal_created = True
-            try:
-                view = memoryview(seal_raw)
-                while view:
-                    count = os.write(seal_fd, view)
-                    if count <= 0:
-                        _refuse("seal_write")
-                    view = view[count:]
-                os.fsync(seal_fd)
-            finally:
-                os.close(seal_fd)
-            directory = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
-            validate(root, held_admission=True)
-        except BaseException:
-            # A failed seal acknowledgement cannot become an accepted grant.
-            # Retain the grant directory so the attempt cannot be retried as new.
-            if seal_created:
-                try:
-                    os.unlink(base / SEAL)
-                    directory = os.open(
-                        base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-                    )
-                    try:
-                        os.fsync(directory)
-                    finally:
-                        os.close(directory)
-                except OSError:
-                    pass  # Explicit run approval remains a separate gate.
-            raise
-        return record
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        os.close(fd)
+    """Refuse a standalone v3 grant until approval-bound admission is reviewed."""
+    _refuse("approval_unavailable")
