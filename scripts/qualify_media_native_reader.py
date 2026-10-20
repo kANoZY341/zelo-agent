@@ -993,8 +993,14 @@ async def _qualify(runtime_root=None, *, v3_request_comment_id=None, v3_clock=No
     stage = "attempt"
     try:
         if recovery_version == 3:
-            readiness = _docker_readiness(runtime)
-            _deadline(deadline)
+            try:
+                readiness = _docker_readiness(runtime)
+                _deadline(deadline)
+            except BaseException:
+                # No attempt or owned Docker resource exists in this invocation yet.
+                # The durable grant remains consumed, but the shared marker can clear.
+                lease.finish(cleanup_confirmed=True)
+                raise
             _, attempt = session.recheck_before_attempt(
                 lease,
                 clock=clock,

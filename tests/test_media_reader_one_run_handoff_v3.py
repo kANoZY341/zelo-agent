@@ -341,3 +341,41 @@ def test_operator_comment_template_matches_strict_body(tmp_path, monkeypatch, ca
     assert body["source_head"] == "e" * 40
     assert body["source_tree"] == "f" * 40
     assert len(lines[-1].encode()) <= approval.MAX_BODY_BYTES
+
+
+def test_second_readiness_refusal_clears_lease_before_any_attempt(tmp_path, monkeypatch):
+    import asyncio
+
+    from qualification import media_reader_extra_attempt_v3 as v3
+    from scripts import qualify_media_native_reader as reader
+    from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
+    from tests.test_media_reader_approval_capture_v3 import CHECKED, ISSUED, _github_fixture
+
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    readiness_calls = [0]
+
+    def readiness(_):
+        readiness_calls[0] += 1
+        if readiness_calls[0] == 2:
+            raise ValueError("reader_native_docker_global_event")
+        return "ready-without-Docker"
+
+    monkeypatch.setattr(reader, "_docker_readiness", readiness)
+    times = iter((ISSUED, CHECKED, CHECKED, CHECKED))
+    with pytest.raises(ValueError, match="reader_native_docker_global_event"):
+        asyncio.run(
+            reader._qualify(
+                root,
+                v3_request_comment_id=lambda challenge, history: COMMENT_ID,
+                v3_clock=times.__next__,
+            )
+        )
+    assert readiness_calls[0] == 2
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+    assert (root / "media-elf-metadata-admission" / "active.marker").read_bytes() == b""
+    assert (root / capture.BASE / capture.RECEIPT).is_file()
