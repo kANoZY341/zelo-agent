@@ -67,6 +67,7 @@ def validate_snapshot(
     comment: dict,
     expected_comment_id: int,
     expected_challenge: str,
+    challenge_issued_at: datetime,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -83,6 +84,13 @@ def validate_snapshot(
         _refuse("challenge")
     if type(now) is not datetime or now.tzinfo is None or now.utcoffset() != timedelta(0):
         _refuse("clock")
+    if (
+        type(challenge_issued_at) is not datetime
+        or challenge_issued_at.tzinfo is None
+        or challenge_issued_at.utcoffset() != timedelta(0)
+        or challenge_issued_at > now
+    ):
+        _refuse("challenge_time")
     if (
         type(repository) is not dict
         or repository.get("id") != REPOSITORY_ID
@@ -104,7 +112,12 @@ def validate_snapshot(
         _refuse("identity")
     created = _time(comment.get("created_at"))
     updated = _time(comment.get("updated_at"))
-    if created != updated or created > now or now - created > MAX_LIFETIME:
+    if (
+        created != updated
+        or created > now
+        or created < challenge_issued_at.replace(microsecond=0)
+        or now - created > MAX_LIFETIME
+    ):
         _refuse("comment_time")
     root = str(expected_root)
     if (
@@ -173,6 +186,7 @@ def validate_snapshot(
         "issue_id": ISSUE_ID,
         "comment_id": expected_comment_id,
         "challenge_sha256": hashlib.sha256(expected_challenge.encode("ascii")).hexdigest(),
+        "challenge_issued_utc": challenge_issued_at.isoformat(timespec="microseconds"),
         "md_account_id": md_account_id,
         "comment_created_utc": comment["created_at"],
         "comment_updated_utc": comment["updated_at"],
@@ -191,6 +205,7 @@ def fetch_validated_snapshot(
     get: Callable[[str], dict],
     expected_comment_id: int,
     expected_challenge: str,
+    challenge_issued_at: datetime,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -224,6 +239,7 @@ def fetch_validated_snapshot(
         comment=responses[2],
         expected_comment_id=expected_comment_id,
         expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
         md_account_id=md_account_id,
         expected_root=expected_root,
         source_head=source_head,
@@ -239,6 +255,7 @@ def recheck_snapshot(
     original: dict,
     expected_comment_id: int,
     expected_challenge: str,
+    challenge_issued_at: datetime,
     md_account_id: int | None,
     expected_root: Path,
     source_head: str,
@@ -251,6 +268,7 @@ def recheck_snapshot(
         get=get,
         expected_comment_id=expected_comment_id,
         expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
         md_account_id=md_account_id,
         expected_root=expected_root,
         source_head=source_head,

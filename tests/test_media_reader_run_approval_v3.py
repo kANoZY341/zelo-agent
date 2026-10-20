@@ -24,6 +24,7 @@ HISTORY_SHA256 = approval._history_digest(HISTORY)
 NOW = datetime(2026, 10, 20, 18, 0, tzinfo=UTC)
 COMMENT_ID = 123456
 CHALLENGE = "c" * 64
+ISSUED = datetime(2026, 10, 20, 17, 29, tzinfo=UTC)
 MD_ID = approval.MD_ACCOUNT_ID  # Confirmed identity; still no fifth-run decision.
 
 
@@ -72,6 +73,7 @@ def check(root, repository, issue, comment, **changes):
         "comment": comment,
         "expected_comment_id": COMMENT_ID,
         "expected_challenge": CHALLENGE,
+        "challenge_issued_at": ISSUED,
         "md_account_id": MD_ID,
         "expected_root": root,
         "source_head": "a" * 40,
@@ -118,6 +120,8 @@ def test_exact_snapshot_is_bounded_audit_evidence_without_any_side_effect(tmp_pa
         "invalid_clock_type",
         "wrong_challenge",
         "invalid_challenge_type",
+        "comment_before_challenge",
+        "challenge_issued_in_future",
     ],
 )
 def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_path, change):
@@ -145,6 +149,10 @@ def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_
         changes["now"] = None
     elif change == "invalid_challenge_type":
         changes["expected_challenge"] = None
+    elif change == "comment_before_challenge":
+        changes["challenge_issued_at"] = datetime(2026, 10, 20, 17, 31, tzinfo=UTC)
+    elif change == "challenge_issued_in_future":
+        changes["challenge_issued_at"] = datetime(2026, 10, 20, 18, 1, tzinfo=UTC)
     elif change == "oversized_body":
         comment["body"] = "x" * 4097
     elif change == "duplicate_key":
@@ -195,6 +203,7 @@ def test_live_snapshot_reads_only_three_fixed_endpoints_and_rechecks_changed_com
     binding = {
         "expected_comment_id": COMMENT_ID,
         "expected_challenge": CHALLENGE,
+        "challenge_issued_at": ISSUED,
         "md_account_id": MD_ID,
         "expected_root": tmp_path,
         "source_head": "a" * 40,
@@ -216,6 +225,7 @@ def test_live_snapshot_refuses_fetch_failure_and_nonobject_response(tmp_path):
     binding = {
         "expected_comment_id": COMMENT_ID,
         "expected_challenge": CHALLENGE,
+        "challenge_issued_at": ISSUED,
         "md_account_id": MD_ID,
         "expected_root": tmp_path,
         "source_head": "a" * 40,
@@ -249,6 +259,7 @@ def test_live_snapshot_refuses_invalid_comment_id_before_fetch(tmp_path):
             get=get,
             expected_comment_id="../../123",
             expected_challenge=CHALLENGE,
+            challenge_issued_at=ISSUED,
             md_account_id=MD_ID,
             expected_root=tmp_path,
             source_head="a" * 40,
@@ -310,6 +321,7 @@ def test_live_snapshot_checks_expiry_after_remote_reads(tmp_path):
             get=lambda _endpoint: next(fetched),
             expected_comment_id=COMMENT_ID,
             expected_challenge=CHALLENGE,
+            challenge_issued_at=ISSUED,
             md_account_id=MD_ID,
             expected_root=tmp_path,
             source_head="a" * 40,
@@ -326,6 +338,7 @@ def test_live_snapshot_refuses_malformed_challenge_before_remote_fetch(tmp_path)
             get=lambda _endpoint: pytest.fail("remote fetch before challenge validation"),
             expected_comment_id=COMMENT_ID,
             expected_challenge="fixed-reusable-approval",
+            challenge_issued_at=ISSUED,
             md_account_id=MD_ID,
             expected_root=tmp_path,
             source_head="a" * 40,
