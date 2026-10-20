@@ -11,6 +11,7 @@ import pytest
 from qualification import media_reader_approval_capture_v3 as capture
 from qualification import media_reader_extra_attempt_v3 as v3
 from qualification import media_reader_run_approval_v3 as approval
+from scripts import grant_media_native_reader_extra_attempt_v3 as grant_cli
 from tests.test_media_native_reader_extra_attempt_v3 import four_attempt_runtime
 
 ISSUED = datetime(2026, 10, 20, 17, 29, tzinfo=UTC)
@@ -63,6 +64,7 @@ def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant
     tmp_path, monkeypatch
 ):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     _, record = v3._history(root)
     seen = []
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: seen.append(n) or "c" * 64)
@@ -97,8 +99,42 @@ def test_capture_generates_challenge_under_lock_and_writes_receipt_without_grant
         session.acquire("a" * 64, request, clock=lambda: CHECKED)
 
 
+def test_capture_refuses_owned_resources_under_lock_before_receipt(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    calls = []
+
+    def owned_resources(*args, **kwargs):
+        fd = os.open(root / "media-elf-metadata-admission" / "admission.lock", os.O_RDWR)
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
+        calls.append("owned")
+        return b"retained-resource\n"
+
+    monkeypatch.setattr(grant_cli.reader, "_docker", owned_resources)
+    monkeypatch.setattr(
+        grant_cli.reader, "_docker_readiness", lambda _: pytest.fail("reached readiness")
+    )
+    session = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40))
+    with pytest.raises(ValueError, match="reader_native_extra_v3_resources"):
+        clock = iter((ISSUED, CHECKED)).__next__
+        session.acquire("a" * 64, lambda challenge, history: COMMENT_ID, clock=clock)
+    assert calls == ["owned"]
+    assert not (root / capture.BASE).exists()
+    assert not (root / v3.BASE).exists()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+    assert len(list((root / "media-native-reader").iterdir())) == 4
+
+
 def test_capture_refuses_stale_comment_before_receipt_and_native_effect(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "d" * 64)
     _, record = v3._history(root)
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
@@ -114,6 +150,7 @@ def test_capture_refuses_stale_comment_before_receipt_and_native_effect(tmp_path
 
 def test_capture_parent_sync_failure_never_marks_admission_or_grants(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     _, record = v3._history(root)
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
@@ -146,6 +183,7 @@ def test_capture_parent_sync_failure_never_marks_admission_or_grants(tmp_path, m
 
 def test_capture_refetch_drift_leaves_receipt_fenced_without_grant(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     _, record = v3._history(root)
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
@@ -178,6 +216,7 @@ def test_capture_refetch_drift_leaves_receipt_fenced_without_grant(tmp_path, mon
 
 def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     _, record = v3._history(root)
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
@@ -202,6 +241,7 @@ def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeyp
 
 def test_capture_refetch_sync_failure_fences_without_marker_or_grant(tmp_path, monkeypatch):
     root = four_attempt_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(capture.preflight, "observe", lambda _: None)
     _, record = v3._history(root)
     fetched = _github_fixture(root, record["proof_history"], "c" * 64)
     monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)

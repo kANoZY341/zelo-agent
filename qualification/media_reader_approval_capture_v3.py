@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from qualification import media_reader_extra_attempt_v3 as v3
+from qualification import media_reader_resource_preflight_v3 as preflight
 from qualification import media_reader_run_approval_v3 as approval
 from qualification.admission import AdmissionController, Lease
 
@@ -203,6 +204,15 @@ class ApprovalCapture:
                 or (root / BASE).exists()
             ):
                 _refuse("drift")
+            preflight.observe(root)
+            observed_root, observed = v3._history(root)
+            if (
+                observed_root != root
+                or observed["proof_history"] != history
+                or v3._source_identity() != self._source
+                or (root / BASE).exists()
+            ):
+                _refuse("resource_preflight_drift")
             _persist(root, snapshot)
             fresh = approval.recheck_snapshot(
                 get=approval.gh_api_get,
