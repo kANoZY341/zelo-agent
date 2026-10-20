@@ -259,6 +259,18 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _rows(database) == (1, 1)
 
 
+def test_personal_repository_null_review_bypass_is_accepted(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    reviews = transport.responses[12][2]["required_pull_request_reviews"]
+    reviews["bypass_pull_request_allowances"] = None
+    _add_success_response(request, transport, template)
+    receipt = asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert isinstance(receipt, SkillPublicationMergeReceipt)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
 def test_uncertain_put_timeout_preserves_attempt_and_blocks_blind_retry(
     database, proposal_case, tmp_path
 ):
@@ -605,7 +617,6 @@ def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
         "last_push_approval_missing",
         "last_push_approval_type_confusion",
         "review_bypass_missing",
-        "review_bypass_null",
         "review_bypass_users_missing",
         "review_bypass_teams",
         "review_bypass_apps",
