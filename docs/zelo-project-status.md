@@ -1,5 +1,18 @@
 # Zelo live project status
 
+**20 October reconciliation candidate (local, not merged):** #194's dual-approved
+parent/child Space read/list path has been merged locally with main `4e6cf84`.
+The current main delegation, Campaign/budget and Task use-point checks remain
+in the combined code; admission now refuses delegated snapshots without an
+independent parent confirmation. The focused five-module suite passed 42 tests (3 warnings)
+in 71.47 seconds. The final adjacent 16-module run passed 204 tests
+(4 warnings) in 293.34 seconds; its ignored log SHA256 is
+`5574b0d826c096b7ba99b278549fdd6840d1c5011f2df7ccbe5bd360c1462a75`.
+Repository-wide Ruff lint and format and staged diff checks passed. Independent
+exact-head review, full PR CI and native acceptance remain pending. A prior tool safety layer refused creation of the native
+two-Computer diagnostic before execution; no alternate path was attempted.
+This work does not change the Media quota or authorize v0.15 release.
+
 **20 October scheduler CI checkpoint:** [PR #226](https://github.com/kANoZY341/zelo-agent/pull/226)
 merged at `15ccac6` after exact-head CI passed, but distinct
 [main CI 39351580374](https://github.com/kANoZY341/zelo-agent/actions/runs/39351580374)
@@ -122,8 +135,7 @@ passed **6,311 tests, 2 skipped**; its distinct post-merge main run
 **39033985522** subsequently passed. Owner-takeover status PR #192 merged
 at `077f6a5e6fd7dc3f259765cb284d9cd9e1f5efb5` after exact-head CI
 passed **6,318 tests, 2 skipped**, native proof and independent review.
-Its separate post-merge main run **39043578016** is queued at this
-checkpoint. The full operational v0.15 release remains HOLD.
+Its separate post-merge main run **39043578016** passed **6,318 tests, 2 skipped, 42 warnings**. The full operational v0.15 release remains HOLD.
 
 **17 October owner-control status correction (merged #192):** Specialist
 Space eligibility now reflects the existing durable owner-takeover barrier.

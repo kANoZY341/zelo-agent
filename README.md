@@ -41,6 +41,7 @@ The command preserves files/history and does not ban later explicit owner approv
 The existing independent Coding reviewer can optionally produce
 [grounded Open Code Review findings](docs/v0.15-ocr-independent-review.md).
 This uses the normal approval-bound review workflow, not a separate review engine.
+A separate [dual-approved delegated Space read candidate](docs/v0.15-delegated-space-file-execution.md) is in draft PR #194. It binds independently confirmed parent and child approvals for one resource and read/list operation. Native acceptance has not been run, and the candidate is not a release or activation approval.
 
 ## Setup
 

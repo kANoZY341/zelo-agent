@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.agent_computers import ComputerBackendError
 from app.agent_execution_contracts import AgentExecutionBinding
@@ -28,6 +29,7 @@ from app.computer_control_fence import human_takeover_unreleased
 from app.computer_worker import ComputerRuntime
 from app.models import (
     AgentComputerPermission,
+    AgentDelegation,
     AgentInstance,
     AgentInstanceEvent,
     AgentSpaceActivationRecord,
@@ -37,7 +39,10 @@ from app.models import (
     AgentSpaceResourceRecord,
     AgentSpaceResourceRetirement,
     AuditEvent,
+    Campaign,
+    CampaignBudgetReservation,
     CampaignTaskLink,
+    Goal,
     Project,
     Task,
     TaskAttempt,
@@ -45,7 +50,7 @@ from app.models import (
 )
 from app.policy import DomainError, State
 from app.storage import SessionStore
-from app.tasks import Execution, TaskService
+from app.tasks import Execution, TaskService, _task_campaign_id
 
 MAX_SPACE_TEXT_BYTES = 65536
 MAX_SPACE_FILE_PARTS = 4
@@ -353,6 +358,9 @@ class SpaceFileReadGateway:
             agent != execution.agent_execution
             or computer != execution.computer_request
             or agent.task_kind != "computer_run"
+            or ((agent.delegation is None) != (computer.parent_space_activation_id is None))
+            or computer.parent_space_activation_id
+            != execution.payload.get("parent_space_activation_id")
             or computer.agent_instance_id != agent.agent_instance_id
             or computer.space_activation_id is None
             or computer.space_activation_id != execution.payload.get("space_activation_id")
@@ -423,7 +431,119 @@ class SpaceFileReadGateway:
             or not self.computer.matches(computer)
         ):
             raise DomainError("Space read computer permission stale", 409)
+        if agent.delegation is not None:
+            self._verified_delegated_resource(
+                session,
+                agent=agent,
+                computer=computer,
+                campaign_id=_task_campaign_id(session, task),
+            )
         return agent, current_spec
+
+    def _verified_delegated_resource(
+        self,
+        session: Session,
+        *,
+        agent: AgentExecutionBinding,
+        computer: ComputerExecutionSpec,
+        campaign_id: str | None,
+    ) -> AgentSpaceResourceRecord:
+        """One-hop delegation intersects independent current owner confirmations.
+
+        Called at admission/retry/claim and again at the final serialized use
+        point. No grant is copied and no external action occurs in this check.
+        """
+        from app.tasks import TaskService
+
+        delegated = agent.delegation
+        if (
+            delegated is None
+            or computer.schema_version != "zelo-computer-execution-v3"
+            or computer.parent_space_activation_id is None
+            or computer.space_activation_id is None
+            or computer.parent_agent_instance_id != delegated.parent_instance_id
+            or delegated.child_instance_id != agent.agent_instance_id
+            or delegated.parent_instance_id == agent.agent_instance_id
+            or delegated.depth != 1
+            or delegated.max_depth != 1
+            or campaign_id != delegated.campaign_id
+            or agent.task_kind != "computer_run"
+            or computer.action not in ("files_read", "files_list")
+        ):
+            raise DomainError("Space delegation binding not qualified", 403)
+        item = session.get(AgentDelegation, delegated.delegation_id)
+        if (
+            item is None
+            or item.status != "active"
+            or TaskService._delegation_execution_binding(item) != delegated
+            or session.scalar(
+                select(AgentDelegation.id)
+                .where(
+                    AgentDelegation.child_instance_id == delegated.parent_instance_id,
+                    AgentDelegation.status == "active",
+                )
+                .limit(1)
+            )
+            is not None
+        ):
+            raise DomainError("Space delegation no longer exact and active", 403)
+        parent = self.resources.intents._load_instance(session, delegated.parent_instance_id)
+        parent_spec = _snapshot(parent, self.factory)
+        parent_permission = session.get(AgentComputerPermission, parent.id)
+        if (
+            parent.project_id != agent.project_id
+            or not parent_spec.allow_subagents
+            or parent_spec.max_subagents < 1
+            or "computer_run" not in parent_spec.allowed_task_kinds
+            or "computer_read" not in parent_spec.capabilities
+            or not set(delegated.allowed_task_kinds).issubset(parent_spec.allowed_task_kinds)
+            or not set(delegated.required_capabilities).issubset(parent_spec.capabilities)
+            or parent_spec.computer is None
+            or not parent_spec.computer.files
+            or parent_permission is None
+            or not parent_permission.enabled
+            or not parent_permission.files
+            or ComputerRuntime._permission_version(parent_permission)
+            != computer.parent_permission_version
+            or human_takeover_unreleased(session, parent.id)
+        ):
+            raise DomainError("Space delegating parent permission unavailable", 403)
+        campaign = session.get(Campaign, campaign_id)
+        goal = session.get(Goal, campaign.goal_id) if campaign is not None else None
+        project = session.get(Project, agent.project_id)
+        budget = session.get(CampaignBudgetReservation, delegated.budget_reservation_id)
+        if (
+            campaign is None
+            or campaign.status != "active"
+            or goal is None
+            or goal.project_id != agent.project_id
+            or project is None
+            or project.status != "active"
+            or budget is None
+            or budget.status != "reserved"
+            or budget.expires_at <= utcnow()
+            or budget.campaign_id != campaign.id
+            or budget.owner_id != parent.id
+            or budget.resource != delegated.budget_resource
+            or budget.units != delegated.budget_units
+        ):
+            raise DomainError("Space delegation campaign or budget unavailable", 403)
+        operation = "list" if computer.action == "files_list" else "read"
+        parent_resource = self._verified_resource(
+            session,
+            instance_id=parent.id,
+            activation_id=computer.parent_space_activation_id,
+            operation=operation,
+        )
+        child_resource = self._verified_resource(
+            session,
+            instance_id=agent.agent_instance_id,
+            activation_id=computer.space_activation_id,
+            operation=operation,
+        )
+        if parent_resource.id != child_resource.id:
+            raise DomainError("Space delegation requires the same owner-confirmed resource", 403)
+        return child_resource
 
     def _verified_resource(
         self, session, *, instance_id: str, activation_id: str, operation: str = "read"
@@ -508,16 +628,21 @@ class SpaceFileReadGateway:
             # Unlike the normal Computer Worker this gateway has a separate
             # dispatch path; preserve its bounded control-lookup deadline.
             async with asyncio.timeout(execution.timeout_seconds):
-                control = await self.computer.backend.control(agent.agent_instance_id)
+                controls = [await self.computer.backend.control(agent.agent_instance_id)]
+                if agent.delegation is not None:
+                    controls.append(
+                        await self.computer.backend.control(agent.delegation.parent_instance_id)
+                    )
         except TimeoutError:
             raise DomainError("Space computer control timed out", 504) from None
         except ComputerBackendError:
             raise DomainError("Space computer control unavailable", 503) from None
-        if (
+        if any(
             control.holder == "human"
             or control.requested
             or control.transitioning
             or control.resume_snapshot_required
+            for control in controls
         ):
             raise DomainError("Space computer human control active", 409)
         # Transaction uses BEGIN IMMEDIATE on SQLite. No concurrent Core
@@ -547,6 +672,16 @@ class SpaceFileReadGateway:
                     details={
                         "agent_instance_id": agent.agent_instance_id,
                         "activation_id": activation_id,
+                        **(
+                            {
+                                "delegation_id": agent.delegation.delegation_id,
+                                "parent_activation_id": (
+                                    execution.computer_request.parent_space_activation_id
+                                ),
+                            }
+                            if agent.delegation is not None
+                            else {}
+                        ),
                         "resource_record_id": resource.id,
                         "path_sha256": hashlib.sha256(relative_path.encode("utf-8")).hexdigest(),
                         "content_sha256": digest,
@@ -582,16 +717,21 @@ class SpaceFileReadGateway:
             )
         try:
             async with asyncio.timeout(execution.timeout_seconds):
-                control = await self.computer.backend.control(agent.agent_instance_id)
+                controls = [await self.computer.backend.control(agent.agent_instance_id)]
+                if agent.delegation is not None:
+                    controls.append(
+                        await self.computer.backend.control(agent.delegation.parent_instance_id)
+                    )
         except TimeoutError:
             raise DomainError("Space computer control timed out", 504) from None
         except ComputerBackendError:
             raise DomainError("Space computer control unavailable", 503) from None
-        if (
+        if any(
             control.holder == "human"
             or control.requested
             or control.transitioning
             or control.resume_snapshot_required
+            for control in controls
         ):
             raise DomainError("Space computer human control active", 409)
 
@@ -624,6 +764,16 @@ class SpaceFileReadGateway:
                     details={
                         "agent_instance_id": agent.agent_instance_id,
                         "activation_id": activation_id,
+                        **(
+                            {
+                                "delegation_id": agent.delegation.delegation_id,
+                                "parent_activation_id": (
+                                    execution.computer_request.parent_space_activation_id
+                                ),
+                            }
+                            if agent.delegation is not None
+                            else {}
+                        ),
                         "resource_record_id": resource.id,
                         "path_sha256": hashlib.sha256(relative_path.encode("utf-8")).hexdigest(),
                         "entry_count": len(entries),
