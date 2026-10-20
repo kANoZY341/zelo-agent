@@ -198,19 +198,26 @@ class _DurableStore(_Store):
             raise
 
 
-def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version=1):
+def _attempt_directory(
+    runtime_root=None, *, extra_grant=False, recovery_version=1, v3_before_mkdir=None
+):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     base = runtime / RUNTIME_PROOF_BASE
     _private_runtime_path(base, runtime)
     with os.scandir(base) as attempts:
         entries = list(attempts)
-    if len(entries) >= MAX_ATTEMPTS:
+    attempt_count = len(entries)
+    if attempt_count >= MAX_ATTEMPTS:
         if not extra_grant:
             raise ValueError("reader_native_attempt_limit")
         if recovery_version == 1 and len(entries) == MAX_ATTEMPTS:
             extra.validate(runtime, held_admission=True)
         elif recovery_version == 2 and len(entries) == 3:
             extra_v2.validate(runtime, held_admission=True)
+        elif recovery_version == 3 and len(entries) == 4 and v3_before_mkdir is not None:
+            from qualification import media_reader_extra_attempt_v3 as extra_v3
+
+            extra_v3.validate(runtime, held_admission=True)
         else:
             raise ValueError("reader_native_attempt_limit")
     for entry in entries:
@@ -262,6 +269,12 @@ def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version
                 != reconcile.CASES_SHA256
             ):
                 raise ValueError("reader_native_old_entry")
+    if recovery_version == 3:
+        if not (extra_grant and attempt_count == 4 and v3_before_mkdir is not None):
+            raise ValueError("reader_native_attempt_limit")
+        from qualification import media_reader_approval_capture_v3 as capture_v3
+
+        capture_v3._consume_attempt_gate(runtime, v3_before_mkdir)
     path = Path(tempfile.mkdtemp(prefix=PREFIX, dir=base))
     os.chmod(path, 0o700)
     _fsync_directory(path)

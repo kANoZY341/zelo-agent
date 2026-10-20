@@ -30,6 +30,8 @@ RECEIPT = "receipt.json"
 RECHECK = "recheck.json"
 ATTEMPT_RECHECK = "attempt-recheck.json"
 COMMENT_WAIT_SECONDS = 300
+_LIVE_ATTEMPT_GATES: dict[object, tuple[Path, Lease, Callable[[], None], int]] = {}
+_GATE_LOCK = threading.Lock()
 
 
 class CaptureRefused(ValueError):
@@ -38,6 +40,26 @@ class CaptureRefused(ValueError):
 
 def _refuse(reason: str) -> None:
     raise CaptureRefused("reader_native_v3_capture_" + reason) from None
+
+
+def _consume_attempt_gate(root: Path, gate: object) -> None:
+    """Consume only a live in-process gate issued under the retained lease."""
+    with _GATE_LOCK:
+        try:
+            state = _LIVE_ATTEMPT_GATES.pop(gate, None)
+        except TypeError:
+            state = None
+    if state is None:
+        raise ValueError("reader_native_attempt_limit")
+    expected, lease, check, owner = state
+    if (
+        root != expected
+        or owner != threading.get_ident()
+        or lease._fds is None
+        or not lease._lifecycle.locked()
+    ):
+        raise ValueError("reader_native_attempt_limit")
+    check()
 
 
 def _trusted_directory(fd: int, *, private: bool) -> None:
@@ -427,8 +449,9 @@ class ApprovalCapture:
         lease: Lease,
         *,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-    ) -> dict:
-        """One-use read-only decision recheck under the retained lock; no run permit."""
+        allocate: Callable[[Path, object], object] | None = None,
+    ) -> dict | tuple[dict, object]:
+        """One-use decision recheck; optional trusted allocation stays under the lock."""
         if (
             lease is not self._lease
             or lease._fds is None
@@ -477,6 +500,38 @@ class ApprovalCapture:
                 ):
                     _refuse("attempt_final_drift")
                 _persist_attempt_recheck(root, fresh)
+                if allocate is not None:
+                    if not callable(allocate):
+                        _refuse("attempt_allocator")
+                    try:
+                        expiry = approval._time(json.loads(fresh["comment_body"])["expires_utc"])
+                    except (KeyError, TypeError, ValueError):
+                        _refuse("attempt_expiry")
+
+                    def check_before_mkdir() -> None:
+                        now = clock()
+                        if (
+                            type(now) is not datetime
+                            or now.tzinfo is None
+                            or now.utcoffset() != timedelta(0)
+                            or now >= expiry
+                        ):
+                            _refuse("attempt_expired")
+
+                    check_before_mkdir()
+                    gate = object()
+                    with _GATE_LOCK:
+                        _LIVE_ATTEMPT_GATES[gate] = (
+                            root,
+                            lease,
+                            check_before_mkdir,
+                            threading.get_ident(),
+                        )
+                    try:
+                        return fresh, allocate(root, gate)
+                    finally:
+                        with _GATE_LOCK:
+                            _LIVE_ATTEMPT_GATES.pop(gate, None)
                 return fresh
         except AdmissionDenied:
             _refuse("attempt_lease")
