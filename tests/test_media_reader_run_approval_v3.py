@@ -22,7 +22,7 @@ HISTORY = [
 HISTORY_SHA256 = approval._history_digest(HISTORY)
 NOW = datetime(2026, 10, 20, 18, 0, tzinfo=UTC)
 COMMENT_ID = 123456
-MD_ID = 64309771  # Synthetic test mapping; no trusted production mapping exists.
+MD_ID = approval.MD_ACCOUNT_ID  # Confirmed identity; still no fifth-run decision.
 
 
 def evidence(root):
@@ -157,4 +157,12 @@ def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_
         comment["body"] = json.dumps(body, sort_keys=True)
     with pytest.raises(approval.ApprovalRefused):
         check(tmp_path, repository, issue, comment, **changes)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_caller_cannot_substitute_a_different_md_account_mapping(tmp_path):
+    repository, issue, comment = evidence(tmp_path)
+    comment["user"]["id"] = MD_ID + 1
+    with pytest.raises(approval.ApprovalRefused, match="md_mapping"):
+        check(tmp_path, repository, issue, comment, md_account_id=MD_ID + 1)
     assert list(tmp_path.iterdir()) == []

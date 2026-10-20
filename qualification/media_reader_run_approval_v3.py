@@ -1,8 +1,8 @@
 """Offline validation of a proposed exact Media run-approval snapshot.
 
 This parser does not fetch GitHub, create a grant, or authorize qualification.
-A future caller must obtain fresh authenticated API responses and separately
-establish the Managing Director's mapping to a numeric account ID.
+A future caller must obtain fresh authenticated API responses. The confirmed
+Managing Director account ID is pinned here, but no run is authorized.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Any
 REPOSITORY_ID = 1373657980
 ISSUE_ID = 5806214593
 ISSUE_NUMBER = 166
+MD_ACCOUNT_ID = 64309771
 API_ROOT = "https://api.github.com/repos/kANoZY341/zelo-agent"
 SCHEMA = "zelo-media-native-reader-fifth-run-approval-v1"
 DECISION = "authorize-one-fifth-native-media-reader-proof"
@@ -71,7 +72,7 @@ def validate_snapshot(
     now: datetime,
 ) -> dict:
     """Validate strict API snapshots; returned data is evidence, never a run permit."""
-    if type(md_account_id) is not int or md_account_id <= 0:
+    if type(md_account_id) is not int or md_account_id != MD_ACCOUNT_ID:
         _refuse("md_mapping_missing")
     if type(expected_comment_id) is not int or expected_comment_id <= 0:
         _refuse("comment_id")
