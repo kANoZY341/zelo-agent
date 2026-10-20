@@ -22,6 +22,7 @@ from qualification.admission import AdmissionController, Lease
 
 BASE = "media-native-reader-run-approval-v3"
 RECEIPT = "receipt.json"
+RECHECK = "recheck.json"
 
 
 class CaptureRefused(ValueError):
@@ -85,6 +86,50 @@ def _persist(root: Path, snapshot: dict) -> None:
             observed = os.read(verify_fd, len(raw) + 1)
             if observed != raw:
                 _refuse("readback")
+        finally:
+            os.close(verify_fd)
+    except OSError:
+        _refuse("storage")
+    finally:
+        for fd in (file_fd, base_fd, root_fd):
+            if fd >= 0:
+                os.close(fd)
+
+
+def _persist_recheck(root: Path, snapshot: dict) -> None:
+    """Persist the fresh decision before returning an admission lease."""
+    record = {"schema": "zelo-media-native-reader-v3-approval-recheck-v1", "snapshot": snapshot}
+    raw = (json.dumps(record, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+    if len(raw) > 16384:
+        _refuse("recheck_bound")
+    root_fd = base_fd = file_fd = -1
+    try:
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        _trusted_directory(root_fd, private=False)
+        base_fd = os.open(
+            BASE, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd
+        )
+        _trusted_directory(base_fd, private=True)
+        file_fd = os.open(
+            RECHECK,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=base_fd,
+        )
+        view = memoryview(raw)
+        while view:
+            count = os.write(file_fd, view)
+            if count <= 0:
+                _refuse("recheck_write")
+            view = view[count:]
+        os.fsync(file_fd)
+        os.close(file_fd)
+        file_fd = -1
+        os.fsync(base_fd)
+        verify_fd = os.open(RECHECK, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=base_fd)
+        try:
+            if os.read(verify_fd, len(raw) + 1) != raw:
+                _refuse("recheck_readback")
         finally:
             os.close(verify_fd)
     except OSError:
@@ -159,7 +204,7 @@ class ApprovalCapture:
             ):
                 _refuse("drift")
             _persist(root, snapshot)
-            approval.recheck_snapshot(
+            fresh = approval.recheck_snapshot(
                 get=approval.gh_api_get,
                 original=snapshot,
                 expected_comment_id=comment_id,
@@ -172,7 +217,8 @@ class ApprovalCapture:
                 proof_history=history,
                 clock=clock,
             )
-            self._snapshot = snapshot
+            _persist_recheck(root, fresh)
+            self._snapshot = fresh
 
         lease = AdmissionController(self._root / "media-elf-metadata-admission").acquire_after(
             policy_digest, before_marker

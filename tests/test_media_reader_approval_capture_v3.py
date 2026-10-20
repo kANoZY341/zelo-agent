@@ -165,6 +165,7 @@ def test_capture_refetch_drift_leaves_receipt_fenced_without_grant(tmp_path, mon
         session.acquire("a" * 64, lambda challenge, history: COMMENT_ID, clock=clock)
     assert len(calls) == 6
     assert (root / capture.BASE / capture.RECEIPT).is_file()
+    assert not (root / capture.BASE / capture.RECHECK).exists()
     assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
     assert not (root / v3.BASE).exists()
     assert len(list((root / "media-native-reader").iterdir())) == 4
@@ -172,3 +173,49 @@ def test_capture_refetch_drift_leaves_receipt_fenced_without_grant(tmp_path, mon
         capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
             "a" * 64, lambda challenge, history: COMMENT_ID
         )
+
+
+def test_capture_persists_the_successful_refetch_before_return(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    clock = iter((ISSUED, CHECKED, CHECKED)).__next__
+    lease, snapshot = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40)).acquire(
+        "a" * 64, lambda challenge, history: COMMENT_ID, clock=clock
+    )
+    try:
+        durable = json.loads((root / capture.BASE / capture.RECHECK).read_bytes())
+        assert durable == {
+            "schema": "zelo-media-native-reader-v3-approval-recheck-v1",
+            "snapshot": snapshot,
+        }
+        assert snapshot["checked_utc"] == "2026-10-20T18:00:00Z"
+        assert not (root / v3.BASE).exists()
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_capture_refetch_sync_failure_fences_without_marker_or_grant(tmp_path, monkeypatch):
+    root = four_attempt_runtime(tmp_path, monkeypatch)
+    _, record = v3._history(root)
+    fetched = _github_fixture(root, record["proof_history"], "c" * 64)
+    monkeypatch.setattr(capture.secrets, "token_hex", lambda n: "c" * 64)
+    monkeypatch.setattr(capture.approval, "gh_api_get", lambda endpoint: fetched[endpoint])
+    original_fsync = capture.os.fsync
+
+    def fail_recheck_sync(fd):
+        if os.readlink(f"/proc/self/fd/{fd}").endswith("/recheck.json"):
+            raise OSError("simulated recheck sync failure")
+        return original_fsync(fd)
+
+    monkeypatch.setattr(capture.os, "fsync", fail_recheck_sync)
+    session = capture.ApprovalCapture(root, expected_source=("e" * 40, "f" * 40))
+    with pytest.raises(capture.CaptureRefused, match="storage"):
+        clock = iter((ISSUED, CHECKED, CHECKED)).__next__
+        session.acquire("a" * 64, lambda challenge, history: COMMENT_ID, clock=clock)
+    assert (root / capture.BASE / capture.RECEIPT).is_file()
+    assert not (root / "media-elf-metadata-admission" / "active.marker").read_bytes()
+    assert not (root / v3.BASE).exists()
+    assert len(list((root / "media-native-reader").iterdir())) == 4
