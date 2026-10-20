@@ -115,7 +115,7 @@ def validate_snapshot(
     if (
         created != updated
         or created > now
-        or created < challenge_issued_at.replace(microsecond=0)
+        or created <= challenge_issued_at.replace(microsecond=0)
         or now - created > MAX_LIFETIME
     ):
         _refuse("comment_time")

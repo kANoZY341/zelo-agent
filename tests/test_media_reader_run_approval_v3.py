@@ -121,6 +121,7 @@ def test_exact_snapshot_is_bounded_audit_evidence_without_any_side_effect(tmp_pa
         "wrong_challenge",
         "invalid_challenge_type",
         "comment_before_challenge",
+        "comment_same_second_as_challenge",
         "challenge_issued_in_future",
     ],
 )
@@ -151,6 +152,8 @@ def test_snapshot_refuses_identity_mutation_and_stale_or_ambiguous_decision(tmp_
         changes["expected_challenge"] = None
     elif change == "comment_before_challenge":
         changes["challenge_issued_at"] = datetime(2026, 10, 20, 17, 31, tzinfo=UTC)
+    elif change == "comment_same_second_as_challenge":
+        changes["challenge_issued_at"] = datetime(2026, 10, 20, 17, 30, 0, 900000, tzinfo=UTC)
     elif change == "challenge_issued_in_future":
         changes["challenge_issued_at"] = datetime(2026, 10, 20, 18, 1, tzinfo=UTC)
     elif change == "oversized_body":
