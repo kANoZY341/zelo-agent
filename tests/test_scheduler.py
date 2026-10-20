@@ -277,7 +277,13 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database, prev
         run = runs["items"][0]
         assert run["sequence"] == 1
         assert run["status"] == "succeeded"
-        assert run["lease_generation"] >= 1
+        expected_generation = prior.generation + 1 if previous_lease else 1
+        if run["lease_generation"] != expected_generation:
+            events = client.get(f"/campaigns/{campaign['id']}/events", headers=AUTH).json()["items"]
+            pytest.fail(
+                f"unexpected wake lease generation {run['lease_generation']} "
+                f"(expected {expected_generation}); events={events}"
+            )
         assert run["budget_reservation_id"] is not None
         assert run["conversation_turn_id"] is not None
         assert "lease_token" not in run
