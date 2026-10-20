@@ -1001,13 +1001,25 @@ async def _qualify(runtime_root=None, *, v3_request_comment_id=None, v3_clock=No
                 # The durable grant remains consumed, but the shared marker can clear.
                 lease.finish(cleanup_confirmed=True)
                 raise
-            _, attempt = session.recheck_before_attempt(
-                lease,
-                clock=clock,
-                allocate=lambda root, gate: _attempt_directory(
+            allocation_started = False
+
+            def allocate_once(root, gate):
+                nonlocal allocation_started
+                allocation_started = True
+                return _attempt_directory(
                     root, extra_grant=True, recovery_version=3, v3_before_mkdir=gate
-                ),
-            )
+                )
+
+            try:
+                _, attempt = session.recheck_before_attempt(
+                    lease, clock=clock, allocate=allocate_once
+                )
+            except BaseException:
+                # Recheck is read-only until the allocation callback is entered.
+                # A grant/receipt remains consumed; there is no owned resource yet.
+                if not allocation_started:
+                    lease.finish(cleanup_confirmed=True)
+                raise
         else:
             attempt = _attempt_directory(
                 runtime, extra_grant=extra_grant, recovery_version=recovery_version or 1
