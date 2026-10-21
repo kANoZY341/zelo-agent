@@ -59,6 +59,17 @@ def _row(descriptor, state: RegistrationStatus) -> WorkerScope:
     )
 
 
+def _developer_row(
+    worker_id: str, role: Literal["developer", "reviewer"], state: RegistrationStatus
+) -> WorkerScope:
+    return WorkerScope(
+        worker_id=worker_id,
+        role=role,
+        capability="zelo_core_development" if role == "developer" else "code_review",
+        configured_registration=state,
+    )
+
+
 def worker_release_inventory(settings: Settings) -> WorkerReleaseInventory:
     """Inspect validated config only; registration is NOT use-point permission."""
     if not isinstance(settings, Settings):
@@ -110,6 +121,36 @@ def worker_release_inventory(settings: Settings) -> WorkerReleaseInventory:
         github_or_host_action_performed=False,
         native_media_reader_attempt_performed=False,
         workers=(
+            _developer_row("codex_core", "developer", "registered_conditional_authority"),
+            _developer_row("codex_reviewer", "reviewer", "registered_conditional_authority"),
+            _developer_row(
+                "claude_core",
+                "developer",
+                "configured_unverified"
+                if settings.developer_claude_enabled
+                else "disabled_by_default",
+            ),
+            _developer_row(
+                "claude_reviewer",
+                "reviewer",
+                "configured_unverified"
+                if settings.developer_claude_enabled
+                else "disabled_by_default",
+            ),
+            _developer_row(
+                "opencode_core",
+                "developer",
+                "configured_unverified"
+                if settings.developer_opencode_enabled
+                else "disabled_by_default",
+            ),
+            _developer_row(
+                "opencode_reviewer",
+                "reviewer",
+                "configured_unverified"
+                if settings.developer_opencode_enabled
+                else "disabled_by_default",
+            ),
             _row(descriptor_for_research_worker(), "registered_conditional_authority"),
             _row(descriptor_for_python_worker(), "registered_conditional_authority"),
             _row(
