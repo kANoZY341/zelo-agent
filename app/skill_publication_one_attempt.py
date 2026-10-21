@@ -474,6 +474,12 @@ class SkillPublicationOneAttemptService:
             session.flush()
             attempt_id = row.id
 
+        # A cancellation can commit after the irreversible attempt fence and
+        # before dispatch. Refuse a send in that window; the attempt remains
+        # terminal even though no request was made.
+        with self.store.database.read() as session:
+            self._source_task(session, request)
+
         # EXACTLY ONE possible externally visible write after durable commit.
         # There is intentionally no retry loop, public API or Tool registration.
         endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"

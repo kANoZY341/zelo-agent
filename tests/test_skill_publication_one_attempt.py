@@ -5,6 +5,7 @@ runtime activation happens in this test suite.
 """
 
 import asyncio
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 
@@ -519,6 +520,45 @@ def test_post_merge_provider_failure_is_not_falsely_labeled_as_policy_mismatch(
     assert incident.automatic_retry_allowed is False
     assert _rows(database) == (1, 0)
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_cancelled_promotion_after_attempt_commit_refuses_merge_send(
+    database, proposal_case, tmp_path
+):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    original_transaction = database.transaction
+    cancelled = False
+
+    @contextmanager
+    def cancel_after_attempt_commit():
+        nonlocal cancelled
+        with original_transaction() as session:
+            yield session
+        if not cancelled and _rows(database)[0] == 1:
+            cancelled = True
+            with original_transaction() as session:
+                task = session.get(Task, request.promotion_task_id)
+                task.cancel_requested = True
+
+    database.transaction = cancel_after_attempt_commit
+    try:
+        with pytest.raises(ValueError, match="source_task_invalid"):
+            asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    finally:
+        database.transaction = original_transaction
+
+    assert cancelled
+    assert _rows(database) == (1, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+    with original_transaction() as session:
+        session.get(Task, request.promotion_task_id).cancel_requested = False
+    with pytest.raises(ValueError, match="already_recorded"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (1, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
 
 
 def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
