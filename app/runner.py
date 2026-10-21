@@ -673,6 +673,8 @@ class Runner:
             raise ComputerRuntimeError("computer_execution_spec_stale")
 
         space_activation_id = execution.computer_request.space_activation_id
+        if not self.service.computer_request_allowed(execution):
+            raise ComputerRuntimeError("computer_execution_spec_stale")
         if space_activation_id is not None:
             action = execution.payload.get("action")
             if (
@@ -741,6 +743,7 @@ class Runner:
             path=execution.payload.get("path", ""),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            authorize_action=lambda: self.service.computer_request_allowed(execution),
             endpoint_id=execution.payload.get("endpoint_id"),
         )
 
