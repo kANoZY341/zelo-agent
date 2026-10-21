@@ -25,6 +25,7 @@ from app.runner import Runner
 from app.schemas import (
     AgentComputerPermissionPatch,
     AgentInstanceCreate,
+    AgentInstanceTransition,
     AgentTaskCreate,
     ComputerRunInput,
     ProjectCreate,
@@ -464,6 +465,7 @@ def test_runtime_rejects_unbounded_upstream_identity_fields(database, settings):
                 path="",
                 timeout_seconds=claimed.timeout_seconds,
                 emit=lambda *_args: None,
+                authorize_action=lambda: tasks.computer_request_allowed(claimed),
             )
         )
 
@@ -671,3 +673,115 @@ def test_core_takeover_fences_claimed_tasks_with_stale_backend_control(
     names = [event.event for event in tasks.events(pending.id, 100, 0)]
     assert "computer_read_completed" not in names
     assert "computer_completed" not in names
+
+
+@pytest.mark.parametrize(
+    "stage", ["before_run", "during_control", "during_started_event", "during_read"]
+)
+@pytest.mark.parametrize("resume", [False, True])
+def test_pausing_claimed_computer_task_fences_backend_and_result(
+    database, settings, monkeypatch, stage, resume
+):
+    backend, _runtime, supervisor, tasks, submits, instance = setup(database, settings)
+    grant(database, instance.id, files=True)
+    instances = AgentInstanceService(database, submits.factory, MemoryService(database))
+    task, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run", payload={"action": "files_read", "path": "notes.txt"}
+            )
+        ),
+        None,
+    )
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+
+    def pause():
+        instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+        if resume:
+            instances.transition(instance.id, AgentInstanceTransition(action="resume"))
+
+    original_control = backend.control
+    original_read = backend.read_action
+
+    async def control(instance_id):
+        state = await original_control(instance_id)
+        if stage == "during_control":
+            pause()
+        return state
+
+    async def read_action(instance_id, action, *, path=""):
+        value = await original_read(instance_id, action, path=path)
+        if stage == "during_read":
+            pause()
+        return value
+
+    original_event = tasks.model_event
+
+    def model_event(task_id, event, attempt_id, **details):
+        original_event(task_id, event, attempt_id, **details)
+        if stage == "during_started_event" and event == "computer_read_started":
+            pause()
+
+    monkeypatch.setattr(backend, "control", control)
+    monkeypatch.setattr(backend, "read_action", read_action)
+    monkeypatch.setattr(tasks, "model_event", model_event)
+    if stage == "before_run":
+        pause()
+    asyncio.run(Runner(tasks, computer_supervisor=supervisor)._run(claimed))
+    observed = tasks.get(task.id)
+    assert observed.status != State.SUCCEEDED
+    assert observed.result is None
+    reads = [call for call in backend.calls if call[0] == "files_read"]
+    assert len(reads) == (1 if stage == "during_read" else 0)
+    assert "computer_read_completed" not in [event.event for event in tasks.events(task.id, 100, 0)]
+
+
+def test_paused_queued_computer_task_is_denied_at_claim(database, settings):
+    backend, _runtime, _supervisor, tasks, submits, instance = setup(database, settings)
+    grant(database, instance.id, files=True)
+    task, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run", payload={"action": "files_read", "path": "notes.txt"}
+            )
+        ),
+        None,
+    )
+    assert created
+    AgentInstanceService(database, submits.factory, MemoryService(database)).transition(
+        instance.id, AgentInstanceTransition(action="pause")
+    )
+    assert tasks.claim() is None
+    assert tasks.get(task.id).status == State.CANCELLED
+    assert not backend.calls
+
+
+@pytest.mark.parametrize("resume", [False, True])
+def test_pausing_computer_agent_before_finish_withholds_result(database, settings, resume):
+    _backend, _runtime, _supervisor, tasks, submits, instance = setup(database, settings)
+    grant(database, instance.id, files=True)
+    task, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run", payload={"action": "files_read", "path": "notes.txt"}
+            )
+        ),
+        None,
+    )
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None
+    instances = AgentInstanceService(database, submits.factory, MemoryService(database))
+    instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+    if resume:
+        instances.transition(instance.id, AgentInstanceTransition(action="resume"))
+    tasks.finish(claimed, State.SUCCEEDED, result={"secret": "late bytes"})
+    observed = tasks.get(task.id)
+    assert observed.status == State.CANCELLED
+    assert observed.error == "agent_execution_invalidated"
+    assert observed.result is None

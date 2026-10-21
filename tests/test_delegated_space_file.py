@@ -194,8 +194,11 @@ def test_revocation_during_control_lookup_prevents_delegated_read(database, sett
     )
     asyncio.run(runner._run(claimed))
     outcome = env["tasks"].get(task.id)
-    assert outcome.status == State.FAILED
-    assert outcome.error == "computer_space_read_denied"
+    # Finish observes the revoked delegation and cancels the claimed attempt
+    # even though the Space gateway already refused the file operation.
+    assert outcome.status == State.CANCELLED
+    assert outcome.error == "agent_execution_invalidated"
+    assert outcome.result is None
     assert all(call[0] == "control" for call in env["backend"].calls)
     assert "space_file_read_completed" not in {
         event.event for event in env["tasks"].events(task.id, 100, 0)
@@ -221,3 +224,67 @@ def test_child_owned_list_grant_allows_only_listing(database, settings):
     assert result.status == State.SUCCEEDED
     assert [entry["path"] for entry in result.result["files_list"]["entries"]] == ["notes.txt"]
     assert "contents must stay private" not in str(result.result)
+
+
+@pytest.mark.parametrize("action", ["files_read", "files_list"])
+def test_parent_pause_resume_during_control_cannot_read_delegated_space(
+    database, settings, monkeypatch, action
+):
+    from sqlalchemy import select
+
+    import app.space_file_gateway as gateway_module
+    from app.agent_instances import AgentInstanceService
+    from app.memory import MemoryService
+    from app.models import AuditEvent
+    from app.schemas import AgentInstanceTransition
+
+    env, campaign, delegation, _ = _delegated_fixture(database, settings)
+    (env["root"] / "notes.txt").write_text("never disclosed")
+    activation = env["activation"] if action == "files_read" else _list_activation(env)
+    task = _submit(
+        env,
+        campaign,
+        delegation,
+        activation.id,
+        action=action,
+        path="notes.txt" if action == "files_read" else "",
+    )
+    claimed = env["tasks"].claim()
+    assert claimed is not None and claimed.task_id == task.id
+    instances = AgentInstanceService(database, env["factory"], MemoryService(database))
+    control = env["backend"].control
+    operation = "_open_bounded_utf8" if action == "files_read" else "_list_bounded_entries"
+    original = getattr(gateway_module, operation)
+    accessed = []
+
+    def recorded(*args, **kwargs):
+        accessed.append(action)
+        return original(*args, **kwargs)
+
+    async def pause_resume_then_report(instance_id):
+        instances.transition(delegation.parent_instance_id, AgentInstanceTransition(action="pause"))
+        instances.transition(
+            delegation.parent_instance_id, AgentInstanceTransition(action="resume")
+        )
+        return await control(instance_id)
+
+    monkeypatch.setattr(gateway_module, operation, recorded)
+    monkeypatch.setattr(env["backend"], "control", pause_resume_then_report)
+    runner = Runner(
+        env["tasks"],
+        computer_supervisor=env["supervisor"],
+        space_file_gateway=env["gateway"],
+    )
+    asyncio.run(runner._run(claimed))
+    outcome = env["tasks"].get(task.id)
+    assert outcome.status == State.CANCELLED
+    assert outcome.result is None
+    assert not accessed
+    event = "space_file_read_completed" if action == "files_read" else "space_file_list_completed"
+    with database.read() as session:
+        assert not session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == task.id,
+                AuditEvent.event == event,
+            )
+        ).all()

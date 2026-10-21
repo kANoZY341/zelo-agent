@@ -490,6 +490,22 @@ class SpaceFileReadGateway:
             raise DomainError("Space activation binding or lifecycle stale", 403)
         return resource
 
+    @staticmethod
+    def _require_claim_lifecycle(session, execution: Execution) -> None:
+        """Fence child and delegating parent before the physical file use."""
+        agent = execution.agent_execution
+        if agent is None or execution.computer_agent_lifecycle is None:
+            raise DomainError("Space read Agent lifecycle changed after claim", 409)
+        delegated = agent.delegation
+        current = (
+            TaskService._agent_lifecycle_sequence(session, agent.agent_instance_id),
+            TaskService._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+            if delegated is not None
+            else None,
+        )
+        if current != execution.computer_agent_lifecycle:
+            raise DomainError("Space read Agent lifecycle changed after claim", 409)
+
     async def read(
         self, *, execution: Execution, activation_id: str, relative_path: str
     ) -> SpaceFileReadResult:
@@ -530,6 +546,7 @@ class SpaceFileReadGateway:
                 instance_id=agent.agent_instance_id,
                 activation_id=activation_id,
             )
+            self._require_claim_lifecycle(session, execution)
             text, size, digest = _open_bounded_utf8(
                 self.runtime_dir,
                 project_id=resource.project_id,
@@ -607,6 +624,7 @@ class SpaceFileReadGateway:
                 activation_id=activation_id,
                 operation="list",
             )
+            self._require_claim_lifecycle(session, execution)
             entries = _list_bounded_entries(
                 self.runtime_dir,
                 project_id=resource.project_id,

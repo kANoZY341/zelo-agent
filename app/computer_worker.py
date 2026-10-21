@@ -471,16 +471,21 @@ class ComputerRuntime:
         path: str,
         timeout_seconds: float,
         emit: Emit,
+        authorize_action: Callable[[], bool],
         endpoint_id: str | None = None,
     ) -> dict[str, Any]:
         # The Core Space gateway is the ONLY allowed path for Space content.
         if spec.space_activation_id is not None:
             raise ComputerRuntimeError("computer_space_requires_mediated_gateway")
-        if not self.request_matches(
-            spec,
-            {"action": action, "endpoint_id": endpoint_id, "path": path},
-            timeout_seconds,
-        ) or not self.matches(spec):
+        if (
+            not self.request_matches(
+                spec,
+                {"action": action, "endpoint_id": endpoint_id, "path": path},
+                timeout_seconds,
+            )
+            or not self.matches(spec)
+            or not authorize_action()
+        ):
             raise ComputerRuntimeError("computer_execution_spec_stale")
 
         try:
@@ -505,7 +510,7 @@ class ComputerRuntime:
                 # callback can change Core state. Recheck the exact permission,
                 # backend and endpoint binding before dispatching any operation;
                 # a post-result refusal alone is too late to prevent access.
-                if not self.matches(spec):
+                if not self.matches(spec) or not authorize_action():
                     raise ComputerRuntimeError("computer_execution_spec_stale")
                 if action == "browser_navigate":
                     if spec.endpoint is None:
@@ -525,7 +530,7 @@ class ComputerRuntime:
         except ComputerBackendError as error:
             raise ComputerRuntimeError(str(error)) from None
 
-        if not self.matches(spec):
+        if not self.matches(spec) or not authorize_action():
             raise ComputerRuntimeError("computer_execution_spec_stale")
         if action == "browser_navigate":
             try:
@@ -534,6 +539,8 @@ class ComputerRuntime:
                 raise ComputerRuntimeError(str(error)) from None
             if control.holder == "human" or control.requested or control.transitioning:
                 raise ComputerRuntimeError("computer_human_control_active")
+        if not self.matches(spec) or not authorize_action():
+            raise ComputerRuntimeError("computer_execution_spec_stale")
         result = self._normalize(spec, raw)
         emit(
             f"{event_prefix}_completed",
