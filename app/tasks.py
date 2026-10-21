@@ -4249,9 +4249,7 @@ class TaskService:
                     or selected is None
                     or not self.computer_supervisor.matches(selection)
                     or not selected.worker.matches(spec)
-                    or not selected.worker.request_matches(
-                        spec, task.payload, task.timeout_seconds
-                    )
+                    or not selected.worker.request_matches(spec, task.payload, task.timeout_seconds)
                 ):
                     return False
                 self._validate_agent_execution(

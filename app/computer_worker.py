@@ -477,11 +477,15 @@ class ComputerRuntime:
         # The Core Space gateway is the ONLY allowed path for Space content.
         if spec.space_activation_id is not None:
             raise ComputerRuntimeError("computer_space_requires_mediated_gateway")
-        if not self.request_matches(
-            spec,
-            {"action": action, "endpoint_id": endpoint_id, "path": path},
-            timeout_seconds,
-        ) or not self.matches(spec) or not authorize_action():
+        if (
+            not self.request_matches(
+                spec,
+                {"action": action, "endpoint_id": endpoint_id, "path": path},
+                timeout_seconds,
+            )
+            or not self.matches(spec)
+            or not authorize_action()
+        ):
             raise ComputerRuntimeError("computer_execution_spec_stale")
 
         try:

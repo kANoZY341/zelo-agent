@@ -736,9 +736,7 @@ def test_pausing_claimed_computer_task_fences_backend_and_result(
     assert observed.result is None
     reads = [call for call in backend.calls if call[0] == "files_read"]
     assert len(reads) == (1 if stage == "during_read" else 0)
-    assert "computer_read_completed" not in [
-        event.event for event in tasks.events(task.id, 100, 0)
-    ]
+    assert "computer_read_completed" not in [event.event for event in tasks.events(task.id, 100, 0)]
 
 
 def test_paused_queued_computer_task_is_denied_at_claim(database, settings):
