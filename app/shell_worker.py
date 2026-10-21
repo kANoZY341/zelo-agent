@@ -263,6 +263,7 @@ class ShellRuntime:
         timeout_seconds: float,
         emit: Callable[[str, dict[str, Any]], None],
         deadline: float | None = None,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         from app.schemas import ShellRunResult
 
@@ -286,6 +287,8 @@ class ShellRuntime:
             ) from None
         if not valid or self._closing:
             raise ShellRuntimeError("shell_execution_spec_stale")
+        if authorize_action is not None and not authorize_action():
+            raise ShellRuntimeError("shell_agent_execution_invalid")
         owner = None
         owner_started = False
         try:
@@ -294,12 +297,16 @@ class ShellRuntime:
             )
             self._owners.add(owner)
             emit("shell_execution_started", {"policy_version": spec.policy_version})
+            if authorize_action is not None and not authorize_action():
+                raise ShellRuntimeError("shell_agent_execution_invalid")
             owner_started = True
             result = await owner.run_probe(script)
             if not owner.cleanup_confirmed:
                 raise ShellRuntimeError("shell_cleanup_unproven")
             if self._closing:
                 raise asyncio.CancelledError
+            if authorize_action is not None and not authorize_action():
+                raise ShellRuntimeError("shell_agent_execution_invalid")
         except AdmissionDenied:
             if owner is not None and not owner.cleanup_required:
                 self._owners.discard(owner)
