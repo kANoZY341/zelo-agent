@@ -39,13 +39,16 @@ if not __debug__:
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from qualification import media_reader_approval_capture_v3 as capture_v3  # noqa: E402
 from qualification import media_reader_cgroup as cgroup  # noqa: E402
 from qualification import media_reader_container as container  # noqa: E402
 from qualification import media_reader_extra_attempt as extra  # noqa: E402
 from qualification import media_reader_extra_attempt_v2 as extra_v2  # noqa: E402
+from qualification import media_reader_extra_attempt_v3 as extra_v3  # noqa: E402
 from qualification import media_reader_fixture as fixture  # noqa: E402
 from qualification import media_reader_image as image  # noqa: E402
 from qualification import media_reader_reconcile as reconcile  # noqa: E402
+from qualification import media_reader_run_approval_v3 as approval_v3  # noqa: E402
 from qualification import media_reader_scope as scope  # noqa: E402
 from qualification import media_reader_seccomp as seccomp  # noqa: E402
 from qualification import media_reader_setup as setup  # noqa: E402
@@ -198,19 +201,26 @@ class _DurableStore(_Store):
             raise
 
 
-def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version=1):
+def _attempt_directory(
+    runtime_root=None, *, extra_grant=False, recovery_version=1, v3_before_mkdir=None
+):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     base = runtime / RUNTIME_PROOF_BASE
     _private_runtime_path(base, runtime)
     with os.scandir(base) as attempts:
         entries = list(attempts)
-    if len(entries) >= MAX_ATTEMPTS:
+    attempt_count = len(entries)
+    if attempt_count >= MAX_ATTEMPTS:
         if not extra_grant:
             raise ValueError("reader_native_attempt_limit")
         if recovery_version == 1 and len(entries) == MAX_ATTEMPTS:
             extra.validate(runtime, held_admission=True)
         elif recovery_version == 2 and len(entries) == 3:
             extra_v2.validate(runtime, held_admission=True)
+        elif recovery_version == 3 and len(entries) == 4 and v3_before_mkdir is not None:
+            from qualification import media_reader_extra_attempt_v3 as extra_v3
+
+            extra_v3.validate(runtime, held_admission=True)
         else:
             raise ValueError("reader_native_attempt_limit")
     for entry in entries:
@@ -262,6 +272,12 @@ def _attempt_directory(runtime_root=None, *, extra_grant=False, recovery_version
                 != reconcile.CASES_SHA256
             ):
                 raise ValueError("reader_native_old_entry")
+    if recovery_version == 3:
+        if not (extra_grant and attempt_count == 4 and v3_before_mkdir is not None):
+            raise ValueError("reader_native_attempt_limit")
+        from qualification import media_reader_approval_capture_v3 as capture_v3
+
+        capture_v3._consume_attempt_gate(runtime, v3_before_mkdir)
     path = Path(tempfile.mkdtemp(prefix=PREFIX, dir=base))
     os.chmod(path, 0o700)
     _fsync_directory(path)
@@ -904,12 +920,13 @@ async def _matrix(lease, contract_value, attempt):
     return results, cgroup_evidence
 
 
-async def _qualify(runtime_root=None):
+async def _qualify(runtime_root=None, *, v3_request_comment_id=None, v3_clock=None):
     if runtime_root is None:
         raise ValueError("reader_native_scope_required")
     runtime = Path(runtime_root)
     extra_grant = False
     recovery_version = 0
+    expected_v3_source = None
     try:
         try:
             scope.validate_runtime_scope(runtime)
@@ -924,9 +941,17 @@ async def _qualify(runtime_root=None):
             elif len(names) == 3 and extra.SECOND in names and extra_v2.THIRD in names:
                 extra_v2.validate(runtime)
                 recovery_version = 2
+            elif len(names) == 4 and v3_request_comment_id is not None:
+                extra_v3._history(runtime)
+                if (runtime / capture_v3.BASE).exists() or (runtime / extra_v3.BASE).exists():
+                    raise ValueError("reader_native_v3_prior_consumption") from None
+                expected_v3_source = extra_v3._source_identity()
+                recovery_version = 3
             else:
                 raise
             extra_grant = True
+        if v3_request_comment_id is not None and recovery_version != 3:
+            raise ValueError("reader_native_v3_scope")
     except Exception as exc:
         raise _precondition_refusal("scope", exc) from None
     started = time.monotonic()
@@ -944,11 +969,20 @@ async def _qualify(runtime_root=None):
             if recovery_version == 1
             else extra_v2.EXTRA_LIMIT
             if recovery_version == 2
+            else extra_v3.EXTRA_LIMIT
+            if recovery_version == 3
             else MAX_ATTEMPTS
         )
         spec = policy(attempt_limit)
         digest = shared._digest(spec)
-        lease = AdmissionController(admission).acquire(digest)
+        session = None
+        if recovery_version == 3:
+            clock = v3_clock or (lambda: datetime.now(UTC))
+            session = capture_v3.ApprovalCapture(runtime, expected_source=expected_v3_source)
+            lease, _ = session.acquire(digest, v3_request_comment_id, clock=clock)
+            deadline = time.monotonic() + WHOLE_SECONDS
+        else:
+            lease = AdmissionController(admission).acquire(digest)
     except Exception as exc:
         raise _precondition_refusal("admission", exc) from None
     state = _State()
@@ -958,9 +992,38 @@ async def _qualify(runtime_root=None):
     report_attempted = False
     stage = "attempt"
     try:
-        attempt = _attempt_directory(
-            runtime, extra_grant=extra_grant, recovery_version=recovery_version or 1
-        )
+        if recovery_version == 3:
+            try:
+                readiness = _docker_readiness(runtime)
+                _deadline(deadline)
+            except BaseException:
+                # No attempt or owned Docker resource exists in this invocation yet.
+                # The durable grant remains consumed, but the shared marker can clear.
+                lease.finish(cleanup_confirmed=True)
+                raise
+            allocation_started = False
+
+            def allocate_once(root, gate):
+                nonlocal allocation_started
+                allocation_started = True
+                return _attempt_directory(
+                    root, extra_grant=True, recovery_version=3, v3_before_mkdir=gate
+                )
+
+            try:
+                _, attempt = session.recheck_before_attempt(
+                    lease, clock=clock, allocate=allocate_once
+                )
+            except BaseException:
+                # Recheck is read-only until the allocation callback is entered.
+                # A grant/receipt remains consumed; there is no owned resource yet.
+                if not allocation_started:
+                    lease.finish(cleanup_confirmed=True)
+                raise
+        else:
+            attempt = _attempt_directory(
+                runtime, extra_grant=extra_grant, recovery_version=recovery_version or 1
+            )
         store = _DurableStore(attempt, state)
         store.json("policy.json", spec)
         docker_config = attempt / "docker-config"
@@ -1065,13 +1128,56 @@ async def _qualify(runtime_root=None):
     }, deadline
 
 
+def _request_v3_comment_id(runtime, challenge, history):
+    """Show the exact decision body while the one-process admission lock is held."""
+    head, tree = extra_v3._source_identity()
+    body = {
+        "schema": approval_v3.SCHEMA,
+        "decision": approval_v3.DECISION,
+        "challenge": challenge,
+        "runtime_root": str(runtime),
+        "source_head": head,
+        "source_tree": tree,
+        "proof_history": history,
+        "proof_history_sha256": approval_v3._history_digest(history),
+        "attempts_used_before": 4,
+        "additional_attempts": 1,
+        "network": "none",
+        "runtime_authority": False,
+        "expires_utc": (datetime.now(UTC) + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    rendered = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    if len(rendered.encode("utf-8")) > approval_v3.MAX_BODY_BYTES:
+        raise ValueError("reader_native_v3_body_bound")
+    print(
+        "Post this exact JSON as your separate one-run decision on GitHub issue #166.", flush=True
+    )
+    print("Create the comment after this challenge appeared; do not edit it.", flush=True)
+    print(rendered, flush=True)
+    raw = input("New comment's numeric GitHub ID: ")
+    if re.fullmatch(r"[1-9][0-9]{0,18}", raw) is None:
+        raise ValueError("reader_native_v3_comment_id")
+    return int(raw)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true", required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
+    parser.add_argument("--one-run-v3", action="store_true")
     args = parser.parse_args()
     try:
-        receipt, deadline = asyncio.run(_qualify(args.runtime_root))
+        if args.one_run_v3:
+            receipt, deadline = asyncio.run(
+                _qualify(
+                    args.runtime_root,
+                    v3_request_comment_id=lambda challenge, history: _request_v3_comment_id(
+                        args.runtime_root, challenge, history
+                    ),
+                )
+            )
+        else:
+            receipt, deadline = asyncio.run(_qualify(args.runtime_root))
         rendered = json.dumps(receipt, sort_keys=True)
         _deadline(deadline)
     except _PreconditionRefused as exc:
