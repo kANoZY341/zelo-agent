@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.agent_computers import ComputerControlState
+from app.agent_computers import ComputerBackendError, ComputerControlState
 from app.agent_execution import AgentExecutionService
 from app.agent_factory import (
     AgentComputerSpec,
@@ -195,7 +195,11 @@ class FakeReadBackend:
         self.calls.append(("control", instance_id, ""))
         return self.control_state
 
-    async def read_action(self, instance_id: str, action: str, *, path: str = ""):
+    async def read_action(
+        self, instance_id: str, action: str, *, path: str = "", authorize_action=None
+    ):
+        if authorize_action is not None and not authorize_action():
+            raise ComputerBackendError("computer_execution_spec_stale")
         self.calls.append((action, instance_id, path))
         return self.responses[action]
 
@@ -629,7 +633,9 @@ def test_core_takeover_fences_claimed_tasks_with_stale_backend_control(
             await computers.take(instance_id)
         return captured
 
-    async def read_action(instance_id, action, *, path=""):
+    async def read_action(instance_id, action, *, path="", authorize_action=None):
+        if authorize_action is not None and not authorize_action():
+            raise ComputerBackendError("computer_execution_spec_stale")
         read_calls.append((instance_id, action, path))
         if stage == "during_read":
             await computers.take(instance_id)
@@ -712,8 +718,10 @@ def test_pausing_claimed_computer_task_fences_backend_and_result(
             pause()
         return state
 
-    async def read_action(instance_id, action, *, path=""):
-        value = await original_read(instance_id, action, path=path)
+    async def read_action(instance_id, action, *, path="", authorize_action=None):
+        value = await original_read(
+            instance_id, action, path=path, authorize_action=authorize_action
+        )
         if stage == "during_read":
             pause()
         return value
@@ -785,3 +793,91 @@ def test_pausing_computer_agent_before_finish_withholds_result(database, setting
     assert observed.status == State.CANCELLED
     assert observed.error == "agent_execution_invalidated"
     assert observed.result is None
+
+
+def test_pause_during_real_backend_listing_refuses_later_computer_action(database, settings):
+    """A claimed Task cannot send after an inner supervisor await sees stale state."""
+    import httpx
+    from pydantic import SecretStr
+
+    from app.agent_computers import OpenBotComputerBackend
+
+    _fake, runtime, supervisor, tasks, submits, instance = setup(database, settings)
+    grant(database, instance.id, files=True)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    observed = {"armed": False, "listings": 0, "actions": 0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/computers":
+            if observed["armed"]:
+                observed["listings"] += 1
+                if observed["listings"] == 2:
+                    entered.set()
+                    await release.wait()
+            return httpx.Response(
+                200,
+                json={
+                    "computers": [
+                        {
+                            "botId": instance.id,
+                            "container": f"zelo-computer-{instance.id}",
+                            "status": "running",
+                            "port": 49152,
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/control":
+            return httpx.Response(
+                200,
+                json={
+                    "holder": "bot",
+                    "requested": False,
+                    "transitioning": False,
+                    "resumeSnapshotRequired": False,
+                },
+            )
+        if request.url.path == "/files/read":
+            observed["actions"] += 1
+            return httpx.Response(200, json=FakeReadBackend().responses["files_read"])
+        raise AssertionError(f"Unexpected computer endpoint: {request.url.path}")
+
+    configured = settings.model_copy(
+        update={
+            "computer_supervisor_url": "http://127.0.0.1:4312",
+            "computer_supervisor_token": SecretStr("s" * 24),
+            "computer_token": SecretStr("c" * 24),
+        }
+    )
+    runtime.backend = OpenBotComputerBackend(configured, transport=httpx.MockTransport(handler))
+    task, created = submits.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ComputerRunInput(
+                kind="computer_run", payload={"action": "files_read", "path": "notes.txt"}
+            )
+        ),
+        None,
+    )
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+    instances = AgentInstanceService(database, submits.factory, MemoryService(database))
+
+    async def exercise():
+        observed["armed"] = True
+        running = asyncio.create_task(Runner(tasks, computer_supervisor=supervisor)._run(claimed))
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=5)
+            instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+        finally:
+            release.set()
+        await running
+
+    asyncio.run(exercise())
+    result = tasks.get(task.id)
+    assert observed["listings"] == 2
+    assert observed["actions"] == 0
+    assert result.status != State.SUCCEEDED
+    assert result.result is None

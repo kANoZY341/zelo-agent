@@ -476,3 +476,54 @@ def test_hardened_supervisor_network_mode_never_prefers_published_loopback():
     assert "...(network\n          ? address" in source
     assert "...(options.network\n        ? settled?.address" in source
     assert "...(settled?.port\n        ? { url:" not in source
+
+
+def test_navigation_refuses_after_supervisor_listing_if_authority_changes():
+    agent_id = "agent-1"
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    allowed = {"value": True}
+    actions: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/computers":
+            entered.set()
+            await release.wait()
+            return httpx.Response(
+                200,
+                json={
+                    "computers": [
+                        {
+                            "botId": agent_id,
+                            "container": "zelo-computer-agent-1",
+                            "status": "running",
+                            "port": 49152,
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/navigate":
+            actions.append(request.url.path)
+            return httpx.Response(200, json={"url": "https://example.com/docs"})
+        raise AssertionError(f"Unexpected endpoint: {request.url.path}")
+
+    backend = OpenBotComputerBackend(settings(), transport=httpx.MockTransport(handler))
+
+    async def exercise():
+        running = asyncio.create_task(
+            backend.navigate_action(
+                agent_id,
+                "https://example.com/docs",
+                authorize_action=lambda: allowed["value"],
+            )
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=5)
+            allowed["value"] = False
+        finally:
+            release.set()
+        with pytest.raises(ComputerBackendError, match="computer_execution_spec_stale"):
+            await running
+
+    asyncio.run(exercise())
+    assert actions == []

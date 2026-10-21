@@ -550,12 +550,14 @@ class ComputerRuntime:
                     raw = await self.backend.navigate_action(
                         spec.agent_instance_id,
                         spec.endpoint.endpoint.origin + path,
+                        authorize_action=authorize_action,
                     )
                 else:
                     raw = await self.backend.read_action(
                         spec.agent_instance_id,
                         action,
                         path=path,
+                        authorize_action=authorize_action,
                     )
         except TimeoutError:
             raise ComputerRuntimeError("computer_timeout") from None
