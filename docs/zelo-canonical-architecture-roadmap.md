@@ -2,6 +2,19 @@
 
 ## Status
 
+**21 October current v0.15 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
+after [#243](https://github.com/kANoZY341/zelo-agent/pull/243) passed
+exact-head [CI 39623786563](https://github.com/kANoZY341/zelo-agent/actions/runs/39623786563)
+and distinct [main CI 39626598938](https://github.com/kANoZY341/zelo-agent/actions/runs/39626598938)
+(6,614 passed, 2 skipped on main). #194 is closed as superseded. This
+corrects the bounded delegated dual-Space file-read check; it does not prove
+native two-Computer acceptance or general Space authority. #239–#242 merged
+Agent lifecycle and inert Skill publication-link slices; external publication
+is still disabled. Full Media Reader, curated integrations, Worker, final
+release audit and operator decision remain open. Four Media refusals are
+terminal, no fifth attempt is authorized, and v0.15 remains **HOLD**. The
+20 October notes below describe earlier checkpoints.
+
 **20 October full-scope checkpoint:** Main `4e6cf84` (post-#228) passed
 CI 39359165343. Draft #194 is still pending native two-Computer acceptance.
 The isolated Media v3 branch through `262b78d` contains only inert ledger and offline
