@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -218,10 +219,13 @@ class SkillLearningProposalStore:
         agent_instance_id: str,
         revision: SkillProcedureRevision,
         evidence_refs: tuple[SkillLearningEvidenceRef, ...],
+        authorize_claim: Callable[[Session], bool] | None = None,
     ) -> tuple[StoredSkillLearningProposal, bool]:
         """Create one frozen candidate after Core-owned revalidation; retries are idempotent."""
 
         with self.database.transaction() as session:
+            if authorize_claim is not None and not authorize_claim(session):
+                raise ValueError("skill_learning_agent_invalidated")
             proposal = self._build(agent_instance_id, revision, evidence_refs)
             encoded = self._encode(
                 proposal.model_dump(mode="json"),
