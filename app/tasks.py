@@ -3646,7 +3646,13 @@ class TaskService:
                         else None
                     ),
                 )
-                if task.kind in {"research_run", "computer_run", "browser_run", "shell_run"}:
+                if task.kind in {
+                    "research_run",
+                    "computer_run",
+                    "browser_run",
+                    "shell_run",
+                    "python_run",
+                }:
                     # A pause/resume cannot restore a claimed attempt's authority.
                     delegated = agent_execution.delegation
                     lifecycle = (
@@ -4272,8 +4278,8 @@ class TaskService:
                 return False
 
     def worker_request_allowed(self, execution: Execution) -> bool:
-        """Recheck Browser/Shell Task and Agent authority before external action."""
-        if execution.kind not in {"browser_run", "shell_run"}:
+        """Recheck worker Task and Agent authority before external action."""
+        if execution.kind not in {"browser_run", "shell_run", "python_run"}:
             return False
         with self.database.read() as session:
             task = session.get(Task, execution.task_id)
@@ -4310,7 +4316,7 @@ class TaskService:
                             spec, execution.payload, execution.timeout_seconds
                         )
                     )
-                else:
+                elif execution.kind == "shell_run":
                     if (
                         task.shell_spec is None
                         or execution.shell_request is None
@@ -4328,6 +4334,20 @@ class TaskService:
                         and selected.worker.request_matches(
                             spec, execution.payload, execution.timeout_seconds
                         )
+                    )
+                else:
+                    if (
+                        task.python_spec is None
+                        or execution.python_selection is None
+                        or self.python_supervisor is None
+                    ):
+                        return False
+                    selection = WorkerSelectionSnapshot.model_validate(task.python_spec)
+                    supervisor = self.python_supervisor
+                    valid = (
+                        selection == execution.python_selection
+                        and supervisor.registry.get(selection.descriptor.worker_id) is not None
+                        and supervisor.matches(selection)
                     )
                 if not valid:
                     return False
@@ -4426,7 +4446,7 @@ class TaskService:
                         raise ValueError("Agent lifecycle changed after claim")
                 except (ValueError, DomainError):
                     outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
-            elif task.kind in {"browser_run", "shell_run"} and (
+            elif task.kind in {"browser_run", "shell_run", "python_run"} and (
                 task.agent_execution_spec is not None or execution.agent_execution is not None
             ):
                 try:

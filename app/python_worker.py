@@ -111,6 +111,7 @@ class PythonRuntime:
         stdin: str,
         timeout_seconds: float,
         emit: PythonEventSink,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         if (
             not isinstance(code, str)
@@ -140,6 +141,8 @@ class PythonRuntime:
         try:
             argv = developer_sandbox.python_compute_sandbox(command)
             emit("python_execution_started", {})
+            if authorize_action is not None and not authorize_action():
+                raise PythonRuntimeError("python_agent_execution_invalid")
             result = await run_process(
                 argv,
                 cwd=Path("/"),
@@ -152,6 +155,8 @@ class PythonRuntime:
         except DeveloperError as error:
             raise _runtime_error(error) from None
 
+        if authorize_action is not None and not authorize_action():
+            raise PythonRuntimeError("python_agent_execution_invalid")
         emit(
             "python_execution_completed",
             {"exit_code": result.exit_code, "duration_seconds": result.duration},
