@@ -239,6 +239,7 @@ class BrowserRuntime:
         timeout_seconds: float,
         emit: Callable[[str, dict[str, Any]], None],
         deadline: float | None = None,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         self._prune_owners()
         loop = asyncio.get_running_loop()
@@ -253,6 +254,8 @@ class BrowserRuntime:
                     timeout_seconds,
                 ):
                     raise BrowserRuntimeError("browser_execution_spec_stale")
+                if authorize_action is not None and not authorize_action():
+                    raise BrowserRuntimeError("browser_agent_execution_invalid")
                 # Trusted synchronous factories create no external resources.
                 renderer = await asyncio.to_thread(
                     self.renderer_factory,
@@ -270,13 +273,23 @@ class BrowserRuntime:
                 emit(
                     "browser_execution_started", {"endpoint_id": spec.endpoint.endpoint.endpoint_id}
                 )
+                if authorize_action is not None and not authorize_action():
+                    raise BrowserRuntimeError("browser_agent_execution_invalid")
+                render_options = (
+                    {"authorize_action": authorize_action} if authorize_action is not None else {}
+                )
                 evidence = await renderer.render(
-                    spec.endpoint.endpoint.endpoint_id, path, deadline=deadline
+                    spec.endpoint.endpoint.endpoint_id,
+                    path,
+                    deadline=deadline,
+                    **render_options,
                 )
             if not renderer.owner.cleanup_confirmed:
                 raise BrowserRuntimeError("browser_cleanup_unproven")
             if asyncio.current_task().cancelling():
                 raise asyncio.CancelledError
+            if authorize_action is not None and not authorize_action():
+                raise BrowserRuntimeError("browser_agent_execution_invalid")
             if (
                 evidence.source_origin != spec.endpoint.endpoint.origin
                 or evidence.source_path != path

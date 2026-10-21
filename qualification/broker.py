@@ -5,6 +5,7 @@ import hashlib
 import ipaddress
 import json
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Literal, Protocol
 
@@ -122,7 +123,13 @@ class PageSession:
         self._active: asyncio.Task | None = None
         self._cleanup: asyncio.Task | None = None
 
-    async def fetch(self, endpoint_id: str, path: str) -> PageEvidence:
+    async def fetch(
+        self,
+        endpoint_id: str,
+        path: str,
+        *,
+        authorize_request: Callable[[], bool] | None = None,
+    ) -> PageEvidence:
         # No await before admission: floods consume attempts without creating waiter queues.
         if self._closed or self._poisoned or self._attempts >= self._policy.attempts:
             raise QualificationError("session_unavailable")
@@ -180,6 +187,10 @@ class PageSession:
                         "timeout": dict.fromkeys(("connect", "read", "write", "pool"), remaining),
                     },
                 )
+                # DNS may await after Core's first check. Refuse a revoked request
+                # immediately before the transport sends it.
+                if authorize_request is not None and not authorize_request():
+                    raise QualificationError("browser_agent_execution_invalid")
                 # Direct transport has no client cookie/auth defaults, redirects or proxy lookup.
                 response = await transport.handle_async_request(request)
                 media = self._validate_response(response)

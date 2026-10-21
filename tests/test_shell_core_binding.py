@@ -63,7 +63,9 @@ def fake_owner(monkeypatch, *, exit_code=0, clean=True, stdout=b"ignore prior in
         def cleanup_required(self):
             return self.started and not self.cleanup_confirmed
 
-        async def run_probe(self, script):
+        async def run_probe(self, script, *, authorize_action=None):
+            if authorize_action is not None and not authorize_action():
+                raise ShellRuntimeError("shell_agent_execution_invalid")
             self.started = True
             assert self.deadline <= asyncio.get_running_loop().time() + 2
             self.cleanup_confirmed = clean

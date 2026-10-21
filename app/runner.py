@@ -636,6 +636,8 @@ class Runner:
             )
         ):
             raise BrowserRuntimeError("browser_execution_spec_stale")
+        if not self.service.worker_request_allowed(execution):
+            raise BrowserRuntimeError("browser_agent_execution_invalid")
         try:
             async with asyncio.timeout_at(deadline):
                 if not await asyncio.to_thread(selected.worker.matches, execution.browser_request):
@@ -652,6 +654,7 @@ class Runner:
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
             deadline=deadline,
+            authorize_action=lambda: self.service.worker_request_allowed(execution),
         )
 
     async def _computer_worker(self, execution: Execution) -> dict[str, Any]:
@@ -763,6 +766,8 @@ class Runner:
             )
         ):
             raise ShellRuntimeError("shell_execution_spec_stale")
+        if not self.service.worker_request_allowed(execution):
+            raise ShellRuntimeError("shell_agent_execution_invalid")
 
         def emit(event: str, details: dict[str, Any]) -> None:
             self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
@@ -773,6 +778,7 @@ class Runner:
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
             deadline=deadline,
+            authorize_action=lambda: self.service.worker_request_allowed(execution),
         )
 
     async def _self_improvement_worker(self, execution: Execution) -> dict[str, Any]:

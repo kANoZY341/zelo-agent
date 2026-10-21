@@ -10,6 +10,7 @@ import json
 import math
 import os
 import stat
+from collections.abc import Callable
 from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -317,6 +318,7 @@ async def run_probe(
     observation: NativeExecutionObservation | None = None,
     deadline: float | None = None,
     resources: ShellProbeResources | None = None,
+    authorize_action: Callable[[], bool] | None = None,
 ) -> ProcessResult:
     if resources is not None:
         if (
@@ -356,6 +358,8 @@ async def run_probe(
                 remaining = deadline - asyncio.get_running_loop().time()
                 if remaining <= 0:
                     raise DeveloperError("process_timeout")
+                if authorize_action is not None and not authorize_action():
+                    raise DeveloperError("shell_agent_execution_invalid")
                 return await run_process(
                     _pinned_arguments(artifacts, identity),
                     cwd=Path("/"),

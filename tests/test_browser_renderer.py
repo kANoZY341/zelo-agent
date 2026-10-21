@@ -443,7 +443,7 @@ def document_renderer(setup, daemon, *, gate=None, failed_cleanup=False):
     contract, bundle, runtime, registry, bindings = setup
 
     class Session(PageSession):
-        async def fetch(self, endpoint_id, path):
+        async def fetch(self, endpoint_id, path, *, authorize_request=None):
             assert (runtime / "active.marker").stat().st_size > 0
             assert (
                 self._deadline
@@ -452,7 +452,7 @@ def document_renderer(setup, daemon, *, gate=None, failed_cleanup=False):
             if gate:
                 gate[0].set()
                 await gate[1].wait()
-            return await super().fetch(endpoint_id, path)
+            return await super().fetch(endpoint_id, path, authorize_request=authorize_request)
 
         async def aclose(self):
             await super().aclose()
@@ -852,5 +852,131 @@ def test_real_cli_creation_cancellation_retains_child(setup):
         assert await closing
         assert children[0].returncode is not None
         lease.finish(cleanup_confirmed=True)
+
+    run(exercise())
+
+
+@pytest.mark.parametrize("stage", ["image inspect", "create", "post-create inspect", "start"])
+def test_revocation_after_docker_task_scheduled_cannot_launch(setup, monkeypatch, stage):
+    async def exercise():
+        daemon = Daemon(setup[0], setup[2])
+        renderer = document_renderer(setup, daemon)
+        original_create_task = asyncio.create_task
+        allowed = True
+        switched = False
+
+        def create_task(coro, *args, **kwargs):
+            nonlocal allowed, switched
+            name = coro.cr_code.co_name
+            if not switched and (
+                (stage == "image inspect" and name == "spawn" and not daemon.commands)
+                or (stage == "create" and name == "spawn" and daemon.commands)
+                or (
+                    stage == "post-create inspect"
+                    and name == "spawn"
+                    and any(args[0] == "create" for args in daemon.commands)
+                )
+                or (stage == "start" and name == "start")
+            ):
+                allowed = False
+                switched = True
+            return original_create_task(coro, *args, **kwargs)
+
+        monkeypatch.setattr("qualification.renderer_process.asyncio.create_task", create_task)
+        with pytest.raises(QualificationError, match="owner_failed"):
+            await renderer.render("fixture", "/page", authorize_action=lambda: allowed)
+        assert switched
+        commands = [
+            args[0] if args[0] in {"create", "start"} else " ".join(args[:2])
+            for args in daemon.commands
+        ]
+        if stage == "post-create inspect":
+            assert commands.count("image inspect") == 1 and "start" not in commands
+        else:
+            assert stage not in commands
+        assert renderer.owner.cleanup_confirmed
+        assert not daemon.exists
+
+    run(exercise())
+
+
+@pytest.mark.parametrize("stage", ["image inspect", "start"])
+def test_same_error_from_started_docker_command_never_confirms_cleanup(setup, stage):
+    async def exercise():
+        daemon = Daemon(setup[0], setup[2])
+        original_spawn = daemon.spawn
+
+        async def ambiguous_spawn(*args, **kwargs):
+            process = await original_spawn(*args, **kwargs)
+            command = args[len(CLI) :]
+            current = command[0] if command[0] == "start" else " ".join(command[:2])
+            if current == stage:
+                raise QualificationError("browser_agent_execution_invalid")
+            return process
+
+        daemon.spawn = ambiguous_spawn
+        renderer = document_renderer(setup, daemon)
+        with pytest.raises(QualificationError):
+            await renderer.render("fixture", "/page", authorize_action=lambda: True)
+        assert not renderer.owner.cleanup_confirmed
+        assert not daemon.exists
+        if daemon.attached is not None:
+            daemon.attached.kill()
+
+    run(exercise())
+
+
+def test_revocation_between_protocol_responses_stops_cdp_writes():
+    async def exercise():
+        reader = asyncio.StreamReader(limit=MESSAGE_BYTES)
+        entered = asyncio.Event()
+        allowed = True
+
+        class GatedWriter(Writer):
+            def write(self, raw):
+                if not self.requests:
+                    self.requests.append(json.loads(raw[:-1]))
+                    entered.set()
+                    return
+                super().write(raw)
+
+        writer = GatedWriter(reader)
+        task = asyncio.create_task(
+            render_document(
+                reader,
+                writer,
+                asyncio.get_running_loop().time() + 2,
+                "<p>safe</p>",
+                "text/html",
+                authorize_action=lambda: allowed,
+            )
+        )
+        await entered.wait()
+        allowed = False
+        reader.feed_data(b'{"id":1,"result":{"browserContextId":"context"}}\0')
+        with pytest.raises(QualificationError, match="browser_agent_execution_invalid"):
+            await task
+        assert [request["method"] for request in writer.requests] == ["Target.createBrowserContext"]
+
+    run(exercise())
+
+
+def test_revocation_during_docker_start_stops_protocol_writes(setup):
+    async def exercise():
+        daemon = Daemon(setup[0], setup[2], pause="start")
+        renderer = document_renderer(setup, daemon)
+        allowed = True
+        task = asyncio.create_task(
+            renderer.render("fixture", "/page", authorize_action=lambda: allowed)
+        )
+        await daemon.entered.wait()
+        allowed = False
+        daemon.release.set()
+        with pytest.raises(QualificationError):
+            await task
+        assert daemon.attached is not None
+        assert daemon.attached.stdin.requests == []
+        assert daemon.attached.returncode == -9
+        assert renderer.owner.cleanup_confirmed and not daemon.exists
 
     run(exercise())

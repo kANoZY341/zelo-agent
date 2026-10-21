@@ -131,8 +131,10 @@ def public_fixture(tmp_path, *, changed_body=False, truncated=False, oversized=F
                 yield self.data
 
         class Handle:
-            async def render(self, body, media_type, deadline):
+            async def render(self, body, media_type, deadline, *, authorize_action=None):
                 assert media_type == "text/plain"
+                if authorize_action is not None:
+                    assert authorize_action()
                 return SimpleNamespace(text=body, truncated=truncated, nodes=1)
 
             async def stop_and_confirm_cleanup(self):

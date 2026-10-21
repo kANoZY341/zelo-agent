@@ -135,6 +135,7 @@ class Execution:
     computer_request: ComputerExecutionSpec | None = None
     research_agent_lifecycle: tuple[int, int | None] | None = None
     computer_agent_lifecycle: tuple[int, int | None] | None = None
+    worker_agent_lifecycle: tuple[int, int | None] | None = None
 
 
 def audit(
@@ -3618,6 +3619,7 @@ class TaskService:
             agent_execution = None
             research_agent_lifecycle = None
             computer_agent_lifecycle = None
+            worker_agent_lifecycle = None
             if task.agent_execution_spec is not None:
                 try:
                     agent_execution = AgentExecutionBinding.model_validate(
@@ -3644,7 +3646,7 @@ class TaskService:
                         else None
                     ),
                 )
-                if task.kind in {"research_run", "computer_run"}:
+                if task.kind in {"research_run", "computer_run", "browser_run", "shell_run"}:
                     # A pause/resume cannot restore a claimed attempt's authority.
                     delegated = agent_execution.delegation
                     lifecycle = (
@@ -3655,8 +3657,10 @@ class TaskService:
                     )
                     if task.kind == "research_run":
                         research_agent_lifecycle = lifecycle
-                    else:
+                    elif task.kind == "computer_run":
                         computer_agent_lifecycle = lifecycle
+                    else:
+                        worker_agent_lifecycle = lifecycle
 
             if task.kind in {
                 "approval_demo",
@@ -4157,6 +4161,7 @@ class TaskService:
                 computer_request=computer_request,
                 research_agent_lifecycle=research_agent_lifecycle,
                 computer_agent_lifecycle=computer_agent_lifecycle,
+                worker_agent_lifecycle=worker_agent_lifecycle,
             )
 
     def research_tool_allowed(self, execution: Execution, tool_name: str) -> bool:
@@ -4266,6 +4271,85 @@ class TaskService:
             except (DomainError, ValueError):
                 return False
 
+    def worker_request_allowed(self, execution: Execution) -> bool:
+        """Recheck Browser/Shell Task and Agent authority before external action."""
+        if execution.kind not in {"browser_run", "shell_run"}:
+            return False
+        with self.database.read() as session:
+            task = session.get(Task, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if (
+                task is None
+                or attempt is None
+                or attempt.task_id != task.id
+                or task.kind != execution.kind
+                or task.status != State.RUNNING
+                or attempt.outcome != State.RUNNING
+                or task.cancel_requested
+                or task.payload != execution.payload
+                or task.timeout_seconds != execution.timeout_seconds
+            ):
+                return False
+            try:
+                if execution.kind == "browser_run":
+                    if (
+                        task.browser_spec is None
+                        or execution.browser_request is None
+                        or self.browser_supervisor is None
+                    ):
+                        return False
+                    spec = BrowserExecutionSpec.model_validate(task.browser_spec)
+                    supervisor = self.browser_supervisor
+                    selection = spec.worker_selection
+                    selected = supervisor.registry.get(selection.descriptor.worker_id)
+                    valid = (
+                        spec == execution.browser_request
+                        and selected is not None
+                        and supervisor.matches(selection)
+                        and selected.worker.request_matches(
+                            spec, execution.payload, execution.timeout_seconds
+                        )
+                    )
+                else:
+                    if (
+                        task.shell_spec is None
+                        or execution.shell_request is None
+                        or self.shell_supervisor is None
+                    ):
+                        return False
+                    spec = ShellExecutionSpec.model_validate(task.shell_spec)
+                    supervisor = self.shell_supervisor
+                    selection = spec.worker_selection
+                    selected = supervisor.registry.get(selection.descriptor.worker_id)
+                    valid = (
+                        spec == execution.shell_request
+                        and selected is not None
+                        and supervisor.matches(selection)
+                        and selected.worker.request_matches(
+                            spec, execution.payload, execution.timeout_seconds
+                        )
+                    )
+                if not valid:
+                    return False
+                if task.agent_execution_spec is None:
+                    return execution.agent_execution is None
+                binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                if binding != execution.agent_execution:
+                    return False
+                self._validate_agent_execution(
+                    session, binding, campaign_id=_task_campaign_id(session, task)
+                )
+                delegated = binding.delegation
+                lifecycle = (
+                    self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                    self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                    if delegated is not None
+                    else None,
+                )
+                return lifecycle == execution.worker_agent_lifecycle
+            except (ValueError, DomainError):
+                return False
+
     def api_request_allowed(self, execution: Execution) -> bool:
         """Recheck the current Core Task and endpoint binding before API I/O."""
         if execution.kind != "api_run" or execution.api_request is None:
@@ -4340,6 +4424,27 @@ class TaskService:
                     )
                     if lifecycle != expected:
                         raise ValueError("Agent lifecycle changed after claim")
+                except (ValueError, DomainError):
+                    outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
+            elif task.kind in {"browser_run", "shell_run"} and (
+                task.agent_execution_spec is not None or execution.agent_execution is not None
+            ):
+                try:
+                    binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                    if binding != execution.agent_execution:
+                        raise ValueError("Worker Agent execution binding changed")
+                    self._validate_agent_execution(
+                        session, binding, campaign_id=_task_campaign_id(session, task)
+                    )
+                    delegated = binding.delegation
+                    lifecycle = (
+                        self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                        self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                        if delegated is not None
+                        else None,
+                    )
+                    if lifecycle != execution.worker_agent_lifecycle:
+                        raise ValueError("Worker Agent lifecycle changed after claim")
                 except (ValueError, DomainError):
                     outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
             task.capacity_backoff_attempts = 0
