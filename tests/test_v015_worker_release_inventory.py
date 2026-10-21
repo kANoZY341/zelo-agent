@@ -10,6 +10,12 @@ from app.schemas import ApiRunInput, BrowserRunInput, ComputerRunInput, ShellRun
 from app.v015_worker_release_inventory import worker_release_inventory
 
 EXPECTED_WORKERS = (
+    "codex_core",
+    "codex_reviewer",
+    "claude_core",
+    "claude_reviewer",
+    "opencode_core",
+    "opencode_reviewer",
     "research_core",
     "python_core",
     "api_core",
@@ -38,6 +44,10 @@ def test_default_v015_worker_inventory_does_not_claim_operational_readiness(sett
     assert all(item.new_authority_granted is False for item in report.workers)
 
     result = _by_id(report)
+    assert result["codex_core"].configured_registration == "registered_conditional_authority"
+    assert result["codex_reviewer"].configured_registration == "registered_conditional_authority"
+    for worker_id in ("claude_core", "claude_reviewer", "opencode_core", "opencode_reviewer"):
+        assert result[worker_id].configured_registration == "disabled_by_default"
     assert result["research_core"].configured_registration == "registered_conditional_authority"
     assert result["python_core"].configured_registration == "registered_conditional_authority"
     assert result["api_core"].configured_registration == "registered_no_approved_endpoints"
@@ -46,6 +56,36 @@ def test_default_v015_worker_inventory_does_not_claim_operational_readiness(sett
     assert result["computer_navigate_core"].configured_registration == "disabled_by_default"
     assert result["shell_core"].configured_registration == "disabled_by_default"
     assert result["media_native_reader"].configured_registration == "not_registered_in_core"
+
+
+def test_optional_developer_registration_flags_do_not_claim_qualification(settings):
+    configured = settings.model_copy(
+        update={"developer_claude_enabled": True, "developer_opencode_enabled": True}
+    )
+    report = worker_release_inventory(configured)
+    entries = _by_id(report)
+    for worker_id in ("claude_core", "claude_reviewer", "opencode_core", "opencode_reviewer"):
+        assert entries[worker_id].configured_registration == "configured_unverified"
+        assert entries[worker_id].release_qualified is False
+        assert entries[worker_id].new_authority_granted is False
+    assert report.operational_proof_performed is False
+
+    from app.developer import DeveloperRuntime
+
+    actual = {item.worker_id: item for item in DeveloperRuntime(configured).registry.list()}
+    assert set(actual) == {
+        "codex_core",
+        "codex_reviewer",
+        "claude_core",
+        "claude_reviewer",
+        "opencode_core",
+        "opencode_reviewer",
+    }
+    for worker_id, descriptor in actual.items():
+        assert (entries[worker_id].role, entries[worker_id].capability) == (
+            descriptor.role,
+            descriptor.capabilities[0],
+        )
 
 
 def test_candidate_endpoints_do_not_imply_qualified_api_or_browser(settings):
@@ -144,6 +184,9 @@ def test_actual_default_core_worker_registration_stays_inside_release_inventory(
     assert report.operational_proof_performed is False
 
     registrations = {
+        "developer": tuple(
+            item.worker_id for item in state.runner.developer_runtime.registry.list()
+        ),
         "research": tuple(item.worker_id for item in state.research_registry.list()),
         "python": tuple(item.worker_id for item in state.python_registry.list()),
         "api": tuple(item.worker_id for item in state.api_worker_registry.list()),
@@ -152,6 +195,7 @@ def test_actual_default_core_worker_registration_stays_inside_release_inventory(
         "shell": tuple(item.worker_id for item in state.shell_worker_registry.list()),
     }
     assert registrations == {
+        "developer": ("codex_core", "codex_reviewer"),
         "research": ("research_core",),
         "python": ("python_core",),
         "api": ("api_core",),
@@ -159,6 +203,11 @@ def test_actual_default_core_worker_registration_stays_inside_release_inventory(
         "computer": (),
         "shell": (),
     }
+    for descriptor in state.runner.developer_runtime.registry.list():
+        assert (metadata[descriptor.worker_id].role, metadata[descriptor.worker_id].capability) == (
+            descriptor.role,
+            descriptor.capabilities[0],
+        )
     assert state.api_endpoint_registry.list() == ()
     assert state.computer_browser_endpoint_registry.list() == ()
     assert not state.agent_computers.configured
