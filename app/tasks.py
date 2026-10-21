@@ -800,12 +800,20 @@ class TaskService:
             )
             raise DomainError(code, 409)
         if activation_id is None:
+            if computer_spec.parent_space_activation_id is not None:
+                raise DomainError("computer_space_activation_invalid", 409)
             return
         if (
             agent_execution is None
+            or (
+                (agent_execution.delegation is None)
+                != (computer_spec.parent_space_activation_id is None)
+            )
             or self.agent_factory is None
             or computer_spec.action not in ("files_read", "files_list")
         ):
+            # Delegated files require a separate exact parent confirmation.
+            # Legacy or unbound delegation still refuses before resource lookup.
             raise DomainError("computer_space_activation_invalid", 409)
         if agent_execution.delegation is not None:
             delegated = agent_execution.delegation
@@ -833,17 +841,23 @@ class TaskService:
                 _directory_components(computer_spec.path)
             else:
                 _path_components(computer_spec.path)
-            SpaceFileReadGateway(
-                self.database,
-                self.agent_factory,
-                self.settings.runtime_dir,
-                computer_worker,
-            )._verified_resource(
-                session,
-                instance_id=agent_execution.agent_instance_id,
-                activation_id=activation_id,
-                operation="list" if computer_spec.action == "files_list" else "read",
+            gateway = SpaceFileReadGateway(
+                self.database, self.agent_factory, self.settings.runtime_dir, computer_worker
             )
+            if agent_execution.delegation is not None:
+                gateway._verified_delegated_resource(
+                    session,
+                    agent=agent_execution,
+                    computer=computer_spec,
+                    campaign_id=agent_execution.delegation.campaign_id,
+                )
+            else:
+                gateway._verified_resource(
+                    session,
+                    instance_id=agent_execution.agent_instance_id,
+                    activation_id=activation_id,
+                    operation="list" if computer_spec.action == "files_list" else "read",
+                )
         except DomainError:
             raise DomainError("computer_space_activation_invalid", 409) from None
 
@@ -2131,6 +2145,7 @@ class TaskService:
                         request.timeout_seconds,
                         endpoint_id=payload.get("endpoint_id"),
                         space_activation_id=payload.get("space_activation_id"),
+                        parent_space_activation_id=payload.get("parent_space_activation_id"),
                     )
                     self._check_space_approval(
                         session, agent_execution, computer_request, selected.worker
@@ -3336,6 +3351,7 @@ class TaskService:
                         task.timeout_seconds,
                         endpoint_id=task.payload.get("endpoint_id"),
                         space_activation_id=task.payload.get("space_activation_id"),
+                        parent_space_activation_id=task.payload.get("parent_space_activation_id"),
                     )
                     # The takeover/Space checks issue SELECTs. Keep the new
                     # action version and its rebound Computer identity in one

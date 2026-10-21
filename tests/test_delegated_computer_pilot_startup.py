@@ -94,7 +94,7 @@ def test_pilot_refuses_disabling_with_live_parent(settings, database, monkeypatc
         assert client.get(f"/agents/{instance['id']}").json()["id"] == instance["id"]
 
 
-def test_normal_core_child_uses_own_space_under_live_specialist_delegation(
+def test_normal_core_requires_both_space_approvals_under_live_delegation(
     settings, database, monkeypatch
 ):
     from app.computer_observer import delegated_computer_registry
@@ -151,6 +151,31 @@ def test_normal_core_child_uses_own_space_under_live_specialist_delegation(
         )
         assert activated.status_code == 201, activated.text
         activation_id = activated.json()["id"]
+        parent_path = f"/agents/{parent['id']}"
+        assert (
+            client.patch(
+                parent_path + "/computer/permissions",
+                json={"enabled": True, "browser": True, "files": True},
+            ).status_code
+            == 200
+        )
+        assert client.post(parent_path + "/computer/start").status_code == 200
+        parent_intent = client.post(
+            parent_path + "/space-intents",
+            json={
+                "space_id": "workroom",
+                "resource_kind": "files",
+                "resource_id": "documents",
+                "operations": ["read"],
+                "ttl_seconds": 600,
+            },
+        )
+        assert parent_intent.status_code == 201, parent_intent.text
+        parent_activated = client.post(
+            parent_path + f"/space-intents/{parent_intent.json()['id']}/activate",
+            json={"resource_record_id": resource.json()["id"]},
+        )
+        assert parent_activated.status_code == 201, parent_activated.text
         state = client.app.state
         goal = ProjectService(state.database).create_goal(
             project["id"],
@@ -197,6 +222,9 @@ def test_normal_core_child_uses_own_space_under_live_specialist_delegation(
                 },
             },
         }
+        child_only = client.post(child_path + "/tasks", json=body)
+        assert child_only.status_code in (403, 409), child_only.text
+        body["task"]["payload"]["parent_space_activation_id"] = parent_activated.json()["id"]
         submitted = client.post(child_path + "/tasks", json=body)
         assert submitted.status_code == 201, submitted.text
         done = _finished(client, submitted.json()["id"])
