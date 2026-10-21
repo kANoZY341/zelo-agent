@@ -34,7 +34,7 @@ def _case(database, settings, action):
     claimed = tasks.claim()
     assert claimed is not None and claimed.computer_request is not None
     assert runtime.matches(claimed.computer_request)
-    return backend, runtime, instance, claimed, path, endpoint
+    return backend, runtime, instance, claimed, path, endpoint, tasks
 
 
 def _revoke(database, instance_id):
@@ -51,7 +51,7 @@ def _revoke(database, instance_id):
 def test_authority_drift_at_dispatch_never_calls_resource(
     database, settings, monkeypatch, action, boundary, drift
 ):
-    backend, runtime, instance, claimed, path, endpoint = _case(database, settings, action)
+    backend, runtime, instance, claimed, path, endpoint, tasks = _case(database, settings, action)
     real_control = backend.control
     invalidations = []
 
@@ -83,6 +83,7 @@ def test_authority_drift_at_dispatch_never_calls_resource(
                 endpoint_id=endpoint,
                 timeout_seconds=claimed.timeout_seconds,
                 emit=emit,
+                authorize_action=lambda: tasks.computer_request_allowed(claimed),
             )
         )
     assert invalidations
@@ -94,7 +95,7 @@ def test_authority_drift_at_dispatch_never_calls_resource(
 @pytest.mark.parametrize("boundary", ("control_await", "started_event"))
 def test_endpoint_drift_at_dispatch_never_navigates(database, settings, monkeypatch, boundary):
     action = "browser_navigate"
-    backend, runtime, _, claimed, path, endpoint = _case(database, settings, action)
+    backend, runtime, _, claimed, path, endpoint, tasks = _case(database, settings, action)
     real_control = backend.control
 
     def invalidate():
@@ -120,6 +121,7 @@ def test_endpoint_drift_at_dispatch_never_navigates(database, settings, monkeypa
                 endpoint_id=endpoint,
                 timeout_seconds=claimed.timeout_seconds,
                 emit=emit,
+                authorize_action=lambda: tasks.computer_request_allowed(claimed),
             )
         )
     assert not any(call[0] == action for call in backend.calls)
@@ -127,7 +129,7 @@ def test_endpoint_drift_at_dispatch_never_navigates(database, settings, monkeypa
 
 @pytest.mark.parametrize("action", (*READ_ACTIONS, "browser_navigate"))
 def test_unchanged_authority_still_dispatches_once(database, settings, action):
-    backend, runtime, _, claimed, path, endpoint = _case(database, settings, action)
+    backend, runtime, _, claimed, path, endpoint, tasks = _case(database, settings, action)
     events = []
     result = asyncio.run(
         runtime.run(
@@ -137,6 +139,7 @@ def test_unchanged_authority_still_dispatches_once(database, settings, action):
             endpoint_id=endpoint,
             timeout_seconds=claimed.timeout_seconds,
             emit=lambda event, _details: events.append(event),
+            authorize_action=lambda: tasks.computer_request_allowed(claimed),
         )
     )
     assert result["action"] == action

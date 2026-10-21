@@ -254,6 +254,7 @@ def test_direct_generic_backend_refuses_space_bound_execution(database, settings
                 path="notes.txt",
                 timeout_seconds=claimed.timeout_seconds,
                 emit=lambda *_: None,
+                authorize_action=lambda: env["tasks"].computer_request_allowed(claimed),
             )
         )
     assert not env["backend"].calls

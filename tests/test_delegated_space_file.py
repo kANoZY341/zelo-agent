@@ -194,8 +194,11 @@ def test_revocation_during_control_lookup_prevents_delegated_read(database, sett
     )
     asyncio.run(runner._run(claimed))
     outcome = env["tasks"].get(task.id)
-    assert outcome.status == State.FAILED
-    assert outcome.error == "computer_space_read_denied"
+    # Finish observes the revoked delegation and cancels the claimed attempt
+    # even though the Space gateway already refused the file operation.
+    assert outcome.status == State.CANCELLED
+    assert outcome.error == "agent_execution_invalidated"
+    assert outcome.result is None
     assert all(call[0] == "control" for call in env["backend"].calls)
     assert "space_file_read_completed" not in {
         event.event for event in env["tasks"].events(task.id, 100, 0)
