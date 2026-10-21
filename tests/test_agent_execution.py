@@ -38,8 +38,8 @@ from app.schemas import (
 )
 from app.tasks import TaskService
 from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_research_worker
-from tests.test_python_worker import python_supervisor
 from tests.test_independent_review import review_runtime
+from tests.test_python_worker import python_supervisor
 
 
 class StubGateway:
@@ -103,9 +103,7 @@ def test_python_agent_task_binds_exact_identity_and_worker_selection(database, s
         capabilities=("python_execution",),
         allowed_task_kinds=("python_run",),
         memory_namespace="agent/python_specialist",
-        worker_requirement=WorkerRequirement(
-            role="python", capabilities=("python_execution",)
-        ),
+        worker_requirement=WorkerRequirement(role="python", capabilities=("python_execution",)),
         lifecycle="active",
     )
     factory = AgentFactory(AgentRegistry((spec,)))
@@ -116,9 +114,7 @@ def test_python_agent_task_binds_exact_identity_and_worker_selection(database, s
     instance = instances.create(
         AgentInstanceCreate(agent_id=spec.agent_id, project_id=owned_project.id)
     )
-    body = AgentTaskCreate(
-        task=PythonRunInput(kind="python_run", payload={"code": "print(2 + 2)"})
-    )
+    body = AgentTaskCreate(task=PythonRunInput(kind="python_run", payload={"code": "print(2 + 2)"}))
 
     created, was_created = execution.submit(instance.id, body, "agent-python:one")
     replayed, was_replayed = execution.submit(instance.id, body, "agent-python:one")
@@ -134,10 +130,16 @@ def test_python_agent_task_binds_exact_identity_and_worker_selection(database, s
     assert created.python_spec is not None
     assert created.python_spec.descriptor.role == "python"
     assert created.python_spec.descriptor.capabilities == ("python_execution",)
-    assert len(
-        [event for event in tasks.events(created.id, 100, 0)
-         if event.event == "agent_execution_bound"]
-    ) == 1
+    assert (
+        len(
+            [
+                event
+                for event in tasks.events(created.id, 100, 0)
+                if event.event == "agent_execution_bound"
+            ]
+        )
+        == 1
+    )
 
 
 def test_research_agent_task_binds_exact_identity_and_replays(database, settings):

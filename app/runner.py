@@ -582,6 +582,8 @@ class Runner:
         )
         if selected is None or not self.python_supervisor.matches(execution.python_selection):
             raise PythonRuntimeError("python_worker_selection_stale")
+        if not self.service.worker_request_allowed(execution):
+            raise PythonRuntimeError("python_agent_execution_invalid")
         runtime = selected.worker
 
         def emit(event: str, details: dict[str, Any]) -> None:
@@ -592,6 +594,7 @@ class Runner:
             stdin=execution.payload.get("stdin", ""),
             timeout_seconds=execution.timeout_seconds,
             emit=emit,
+            authorize_action=lambda: self.service.worker_request_allowed(execution),
         )
 
     async def _api_worker(self, execution: Execution) -> dict[str, Any]:
