@@ -13,9 +13,11 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
 from app.developer_contracts import ValidationResult
 from app.developer_process import DeveloperError
+from app.memory import MemoryService
 from app.models import (
     Approval,
     SkillPublicationMergeAttemptRecord,
@@ -26,6 +28,7 @@ from app.models import (
 )
 from app.policy import State
 from app.promotion_contracts import PromotionCommitResult, PromotionRunResult
+from app.schemas import AgentInstanceTransition
 from app.skill_publication_one_attempt import (
     SkillPublicationMergeAttempt,
     SkillPublicationMergeFailure,
@@ -522,39 +525,35 @@ def test_post_merge_provider_failure_is_not_falsely_labeled_as_policy_mismatch(
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
 
 
-def test_cancelled_promotion_after_attempt_commit_refuses_merge_send(
-    database, proposal_case, tmp_path
-):
-    _store, claim, request, transport, _fence, service, template = _setup_one(
+def test_agent_pause_after_attempt_commit_refuses_merge_send(database, proposal_case, tmp_path):
+    store, claim, request, transport, _fence, service, template = _setup_one(
         database, proposal_case, tmp_path
     )
     _add_success_response(request, transport, template)
     original_transaction = database.transaction
-    cancelled = False
+    paused = False
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
 
     @contextmanager
-    def cancel_after_attempt_commit():
-        nonlocal cancelled
+    def pause_after_attempt_commit():
+        nonlocal paused
         with original_transaction() as session:
             yield session
-        if not cancelled and _rows(database)[0] == 1:
-            cancelled = True
-            with original_transaction() as session:
-                task = session.get(Task, request.promotion_task_id)
-                task.cancel_requested = True
+        if not paused and _rows(database)[0] == 1:
+            paused = True
+            instances.transition(claim.agent_instance_id, AgentInstanceTransition(action="pause"))
 
-    database.transaction = cancel_after_attempt_commit
+    database.transaction = pause_after_attempt_commit
     try:
-        with pytest.raises(ValueError, match="source_task_invalid"):
+        with pytest.raises(ValueError, match="candidate_stale_or_not_accepted"):
             asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     finally:
         database.transaction = original_transaction
 
-    assert cancelled
+    assert paused
     assert _rows(database) == (1, 0)
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
-    with original_transaction() as session:
-        session.get(Task, request.promotion_task_id).cancel_requested = False
+    instances.transition(claim.agent_instance_id, AgentInstanceTransition(action="resume"))
     with pytest.raises(ValueError, match="already_recorded"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
