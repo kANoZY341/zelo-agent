@@ -817,7 +817,11 @@ class Runner:
             self.service.model_event(execution.task_id, event, execution.attempt_id, **details)
 
         return await self.developer_runtime.run(
-            execution.task_id, execution.attempt_id, execution.developer_request, emit
+            execution.task_id,
+            execution.attempt_id,
+            execution.developer_request,
+            emit,
+            authorize_work=lambda: self.service.developer_request_allowed(execution),
         )
 
     async def _promotion_worker(self, execution: Execution) -> dict[str, Any]:

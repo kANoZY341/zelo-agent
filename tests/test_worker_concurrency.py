@@ -187,14 +187,21 @@ class CapacityRuntime:
     def approval_compatible(self, request: DeveloperRequest, timeout: float) -> bool:
         return self.compatible(request, timeout)
 
-    async def run(self, task_id, execution_id, request, emit):
+    @staticmethod
+    def _require_work_authority(authorize_work):
+        if authorize_work is not None and not authorize_work():
+            raise DeveloperError("developer_agent_authority_invalid")
+
+    async def run(self, task_id, execution_id, request, emit, authorize_work=None):
         if self.error is not None:
             raise DeveloperError(self.error)
+        self._require_work_authority(authorize_work)
         self.started.add(request.worker_selection.descriptor.worker_id)
         self.started_count += 1
         if self.started_count >= 2:
             self.both_started.set()
         await self.release.wait()
+        self._require_work_authority(authorize_work)
         return _result(request)
 
 
@@ -221,12 +228,14 @@ class ThreeWorkerRuntime(CapacityRuntime):
             raise AssertionError("unexpected worker instruction")
         return _request(worker_id, instruction, timeout)
 
-    async def run(self, task_id, execution_id, request, emit):
+    async def run(self, task_id, execution_id, request, emit, authorize_work=None):
+        self._require_work_authority(authorize_work)
         self.started.add(request.worker_selection.descriptor.worker_id)
         self.started_count += 1
         if self.started_count >= 3:
             self.all_started.set()
         await self.release.wait()
+        self._require_work_authority(authorize_work)
         return _result(request)
 
 

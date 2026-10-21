@@ -27,7 +27,14 @@ from app.developer_contracts import (
     ReviewerReport,
     ValidationResult,
 )
-from app.developer_process import DeveloperError, run_process, run_sync, uncancellable
+from app.developer_process import (
+    DeveloperError,
+    bind_developer_work_authority,
+    reset_developer_work_authority,
+    run_process,
+    run_sync,
+    uncancellable,
+)
 from app.developer_review import inventory
 from app.developer_sandbox import git_argv, sandbox, sandbox_policy_version
 from app.developer_validation import VALIDATION_VERSION, python_command, validation_manifest
@@ -1350,6 +1357,7 @@ class DeveloperRuntime:
         execution_id: str,
         request: DeveloperRequest,
         emit: Emit,
+        authorize_work: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         started = datetime.now(UTC)
         monotonic_start = time.monotonic()
@@ -1394,7 +1402,14 @@ class DeveloperRuntime:
         bound_worker_entered = False
         lock_released = False
         transient_error = None
+
+        def require_work_authority() -> None:
+            if authorize_work is not None and not authorize_work():
+                raise DeveloperError("developer_agent_authority_invalid")
+
+        authority_token = bind_developer_work_authority(authorize_work)
         try:
+            require_work_authority()
             emit("developer_started", {})
             async with asyncio.timeout(request.limits.overall_seconds):
                 if not self.compatible(request, request.limits.overall_seconds):
@@ -1451,9 +1466,11 @@ class DeveloperRuntime:
                 emit("developer_workspace_created", {"workspace": result["worktree"]})
                 git_before = await asyncio.to_thread(tree_digest, repo / ".git")
                 self.verify_checkout_path(repo)
+                require_work_authority()
                 emit("developer_worker_started", {})
                 result["worker_started_at"] = datetime.now(UTC).isoformat()
                 try:
+                    require_work_authority()
                     worker = await bound_worker.run(request, repo)
                 except BaseException:
                     emit("developer_worker_failed", {"reason": "worker_interrupted_or_failed"})
@@ -1471,6 +1488,7 @@ class DeveloperRuntime:
                 )
                 if worker.exit_code:
                     raise DeveloperError("worker_nonzero_exit")
+                require_work_authority()
                 self.verify_checkout_path(repo)
                 if await asyncio.to_thread(tree_digest, repo / ".git") != git_before:
                     raise DeveloperError("developer_boundary_violation")
@@ -1523,6 +1541,8 @@ class DeveloperRuntime:
         except Exception:
             result["error"] = "developer_execution_failed"
         finally:
+            # Finalization and owned resource cleanup remain available after pause.
+            reset_developer_work_authority(authority_token)
 
             async def finalize():
                 if before is not None:

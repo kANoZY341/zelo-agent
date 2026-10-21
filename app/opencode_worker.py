@@ -25,6 +25,7 @@ from app.developer_contracts import (
 from app.developer_process import (
     DeveloperError,
     environment,
+    require_developer_work_authority,
     run_process,
     spawn_owned_process,
     stop_process,
@@ -262,6 +263,8 @@ def _api_json(
     request = Request(base_url + path, data=body, headers=headers, method=method)
     opener = build_opener(ProxyHandler({}))
     try:
+        if method == "POST" and not path.endswith("/interrupt"):
+            require_developer_work_authority()
         with opener.open(request, timeout=max(0.1, timeout)) as response:
             data = response.read(API_RESPONSE_BYTES + 1)
     except HTTPError as exc:

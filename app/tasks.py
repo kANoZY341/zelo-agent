@@ -136,6 +136,7 @@ class Execution:
     research_agent_lifecycle: tuple[int, int | None] | None = None
     computer_agent_lifecycle: tuple[int, int | None] | None = None
     worker_agent_lifecycle: tuple[int, int | None] | None = None
+    developer_agent_lifecycle: tuple[int, int | None] | None = None
 
 
 def audit(
@@ -3620,6 +3621,7 @@ class TaskService:
             research_agent_lifecycle = None
             computer_agent_lifecycle = None
             worker_agent_lifecycle = None
+            developer_agent_lifecycle = None
             if task.agent_execution_spec is not None:
                 try:
                     agent_execution = AgentExecutionBinding.model_validate(
@@ -3652,6 +3654,7 @@ class TaskService:
                     "browser_run",
                     "shell_run",
                     "python_run",
+                    "developer_run",
                 }:
                     # A pause/resume cannot restore a claimed attempt's authority.
                     delegated = agent_execution.delegation
@@ -3665,6 +3668,8 @@ class TaskService:
                         research_agent_lifecycle = lifecycle
                     elif task.kind == "computer_run":
                         computer_agent_lifecycle = lifecycle
+                    elif task.kind == "developer_run":
+                        developer_agent_lifecycle = lifecycle
                     else:
                         worker_agent_lifecycle = lifecycle
 
@@ -4168,6 +4173,7 @@ class TaskService:
                 research_agent_lifecycle=research_agent_lifecycle,
                 computer_agent_lifecycle=computer_agent_lifecycle,
                 worker_agent_lifecycle=worker_agent_lifecycle,
+                developer_agent_lifecycle=developer_agent_lifecycle,
             )
 
     def research_tool_allowed(self, execution: Execution, tool_name: str) -> bool:
@@ -4275,6 +4281,49 @@ class TaskService:
                 )
                 return lifecycle == execution.computer_agent_lifecycle
             except (DomainError, ValueError):
+                return False
+
+    def developer_request_allowed(self, execution: Execution) -> bool:
+        """Recheck the approved Developer attempt and claimed Agent lifecycle."""
+        if execution.kind != "developer_run" or execution.developer_request is None:
+            return False
+        with self.database.read() as session:
+            task = session.get(Task, execution.task_id)
+            attempt = session.get(TaskAttempt, execution.attempt_id)
+            if (
+                task is None
+                or attempt is None
+                or attempt.task_id != execution.task_id
+                or task.kind != "developer_run"
+                or task.status != State.RUNNING
+                or attempt.outcome != State.RUNNING
+                or task.cancel_requested
+                or task.developer_spec is None
+                or task.payload != execution.payload
+                or task.timeout_seconds != execution.timeout_seconds
+            ):
+                return False
+            try:
+                request = DeveloperRequest.model_validate(task.developer_spec)
+                if request != execution.developer_request:
+                    return False
+                if task.agent_execution_spec is None:
+                    return execution.agent_execution is None
+                binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+                if binding != execution.agent_execution:
+                    return False
+                self._validate_agent_execution(
+                    session, binding, campaign_id=_task_campaign_id(session, task)
+                )
+                delegated = binding.delegation
+                lifecycle = (
+                    self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                    self._agent_lifecycle_sequence(session, delegated.parent_instance_id)
+                    if delegated is not None
+                    else None,
+                )
+                return lifecycle == execution.developer_agent_lifecycle
+            except (ValueError, DomainError):
                 return False
 
     def worker_request_allowed(self, execution: Execution) -> bool:
@@ -4418,7 +4467,7 @@ class TaskService:
                 raise DomainError("Attempt is not running")
             if task.cancel_requested:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
-                if task.kind != "developer_run":
+                if task.kind != "developer_run" or execution.agent_execution is not None:
                     result = None
             elif task.kind in {"research_run", "computer_run"} and (
                 task.agent_execution_spec is not None or execution.agent_execution is not None
@@ -4446,7 +4495,7 @@ class TaskService:
                         raise ValueError("Agent lifecycle changed after claim")
                 except (ValueError, DomainError):
                     outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
-            elif task.kind in {"browser_run", "shell_run", "python_run"} and (
+            elif task.kind in {"browser_run", "shell_run", "python_run", "developer_run"} and (
                 task.agent_execution_spec is not None or execution.agent_execution is not None
             ):
                 try:
@@ -4463,7 +4512,12 @@ class TaskService:
                         if delegated is not None
                         else None,
                     )
-                    if lifecycle != execution.worker_agent_lifecycle:
+                    expected = (
+                        execution.developer_agent_lifecycle
+                        if task.kind == "developer_run"
+                        else execution.worker_agent_lifecycle
+                    )
+                    if lifecycle != expected:
                         raise ValueError("Worker Agent lifecycle changed after claim")
                 except (ValueError, DomainError):
                     outcome, error, result = State.CANCELLED, "agent_execution_invalidated", None
