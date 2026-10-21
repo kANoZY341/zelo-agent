@@ -344,3 +344,29 @@ def test_restriction_probes_reject_incidental_failure_or_success(
     assert calls[-1] == (
         ": >/tmp/new-file\n" if case == "read_only_guest" else "printf 'harmless\\n' | read value\n"
     )
+
+
+def test_revocation_during_shell_pinning_prevents_native_spawn(monkeypatch):
+    allowed = True
+    events = []
+    monkeypatch.setattr(boundary, "verify_sources", lambda *a, **k: events.append("verify"))
+
+    @contextmanager
+    def pins(*args, **kwargs):
+        nonlocal allowed
+        events.append("pin")
+        allowed = False
+        try:
+            yield [SimpleNamespace(fd=100 + i) for i in range(len(boundary.SOURCES))]
+        finally:
+            events.append("close_pins")
+
+    monkeypatch.setattr(boundary, "_pin_sources", pins)
+    monkeypatch.setattr(
+        boundary, "run_process", lambda *a, **k: pytest.fail("native spawned after revocation")
+    )
+    with pytest.raises(DeveloperError, match="shell_agent_execution_invalid"):
+        asyncio.run(
+            boundary.run_probe("printf harmless", timeout=1, authorize_action=lambda: allowed)
+        )
+    assert events == ["verify", "pin", "close_pins"]

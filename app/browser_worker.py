@@ -275,8 +275,14 @@ class BrowserRuntime:
                 )
                 if authorize_action is not None and not authorize_action():
                     raise BrowserRuntimeError("browser_agent_execution_invalid")
+                render_options = (
+                    {"authorize_action": authorize_action} if authorize_action is not None else {}
+                )
                 evidence = await renderer.render(
-                    spec.endpoint.endpoint.endpoint_id, path, deadline=deadline
+                    spec.endpoint.endpoint.endpoint_id,
+                    path,
+                    deadline=deadline,
+                    **render_options,
                 )
             if not renderer.owner.cleanup_confirmed:
                 raise BrowserRuntimeError("browser_cleanup_unproven")

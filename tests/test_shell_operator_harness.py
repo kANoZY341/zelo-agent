@@ -129,7 +129,9 @@ def test_offline_full_api_workflow_controls(runtime_path, monkeypatch):
         def __init__(self, *args, **kwargs):
             made.append(self)
 
-        async def run_probe(self, script):
+        async def run_probe(self, script, *, authorize_action=None):
+            if authorize_action is not None:
+                assert authorize_action()
             expected = dict((body, output) for _, body, output in proof.SCRIPTS)
             assert script in expected
             self.cleanup_confirmed = True
@@ -219,7 +221,9 @@ def test_evidence_and_audit_mutation_rejected(runtime_path, monkeypatch, mutatio
         def __init__(self, *args, **kwargs):
             pass
 
-        async def run_probe(self, script):
+        async def run_probe(self, script, *, authorize_action=None):
+            if authorize_action is not None:
+                assert authorize_action()
             expected = dict((body, output) for _, body, output in proof.SCRIPTS)
             self.cleanup_confirmed = True
             return SimpleNamespace(

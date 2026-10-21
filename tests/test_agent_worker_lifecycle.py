@@ -308,8 +308,8 @@ def test_shell_pause_after_guest_starts_withholds_clean_result(
 
     probe = ShellOwner.run_probe
 
-    async def pause_after_probe(owner, script):
-        result = await probe(owner, script)
+    async def pause_after_probe(owner, script, **kwargs):
+        result = await probe(owner, script, **kwargs)
         instances.transition(instance.id, AgentInstanceTransition(action="pause"))
         return result
 
@@ -361,3 +361,88 @@ def test_browser_pause_after_render_withholds_clean_evidence(
     assert completed.status == State.CANCELLED
     assert completed.error == "agent_execution_invalidated"
     assert completed.result is None
+
+
+def test_browser_pause_during_bundle_verification_never_starts_owner(
+    database, settings, browser_setup, monkeypatch
+):
+    instances, tasks, execution = browser_agent_services(database, settings, browser_setup)
+    instance = instances.create(
+        AgentInstanceCreate(agent_id="browser_child", project_id=project(database).id)
+    )
+    task, _ = execution.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=BrowserRunInput(
+                kind="browser_run",
+                payload={"endpoint_id": "fixture", "path": "/doc"},
+                timeout_seconds=2,
+            )
+        ),
+        None,
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+    worker = tasks.browser_supervisor.registry.get(
+        claimed.browser_request.worker_selection.descriptor.worker_id
+    ).worker
+    original_factory = worker.renderer_factory
+    paused = []
+
+    def factory(*args):
+        renderer = original_factory(*args)
+        contract = renderer.contract
+
+        class PausingContract:
+            def __getattr__(self, name):
+                return getattr(contract, name)
+
+            def verify_bundle(self, bundle):
+                if not paused:
+                    paused.append(True)
+                    instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+                return contract.verify_bundle(bundle)
+
+        renderer.contract = PausingContract()
+        return renderer
+
+    monkeypatch.setattr(worker, "renderer_factory", factory)
+    asyncio.run(Runner(tasks, browser_supervisor=tasks.browser_supervisor)._run(claimed))
+    assert paused and len(worker.made) == 1
+    assert not worker.made[0].owner._used
+    assert tasks.get(task.id).status == State.CANCELLED
+
+
+def test_shell_pause_inside_owner_before_guest_never_launches(
+    database, settings, runtime, monkeypatch
+):
+    made = fake_owner(monkeypatch)
+    instances, tasks, execution = shell_agent_services(database, settings, runtime)
+    instance = instances.create(
+        AgentInstanceCreate(agent_id="shell_child", project_id=project(database).id)
+    )
+    task, _ = execution.submit(
+        instance.id,
+        AgentTaskCreate(
+            task=ShellRunInput(
+                kind="shell_run", payload={"script": "printf hello"}, timeout_seconds=2
+            )
+        ),
+        None,
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+    from app.shell_worker import ShellOwner, ShellRuntimeError
+
+    original_probe = ShellOwner.run_probe
+
+    async def pause_before_guest(owner, script, *, authorize_action=None):
+        instances.transition(instance.id, AgentInstanceTransition(action="pause"))
+        if authorize_action is not None and not authorize_action():
+            raise ShellRuntimeError("shell_agent_execution_invalid")
+        return await original_probe(owner, script)
+
+    monkeypatch.setattr(ShellOwner, "run_probe", pause_before_guest)
+    asyncio.run(Runner(tasks, shell_supervisor=tasks.shell_supervisor)._run(claimed))
+    assert len(made) == 1 and not made[0].started
+    assert tasks.get(task.id).status == State.CANCELLED

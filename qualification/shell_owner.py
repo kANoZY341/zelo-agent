@@ -1,6 +1,7 @@
 """Qualification-only Shell owner; no Core registration or authority grant."""
 
 import math
+from collections.abc import Callable
 from pathlib import Path
 
 from app.developer_process import DeveloperError, ProcessResult
@@ -17,15 +18,23 @@ class _ShellHandle:
         self._started = False
         self._closed = False
 
-    async def execute(self, script: str) -> ProcessResult:
+    async def execute(
+        self, script: str, *, authorize_action: Callable[[], bool] | None = None
+    ) -> ProcessResult:
         if self._started or self._closed:
             raise DeveloperError("shell_handle_terminal")
+        if authorize_action is not None and not authorize_action():
+            raise DeveloperError("shell_agent_execution_invalid")
         self._started = True
+        authorization = (
+            {"authorize_action": authorize_action} if authorize_action is not None else {}
+        )
         return await run_probe(
             script,
             identity=self._identity,
             deadline=self._deadline,
             resources=self._resources,
+            **authorization,
         )
 
     async def stop_and_confirm_cleanup(self) -> bool:
@@ -69,7 +78,9 @@ class ShellOwner(LeaseResourceOwner):
             absolute_deadline=deadline,
         )
 
-    async def run_probe(self, script: str) -> ProcessResult:
+    async def run_probe(
+        self, script: str, *, authorize_action: Callable[[], bool] | None = None
+    ) -> ProcessResult:
         self._identity.verify_current()
 
         async def factory(lease: Lease) -> _ShellHandle:
@@ -80,7 +91,9 @@ class ShellOwner(LeaseResourceOwner):
             return self._handle
 
         try:
-            return await super().run(factory, lambda handle: handle.execute(script))
+            return await super().run(
+                factory, lambda handle: handle.execute(script, authorize_action=authorize_action)
+            )
         except TimeoutError:
             # Either absolute-deadline layer may win. Cleanup evidence remains
             # independent; never map an uncertain termination to a clean timeout.

@@ -4,6 +4,7 @@ import asyncio
 import html
 import json
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from qualification.dns import QualificationError
@@ -128,8 +129,15 @@ def extract_text(root: dict) -> DOMText:
 
 
 class _Controller:
-    def __init__(self, reader, writer, deadline: float) -> None:
+    def __init__(
+        self,
+        reader,
+        writer,
+        deadline: float,
+        authorize_action: Callable[[], bool] | None = None,
+    ) -> None:
         self.reader, self.writer, self.deadline = reader, writer, deadline
+        self.authorize_action = authorize_action
         self.sequence = self.total = self.events = 0
         self.session = None
         self.context = None
@@ -151,6 +159,8 @@ class _Controller:
         if self.total > TOTAL_BYTES:
             raise QualificationError("pipe_bytes")
         async with asyncio.timeout_at(self.deadline):
+            if self.authorize_action is not None and not self.authorize_action():
+                raise QualificationError("browser_agent_execution_invalid")
             self.writer.write(raw)
             await self.writer.drain()
             while True:
@@ -304,5 +314,13 @@ def _identifier(data: dict, key: str) -> str:
     return value
 
 
-async def render_document(reader, writer, deadline: float, text: str, media_type: str) -> DOMText:
-    return await _Controller(reader, writer, deadline).render(text, media_type)
+async def render_document(
+    reader,
+    writer,
+    deadline: float,
+    text: str,
+    media_type: str,
+    *,
+    authorize_action: Callable[[], bool] | None = None,
+) -> DOMText:
+    return await _Controller(reader, writer, deadline, authorize_action).render(text, media_type)

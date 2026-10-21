@@ -10,6 +10,7 @@ import os
 import re
 import stat
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from qualification.admission import Lease
@@ -183,6 +184,10 @@ async def _kill_reap(process) -> None:
     await process.wait()
 
 
+class _PreSpawnDenied(QualificationError):
+    """Only a Core callback refusal before entering a native spawn."""
+
+
 class DockerHandle:
     """Construct before any resource creation; only trusted constructor seams."""
 
@@ -216,20 +221,30 @@ class DockerHandle:
         # contains no Docker config/contexts/credentials; HOME is not inherited.
         return {"DOCKER_CONFIG": str(self._case)}
 
-    async def _command(self, *args: str) -> bytes:
-        async def owned() -> bytes:
-            creation = asyncio.create_task(
-                self._spawn(
-                    *CLI,
-                    *args,
-                    stdin=asyncio.subprocess.DEVNULL,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=self._environment(),
-                    close_fds=True,
-                    limit=CLI_BYTES + 1,
-                )
+    async def _command(
+        self,
+        *args: str,
+        authorize_action: Callable[[], bool] | None = None,
+        mark_attempt: bool = False,
+    ) -> bytes:
+        async def spawn():
+            if authorize_action is not None and not authorize_action():
+                raise _PreSpawnDenied("browser_agent_execution_invalid")
+            if mark_attempt:
+                self._attempted = True  # The daemon may create a container without acknowledgement.
+            return await self._spawn(
+                *CLI,
+                *args,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=self._environment(),
+                close_fds=True,
+                limit=CLI_BYTES + 1,
             )
+
+        async def owned() -> bytes:
+            creation = asyncio.create_task(spawn())
             process = None
             readers = []
             try:
@@ -251,8 +266,9 @@ class DockerHandle:
                     if process is None:
                         process = await creation
                     await _kill_reap(process)
-                except BaseException:
-                    self._cli_cleanup_uncertain = True
+                except BaseException as error:
+                    if not isinstance(error, _PreSpawnDenied):
+                        self._cli_cleanup_uncertain = True
                     raise
 
         task = asyncio.create_task(owned())
@@ -261,8 +277,10 @@ class DockerHandle:
         # Retain completed commands until cleanup too: a spawn failure is ambiguous.
         return await asyncio.shield(task)
 
-    async def _inspect(self, kind: str, identity: str) -> dict:
-        raw = await self._command(kind, "inspect", identity)
+    async def _inspect(
+        self, kind: str, identity: str, *, authorize_action: Callable[[], bool] | None = None
+    ) -> dict:
+        raw = await self._command(kind, "inspect", identity, authorize_action=authorize_action)
         data = strict_json(raw)
         if type(data) is not list or len(data) != 1 or type(data[0]) is not dict:
             raise QualificationError("inspect_shape")
@@ -298,28 +316,60 @@ class DockerHandle:
                 raise QualificationError("profile_file_drift")
         return path
 
-    async def render(self, text: str, media_type: str, deadline: float):
+    async def render(
+        self,
+        text: str,
+        media_type: str,
+        deadline: float,
+        *,
+        authorize_action: Callable[[], bool] | None = None,
+    ):
         if self._close is not None or self._attempted:
             raise QualificationError("renderer_terminal")
         async with asyncio.timeout_at(deadline):
             await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
+            if authorize_action is not None and not authorize_action():
+                raise QualificationError("browser_agent_execution_invalid")
             profile = self._profile()
             verify_image(
-                await self._inspect("image", self.contract.execution.image_identity), self.contract
+                await self._inspect(
+                    "image",
+                    self.contract.execution.image_identity,
+                    authorize_action=authorize_action,
+                ),
+                self.contract,
             )
-            self._attempted = True  # before create: acknowledgement may be lost
-            await self._command(*create_arguments(self.contract, self.name, self.identity, profile))
+            if authorize_action is not None and not authorize_action():
+                raise QualificationError("browser_agent_execution_invalid")
+            await self._command(
+                *create_arguments(self.contract, self.name, self.identity, profile),
+                authorize_action=authorize_action,
+                mark_attempt=True,
+            )
             self._acknowledged = True
             await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
             self._profile()
             verify_image(
-                await self._inspect("image", self.contract.execution.image_identity), self.contract
+                await self._inspect(
+                    "image",
+                    self.contract.execution.image_identity,
+                    authorize_action=authorize_action,
+                ),
+                self.contract,
             )
             verify_container(
-                await self._inspect("container", self.name), self.contract, self.name, self.identity
+                await self._inspect("container", self.name, authorize_action=authorize_action),
+                self.contract,
+                self.name,
+                self.identity,
             )
-            self._attach = asyncio.create_task(
-                self._spawn(
+            if authorize_action is not None and not authorize_action():
+                raise QualificationError("browser_agent_execution_invalid")
+
+            async def start():
+                if authorize_action is not None and not authorize_action():
+                    raise _PreSpawnDenied("browser_agent_execution_invalid")
+                return await self._spawn(
                     *CLI,
                     "start",
                     "--attach",
@@ -332,11 +382,19 @@ class DockerHandle:
                     close_fds=True,
                     limit=MESSAGE_BYTES,
                 )
-            )
+
+            self._attach = asyncio.create_task(start())
             process = await asyncio.shield(self._attach)
+            if authorize_action is not None and not authorize_action():
+                raise QualificationError("browser_agent_execution_invalid")
             self._stderr = asyncio.create_task(_read_bounded(process.stderr, 16384))
+            protocol_options = (
+                {"authorize_action": authorize_action} if authorize_action is not None else {}
+            )
             self._render = asyncio.create_task(
-                render_document(process.stdout, process.stdin, deadline, text, media_type)
+                render_document(
+                    process.stdout, process.stdin, deadline, text, media_type, **protocol_options
+                )
             )
             done, _ = await asyncio.wait(
                 (self._stderr, self._render), return_when=asyncio.FIRST_COMPLETED
@@ -389,6 +447,8 @@ class DockerHandle:
         if self._attach is not None:
             try:
                 await _kill_reap(await self._attach)
+            except _PreSpawnDenied:
+                pass  # No native start was attempted; the created container is removed below.
             except Exception:
                 confirmed = False
         # Settle every create/inspect CLI before daemon discovery/removal.

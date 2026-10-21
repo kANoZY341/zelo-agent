@@ -11,7 +11,7 @@ from app.api_contracts import ApiEndpointBinding, ApiEndpointRegistry
 from app.schemas import ApiPayload
 from qualification.admission import AdmissionController
 from qualification.broker import PageSession, Policy
-from qualification.dns import _consume_exception
+from qualification.dns import QualificationError, _consume_exception
 from qualification.renderer_contracts import RendererContract
 from qualification.renderer_process import DockerHandle
 from qualification.resource_owner import ResourceOwner
@@ -95,7 +95,12 @@ class DocumentRenderer:
         self.owner = ResourceOwner(_ContractAdmission(admission, contract), contract.execution)
 
     async def render(
-        self, endpoint_id: str, path: str, *, deadline: float | None = None
+        self,
+        endpoint_id: str,
+        path: str,
+        *,
+        deadline: float | None = None,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> RenderedEvidence:
         payload = ApiPayload(endpoint_id=endpoint_id, path=path, query={})
         self.contract.verify_broker(self.registry, self.bindings, self.policy)
@@ -106,6 +111,8 @@ class DocumentRenderer:
         deadline = min(policy_deadline, deadline) if deadline is not None else policy_deadline
         async with asyncio.timeout_at(deadline):
             await asyncio.to_thread(self.contract.verify_bundle, self.bundle)
+        if authorize_action is not None and not authorize_action():
+            raise QualificationError("browser_agent_execution_invalid")
 
         async def factory(lease, policy):
             # No await or external work: ResourceOwner owns this handle before work begins.
@@ -113,14 +120,28 @@ class DocumentRenderer:
 
         async def work(job):
             async with asyncio.timeout_at(deadline):
+                if authorize_action is not None and not authorize_action():
+                    raise QualificationError("browser_agent_execution_invalid")
                 # PageSession's original policy identity is retained; its absolute deadline
                 # is clipped before fetch, so DNS/HTTP cannot outlive the global job budget.
                 job.session = self.session_factory(
                     self.registry, bindings=self.bindings, policy=self.policy
                 )
                 job.session._deadline = min(job.session._deadline, deadline)
-                evidence = await job.session.fetch(payload.endpoint_id, payload.path)
-                result = await job.renderer.render(evidence.text, evidence.media_type, deadline)
+                request_options = (
+                    {"authorize_request": authorize_action} if authorize_action is not None else {}
+                )
+                evidence = await job.session.fetch(
+                    payload.endpoint_id, payload.path, **request_options
+                )
+                if authorize_action is not None and not authorize_action():
+                    raise QualificationError("browser_agent_execution_invalid")
+                render_options = (
+                    {"authorize_action": authorize_action} if authorize_action is not None else {}
+                )
+                result = await job.renderer.render(
+                    evidence.text, evidence.media_type, deadline, **render_options
+                )
                 return RenderedEvidence(
                     result.text,
                     result.truncated,

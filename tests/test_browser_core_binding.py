@@ -65,7 +65,9 @@ def runtime(setup, *, gate=None, cleanup=None, clean=True, transform=None, fail=
     made = []
 
     class Handle:
-        async def render(self, body, media_type, deadline):
+        async def render(self, body, media_type, deadline, *, authorize_action=None):
+            if authorize_action is not None and not authorize_action():
+                raise RuntimeError("browser_agent_execution_invalid")
             assert body == "<p>safe</p>"
             assert deadline <= asyncio.get_running_loop().time() + 2
             if gate:

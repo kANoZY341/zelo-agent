@@ -300,7 +300,10 @@ class ShellRuntime:
             if authorize_action is not None and not authorize_action():
                 raise ShellRuntimeError("shell_agent_execution_invalid")
             owner_started = True
-            result = await owner.run_probe(script)
+            owner_options = (
+                {"authorize_action": authorize_action} if authorize_action is not None else {}
+            )
+            result = await owner.run_probe(script, **owner_options)
             if not owner.cleanup_confirmed:
                 raise ShellRuntimeError("shell_cleanup_unproven")
             if self._closing:
@@ -325,6 +328,8 @@ class ShellRuntime:
                     mapped = "shell_cleanup_unproven"
             raise ShellRuntimeError(mapped) from None
         except ShellRuntimeError:
+            if owner is not None and not owner.cleanup_required:
+                self._owners.discard(owner)
             raise
         except Exception:
             raise ShellRuntimeError(

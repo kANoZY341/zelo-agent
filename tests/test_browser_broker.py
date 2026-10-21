@@ -413,3 +413,30 @@ async def test_repeated_cancel_during_stream_cleanup_keeps_admission_closed():
         await task
     assert stream.closed and len(requests) == 1
     await asyncio.gather(*(broker.aclose() for _ in range(50)))
+
+
+@run_async
+async def test_revocation_while_dns_resolves_cannot_send_http():
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class GatedResolver(Resolver):
+        async def resolve(self, *args):
+            started.set()
+            await release.wait()
+            return await super().resolve(*args)
+
+    resolver = GatedResolver()
+    broker, requests, _ = session(resolver=resolver)
+    permitted = True
+    task = asyncio.create_task(
+        broker.fetch("page", "/article", authorize_request=lambda: permitted)
+    )
+    await started.wait()
+    permitted = False
+    release.set()
+    with pytest.raises(QualificationError, match="browser_agent_execution_invalid"):
+        await task
+    assert len(resolver.calls) == 1
+    assert requests == []
+    await broker.aclose()
