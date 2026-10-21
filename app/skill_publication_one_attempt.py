@@ -474,6 +474,19 @@ class SkillPublicationOneAttemptService:
             session.flush()
             attempt_id = row.id
 
+        # Agent lifecycle or source authority may change after the durable
+        # attempt commits. Recheck before dispatch; the attempt stays terminal
+        # even when this later check refuses the only possible send.
+        with self.store.database.read() as session:
+            self._source_task(session, request)
+        current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
+        if (
+            current.claim_fingerprint != observed.claim_fingerprint
+            or current.merge_request_sha256 != observed.merge_request_sha256
+            or current.artifact_sha256 != observed.artifact_sha256
+        ):
+            raise ValueError("skill_publication_single_attempt_stale")
+
         # EXACTLY ONE possible externally visible write after durable commit.
         # There is intentionally no retry loop, public API or Tool registration.
         endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"
