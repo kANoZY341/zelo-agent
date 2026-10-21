@@ -35,13 +35,16 @@ def _enabled_settings(settings, **overrides):
 
 
 def _controlled_backend(monkeypatch):
+    from app.agent_computers import ComputerBackendError
     from tests.test_agent_computer_service import FakeBackend
     from tests.test_computer_worker import FakeReadBackend
 
     class LifecycleBackend(FakeBackend):
         identity = "a" * 64
 
-        async def read_action(self, instance_id, action, *, path=""):
+        async def read_action(self, instance_id, action, *, path="", authorize_action=None):
+            if authorize_action is not None and not authorize_action():
+                raise ComputerBackendError("computer_execution_spec_stale")
             self.calls.append((action, instance_id))
             return FakeReadBackend().responses[action]
 

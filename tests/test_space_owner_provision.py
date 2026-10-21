@@ -651,8 +651,10 @@ def test_resume_snapshot_barrier_requires_explicit_observation_before_space_retr
 
     original_read_action = backend.read_action
 
-    async def observe_fresh_snapshot(instance_id, action, *, path=""):
-        result = await original_read_action(instance_id, action, path=path)
+    async def observe_fresh_snapshot(instance_id, action, *, path="", authorize_action=None):
+        result = await original_read_action(
+            instance_id, action, path=path, authorize_action=authorize_action
+        )
         if action == "browser_snapshot":
             # External backend state transition observed in native qualification;
             # the real Core gateway and permission checks are not replaced.

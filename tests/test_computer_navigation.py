@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from app.agent_computers import ComputerControlState
+from app.agent_computers import ComputerBackendError, ComputerControlState
 from app.agent_execution import AgentExecutionService
 from app.agent_factory import AgentComputerSpec, AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
@@ -61,7 +61,9 @@ class FakeNavigationBackend:
         self.calls.append(("control", instance_id, ""))
         return self.control_state
 
-    async def navigate_action(self, instance_id: str, url: str):
+    async def navigate_action(self, instance_id: str, url: str, *, authorize_action=None):
+        if authorize_action is not None and not authorize_action():
+            raise ComputerBackendError("computer_execution_spec_stale")
         self.calls.append(("browser_navigate", instance_id, url))
         return self.navigation_response
 
@@ -371,8 +373,8 @@ def test_human_takeover_during_navigation_refuses_returned_result(database, sett
     )
     original = backend.navigate_action
 
-    async def navigate_then_take_over(instance_id: str, url: str):
-        raw = await original(instance_id, url)
+    async def navigate_then_take_over(instance_id: str, url: str, *, authorize_action=None):
+        raw = await original(instance_id, url, authorize_action=authorize_action)
         backend.control_state = ComputerControlState(
             holder="human",
             requested=False,

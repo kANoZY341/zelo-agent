@@ -13,6 +13,7 @@ import hmac
 import ipaddress
 import json
 import re
+from collections.abc import Callable
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -204,6 +205,7 @@ class OpenBotComputerBackend:
         path: str,
         *,
         body: dict | None = None,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> object:
         agent_instance_id = self._require_agent_id(agent_instance_id)
         endpoint = self.endpoint(agent_instance_id, state)
@@ -216,6 +218,10 @@ class OpenBotComputerBackend:
                 timeout=timeout,
                 trust_env=False,
             ) as client:
+                # The supervisor lookup and client setup can suspend after Core's
+                # earlier check. Refuse before starting the computer action.
+                if authorize_action is not None and not authorize_action():
+                    raise ComputerBackendError("computer_execution_spec_stale")
                 async with client.stream(
                     "GET" if body is None else "POST",
                     f"{endpoint}{path}",
@@ -340,6 +346,7 @@ class OpenBotComputerBackend:
         action: ComputerReadAction,
         *,
         path: str = "",
+        authorize_action: Callable[[], bool] | None = None,
     ) -> object:
         state = await self.existing(agent_instance_id)
         if state is None or state.status != "running":
@@ -350,15 +357,19 @@ class OpenBotComputerBackend:
                 state,
                 "/snapshot",
                 body={},
+                authorize_action=authorize_action,
             )
         if action == "browser_read":
-            return await self._computer_request(agent_instance_id, state, "/read")
+            return await self._computer_request(
+                agent_instance_id, state, "/read", authorize_action=authorize_action
+            )
         if action == "files_list":
             return await self._computer_request(
                 agent_instance_id,
                 state,
                 "/files/list",
                 body={"path": path},
+                authorize_action=authorize_action,
             )
         if action == "files_read":
             return await self._computer_request(
@@ -366,6 +377,7 @@ class OpenBotComputerBackend:
                 state,
                 "/files/read",
                 body={"path": path},
+                authorize_action=authorize_action,
             )
         raise ComputerBackendError("computer_action_unsupported")
 
@@ -373,6 +385,8 @@ class OpenBotComputerBackend:
         self,
         agent_instance_id: str,
         url: str,
+        *,
+        authorize_action: Callable[[], bool] | None = None,
     ) -> object:
         if (
             not isinstance(url, str)
@@ -405,6 +419,7 @@ class OpenBotComputerBackend:
             state,
             "/navigate",
             body={"url": url},
+            authorize_action=authorize_action,
         )
 
     async def control(self, agent_instance_id: str) -> ComputerControlState:
