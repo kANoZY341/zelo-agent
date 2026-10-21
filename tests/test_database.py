@@ -695,9 +695,12 @@ def test_python_agent_guard_upgrade_preserves_tasks_and_other_triggers(settings)
         database.check_schema()
         with database.read() as session:
             after = dict(session.execute(triggers).all())
-            assert session.scalar(
-                text("SELECT COUNT(*) FROM tasks WHERE id='python-upgrade-preserve'")
-            ) == 1
+            assert (
+                session.scalar(
+                    text("SELECT COUNT(*) FROM tasks WHERE id='python-upgrade-preserve'")
+                )
+                == 1
+            )
             assert session.scalar(text("PRAGMA integrity_check")) == "ok"
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
         assert set(after) == set(before)
