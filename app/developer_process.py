@@ -7,6 +7,8 @@ import os
 import signal
 import subprocess
 import time
+from collections.abc import Callable
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,26 @@ class DeveloperError(Exception):
         super().__init__(code)
         self.exit_code = exit_code
         self.diagnostic = diagnostic
+
+
+_WORK_AUTHORITY: ContextVar[Callable[[], bool] | None] = ContextVar(
+    "developer_work_authority", default=None
+)
+
+
+def bind_developer_work_authority(authorize: Callable[[], bool] | None) -> Token:
+    """Bind a claimed Task's authority through non-cleanup Developer work."""
+    return _WORK_AUTHORITY.set(authorize if authorize is not None else _WORK_AUTHORITY.get())
+
+
+def reset_developer_work_authority(token: Token) -> None:
+    _WORK_AUTHORITY.reset(token)
+
+
+def require_developer_work_authority() -> None:
+    authorize = _WORK_AUTHORITY.get()
+    if authorize is not None and not authorize():
+        raise DeveloperError("developer_agent_authority_invalid")
 
 
 def environment() -> dict[str, str]:
@@ -306,6 +328,7 @@ async def spawn_owned_process(
             options["observation"] = observation
         if deadline is not None:
             options["deadline"] = deadline
+        require_developer_work_authority()
         process = OwnedProcess(argv, kwargs, **options)
         try:
             process._pidfd = os.pidfd_open(process.pid)
