@@ -1,5 +1,20 @@
 # Zelo live project status
 
+**21 October current v0.15 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
+merged [#243](https://github.com/kANoZY341/zelo-agent/pull/243) from reviewed
+head `66dda992`; exact-head [CI 39623786563](https://github.com/kANoZY341/zelo-agent/actions/runs/39623786563)
+and distinct [main CI 39626598938](https://github.com/kANoZY341/zelo-agent/actions/runs/39626598938)
+passed (6,614 passed, 2 skipped on main). It requires both current Space
+activations for the bounded delegated file read; native two-Computer
+acceptance and general Space authority are still open. #194 closed as
+superseded by #243. The preceding #239–#242 Python/Developer/Skill proposal
+Agent lifecycle and inert publication-receipt slices merged with passing
+exact-head and distinct main CI. External learned-Skill publication remains
+disabled. The full Media Reader, curated/REA qualification, Worker audit and
+release audit remain **HOLD**. Four native Media refusals stay terminal; no
+fifth run, activation or `v0.15.0` tag occurred. The 20 October notes below
+are historical checkpoints.
+
 **20 October full-scope checkpoint:** Current merged main is `4e6cf84`
 (after #228); its distinct main CI 39359165343 passed. Draft #194 is an
 older open PR at `b4435ef`, with passing exact-head CI but its required native
