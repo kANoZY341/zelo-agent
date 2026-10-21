@@ -1,12 +1,14 @@
-"""A child uses only its own explicit Space approval under a live delegation."""
+"""A child and parent require independent Space approvals under delegation."""
 
 import asyncio
 
 import pytest
+from pydantic import ValidationError
 
 from app.agent_delegations import AgentDelegationService
 from app.campaign_control import CampaignControlService
 from app.campaigns import CampaignService
+from app.models import AgentComputerPermission, utcnow
 from app.policy import DomainError, State
 from app.projects import ProjectService
 from app.runner import Runner
@@ -41,6 +43,24 @@ def _delegated_fixture(database, settings):
     env = _fixture(database, settings, extra_specs=(parent_spec,))
     parent = env["agents"].create(
         AgentInstanceCreate(agent_id="space_parent", project_id=env["project"].id)
+    )
+    with database.transaction() as session:
+        permission = session.get(AgentComputerPermission, parent.id)
+        assert permission is not None
+        permission.enabled = permission.files = True
+        permission.updated_at = utcnow()
+    parent_intent = env["intents"].create(
+        instance_id=parent.id,
+        space_id="workroom",
+        resource_kind="files",
+        resource_id="documents",
+        operations=("list", "read"),
+        ttl_seconds=600,
+    )
+    env["parent_activation"] = env["resources"].activate(
+        instance_id=parent.id,
+        intent_id=parent_intent.id,
+        resource_record_id=env["resource"].id,
     )
     goal = ProjectService(database).create_goal(
         env["project"].id,
@@ -78,7 +98,19 @@ def _delegated_fixture(database, settings):
     return env, campaign, delegation, delegations
 
 
-def _submit(env, campaign, delegation, activation_id, *, action="files_read", path="notes.txt"):
+def _submit(
+    env,
+    campaign,
+    delegation,
+    activation_id,
+    *,
+    action="files_read",
+    path="notes.txt",
+    parent_activation_id=None,
+):
+    parent_activation_id = (
+        env["parent_activation"].id if parent_activation_id is None else parent_activation_id
+    )
     return env["agent_submit"].submit(
         env["instance"].id,
         AgentTaskCreate(
@@ -90,6 +122,7 @@ def _submit(env, campaign, delegation, activation_id, *, action="files_read", pa
                     "action": action,
                     "path": path,
                     "space_activation_id": activation_id,
+                    "parent_space_activation_id": parent_activation_id,
                 },
             ),
         ),
@@ -97,7 +130,7 @@ def _submit(env, campaign, delegation, activation_id, *, action="files_read", pa
     )[0]
 
 
-def test_child_owned_grant_allows_delegated_read(database, settings):
+def test_dual_owned_grants_allow_delegated_read(database, settings):
     env, campaign, delegation, _ = _delegated_fixture(database, settings)
     (env["root"] / "notes.txt").write_text("child-approved")
     task = _submit(env, campaign, delegation, env["activation"].id)
@@ -133,22 +166,30 @@ def test_revoked_delegation_refuses_child_space_use(database, settings):
 
 def test_parent_grant_cannot_replace_child_grant(database, settings):
     env, campaign, delegation, _ = _delegated_fixture(database, settings)
-    parent_id = delegation.parent_instance_id
-    parent_intent = env["intents"].create(
-        instance_id=parent_id,
-        space_id="workroom",
-        resource_kind="files",
-        resource_id="documents",
-        operations=("read",),
-        ttl_seconds=600,
-    )
-    parent_activation = env["resources"].activate(
-        instance_id=parent_id,
-        intent_id=parent_intent.id,
-        resource_record_id=env["resource"].id,
-    )
+    with pytest.raises((DomainError, ValidationError)):
+        _submit(env, campaign, delegation, env["parent_activation"].id)
+    assert env["tasks"].list_tasks(limit=100, offset=0).total == 0
+
+
+def test_child_only_grant_is_refused_before_task_persistence(database, settings):
+    env, campaign, delegation, _ = _delegated_fixture(database, settings)
     with pytest.raises(DomainError, match="computer_space_activation_invalid"):
-        _submit(env, campaign, delegation, parent_activation.id)
+        env["agent_submit"].submit(
+            env["instance"].id,
+            AgentTaskCreate(
+                delegation_id=delegation.id,
+                task=ComputerRunInput(
+                    kind="computer_run",
+                    campaign_id=campaign.id,
+                    payload={
+                        "action": "files_read",
+                        "path": "notes.txt",
+                        "space_activation_id": env["activation"].id,
+                    },
+                ),
+            ),
+            None,
+        )
     assert env["tasks"].list_tasks(limit=100, offset=0).total == 0
 
 
@@ -227,8 +268,9 @@ def test_child_owned_list_grant_allows_only_listing(database, settings):
 
 
 @pytest.mark.parametrize("action", ["files_read", "files_list"])
+@pytest.mark.parametrize("stage", ["child_control", "parent_control"])
 def test_parent_pause_resume_during_control_cannot_read_delegated_space(
-    database, settings, monkeypatch, action
+    database, settings, monkeypatch, action, stage
 ):
     from sqlalchemy import select
 
@@ -253,6 +295,9 @@ def test_parent_pause_resume_during_control_cannot_read_delegated_space(
     assert claimed is not None and claimed.task_id == task.id
     instances = AgentInstanceService(database, env["factory"], MemoryService(database))
     control = env["backend"].control
+    target = env["instance"].id if stage == "child_control" else delegation.parent_instance_id
+    control_calls = []
+    paused = False
     operation = "_open_bounded_utf8" if action == "files_read" else "_list_bounded_entries"
     original = getattr(gateway_module, operation)
     accessed = []
@@ -262,11 +307,18 @@ def test_parent_pause_resume_during_control_cannot_read_delegated_space(
         return original(*args, **kwargs)
 
     async def pause_resume_then_report(instance_id):
-        instances.transition(delegation.parent_instance_id, AgentInstanceTransition(action="pause"))
-        instances.transition(
-            delegation.parent_instance_id, AgentInstanceTransition(action="resume")
-        )
-        return await control(instance_id)
+        nonlocal paused
+        state = await control(instance_id)
+        control_calls.append(instance_id)
+        if instance_id == target:
+            paused = True
+            instances.transition(
+                delegation.parent_instance_id, AgentInstanceTransition(action="pause")
+            )
+            instances.transition(
+                delegation.parent_instance_id, AgentInstanceTransition(action="resume")
+            )
+        return state
 
     monkeypatch.setattr(gateway_module, operation, recorded)
     monkeypatch.setattr(env["backend"], "control", pause_resume_then_report)
@@ -279,6 +331,7 @@ def test_parent_pause_resume_during_control_cannot_read_delegated_space(
     outcome = env["tasks"].get(task.id)
     assert outcome.status == State.CANCELLED
     assert outcome.result is None
+    assert paused and control_calls == [env["instance"].id, delegation.parent_instance_id]
     assert not accessed
     event = "space_file_read_completed" if action == "files_read" else "space_file_list_completed"
     with database.read() as session:

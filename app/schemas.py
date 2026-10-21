@@ -196,7 +196,17 @@ class BrowserRunInput(TaskInput):
 
 
 class ComputerPayload(StrictModel):
+    @model_serializer(mode="wrap")
+    def _preserve_legacy_request_identity(self, handler):
+        data = handler(self)
+        if self.parent_space_activation_id is None:
+            data.pop("parent_space_activation_id", None)
+        return data
+
     action: ComputerAction
+    parent_space_activation_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
     # Exact Core-approved Space confirmation; only read-only file operations may set this.
     space_activation_id: str | None = Field(
         default=None,
@@ -212,6 +222,12 @@ class ComputerPayload(StrictModel):
 
     @model_validator(mode="after")
     def _validate_path(self):
+        if self.parent_space_activation_id is not None and (
+            self.space_activation_id is None
+            or self.action not in ("files_read", "files_list")
+            or self.parent_space_activation_id == self.space_activation_id
+        ):
+            raise ValueError("computer_parent_space_binding_invalid")
         if self.space_activation_id is not None and self.action not in ("files_read", "files_list"):
             raise ValueError("computer_space_activation_files_read_only")
         if self.action == "browser_navigate":
