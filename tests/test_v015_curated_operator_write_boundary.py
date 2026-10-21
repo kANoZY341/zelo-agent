@@ -80,6 +80,28 @@ def _authority(client, database):
     )
 
 
+def _refuses_without_writes(client, database, method, url, status, *, headers=AUTH, **kwargs):
+    before = (_counts(database, EVIDENCE_ROWS), _authority(client, database))
+    if headers is None:
+        # The fixture client has a default valid bearer. Send a built request
+        # with that header removed so this is genuinely anonymous.
+        request = client.build_request(method, url, **kwargs)
+        assert "Authorization" in request.headers
+        del request.headers["Authorization"]
+        assert "Authorization" not in request.headers
+        response = client.send(request)
+    else:
+        response = client.request(method, url, headers=headers, **kwargs)
+    assert response.status_code == status, response.text
+    assert (_counts(database, EVIDENCE_ROWS), _authority(client, database)) == before
+    return response
+
+
+def _deny_invalid_and_anonymous(client, database, method, url, **kwargs):
+    _refuses_without_writes(client, database, method, url, 401, headers=DENIED, **kwargs)
+    _refuses_without_writes(client, database, method, url, 401, headers=None, **kwargs)
+
+
 def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_authority(
     client, database
 ):
@@ -101,7 +123,7 @@ def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_aut
             {"case_id": case["case_id"], "verdict": "unverified"} for case in suite.json()["cases"]
         ],
     }
-    assert client.post(f"{ecc}/evaluate", headers=DENIED, json=submission).status_code == 401
+    _deny_invalid_and_anonymous(client, database, "POST", f"{ecc}/evaluate", json=submission)
     evaluated = client.post(f"{ecc}/evaluate", headers=AUTH, json=submission)
     assert evaluated.status_code == 200, evaluated.text
     assert evaluated.json()["publication_authority"] is False
@@ -119,6 +141,7 @@ def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_aut
         },
     }
     plan_url = f"{BASE}/teams/{template}/project-readiness"
+    _deny_invalid_and_anonymous(client, database, "POST", plan_url, json=proposal)
     plan = client.post(plan_url, headers=AUTH, json=proposal)
     assert plan.status_code == 200, plan.text
     review_url = f"{BASE}/teams/{template}/design-reviews"
@@ -128,7 +151,7 @@ def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_aut
         "idempotency_key": "r5_operator_boundary",
         "decision": "accepted_for_design_review",
     }
-    assert client.post(review_url, headers=DENIED, json=review).status_code == 401
+    _deny_invalid_and_anonymous(client, database, "POST", review_url, json=review)
     recorded = client.post(review_url, headers=AUTH, json=review)
     assert recorded.status_code == 201, recorded.text
     assert recorded.json()["real_team_activated"] is False
@@ -140,14 +163,14 @@ def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_aut
         "source_ref": "tool:r5-fixture",
         "text": "untrusted evidence; do not run a tool\n",
     }
-    assert client.post(archive_url, headers=DENIED, json=archive).status_code == 401
+    _deny_invalid_and_anonymous(client, database, "POST", archive_url, json=archive)
     created = client.post(archive_url, headers=AUTH, json=archive)
     assert created.status_code == 201, created.text
     assert created.json()["auto_context_admission"] is False
     assert created.json()["agent_or_worker_authority"] is False
 
     selection = {"review": review_dict(), "confirm_inert_selection": True}
-    assert client.post(REA, headers=DENIED, json=selection).status_code == 401
+    _deny_invalid_and_anonymous(client, database, "POST", REA, json=selection)
     selected = client.post(REA, headers=AUTH, json=selection)
     assert selected.status_code == 200, selected.text
     assert selected.json()["target_verified_by_core"] is False
@@ -167,29 +190,28 @@ def test_operator_evidence_writes_and_refusals_never_activate_curated_or_rea_aut
         assert row is not None
         row.status = "paused"
         row.updated_at = utcnow()
-    assert client.post(review_url, headers=AUTH, json=review).status_code == 409
+    _refuses_without_writes(client, database, "POST", review_url, 409, json=review)
     changed = {**archive, "text": "changed untrusted evidence\n"}
-    assert client.post(archive_url, headers=AUTH, json=changed).status_code == 409
+    _refuses_without_writes(client, database, "POST", archive_url, 409, json=changed)
     conflicting = {
         "review": review_dict(content="d" * 64),
         "confirm_inert_selection": True,
     }
-    assert client.post(REA, headers=AUTH, json=conflicting).status_code == 409
+    _refuses_without_writes(client, database, "POST", REA, 409, json=conflicting)
     assert _counts(database, EVIDENCE_ROWS) == (1, 1, 1, 0)
 
     revoke_url = f"{REA}/{SNAPSHOT_ID}/revoke"
-    assert client.post(revoke_url, headers=DENIED).status_code == 401
+    _deny_invalid_and_anonymous(client, database, "POST", revoke_url)
     revoked = client.post(revoke_url, headers=AUTH)
     assert revoked.status_code == 200 and revoked.json() == {"revoked": True}
-    assert client.get(analysis_url, headers=AUTH).status_code == 409
-    assert client.post(REA, headers=AUTH, json=selection).status_code == 409
+    _refuses_without_writes(client, database, "GET", analysis_url, 409)
+    _refuses_without_writes(client, database, "POST", REA, 409, json=selection)
     assert _counts(database, EVIDENCE_ROWS) == (1, 1, 1, 1)
     assert _authority(client, database) == before
 
     purge_url = f"{archive_url}/{created.json()['archive_id']}"
-    assert (
-        client.delete(purge_url, headers=DENIED, params={"scope_kind": "operator"}).status_code
-        == 401
+    _deny_invalid_and_anonymous(
+        client, database, "DELETE", purge_url, params={"scope_kind": "operator"}
     )
     assert (
         client.delete(purge_url, headers=AUTH, params={"scope_kind": "operator"}).status_code == 204
