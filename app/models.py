@@ -1308,6 +1308,57 @@ class SkillPublicationMergeReceiptRecord(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class SkillPublicationPromotionReceiptLinkRecord(Base):
+    """Inert, exclusive local link to a positive exact-head merge receipt."""
+
+    __tablename__ = "skill_publication_promotion_receipt_links"
+    __table_args__ = (
+        UniqueConstraint("claim_id", name="uq_skill_pub_link_claim"),
+        UniqueConstraint("proposal_id", name="uq_skill_pub_link_proposal"),
+        UniqueConstraint("receipt_id", name="uq_skill_pub_link_receipt"),
+        UniqueConstraint(
+            "agent_instance_id",
+            "source_skill_id",
+            "procedure_id",
+            "proposed_version",
+            name="uq_skill_pub_link_scope_version",
+        ),
+        UniqueConstraint("link_fingerprint", name="uq_skill_pub_link_digest"),
+        CheckConstraint("proposed_version BETWEEN 1 AND 1000000", name="ck_skill_pub_link_version"),
+        CheckConstraint("pr_number >= 1", name="ck_skill_pub_link_pr"),
+        CheckConstraint("operator_subject='ahmad'", name="ck_skill_pub_link_owner"),
+        CheckConstraint("runtime_authority=0", name="ck_skill_pub_link_no_runtime"),
+        CheckConstraint(
+            "length(link_fingerprint)=64 AND length(receipt_fingerprint)=64 "
+            "AND length(intent_fingerprint)=64 AND length(pr_head_sha)=40 "
+            "AND length(merge_commit_sha)=40 AND length(revision_sha256)=64",
+            name="ck_skill_pub_link_digest_lengths",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    claim_id: Mapped[str] = mapped_column(ForeignKey("skill_publication_claims.id"), unique=True)
+    proposal_id: Mapped[str] = mapped_column(ForeignKey("skill_learning_proposals.id"), unique=True)
+    receipt_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_publication_merge_receipts.id"), unique=True
+    )
+    agent_instance_id: Mapped[str] = mapped_column(ForeignKey("agent_instances.id"))
+    source_skill_id: Mapped[str] = mapped_column(String(64))
+    procedure_id: Mapped[str] = mapped_column(String(64))
+    proposed_version: Mapped[int] = mapped_column(Integer)
+    intent_fingerprint: Mapped[str] = mapped_column(String(64))
+    receipt_fingerprint: Mapped[str] = mapped_column(String(64))
+    repository: Mapped[str] = mapped_column(String(256))
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_head_sha: Mapped[str] = mapped_column(String(40))
+    merge_commit_sha: Mapped[str] = mapped_column(String(40))
+    revision_sha256: Mapped[str] = mapped_column(String(64))
+    link_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    operator_subject: Mapped[str] = mapped_column(String(16), default="ahmad")
+    runtime_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class SkillPublicationMergeFailureRecord(Base):
     """Bounded terminal incident evidence; immutable; never permits retry."""
 

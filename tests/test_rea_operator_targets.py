@@ -378,7 +378,7 @@ def test_upgrading_existing_0037_account_data_retains_history(settings):
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0048_python_agent_execution_kind"
+                "0049_skill_publication_promotion_receipt_link"
             )
             assert (
                 session.scalar(text("SELECT count(*) FROM channel_operator_account_selections"))
