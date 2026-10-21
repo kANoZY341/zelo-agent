@@ -1,6 +1,23 @@
 # Zelo live project status
 
-**21 October current v0.15 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
+**21 October #248 checkpoint:** [PR #248](https://github.com/kANoZY341/zelo-agent/pull/248)
+merged at `02b1c7255bb1cff666f1051473df98a621bcb1bf` after independent
+exact-head review and passing [PR CI 39674380456](https://github.com/kANoZY341/zelo-agent/actions/runs/39674380456)
+(6,619 passed, 2 skipped). Distinct
+[main CI 39685145791](https://github.com/kANoZY341/zelo-agent/actions/runs/39685145791)
+**PASS** (6,619 passed, 2 skipped, 61 warnings). The durable one-attempt Skill sender
+rechecks live Agent/Promotion intent immediately before its possible merge
+send; it remains default-disabled, with cross-process race and provider
+review protection unresolved. On that merged SHA, bounded isolated
+Python/API/Research/Shell host proofs passed; their hashes and limits are in
+the [Worker inventory](v0.15-worker-release-inventory.md). A four-case local
+synthetic OCR probe missed both expected findings and cannot qualify #132.
+Full Media Reader, Space authority, curated/REA behavior, final Worker,
+migration and independent release gates remain **HOLD**. Four Media refusals
+are terminal, and no fifth run or v0.15 tag occurred. Earlier checkpoints
+below retain their historical claims.
+
+**Earlier 21 October #243 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
 merged [#243](https://github.com/kANoZY341/zelo-agent/pull/243) from reviewed
 head `66dda992`; exact-head [CI 39623786563](https://github.com/kANoZY341/zelo-agent/actions/runs/39623786563)
 and distinct [main CI 39626598938](https://github.com/kANoZY341/zelo-agent/actions/runs/39626598938)

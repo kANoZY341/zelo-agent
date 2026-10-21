@@ -2,7 +2,26 @@
 
 ## Status
 
-**21 October current v0.15 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
+**21 October #248 checkpoint:** Reviewed
+[PR #248](https://github.com/kANoZY341/zelo-agent/pull/248) merged at
+`02b1c7255bb1cff666f1051473df98a621bcb1bf` after exact-head
+[CI 39674380456](https://github.com/kANoZY341/zelo-agent/actions/runs/39674380456)
+passed (6,619 tests, 2 skipped); distinct
+[main CI 39685145791](https://github.com/kANoZY341/zelo-agent/actions/runs/39685145791)
+**PASS** (6,619 passed, 2 skipped, 61 warnings). The Skill single-attempt sender
+refuses a demonstrated Agent pause after durable attempt commit and before
+GitHub merge send, then prevents retry. External publication remains
+disabled and provider-enforced reviewer protection is missing. Isolated
+Python, API, Research and Shell host rechecks passed on that exact main,
+with bounded reports in the [Worker inventory](v0.15-worker-release-inventory.md);
+they do not close the Worker audit. Local synthetic OCR calibration missed
+both expected findings; #132 still needs real-diff quality evidence. The
+full native Media Reader, Space authority, curated/REA integrations, final
+migration/Worker tests, independent exact-main audit and operator release
+decision remain **HOLD**. Four Media refusals are terminal, no fifth proof
+was authorized, and `v0.15.0` was not tagged.
+
+**Earlier 21 October #243 checkpoint:** Main `2e245d5518757d8b283a67c812b8c985e9006c0b`
 after [#243](https://github.com/kANoZY341/zelo-agent/pull/243) passed
 exact-head [CI 39623786563](https://github.com/kANoZY341/zelo-agent/actions/runs/39623786563)
 and distinct [main CI 39626598938](https://github.com/kANoZY341/zelo-agent/actions/runs/39626598938)
