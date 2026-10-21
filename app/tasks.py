@@ -137,6 +137,7 @@ class Execution:
     computer_agent_lifecycle: tuple[int, int | None] | None = None
     worker_agent_lifecycle: tuple[int, int | None] | None = None
     developer_agent_lifecycle: tuple[int, int | None] | None = None
+    skill_learning_agent_lifecycle: tuple[int, int | None] | None = None
 
 
 def audit(
@@ -3622,6 +3623,7 @@ class TaskService:
             computer_agent_lifecycle = None
             worker_agent_lifecycle = None
             developer_agent_lifecycle = None
+            skill_learning_agent_lifecycle = None
             if task.agent_execution_spec is not None:
                 try:
                     agent_execution = AgentExecutionBinding.model_validate(
@@ -3655,6 +3657,7 @@ class TaskService:
                     "shell_run",
                     "python_run",
                     "developer_run",
+                    "skill_learning_proposal_run",
                 }:
                     # A pause/resume cannot restore a claimed attempt's authority.
                     delegated = agent_execution.delegation
@@ -3670,6 +3673,8 @@ class TaskService:
                         computer_agent_lifecycle = lifecycle
                     elif task.kind == "developer_run":
                         developer_agent_lifecycle = lifecycle
+                    elif task.kind == "skill_learning_proposal_run":
+                        skill_learning_agent_lifecycle = lifecycle
                     else:
                         worker_agent_lifecycle = lifecycle
 
@@ -4174,6 +4179,7 @@ class TaskService:
                 computer_agent_lifecycle=computer_agent_lifecycle,
                 worker_agent_lifecycle=worker_agent_lifecycle,
                 developer_agent_lifecycle=developer_agent_lifecycle,
+                skill_learning_agent_lifecycle=skill_learning_agent_lifecycle,
             )
 
     def research_tool_allowed(self, execution: Execution, tool_name: str) -> bool:
@@ -4419,6 +4425,43 @@ class TaskService:
             except (ValueError, DomainError):
                 return False
 
+    def skill_learning_proposal_allowed(self, execution: Execution, session: Session) -> bool:
+        """Check the claim in the proposal store's serialized insert transaction."""
+        if (
+            execution.kind != "skill_learning_proposal_run"
+            or execution.agent_execution is None
+            or execution.skill_learning_agent_lifecycle is None
+        ):
+            return False
+        task = session.get(Task, execution.task_id)
+        attempt = session.get(TaskAttempt, execution.attempt_id)
+        if (
+            task is None
+            or attempt is None
+            or attempt.task_id != execution.task_id
+            or task.kind != execution.kind
+            or task.status != State.RUNNING
+            or attempt.outcome != State.RUNNING
+            or task.cancel_requested
+            or task.payload != execution.payload
+            or task.timeout_seconds != execution.timeout_seconds
+            or task.agent_execution_spec is None
+        ):
+            return False
+        try:
+            binding = AgentExecutionBinding.model_validate(task.agent_execution_spec)
+            if binding != execution.agent_execution:
+                return False
+            self._validate_agent_execution(
+                session, binding, campaign_id=_task_campaign_id(session, task)
+            )
+            return (
+                self._agent_lifecycle_sequence(session, binding.agent_instance_id),
+                None,
+            ) == execution.skill_learning_agent_lifecycle
+        except (DomainError, ValueError):
+            return False
+
     def api_request_allowed(self, execution: Execution) -> bool:
         """Recheck the current Core Task and endpoint binding before API I/O."""
         if execution.kind != "api_run" or execution.api_request is None:
@@ -4469,7 +4512,7 @@ class TaskService:
                 outcome, error = State.CANCELLED, "cancelled_by_operator"
                 if task.kind != "developer_run" or execution.agent_execution is not None:
                     result = None
-            elif task.kind in {"research_run", "computer_run"} and (
+            elif task.kind in {"research_run", "computer_run", "skill_learning_proposal_run"} and (
                 task.agent_execution_spec is not None or execution.agent_execution is not None
             ):
                 try:
@@ -4486,11 +4529,11 @@ class TaskService:
                         if delegated is not None
                         else None,
                     )
-                    expected = (
-                        execution.research_agent_lifecycle
-                        if task.kind == "research_run"
-                        else execution.computer_agent_lifecycle
-                    )
+                    expected = {
+                        "research_run": execution.research_agent_lifecycle,
+                        "computer_run": execution.computer_agent_lifecycle,
+                        "skill_learning_proposal_run": execution.skill_learning_agent_lifecycle,
+                    }[task.kind]
                     if lifecycle != expected:
                         raise ValueError("Agent lifecycle changed after claim")
                 except (ValueError, DomainError):

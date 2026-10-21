@@ -468,6 +468,9 @@ class Runner:
                 agent_instance_id=binding.agent_instance_id,
                 revision=payload.revision,
                 evidence_refs=payload.evidence_refs,
+                authorize_claim=lambda session: self.service.skill_learning_proposal_allowed(
+                    execution, session
+                ),
             )
         except ValueError as error:
             code = error.args[0] if error.args else None

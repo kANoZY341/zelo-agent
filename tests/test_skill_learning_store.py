@@ -521,8 +521,8 @@ def test_paused_agent_revocation_after_claim_prevents_proposal_persistence(
     asyncio.run(Runner(tasks)._run(claimed))
 
     failed = tasks.get(submitted.id)
-    assert failed.status == State.FAILED
-    assert failed.error == "skill_learning_agent_stale"
+    assert failed.status == State.CANCELLED
+    assert failed.error == "agent_execution_invalidated"
     assert store.list() == ()
 
 
@@ -919,3 +919,122 @@ def test_candidate_api_normalizes_filesystem_permission_error(
     assert response.status_code == 409
     assert response.json()["detail"] == "skill_learning_candidate_io_refused"
     assert "private" not in response.text
+
+
+def test_claimed_proposal_pause_resume_cannot_persist_and_fresh_claim_can(
+    database, settings, proposal_case
+):
+    store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    tasks, execution_service = learning_task_services(database, settings, store)
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
+    request = AgentTaskCreate(task=proposal_task(candidate, ref))
+    first, created = execution_service.submit(agent.id, request, "proposal:stale-claim")
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == first.id
+
+    instances.transition(agent.id, AgentInstanceTransition(action="pause"))
+    instances.transition(agent.id, AgentInstanceTransition(action="resume"))
+    asyncio.run(Runner(tasks)._run(claimed))
+
+    stale = tasks.get(first.id)
+    assert stale.status == State.CANCELLED
+    assert stale.result is None
+    assert stale.error == "agent_execution_invalidated"
+    assert store.list() == ()
+
+    fresh, created = execution_service.submit(agent.id, request, "proposal:fresh-claim")
+    assert created
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == fresh.id
+    asyncio.run(Runner(tasks)._run(claimed))
+    assert tasks.get(fresh.id).status == State.SUCCEEDED
+    assert len(store.list()) == 1
+
+
+def test_proposal_pause_resume_at_insert_boundary_denies_append(
+    database, settings, proposal_case, monkeypatch
+):
+    from contextlib import contextmanager
+
+    store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    tasks, execution_service = learning_task_services(database, settings, store)
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
+    task, _created = execution_service.submit(
+        agent.id, AgentTaskCreate(task=proposal_task(candidate, ref)), "proposal:insert-race"
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+    original_transaction = database.transaction
+    entered = False
+
+    @contextmanager
+    def delayed_transaction():
+        nonlocal entered
+        if not entered:
+            entered = True
+            instances.transition(agent.id, AgentInstanceTransition(action="pause"))
+            instances.transition(agent.id, AgentInstanceTransition(action="resume"))
+        with original_transaction() as session:
+            yield session
+
+    monkeypatch.setattr(database, "transaction", delayed_transaction)
+    asyncio.run(Runner(tasks)._run(claimed))
+    assert entered
+    assert tasks.get(task.id).status == State.CANCELLED
+    assert store.list() == ()
+
+
+def test_proposal_insert_serializes_concurrent_pause_and_suppresses_stale_success(
+    database, settings, proposal_case, monkeypatch
+):
+    from threading import Event, Thread
+
+    store, agent, _source_task, _source_attempt, candidate, ref = proposal_case
+    tasks, execution_service = learning_task_services(database, settings, store)
+    instances = AgentInstanceService(database, store.agent_factory, MemoryService(database))
+    task, _created = execution_service.submit(
+        agent.id, AgentTaskCreate(task=proposal_task(candidate, ref)), "proposal:finish-race"
+    )
+    claimed = tasks.claim()
+    assert claimed is not None and claimed.task_id == task.id
+    original_build = store._build
+    original_submit = store.submit
+    attempting_transition = Event()
+    transition_done = Event()
+    transition_errors = []
+    transition_thread = None
+
+    def transition_concurrently():
+        try:
+            attempting_transition.set()
+            instances.transition(agent.id, AgentInstanceTransition(action="pause"))
+            instances.transition(agent.id, AgentInstanceTransition(action="resume"))
+        except Exception as error:
+            transition_errors.append(error)
+        finally:
+            transition_done.set()
+
+    def build_while_transition_attempts(*args):
+        nonlocal transition_thread
+        transition_thread = Thread(target=transition_concurrently)
+        transition_thread.start()
+        assert attempting_transition.wait(2)
+        # The proposal transaction acquired SQLite's writer lock before _build.
+        assert not transition_done.wait(0.1)
+        return original_build(*args)
+
+    def submit_then_transition(**kwargs):
+        value = original_submit(**kwargs)
+        assert transition_thread is not None
+        transition_thread.join(timeout=3)
+        assert transition_done.is_set()
+        assert transition_errors == []
+        return value
+
+    monkeypatch.setattr(store, "_build", build_while_transition_attempts)
+    monkeypatch.setattr(store, "submit", submit_then_transition)
+    asyncio.run(Runner(tasks)._run(claimed))
+    assert tasks.get(task.id).status == State.CANCELLED
+    assert tasks.get(task.id).result is None
+    assert len(store.list()) == 1  # Insert committed before the concurrent pause.
