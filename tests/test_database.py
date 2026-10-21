@@ -658,6 +658,83 @@ def test_sqlite_backup_is_consistent(settings, database, client) -> None:
         source.close()
 
 
+def test_python_agent_guard_upgrade_preserves_tasks_and_other_triggers(settings):
+    database = Database(settings.database_path)
+    guard = "tasks_agent_execution_spec_kind_guard"
+    triggers = text(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' "
+        "AND tbl_name = 'tasks' ORDER BY name"
+    )
+    try:
+        config = migration_config()
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0047_skill_publication_post_attempt_reconciliation")
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO tasks (id, kind, payload, timeout_seconds, status, "
+                    "action_version, action_hash, request_hash, cancel_requested, "
+                    "created_at, updated_at) VALUES ('python-upgrade-preserve', "
+                    "'echo', '{}', 30, 'succeeded', 1, :action, :request, 0, "
+                    "'2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+                ),
+                {"action": "a" * 64, "request": "b" * 64},
+            )
+            session.execute(
+                text(
+                    "CREATE TRIGGER custom_task_guard BEFORE DELETE ON tasks "
+                    "BEGIN SELECT RAISE(ABORT, 'custom guard'); END"
+                )
+            )
+        with database.read() as session:
+            before = dict(session.execute(triggers).all())
+        assert "python_run" not in before[guard]
+
+        database.migrate()
+        database.check_schema()
+        with database.read() as session:
+            after = dict(session.execute(triggers).all())
+            assert session.scalar(
+                text("SELECT COUNT(*) FROM tasks WHERE id='python-upgrade-preserve'")
+            ) == 1
+            assert session.scalar(text("PRAGMA integrity_check")) == "ok"
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+        assert set(after) == set(before)
+        assert {name: sql for name, sql in after.items() if name != guard} == {
+            name: sql for name, sql in before.items() if name != guard
+        }
+        assert "python_run" in after[guard]
+        assert "skill_learning_proposal_run" in after[guard]
+
+        # Even after admission, a mismatched or unsupported bound kind remains denied.
+        insert = text(
+            "INSERT INTO tasks (id, kind, payload, timeout_seconds, status, "
+            "action_version, action_hash, request_hash, cancel_requested, "
+            "agent_execution_spec, created_at, updated_at) VALUES "
+            "(:id, :kind, '{}', 30, 'pending', 1, :action, :request, 0, "
+            ":binding, '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+        )
+        for kind, binding in (
+            ("python_run", '{"task_kind":"research_run"}'),
+            ("api_run", '{"task_kind":"api_run"}'),
+        ):
+            with pytest.raises(IntegrityError, match="Agent execution task kind is invalid"):
+                with database.transaction() as session:
+                    session.execute(
+                        insert,
+                        {
+                            "id": f"invalid-{kind}",
+                            "kind": kind,
+                            "binding": binding,
+                            "action": "a" * 64,
+                            "request": "b" * 64,
+                        },
+                    )
+    finally:
+        database.close()
+
+
 def test_api_migration_preserves_existing_trigger_definitions(settings):
     database = Database(settings.database_path)
     try:
