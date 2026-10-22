@@ -364,6 +364,9 @@ def test_claim_developer_task_binds_exact_review_context(
     client.app.state.tasks = TaskService(database, runtime.settings, developer_runtime=runtime)
     created = client.post(route, json=body)
     assert created.status_code == 201, created.text
+    replay = client.post(route, json=body)
+    assert replay.status_code == 200
+    assert replay.json()["id"] == created.json()["id"]
     task = created.json()
     assert task["kind"] == "developer_run"
     with database.read() as session:

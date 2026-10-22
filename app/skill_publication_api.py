@@ -190,7 +190,7 @@ def create_skill_developer_task(
                 payload=DeveloperPayload(instruction=instruction),
                 timeout_seconds=900,
             ),
-            None,
+            f"skill-review:{claim.id}:{intent.intent_fingerprint}",
             review_instruction=context,
         )
     except (PermissionError, ValueError) as error:
