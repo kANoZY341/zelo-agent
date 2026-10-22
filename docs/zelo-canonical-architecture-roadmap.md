@@ -2,6 +2,20 @@
 
 ## Status
 
+**22 October v0.15 checkpoint:** Main
+`fc4230c8f95c054dfdff8e92890f03ec9347a7a5` includes #250's independent
+Coding reviewer requirement and #251's accepted-proposal-bound Skill Developer
+Task context. #251 exact-head
+[CI 39842930166](https://github.com/kANoZY341/zelo-agent/actions/runs/39842930166)
+passed (6,636 tests, 2 skipped); distinct
+[main CI 39845890489](https://github.com/kANoZY341/zelo-agent/actions/runs/39845890489)
+**PASS** on the merge SHA (6,636 passed, 2 skipped, 61 warnings). External Skill
+publication remains disabled. Forty-two disposable-fixture Media one-run tests
+passed on this main, with no retained native attempt or authorization. The
+full planned Reader, Space, curated integrations, Worker/upgrade proof and
+independent release audit remain **HOLD**. See the
+[closeout ledger](v0.15-release-closeout.md) for exact limits.
+
 **21 October #248 checkpoint:** Reviewed
 [PR #248](https://github.com/kANoZY341/zelo-agent/pull/248) merged at
 `02b1c7255bb1cff666f1051473df98a621bcb1bf` after exact-head
