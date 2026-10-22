@@ -35,6 +35,7 @@ from app.skill_learning import CanonicalUuid, Sha256
 from app.skill_publication_blob_evidence import SkillPublicationBlobEvidenceService
 from app.skill_publication_dispatch_fence import SkillPublicationDispatchFenceService
 from app.skill_publication_intent import _digest
+from app.skill_publication_review_context import skill_publication_review_instruction
 
 _CONFIRM = "MERGE_EXACT_APPROVED_SKILL_ONCE_WITHOUT_RETRY"
 _SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -309,7 +310,9 @@ class SkillPublicationOneAttemptService:
             raise PermissionError("skill_publication_single_attempt_operator_required")
 
     @staticmethod
-    def _source_task(session, request: MergeRequest, *, solo: bool = False) -> None:
+    def _source_task(
+        session, request: MergeRequest, *, solo: bool = False, review_context: str | None = None
+    ) -> None:
         """Reuse the existing Promotion -> Merge chain, not an invented source."""
         task = session.get(Task, request.promotion_task_id)
         if (
@@ -359,10 +362,10 @@ class SkillPublicationOneAttemptService:
         ):
             raise ValueError("skill_publication_single_attempt_source_identity_changed")
         if solo:
-            SkillPublicationOneAttemptService._solo_review(session, request)
+            SkillPublicationOneAttemptService._solo_review(session, request, review_context)
 
     @staticmethod
-    def _solo_review(session, request: MergeRequest) -> None:
+    def _solo_review(session, request: MergeRequest, review_context: str | None) -> None:
         """Require a successful distinct Coding review of these exact candidate bytes."""
         review = request.promotion.review
         task = session.get(Task, review.developer_task_id)
@@ -427,7 +430,7 @@ class SkillPublicationOneAttemptService:
             or independent is None
             or task.payload.get("instruction") != spec.instruction
             or spec.review_instruction is None
-            or not spec.review_instruction.strip()
+            or spec.review_instruction != review_context
             or spec.source_repository != review.source_repository
             or spec.base_sha != review.base_sha
             or spec.worker != review.worker_identity
@@ -551,8 +554,15 @@ class SkillPublicationOneAttemptService:
         # If a crash happens after commit but before sending, treat its
         # outcome as UNKNOWN and *never* send a second request.
         with self.store.database.transaction() as session:
-            self._source_task(session, request, solo=policy_mode == "solo")
             current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
+            self._source_task(
+                session,
+                request,
+                solo=policy_mode == "solo",
+                review_context=skill_publication_review_instruction(current)
+                if policy_mode == "solo"
+                else None,
+            )
             if (
                 current.claim_fingerprint != observed.claim_fingerprint
                 or current.merge_request_sha256 != observed.merge_request_sha256
@@ -606,9 +616,16 @@ class SkillPublicationOneAttemptService:
         # Agent lifecycle or source authority may change after the durable
         # attempt commits. Recheck before dispatch; the attempt stays terminal
         # even when this later check refuses the only possible send.
-        with self.store.database.read() as session:
-            self._source_task(session, request, solo=policy_mode == "solo")
         current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
+        with self.store.database.read() as session:
+            self._source_task(
+                session,
+                request,
+                solo=policy_mode == "solo",
+                review_context=skill_publication_review_instruction(current)
+                if policy_mode == "solo"
+                else None,
+            )
         if (
             current.claim_fingerprint != observed.claim_fingerprint
             or current.merge_request_sha256 != observed.merge_request_sha256

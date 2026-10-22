@@ -335,3 +335,56 @@ def test_post_attempt_reconciliation_persists_only_after_an_attempt_and_appends(
                 session.execute(text(statement), {"id": first_observation["id"]})
 
     assert store.get_promotion_link(claim.proposal_id) is None
+
+
+def test_claim_developer_task_binds_exact_review_context(
+    proposal_case, database, client, tmp_path, developer_case
+):
+    store, _agent, intent, claim, _service, merge_request = _qualified(
+        database, proposal_case, tmp_path
+    )
+    client.app.state.skill_learning_store = store
+    from app.tasks import TaskService
+
+    client.app.state.tasks = TaskService(
+        database, developer_case.settings, developer_runtime=developer_case
+    )
+    route = f"/skill-publication/claims/{claim.id}/developer-task"
+    body = {"expected_intent_fingerprint": intent.intent_fingerprint}
+    assert client.post(route, json=body, headers={"Authorization": "Bearer bad"}).status_code == 401
+    assert client.post(route, json={}).status_code == 422
+    stale = client.post(route, json={"expected_intent_fingerprint": "0" * 64})
+    assert stale.status_code == 409
+    assert stale.json()["detail"] == "skill_publication_review_context_stale"
+    no_reviewer = client.post(route, json=body)
+    assert no_reviewer.status_code == 409
+    from tests.test_independent_review import review_runtime
+
+    runtime, _, _ = review_runtime(developer_case)
+    client.app.state.tasks = TaskService(database, runtime.settings, developer_runtime=runtime)
+    created = client.post(route, json=body)
+    assert created.status_code == 201, created.text
+    task = created.json()
+    assert task["kind"] == "developer_run"
+    with database.read() as session:
+        from app.models import Task
+        from app.skill_publication_claim import SkillPublicationClaimService
+        from app.skill_publication_merge_preview import SkillPublicationMergePreviewService
+        from app.skill_publication_review_context import (
+            skill_publication_review_instruction,
+            skill_publication_task_review_instruction,
+        )
+
+        persisted = session.get(Task, task["id"])
+        assert persisted.developer_spec["reviewer"] is not None
+        assert persisted.developer_spec["review_instruction"] == (
+            skill_publication_task_review_instruction(claim, intent)
+        )
+        preview = SkillPublicationMergePreviewService(SkillPublicationClaimService(store)).preview(
+            claim.id, merge_request, OperatorPrincipal()
+        )
+        assert persisted.developer_spec["review_instruction"] == (
+            skill_publication_review_instruction(preview)
+        )
+        assert intent.artifact_path in persisted.payload["instruction"]
+        assert persisted.result is None
