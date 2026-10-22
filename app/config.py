@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # No Skill publisher is exposed in Core HTTP/Agent/Tool routing. A separate
     # manual operator-only, one-attempt merge executor remains disabled by default.
     skill_publication_external_merge_enabled: bool = False
+    # Separate, default-off solo-owner route: exact independent Coding review
+    # is required when GitHub cannot obtain another human PR reviewer.
+    skill_publication_solo_owner_mode_enabled: bool = False
     runtime_dir: Path = ROOT / "runtime"
     storage_backend: Literal["sqlite"] = "sqlite"
     # Explicit exact-spec opt-in; absent by default, never model supplied.

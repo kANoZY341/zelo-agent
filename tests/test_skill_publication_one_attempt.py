@@ -15,7 +15,15 @@ from sqlalchemy.exc import IntegrityError
 
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
-from app.developer_contracts import ValidationResult
+from app.developer_contracts import (
+    DeveloperRequest,
+    Limits,
+    ReviewerBinding,
+    ReviewerReport,
+    ValidationResult,
+    WorkerDescriptor,
+    WorkerSelectionSnapshot,
+)
 from app.developer_process import DeveloperError
 from app.memory import MemoryService
 from app.models import (
@@ -26,9 +34,10 @@ from app.models import (
     Task,
     TaskAttempt,
 )
-from app.policy import State
+from app.policy import State, action_hash
 from app.promotion_contracts import PromotionCommitResult, PromotionRunResult
-from app.schemas import AgentInstanceTransition
+from app.promotion_review import candidate_manifest_content_sha256
+from app.schemas import AgentInstanceTransition, DeveloperRunResult, IndependentReviewResult
 from app.skill_publication_one_attempt import (
     SkillPublicationMergeAttempt,
     SkillPublicationMergeFailure,
@@ -37,6 +46,7 @@ from app.skill_publication_one_attempt import (
 )
 from tests import test_promotion_merge as merge_tests
 from tests import test_skill_learning_store as learning_store_tests
+from tests.test_independent_review import ReviewWorker
 from tests.test_skill_publication_dispatch_fence import FENCE_CONFIRM, _setup
 
 OPERATOR = OperatorPrincipal()
@@ -162,6 +172,177 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
     )
 
 
+def _solo_source(database, request, *, ignored_artifact=False):
+    review = request.promotion.review
+    producer = WorkerSelectionSnapshot(
+        descriptor=WorkerDescriptor(
+            worker_id="producer",
+            role="developer",
+            capabilities=("zelo_core_development",),
+            authority=("workspace_write",),
+            implementation="fake",
+            priority=100,
+            max_concurrency=1,
+        ),
+        registry_version="1",
+        routing_policy="1",
+        authority_profile="workspace-write-v1",
+        authority_policy_version="1",
+    )
+    reviewer = ReviewerBinding(
+        worker=ReviewWorker().identity(),
+        worker_selection=WorkerSelectionSnapshot(
+            descriptor=WorkerDescriptor(
+                worker_id="independent_reviewer",
+                role="reviewer",
+                capabilities=("code_review",),
+                authority=("workspace_read",),
+                implementation="reviewer_fake",
+                priority=100,
+                max_concurrency=1,
+            ),
+            registry_version="1",
+            routing_policy="1",
+            requested_role="reviewer",
+            requested_capabilities=("code_review",),
+            excluded_worker_ids=("producer",),
+            authority_profile="workspace-read-no-network-v1",
+            authority_policy_version="1",
+        ),
+    )
+    spec = DeveloperRequest(
+        instruction="Review exact Skill candidate",
+        review_instruction=(
+            "Review the exact candidate learned Skill for its approved scope, "
+            "safe execution boundaries, and any unmet acceptance criteria."
+        ),
+        source_repository=review.source_repository,
+        workspace_root="/trusted/workspace",
+        validation_identity=review.validation_identity,
+        base_sha=review.base_sha,
+        worker=review.worker_identity,
+        worker_selection=producer,
+        reviewer=reviewer,
+        validation_version=review.validation_version,
+        sandbox_version=review.sandbox_version,
+        limits=Limits(
+            overall_seconds=60,
+            worker_seconds=30,
+            validation_seconds=20,
+            git_seconds=5,
+            stdout_bytes=4096,
+            stderr_bytes=4096,
+            line_bytes=4096,
+            events=64,
+            diff_bytes=4096,
+            changed_files=10,
+        ),
+    )
+    assert spec.reviewer is not None
+    digest = candidate_manifest_content_sha256(review.candidate_manifest)
+    reviewer = spec.reviewer
+    now = datetime.now(UTC)
+    result = DeveloperRunResult(
+        worker=spec.worker.implementation,
+        worker_version=spec.worker.cli_version,
+        worker_config_version=spec.worker.config_version,
+        base_sha=spec.base_sha,
+        worktree=review.workspace,
+        worker_exit_code=0,
+        worker_summary="Candidate complete",
+        usage={},
+        nonfatal_error_items=0,
+        changed_files=[item.path for item in review.candidate_manifest]
+        + ([".ruff_cache/check"] if ignored_artifact else []),
+        ignored_generated_files=[{"path": ".ruff_cache/check", "size": 1}]
+        if ignored_artifact
+        else [],
+        git_status="",
+        diff_stat="",
+        diff="",
+        candidate_content_sha256=digest,
+        head=review.head_sha,
+        head_changed=False,
+        validation=[
+            ValidationResult(
+                identifier=name, exit_code=0, output="", duration_seconds=0, completed_at=now
+            )
+            for name in ("ruff_check", "ruff_format", "pytest", "git_diff_check")
+        ],
+        validation_passed=True,
+        independent_review=IndependentReviewResult(
+            worker_id=reviewer.worker_selection.descriptor.worker_id,
+            implementation=reviewer.worker.implementation,
+            worker_version=reviewer.worker.cli_version,
+            candidate_content_sha256=digest,
+            report=ReviewerReport(summary="Independently reviewed exact Skill", findings=()),
+            usage={},
+            event_count=1,
+            started_at=now,
+            completed_at=now,
+            duration_seconds=0.01,
+        ),
+        started_at=now,
+        worker_started_at=now,
+        worker_completed_at=now,
+        validation_completed_at=now,
+        completed_at=now,
+        duration_seconds=0.01,
+        error=None,
+        protocol_diagnostic=None,
+        boundary_error=None,
+        original_error=None,
+        cancelled=False,
+    ).model_dump(mode="json")
+    developer_payload = {"instruction": spec.instruction}
+    developer_spec = spec.model_dump(mode="json")
+    developer_hash = action_hash("developer_run", developer_payload, 60.0, 1, developer_spec)
+    with database.transaction() as session:
+        session.add(
+            Task(
+                id=review.developer_task_id,
+                kind="developer_run",
+                payload=developer_payload,
+                timeout_seconds=60,
+                status=State.SUCCEEDED,
+                action_version=1,
+                action_hash=developer_hash,
+                request_hash="b" * 64,
+                developer_spec=developer_spec,
+                result=result,
+                cancel_requested=False,
+            )
+        )
+        session.flush()
+        session.add(
+            TaskAttempt(
+                id=review.developer_attempt_id,
+                task_id=review.developer_task_id,
+                number=1,
+                outcome=State.SUCCEEDED,
+                result=result,
+                ended_at=now,
+            )
+        )
+        session.add(
+            Approval(
+                task_id=review.developer_task_id,
+                action_version=1,
+                action_hash=developer_hash,
+                status="approved",
+                expires_at=now + timedelta(days=1),
+                decided_at=now,
+            )
+        )
+
+
+def _solo_policy(transport):
+    reviews = transport.responses[12][2]["required_pull_request_reviews"]
+    reviews["required_approving_review_count"] = 0
+    reviews["require_last_push_approval"] = False
+    reviews.pop("bypass_pull_request_allowances")
+
+
 def _add_success_response(request, transport, template, *, merge_sha="f" * 40):
     base = f"/repos/{request.publication.repository}"
     pr = merge_tests.merged_pr(request, merge_sha)
@@ -196,6 +377,164 @@ def _rows(database):
 def _failures(database):
     with database.read() as session:
         return session.scalar(select(func.count()).select_from(SkillPublicationMergeFailureRecord))
+
+
+def test_solo_owner_requires_opt_in_and_exact_independent_review(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _solo_source(database, request)
+    _solo_policy(transport)
+    _add_success_response(request, transport, template)
+    with pytest.raises(DeveloperError, match="main_protection_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert all(method != "PUT" for method, _, _ in transport.calls)
+    assert _rows(database) == (0, 0)
+
+    transport.calls.clear()
+    transport.responses = deepcopy(template)
+    _solo_policy(transport)
+    _add_success_response(request, transport, template)
+    service.settings = service.settings.model_copy(
+        update={"skill_publication_solo_owner_mode_enabled": True}
+    )
+    receipt = asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert isinstance(receipt, SkillPublicationMergeReceipt)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "missing_review",
+        "missing_context",
+        "approval_missing",
+        "candidate_digest",
+        "result_digest",
+        "validation_failed",
+        "reviewer_identity",
+        "findings",
+        "attempt_result",
+        "attempt_identity",
+        "cancelled",
+        "not_distinct",
+    ),
+)
+def test_solo_owner_refuses_unbound_review_before_put(database, proposal_case, tmp_path, mutation):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _solo_source(database, request)
+    _solo_policy(transport)
+    _add_success_response(request, transport, template)
+    service.settings = service.settings.model_copy(
+        update={"skill_publication_solo_owner_mode_enabled": True}
+    )
+    review = request.promotion.review
+    with database.transaction() as session:
+        task = session.get(Task, review.developer_task_id)
+        attempt = session.get(TaskAttempt, review.developer_attempt_id)
+        result = deepcopy(task.result)
+        spec = deepcopy(task.developer_spec)
+        if mutation == "missing_review":
+            result["independent_review"] = None
+        elif mutation == "missing_context":
+            spec["review_instruction"] = None
+        elif mutation == "approval_missing":
+            approval = session.scalar(
+                select(Approval).where(Approval.task_id == review.developer_task_id)
+            )
+            approval.status = "invalidated"
+        elif mutation == "candidate_digest":
+            result["independent_review"]["candidate_content_sha256"] = "0" * 64
+        elif mutation == "result_digest":
+            result["candidate_content_sha256"] = "0" * 64
+        elif mutation == "validation_failed":
+            result["validation"][2]["exit_code"] = 1
+        elif mutation == "reviewer_identity":
+            result["independent_review"]["worker_id"] = "other_reviewer"
+        elif mutation == "findings":
+            result["independent_review"]["report"]["findings"] = [
+                {"severity": "medium", "message": "Unresolved issue", "path": None}
+            ]
+        elif mutation == "attempt_result":
+            attempt.result = {"mismatch": True}
+        elif mutation == "attempt_identity":
+            attempt.id = "3" * 36
+        elif mutation == "cancelled":
+            task.cancel_requested = True
+        elif mutation == "not_distinct":
+            spec["reviewer"]["worker_selection"]["descriptor"]["worker_id"] = spec[
+                "worker_selection"
+            ]["descriptor"]["worker_id"]
+        task.result = result
+        task.developer_spec = spec
+        if mutation in ("missing_context", "not_distinct"):
+            approved = session.scalar(
+                select(Approval).where(Approval.task_id == review.developer_task_id)
+            )
+            task.action_hash = action_hash(
+                "developer_run", task.payload, task.timeout_seconds, task.action_version, spec
+            )
+            approved.action_hash = task.action_hash
+        if mutation not in ("attempt_result", "attempt_identity"):
+            attempt.result = deepcopy(result)
+    with pytest.raises((ValueError, DeveloperError), match="solo_review_invalid"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert all(method != "PUT" for method, _, _ in transport.calls)
+    assert _rows(database) == (0, 0)
+
+
+def test_solo_review_accepts_ignored_validation_artifact(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _solo_source(database, request, ignored_artifact=True)
+    _solo_policy(transport)
+    _add_success_response(request, transport, template)
+    service.settings = service.settings.model_copy(
+        update={"skill_publication_solo_owner_mode_enabled": True}
+    )
+    receipt = asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert receipt.merge_commit_sha == "f" * 40
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_solo_review_revoked_after_attempt_commit_refuses_put(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _solo_source(database, request)
+    _solo_policy(transport)
+    _add_success_response(request, transport, template)
+    service.settings = service.settings.model_copy(
+        update={"skill_publication_solo_owner_mode_enabled": True}
+    )
+    original_transaction = database.transaction
+    revoked = False
+
+    @contextmanager
+    def revoke_after_attempt_commit():
+        nonlocal revoked
+        with original_transaction() as session:
+            yield session
+        if not revoked and _rows(database)[0] == 1:
+            revoked = True
+            with original_transaction() as session:
+                source = session.get(Task, request.promotion.review.developer_task_id)
+                source.cancel_requested = True
+
+    database.transaction = revoke_after_attempt_commit
+    try:
+        with pytest.raises(ValueError, match="solo_review_invalid"):
+            asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    finally:
+        database.transaction = original_transaction
+    assert revoked
+    assert _rows(database) == (1, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+    with pytest.raises(ValueError, match="already_recorded"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
 
 
 def test_disabled_by_default_even_with_full_approval(database, proposal_case, tmp_path):
