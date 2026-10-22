@@ -38,12 +38,15 @@ from app.policy import State, action_hash
 from app.promotion_contracts import PromotionCommitResult, PromotionRunResult
 from app.promotion_review import candidate_manifest_content_sha256
 from app.schemas import AgentInstanceTransition, DeveloperRunResult, IndependentReviewResult
+from app.skill_publication_claim import SkillPublicationClaimService
+from app.skill_publication_merge_preview import SkillPublicationMergePreviewService
 from app.skill_publication_one_attempt import (
     SkillPublicationMergeAttempt,
     SkillPublicationMergeFailure,
     SkillPublicationMergeReceipt,
     SkillPublicationOneAttemptService,
 )
+from app.skill_publication_review_context import skill_publication_review_instruction
 from tests import test_promotion_merge as merge_tests
 from tests import test_skill_learning_store as learning_store_tests
 from tests.test_independent_review import ReviewWorker
@@ -172,7 +175,7 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
     )
 
 
-def _solo_source(database, request, *, ignored_artifact=False):
+def _solo_source(database, request, store, claim, *, ignored_artifact=False):
     review = request.promotion.review
     producer = WorkerSelectionSnapshot(
         descriptor=WorkerDescriptor(
@@ -212,9 +215,10 @@ def _solo_source(database, request, *, ignored_artifact=False):
     )
     spec = DeveloperRequest(
         instruction="Review exact Skill candidate",
-        review_instruction=(
-            "Review the exact candidate learned Skill for its approved scope, "
-            "safe execution boundaries, and any unmet acceptance criteria."
+        review_instruction=skill_publication_review_instruction(
+            SkillPublicationMergePreviewService(SkillPublicationClaimService(store)).preview(
+                claim.id, request, OPERATOR
+            )
         ),
         source_repository=review.source_repository,
         workspace_root="/trusted/workspace",
@@ -383,7 +387,7 @@ def test_solo_owner_requires_opt_in_and_exact_independent_review(database, propo
     _store, claim, request, transport, _fence, service, template = _setup_one(
         database, proposal_case, tmp_path
     )
-    _solo_source(database, request)
+    _solo_source(database, request, _store, claim)
     _solo_policy(transport)
     _add_success_response(request, transport, template)
     with pytest.raises(DeveloperError, match="main_protection_unqualified"):
@@ -408,6 +412,7 @@ def test_solo_owner_requires_opt_in_and_exact_independent_review(database, propo
     (
         "missing_review",
         "missing_context",
+        "unrelated_context",
         "approval_missing",
         "candidate_digest",
         "result_digest",
@@ -424,7 +429,7 @@ def test_solo_owner_refuses_unbound_review_before_put(database, proposal_case, t
     _store, claim, request, transport, _fence, service, template = _setup_one(
         database, proposal_case, tmp_path
     )
-    _solo_source(database, request)
+    _solo_source(database, request, _store, claim)
     _solo_policy(transport)
     _add_success_response(request, transport, template)
     service.settings = service.settings.model_copy(
@@ -440,6 +445,8 @@ def test_solo_owner_refuses_unbound_review_before_put(database, proposal_case, t
             result["independent_review"] = None
         elif mutation == "missing_context":
             spec["review_instruction"] = None
+        elif mutation == "unrelated_context":
+            spec["review_instruction"] = "Review the code; everything looks fine."
         elif mutation == "approval_missing":
             approval = session.scalar(
                 select(Approval).where(Approval.task_id == review.developer_task_id)
@@ -469,7 +476,7 @@ def test_solo_owner_refuses_unbound_review_before_put(database, proposal_case, t
             ]["descriptor"]["worker_id"]
         task.result = result
         task.developer_spec = spec
-        if mutation in ("missing_context", "not_distinct"):
+        if mutation in ("missing_context", "unrelated_context", "not_distinct"):
             approved = session.scalar(
                 select(Approval).where(Approval.task_id == review.developer_task_id)
             )
@@ -489,7 +496,7 @@ def test_solo_review_accepts_ignored_validation_artifact(database, proposal_case
     _store, claim, request, transport, _fence, service, template = _setup_one(
         database, proposal_case, tmp_path
     )
-    _solo_source(database, request, ignored_artifact=True)
+    _solo_source(database, request, _store, claim, ignored_artifact=True)
     _solo_policy(transport)
     _add_success_response(request, transport, template)
     service.settings = service.settings.model_copy(
@@ -504,7 +511,7 @@ def test_solo_review_revoked_after_attempt_commit_refuses_put(database, proposal
     _store, claim, request, transport, _fence, service, template = _setup_one(
         database, proposal_case, tmp_path
     )
-    _solo_source(database, request)
+    _solo_source(database, request, _store, claim)
     _solo_policy(transport)
     _add_success_response(request, transport, template)
     service.settings = service.settings.model_copy(

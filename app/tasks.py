@@ -1866,7 +1866,13 @@ class TaskService:
         request: TaskCreate,
         key: str | None,
         agent_execution: AgentExecutionBinding | None = None,
+        *,
+        review_instruction: str | None = None,
     ) -> tuple[TaskResponse, bool]:
+        if review_instruction is not None and (
+            request.kind != "developer_run" or agent_execution is not None
+        ):
+            raise DomainError("Skill review context requires standalone Developer Task", 422)
         if agent_execution is not None and request.kind == "api_run":
             raise DomainError("Agent API execution unavailable", 422)
         if agent_execution is not None and request.kind not in {
@@ -1901,7 +1907,9 @@ class TaskService:
         )
         request_payload = request.model_dump(mode="json")
         request_hash = fingerprint(
-            request_payload
+            {"request": request_payload, "review_instruction": review_instruction}
+            if review_instruction is not None
+            else request_payload
             if agent_execution_spec is None
             else {
                 "request": request_payload,
@@ -2225,7 +2233,10 @@ class TaskService:
                     payload=payload,
                     timeout_seconds=request.timeout_seconds,
                     capabilities=capabilities,
+                    review_instruction=review_instruction,
                 )
+                if review_instruction is not None and developer_request.reviewer is None:
+                    raise DomainError("Skill Developer Task requires independent reviewer", 409)
                 if (
                     agent_execution is not None
                     and agent_execution.spec.review_required
