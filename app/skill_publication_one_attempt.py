@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.auth import OperatorPrincipal
 from app.config import Settings
+from app.developer_contracts import DeveloperRequest
 from app.developer_process import DeveloperError
 from app.models import (
     Approval,
@@ -25,9 +26,11 @@ from app.models import (
     TaskAttempt,
     new_id,
 )
-from app.policy import State
+from app.policy import State, action_hash
 from app.promotion_contracts import MergeRequest, PromotionRequest, PromotionRunResult
 from app.promotion_github import GitHubTransport, publisher_identity
+from app.promotion_review import candidate_manifest_content_sha256
+from app.schemas import DeveloperRunResult
 from app.skill_learning import CanonicalUuid, Sha256
 from app.skill_publication_blob_evidence import SkillPublicationBlobEvidenceService
 from app.skill_publication_dispatch_fence import SkillPublicationDispatchFenceService
@@ -181,7 +184,7 @@ class SkillPublicationOneAttemptService:
             raise ValueError("skill_publication_single_attempt_transport_mismatch")
         self.transport = fences.blob.transport
 
-    async def _require_protected_main(self, repository: str) -> None:
+    async def _require_protected_main(self, repository: str) -> Literal["team", "solo"]:
         """Require provider-enforced strict checks before any merge side effect.
 
         A caller-supplied config flag is not a substitute for an attested
@@ -228,33 +231,41 @@ class SkillPublicationOneAttemptService:
                 or matches[0]["app_id"] != self.settings.promotion_ci_app_id
             ):
                 raise DeveloperError("skill_publication_main_protection_unqualified")
-        # Local approval and independently reviewed source evidence cannot
-        # replace provider-enforced PR review requirements at the merge gate.
-        # Stale reviews and last-pusher self-approval must not remain usable
-        # after the immutable, reviewed PR head was prepared.
         reviews = policy.get("required_pull_request_reviews")
         if (
             type(reviews) is not dict
             or type(reviews.get("required_approving_review_count")) is not int
-            or not 1 <= reviews["required_approving_review_count"] <= 6
             or reviews.get("dismiss_stale_reviews") is not True
-            or reviews.get("require_last_push_approval") is not True
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
+        count = reviews["required_approving_review_count"]
+        if 1 <= count <= 6 and reviews.get("require_last_push_approval") is True:
+            mode: Literal["team", "solo"] = "team"
+            # GitHub returns null for an empty bypass list on personal repositories.
+            # An omitted or partial bypass policy cannot qualify this team route.
+            if "bypass_pull_request_allowances" not in reviews:
+                raise DeveloperError("skill_publication_main_protection_unqualified")
+        elif (
+            count == 0
+            and reviews.get("require_last_push_approval") is False
+            and self.settings.skill_publication_solo_owner_mode_enabled is True
+        ):
+            # A solo owner cannot approve their own GitHub PR. This separate
+            # policy requires a clean, independently executed Coding review of
+            # the exact Developer candidate at each local send use point.
+            mode = "solo"
+        else:
+            raise DeveloperError("skill_publication_main_protection_unqualified")
         bypass = reviews.get("bypass_pull_request_allowances")
-        # GitHub returns null for an empty bypass list on personal repositories.
-        # A missing field or a nonempty/partial object still fails closed.
-        if "bypass_pull_request_allowances" not in reviews or (
-            bypass is not None
-            and (
-                type(bypass) is not dict
-                or any(
-                    type(bypass.get(field)) is not list or bypass[field]
-                    for field in ("users", "teams", "apps")
-                )
+        if bypass is not None and (
+            type(bypass) is not dict
+            or any(
+                type(bypass.get(field)) is not list or bypass[field]
+                for field in ("users", "teams", "apps")
             )
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
+        return mode
 
     def get_attempt(
         self, claim_id: str, principal: OperatorPrincipal
@@ -298,7 +309,7 @@ class SkillPublicationOneAttemptService:
             raise PermissionError("skill_publication_single_attempt_operator_required")
 
     @staticmethod
-    def _source_task(session, request: MergeRequest) -> None:
+    def _source_task(session, request: MergeRequest, *, solo: bool = False) -> None:
         """Reuse the existing Promotion -> Merge chain, not an invented source."""
         task = session.get(Task, request.promotion_task_id)
         if (
@@ -347,6 +358,124 @@ class SkillPublicationOneAttemptService:
             or result.commit.base_sha != request.publication.pr_base_sha
         ):
             raise ValueError("skill_publication_single_attempt_source_identity_changed")
+        if solo:
+            SkillPublicationOneAttemptService._solo_review(session, request)
+
+    @staticmethod
+    def _solo_review(session, request: MergeRequest) -> None:
+        """Require a successful distinct Coding review of these exact candidate bytes."""
+        review = request.promotion.review
+        task = session.get(Task, review.developer_task_id)
+        if (
+            task is None
+            or task.kind != "developer_run"
+            or task.status != State.SUCCEEDED
+            or task.cancel_requested is not False
+            or task.developer_spec is None
+            or task.result is None
+        ):
+            raise ValueError("skill_publication_solo_review_invalid")
+        approval = session.scalar(
+            select(Approval)
+            .where(Approval.task_id == task.id)
+            .order_by(Approval.created_at.desc())
+            .limit(1)
+        )
+        if (
+            approval is None
+            or approval.status != "approved"
+            or approval.action_version != task.action_version
+            or approval.action_hash != task.action_hash
+            or task.action_hash
+            != action_hash(
+                "developer_run",
+                task.payload,
+                task.timeout_seconds,
+                task.action_version,
+                task.developer_spec,
+            )
+        ):
+            raise ValueError("skill_publication_solo_review_invalid")
+        latest = session.scalar(
+            select(TaskAttempt)
+            .where(TaskAttempt.task_id == task.id)
+            .order_by(TaskAttempt.number.desc())
+            .limit(1)
+        )
+        if (
+            latest is None
+            or latest.id != review.developer_attempt_id
+            or latest.outcome != State.SUCCEEDED
+            or latest.error is not None
+            or latest.result != task.result
+        ):
+            raise ValueError("skill_publication_solo_review_invalid")
+        try:
+            spec = DeveloperRequest.model_validate(task.developer_spec)
+            result = DeveloperRunResult.model_validate(task.result)
+        except (ValidationError, ValueError):
+            raise ValueError("skill_publication_solo_review_invalid") from None
+        binding = spec.reviewer
+        independent = result.independent_review
+        producer = spec.worker_selection.descriptor
+        digest = candidate_manifest_content_sha256(review.candidate_manifest)
+        changed_paths = set(result.changed_files)
+        ignored_paths = {item["path"] for item in result.ignored_generated_files if "path" in item}
+        manifest_paths = {item.path for item in review.candidate_manifest}
+        if (
+            binding is None
+            or independent is None
+            or task.payload.get("instruction") != spec.instruction
+            or spec.review_instruction is None
+            or not spec.review_instruction.strip()
+            or spec.source_repository != review.source_repository
+            or spec.base_sha != review.base_sha
+            or spec.worker != review.worker_identity
+            or spec.validation_identity != review.validation_identity
+            or spec.validation_profile != review.validation_profile
+            or spec.validation_version != review.validation_version
+            or spec.sandbox_version != review.sandbox_version
+            or producer.role != "developer"
+            or producer.implementation != spec.worker.implementation
+            or binding.worker_selection.requested_role != "reviewer"
+            or binding.worker_selection.descriptor.role != "reviewer"
+            or binding.worker_selection.descriptor.implementation != binding.worker.implementation
+            or "code_review" not in binding.worker_selection.descriptor.capabilities
+            or binding.worker_selection.authority_profile != "workspace-read-no-network-v1"
+            or producer.worker_id == binding.worker_selection.descriptor.worker_id
+            or producer.worker_id not in binding.worker_selection.excluded_worker_ids
+            or spec.worker == binding.worker
+            or result.worker != spec.worker.implementation
+            or result.worker_version != spec.worker.cli_version
+            or result.worker_config_version != spec.worker.config_version
+            or result.base_sha != review.base_sha
+            or result.head != review.head_sha
+            or result.worktree != review.workspace
+            or result.worker_exit_code != 0
+            or result.head_changed is not False
+            or result.nonfatal_error_items != 0
+            or tuple(item.identifier for item in result.validation)
+            != ("ruff_check", "ruff_format", "pytest", "git_diff_check")
+            or any(item.exit_code != 0 or item.error is not None for item in result.validation)
+            or result.cancelled
+            or result.error is not None
+            or result.boundary_error is not None
+            or result.protocol_diagnostic is not None
+            or result.original_error is not None
+            or result.validation_passed is not True
+            or result.candidate_content_sha256 != digest
+            or len(changed_paths) != len(result.changed_files)
+            or len(ignored_paths) != len(result.ignored_generated_files)
+            or not ignored_paths.issubset(changed_paths)
+            or manifest_paths & ignored_paths
+            or manifest_paths != changed_paths - ignored_paths
+            or independent.worker_id != binding.worker_selection.descriptor.worker_id
+            or independent.implementation != binding.worker.implementation
+            or independent.worker_version != binding.worker.cli_version
+            or independent.candidate_content_sha256 != digest
+            or independent.report.findings
+        ):
+            raise ValueError("skill_publication_solo_review_invalid")
 
     async def run_once(
         self,
@@ -416,13 +545,13 @@ class SkillPublicationOneAttemptService:
         # Provider-side strict CI enforcement is mandatory: a configured
         # switch and approved PR/head alone cannot serialize base advancement.
         # No branch protection API access means zero GitHub merge attempts.
-        await self._require_protected_main(fence.repository)
+        policy_mode = await self._require_protected_main(fence.repository)
 
         # This is the irreversible retry fence. Commit before the first PUT.
         # If a crash happens after commit but before sending, treat its
         # outcome as UNKNOWN and *never* send a second request.
         with self.store.database.transaction() as session:
-            self._source_task(session, request)
+            self._source_task(session, request, solo=policy_mode == "solo")
             current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
             if (
                 current.claim_fingerprint != observed.claim_fingerprint
@@ -478,7 +607,7 @@ class SkillPublicationOneAttemptService:
         # attempt commits. Recheck before dispatch; the attempt stays terminal
         # even when this later check refuses the only possible send.
         with self.store.database.read() as session:
-            self._source_task(session, request)
+            self._source_task(session, request, solo=policy_mode == "solo")
         current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
         if (
             current.claim_fingerprint != observed.claim_fingerprint
