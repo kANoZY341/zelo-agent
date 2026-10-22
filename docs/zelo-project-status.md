@@ -1,5 +1,21 @@
 # Zelo live project status
 
+**22 October #251 checkpoint:** [PR #250](https://github.com/kANoZY341/zelo-agent/pull/250)
+and [PR #251](https://github.com/kANoZY341/zelo-agent/pull/251)
+merged independent Coding review and accepted-proposal-bound Developer Task
+context for the default-disabled solo Skill merge sender. #251 merged at
+`fc4230c8f95c054dfdff8e92890f03ec9347a7a5` after exact-head
+[CI 39842930166](https://github.com/kANoZY341/zelo-agent/actions/runs/39842930166)
+passed (6,636 tests, 2 skipped). Distinct
+[main CI 39845890489](https://github.com/kANoZY341/zelo-agent/actions/runs/39845890489)
+**PASS** on the merge SHA (6,636 passed, 2 skipped, 61 warnings).
+Forty-two Media handoff tests passed with disposable fixtures on this main;
+none used the retained runtime. Cross-process Skill send revocation, native
+Space acceptance, full native Reader/provenance, curated real-diff OCR/REA,
+Worker and migration proof, and independent release audit remain **HOLD**.
+No fifth Media attempt or v0.15 tag occurred. Exact receipts and limits are
+in the [closeout ledger](v0.15-release-closeout.md).
+
 **21 October #248 checkpoint:** [PR #248](https://github.com/kANoZY341/zelo-agent/pull/248)
 merged at `02b1c7255bb1cff666f1051473df98a621bcb1bf` after independent
 exact-head review and passing [PR CI 39674380456](https://github.com/kANoZY341/zelo-agent/actions/runs/39674380456)
