@@ -47,7 +47,7 @@ def image_record():
             },
             "Entrypoint": None,
             "Cmd": None,
-            "Env": None,
+            "Env": ["PATH=/nonexistent"],
             "User": "",
             "WorkingDir": "",
             "Volumes": None,

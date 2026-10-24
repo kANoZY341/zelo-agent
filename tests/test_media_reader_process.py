@@ -41,7 +41,7 @@ def image_record(identity="e" * 64):
             "Labels": {m.LEASE_LABEL: identity, m.BUNDLE_LABEL: build_identity()},
             "Entrypoint": None,
             "Cmd": None,
-            "Env": None,
+            "Env": ["PATH=/nonexistent"],
             "User": "",
             "WorkingDir": "",
             "Volumes": None,

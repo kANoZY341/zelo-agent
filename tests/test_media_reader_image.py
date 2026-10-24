@@ -71,13 +71,13 @@ def test_dockerfile_is_inert_scratch_only():
     assert text.startswith("FROM scratch\n")
     assert text.count("COPY --chown=0:0") == 8
     assert text.count("LABEL ") == 1
+    assert text.count("ENV PATH=/nonexistent\n") == 1
     assert container.BUNDLE_LABEL in text and value.digest in text
     forbidden = (
         "RUN ",
         "ADD ",
         "ENTRYPOINT",
         "CMD ",
-        "ENV ",
         "USER ",
         "WORKDIR",
         "VOLUME",
