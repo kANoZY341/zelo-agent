@@ -105,11 +105,18 @@ edits. Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
-The four consumed native Media reader proof attempts remain refused:
-**no fifth** native proof is authorized and no proof ledger may be reset,
-deleted, bypassed, reframed or reclassified as successful. Release cannot
-silently defer an originally required runtime: record the blocker and
-obtain a separate operator release-scope decision if necessary.
+The four earlier native Media reader refusals and the separately authorized
+fifth refusal remain terminal. The Managing Director authorized exactly one
+fifth attempt on 24 October; `native-reader-proof-5r1zlt2c` refused at the
+build image-configuration check. Its single-run decision is consumed.
+**No sixth** native proof is authorized. The shared admission marker is
+nonempty; preserve it and every proof, approval and build artifact. Never
+reset, delete, bypass, reframe or reclassify a refusal as successful. PRs
+#253 and #254 corrected two observed build-stage defects, but no native matrix
+or release success follows. Release cannot silently defer the originally
+required runtime: record the blocker and obtain a separate operator
+release-scope decision if necessary. See issue #166 and
+`docs/v0.15-release-closeout.md` for current receipts and gates.
 
 ## Earlier Core-first work and source restrictions (8 October 2026)
 
