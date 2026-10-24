@@ -26,7 +26,7 @@ Space, Skill, Worker, curated-integration, rollback and release-audit gates.
 
 **Earlier 24 October v0.15 checkpoint:** The separately authorized fifth native Media
 Reader attempt was allocated once and refused at build image verification;
-its admission marker remains nonempty with retained build artifacts. The
+its admission marker was then nonempty with retained build artifacts. The
 single-run decision is consumed and no sixth attempt is authorized.
 [PRs #253 and #254](v0.15-release-closeout.md#24-october-fifth-native-media-reader-refusal-and-build-corrections)
 corrected the observed image PATH and stopped setup export command defects.
@@ -34,8 +34,8 @@ Distinct [main CI 40105921891](https://github.com/kANoZY341/zelo-agent/actions/r
 **PASS** at `0f6674f672a2370286c4f9f006638ad10d271bcb` (6,639 tests,
 2 skipped). Build-only attestation passed after those changes; the native
 reader matrix, provenance, decoder and Core authority remain **NOT RUN**.
-The marker needs exact-evidence reconciliation before a separately reviewed
-new proof decision. Space, Skill publication, curated OCR/REA, complete Worker,
+At that checkpoint the marker still needed exact-evidence reconciliation
+before a separately reviewed new proof decision. Space, Skill publication, curated OCR/REA, complete Worker,
 rollback and independent release gates remain **HOLD**. Published release
 remains `v0.14.0`; no v0.15 tag or activation occurred. Dated checkpoints
 below report the state observed at their time.

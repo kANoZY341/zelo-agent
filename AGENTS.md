@@ -115,8 +115,8 @@ receipt was verified before the shared admission marker was cleared. The marker
 and lock are now empty; all five refused attempts, approval and build artifacts
 remain. See [issue #166's receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6388059721)
 and PR #257. Never reset, delete, bypass, reframe or reclassify a refusal as
-successful. PRs #253 and #254 corrected two observed build-stage defects, but no native matrix
-or release success follows. Release cannot silently defer the originally
+successful. PRs #253 and #254 corrected two observed build-stage defects,
+but no native matrix or release success follows. Release cannot silently defer the originally
 required runtime: record the blocker and obtain a separate operator
 release-scope decision if necessary. See issue #166 and
 `docs/v0.15-release-closeout.md` for current receipts and gates.
