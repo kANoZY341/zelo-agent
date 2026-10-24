@@ -167,3 +167,20 @@ def test_matching_digest_cannot_hide_wrong_grant_source(retained):
         fifth.FifthReconciliationRefused, match="reader_fifth_reconcile_grant_binding"
     ):
         fifth._audit(root, pins)
+
+
+def test_attempt_created_at_lock_acquisition_refuses(retained, monkeypatch):
+    from contextlib import contextmanager
+
+    root, pins = retained
+    actual_lock = fifth._locked
+
+    @contextmanager
+    def add_before_lock(path):
+        (root / "media-native-reader/native-reader-proof-sixth").mkdir(mode=0o700)
+        with actual_lock(path):
+            yield
+
+    monkeypatch.setattr(fifth, "_locked", add_before_lock)
+    with pytest.raises(fifth.FifthReconciliationRefused, match="reader_fifth_reconcile_inventory"):
+        fifth._audit(root, pins)

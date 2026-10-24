@@ -204,28 +204,30 @@ def _locked(root: Path) -> Iterator[None]:
 
 def _audit(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, object]:
     root = scope._canonical_root(root)
-    proof_base = root / "media-native-reader"
-    _children(proof_base, {first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH, FIFTH})
-    for name in (first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH):
-        names = {"cases.json", "policy.json"}
-        if name == first.ATTEMPT_NAME:
-            names.add("docker-config")
-        _children(proof_base / name, names)
-    _children(proof_base / first.ATTEMPT_NAME / "docker-config", set())
-    fifth = proof_base / FIFTH
-    _children(fifth, {"build", "cases.json", "docker-config", "image-id", "policy.json"})
-    _children(fifth / "docker-config", set())
-    _children(fifth / "build", {"Dockerfile"} | {f"{n:02}.binary.reference" for n in range(8)})
-    _children(root / "media-native-reader-extra-attempt", {"grant.json"})
-    _children(root / "media-native-reader-extra-attempt-v2", {"grant.json"})
-    _children(root / "media-native-reader-reconciliation", {"reconcile-1fudorw3"})
-    _children(root / "media-native-reader-reconciliation" / "reconcile-1fudorw3", {"pending.json"})
-    _children(root / "media-native-reader-extra-attempt-v3", {"grant.json", "seal.json"})
-    _children(
-        root / "media-native-reader-run-approval-v3",
-        {"receipt.json", "recheck.json", "attempt-recheck.json"},
-    )
     with _locked(root):
+        proof_base = root / "media-native-reader"
+        _children(proof_base, {first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH, FIFTH})
+        for name in (first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH):
+            names = {"cases.json", "policy.json"}
+            if name == first.ATTEMPT_NAME:
+                names.add("docker-config")
+            _children(proof_base / name, names)
+        _children(proof_base / first.ATTEMPT_NAME / "docker-config", set())
+        fifth = proof_base / FIFTH
+        _children(fifth, {"build", "cases.json", "docker-config", "image-id", "policy.json"})
+        _children(fifth / "docker-config", set())
+        _children(fifth / "build", {"Dockerfile"} | {f"{n:02}.binary.reference" for n in range(8)})
+        _children(root / "media-native-reader-extra-attempt", {"grant.json"})
+        _children(root / "media-native-reader-extra-attempt-v2", {"grant.json"})
+        _children(root / "media-native-reader-reconciliation", {"reconcile-1fudorw3"})
+        _children(
+            root / "media-native-reader-reconciliation" / "reconcile-1fudorw3", {"pending.json"}
+        )
+        _children(root / "media-native-reader-extra-attempt-v3", {"grant.json", "seal.json"})
+        _children(
+            root / "media-native-reader-run-approval-v3",
+            {"receipt.json", "recheck.json", "attempt-recheck.json"},
+        )
         values = {relative: _read_pinned(root / relative, *pin) for relative, pin in pins.items()}
         marker = scope._json(values["media-elf-metadata-admission/active.marker"])
         policy = scope._json(values[f"media-native-reader/{FIFTH}/policy.json"])
