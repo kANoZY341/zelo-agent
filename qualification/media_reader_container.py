@@ -153,7 +153,7 @@ def verify_image(data: object, contract: ReaderContainerContract, identity: str)
         labels == {LEASE_LABEL: identity, BUNDLE_LABEL: contract.bundle_sha256}
         and config.get("Entrypoint") in (None, [])
         and config.get("Cmd") in (None, [])
-        and config.get("Env") in (None, [])
+        and config.get("Env") == ["PATH=/nonexistent"]
         and config.get("User") in (None, "")
         and config.get("WorkingDir") in (None, "")
         and not config.get("Volumes")

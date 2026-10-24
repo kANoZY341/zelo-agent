@@ -99,6 +99,8 @@ def dockerfile(value: ImageManifest) -> bytes:
     # The context files carry the pinned modes for legacy Docker COPY.
     for row in value.files:
         lines.append(f"COPY --chown=0:0 {row.source} /{row.destination}")
+    # Explicitly replace Docker scratch image default PATH with an unusable path.
+    lines.append("ENV PATH=/nonexistent")
     lines.append(f'LABEL {container.BUNDLE_LABEL}="{value.digest}"')
     raw = ("\n".join(lines) + "\n").encode()
     _require(len(raw) <= DOCKERFILE_BYTES, "dockerfile")
