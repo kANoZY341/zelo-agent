@@ -110,6 +110,8 @@ def setup_create_arguments(value: BuildPlan, image_identity: str) -> tuple[str, 
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
         "--restart=no",
+        # The image is intentionally commandless; create an unstarted export handle.
+        f"--entrypoint={container.ENTRYPOINT}",
         image_identity,
     )
 
