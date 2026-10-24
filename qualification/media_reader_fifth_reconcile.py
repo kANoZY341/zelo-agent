@@ -181,7 +181,9 @@ def _read_pinned(path: Path, digest: str, mode: int, bound: int) -> bytes:
 def _locked(root: Path) -> Iterator[None]:
     admission = root / "media-elf-metadata-admission"
     _children(admission, {"admission.lock", "active.marker"})
-    fd = os.open(admission / "admission.lock", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    fd = os.open(
+        admission / "admission.lock", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    )
     try:
         info = os.fstat(fd)
         _require(

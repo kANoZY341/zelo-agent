@@ -43,7 +43,11 @@ def _mutable_lock(root: Path) -> Iterator[tuple[int, int]]:
     lock = marker = None
     try:
         historical._private(os.fstat(directory), directory=True)
-        lock = os.open("admission.lock", os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=directory)
+        lock = os.open(
+            "admission.lock",
+            os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+            dir_fd=directory,
+        )
         historical._private(os.fstat(lock))
         if os.fstat(lock).st_size != 0:
             _refuse("lock")

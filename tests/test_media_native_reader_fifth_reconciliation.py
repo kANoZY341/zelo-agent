@@ -317,3 +317,13 @@ def test_missing_completed_cleanup_refuses_before_marker_clear(fenced):
         r._reconcile(root, pins, discover=empty, image_exists=absent, quiet_window=quiet)
     assert marker.read_bytes() == marker_raw
     assert not (root / r.RECON_BASE).exists()
+
+
+def test_fifo_lock_refuses_without_blocking(fenced):
+    root, pins, marker, marker_raw, _ = fenced
+    lock = root / "media-elf-metadata-admission/admission.lock"
+    lock.unlink()
+    os.mkfifo(lock, mode=0o600)
+    with pytest.raises(ValueError, match="reader_reconcile_private"):
+        r._reconcile(root, pins, discover=empty, image_exists=absent, quiet_window=quiet)
+    assert marker.read_bytes() == marker_raw

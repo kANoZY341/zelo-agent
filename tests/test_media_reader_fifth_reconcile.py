@@ -184,3 +184,12 @@ def test_attempt_created_at_lock_acquisition_refuses(retained, monkeypatch):
     monkeypatch.setattr(fifth, "_locked", add_before_lock)
     with pytest.raises(fifth.FifthReconciliationRefused, match="reader_fifth_reconcile_inventory"):
         fifth._audit(root, pins)
+
+
+def test_fifo_lock_refuses_without_blocking(retained):
+    root, pins = retained
+    lock = root / "media-elf-metadata-admission/admission.lock"
+    lock.unlink()
+    os.mkfifo(lock, mode=0o600)
+    with pytest.raises(fifth.FifthReconciliationRefused, match="reader_fifth_reconcile_lock"):
+        fifth._audit(root, pins)
