@@ -202,67 +202,64 @@ def _locked(root: Path) -> Iterator[None]:
         os.close(fd)
 
 
-def _audit(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, object]:
-    root = scope._canonical_root(root)
-    with _locked(root):
-        proof_base = root / "media-native-reader"
-        _children(proof_base, {first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH, FIFTH})
-        for name in (first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH):
-            names = {"cases.json", "policy.json"}
-            if name == first.ATTEMPT_NAME:
-                names.add("docker-config")
-            _children(proof_base / name, names)
-        _children(proof_base / first.ATTEMPT_NAME / "docker-config", set())
-        fifth = proof_base / FIFTH
-        _children(fifth, {"build", "cases.json", "docker-config", "image-id", "policy.json"})
-        _children(fifth / "docker-config", set())
-        _children(fifth / "build", {"Dockerfile"} | {f"{n:02}.binary.reference" for n in range(8)})
-        _children(root / "media-native-reader-extra-attempt", {"grant.json"})
-        _children(root / "media-native-reader-extra-attempt-v2", {"grant.json"})
-        _children(root / "media-native-reader-reconciliation", {"reconcile-1fudorw3"})
-        _children(
-            root / "media-native-reader-reconciliation" / "reconcile-1fudorw3", {"pending.json"}
-        )
-        _children(root / "media-native-reader-extra-attempt-v3", {"grant.json", "seal.json"})
-        _children(
-            root / "media-native-reader-run-approval-v3",
-            {"receipt.json", "recheck.json", "attempt-recheck.json"},
-        )
-        values = {relative: _read_pinned(root / relative, *pin) for relative, pin in pins.items()}
-        marker = scope._json(values["media-elf-metadata-admission/active.marker"])
-        policy = scope._json(values[f"media-native-reader/{FIFTH}/policy.json"])
-        proof = scope._json(values[f"media-native-reader/{FIFTH}/cases.json"])
-        digest = hashlib.sha256(
-            json.dumps(policy, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-        ).hexdigest()
-        _require(marker == {"version": 1, "lease": LEASE, "policy": digest}, "marker_binding")
-        _require(
-            policy.get("attempt_limit") == 5 and policy.get("runtime_authority") is False, "policy"
-        )
-        _require(
-            proof
-            == {
-                "status": "refused",
-                "stage": "build",
-                "support_release_confirmed": False,
-                "runtime_authority": False,
-                "build_failure": {
-                    "kind": "validation",
-                    "code": "reader_container_image_configuration",
-                },
+def _audit_held(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, object]:
+    """Caller must hold the exact shared admission lock for this entire call."""
+    proof_base = root / "media-native-reader"
+    _children(proof_base, {first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH, FIFTH})
+    for name in (first.ATTEMPT_NAME, v1.SECOND, v2.THIRD, v3.FOURTH):
+        names = {"cases.json", "policy.json"}
+        if name == first.ATTEMPT_NAME:
+            names.add("docker-config")
+        _children(proof_base / name, names)
+    _children(proof_base / first.ATTEMPT_NAME / "docker-config", set())
+    fifth = proof_base / FIFTH
+    _children(fifth, {"build", "cases.json", "docker-config", "image-id", "policy.json"})
+    _children(fifth / "docker-config", set())
+    _children(fifth / "build", {"Dockerfile"} | {f"{n:02}.binary.reference" for n in range(8)})
+    _children(root / "media-native-reader-extra-attempt", {"grant.json"})
+    _children(root / "media-native-reader-extra-attempt-v2", {"grant.json"})
+    _children(root / "media-native-reader-reconciliation", {"reconcile-1fudorw3"})
+    _children(root / "media-native-reader-reconciliation" / "reconcile-1fudorw3", {"pending.json"})
+    _children(root / "media-native-reader-extra-attempt-v3", {"grant.json", "seal.json"})
+    _children(
+        root / "media-native-reader-run-approval-v3",
+        {"receipt.json", "recheck.json", "attempt-recheck.json"},
+    )
+    values = {relative: _read_pinned(root / relative, *pin) for relative, pin in pins.items()}
+    marker = scope._json(values["media-elf-metadata-admission/active.marker"])
+    policy = scope._json(values[f"media-native-reader/{FIFTH}/policy.json"])
+    proof = scope._json(values[f"media-native-reader/{FIFTH}/cases.json"])
+    digest = hashlib.sha256(
+        json.dumps(policy, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
+    _require(marker == {"version": 1, "lease": LEASE, "policy": digest}, "marker_binding")
+    _require(
+        policy.get("attempt_limit") == 5 and policy.get("runtime_authority") is False, "policy"
+    )
+    _require(
+        proof
+        == {
+            "status": "refused",
+            "stage": "build",
+            "support_release_confirmed": False,
+            "runtime_authority": False,
+            "build_failure": {
+                "kind": "validation",
+                "code": "reader_container_image_configuration",
             },
-            "refusal",
-        )
-        grant = scope._json(values["media-native-reader-extra-attempt-v3/grant.json"])
-        _require(
-            grant.get("runtime_root") == str(root)
-            and grant.get("source_head") == SOURCE_HEAD
-            and grant.get("source_tree") == SOURCE_TREE
-            and grant.get("attempt_limit_after") == 5
-            and grant.get("additional_attempts") == 1
-            and grant.get("runtime_authority") is False,
-            "grant_binding",
-        )
+        },
+        "refusal",
+    )
+    grant = scope._json(values["media-native-reader-extra-attempt-v3/grant.json"])
+    _require(
+        grant.get("runtime_root") == str(root)
+        and grant.get("source_head") == SOURCE_HEAD
+        and grant.get("source_tree") == SOURCE_TREE
+        and grant.get("attempt_limit_after") == 5
+        and grant.get("additional_attempts") == 1
+        and grant.get("runtime_authority") is False,
+        "grant_binding",
+    )
     return {
         "status": "verified-retained-fifth-refusal-filesystem",
         "attempts_used": 5,
@@ -273,6 +270,12 @@ def _audit(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, objec
         "another_attempt_authorized": False,
         "runtime_authority": False,
     }
+
+
+def _audit(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, object]:
+    root = scope._canonical_root(root)
+    with _locked(root):
+        return _audit_held(root, pins)
 
 
 def audit(runtime_root: Path) -> dict[str, object]:
