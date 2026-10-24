@@ -90,6 +90,7 @@ def test_setup_create_never_starts_or_mounts(tmp_path):
     assert "--network=none" in args and "--read-only" in args and "--cap-drop=ALL" in args
     assert "start" not in args and "--mount" not in args and "--volume" not in args
     assert args[-1] == IMAGE
+    assert "--entrypoint=/reader/ld.so" in args
 
 
 @pytest.mark.parametrize("kind", ["container", "image"])
