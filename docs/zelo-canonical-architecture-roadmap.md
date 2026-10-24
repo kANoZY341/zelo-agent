@@ -2,9 +2,31 @@
 
 ## Status
 
-**24 October v0.15 checkpoint:** The separately authorized fifth native Media
+**24 October fifth-refusal reconciliation:** After the Managing Director's
+scoped authorization, the one-use [PR #257](https://github.com/kANoZY341/zelo-agent/pull/257)
+operator tools removed only the pinned fifth-lease Docker image and cleared the
+shared admission marker after verifying the durable cleanup completion receipt
+and zero relevant Docker resources. The failed fifth `cases.json` SHA256
+`5232d217874020fd88375cd265405586f838feb2d88a32bef18b826866af76e1`
+and all five attempt directories remain; marker and lock sizes are zero.
+[Issue #166's execution receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6388059721)
+records cleanup completion SHA256
+`943d2625b5efe522739554e5000860e66e3f1a56f788b83504407604e16b5434`
+and linked reconciliation receipt SHA256
+`bce6a0881a7c1086dd74d87e5dabbcc7a5ac4e33b4a0c4952c022f08185fa1fd`.
+PR #257 passed independent exact-head review and
+[PR CI 40118218691](https://github.com/kANoZY341/zelo-agent/actions/runs/40118218691);
+distinct [main CI 40119638077](https://github.com/kANoZY341/zelo-agent/actions/runs/40119638077)
+passed at `3a1fc7ff6b2b060b9e42395cfd6e2218590745c2` (6,670 passed,
+2 skipped, 61 warnings). This is a cleanup of failed-attempt residue, not a
+native Reader pass. Five of five attempts are consumed, no sixth is authorized,
+and no Media runtime authority or `v0.15.0` release follows. Full v0.15 stays
+**HOLD** for native Reader/provenance/decoder/Core qualification and the other
+Space, Skill, Worker, curated-integration, rollback and release-audit gates.
+
+**Earlier 24 October v0.15 checkpoint:** The separately authorized fifth native Media
 Reader attempt was allocated once and refused at build image verification;
-its admission marker remains nonempty with retained build artifacts. The
+its admission marker was then nonempty with retained build artifacts. The
 single-run decision is consumed and no sixth attempt is authorized.
 [PRs #253 and #254](v0.15-release-closeout.md#24-october-fifth-native-media-reader-refusal-and-build-corrections)
 corrected the observed image PATH and stopped setup export command defects.
@@ -12,8 +34,8 @@ Distinct [main CI 40105921891](https://github.com/kANoZY341/zelo-agent/actions/r
 **PASS** at `0f6674f672a2370286c4f9f006638ad10d271bcb` (6,639 tests,
 2 skipped). Build-only attestation passed after those changes; the native
 reader matrix, provenance, decoder and Core authority remain **NOT RUN**.
-The marker needs exact-evidence reconciliation before a separately reviewed
-new proof decision. Space, Skill publication, curated OCR/REA, complete Worker,
+At that checkpoint the marker still needed exact-evidence reconciliation
+before a separately reviewed new proof decision. Space, Skill publication, curated OCR/REA, complete Worker,
 rollback and independent release gates remain **HOLD**. Published release
 remains `v0.14.0`; no v0.15 tag or activation occurred. Dated checkpoints
 below report the state observed at their time.
