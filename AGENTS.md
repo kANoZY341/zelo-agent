@@ -110,8 +110,9 @@ fifth refusal remain terminal. The Managing Director authorized exactly one
 fifth attempt on 24 October; `native-reader-proof-5r1zlt2c` refused at the
 build image-configuration check. Its single-run decision is consumed.
 **No sixth** native proof is authorized. The shared admission marker is
-nonempty; preserve it and every proof, approval and build artifact. Never
-reset, delete, bypass, reframe or reclassify a refusal as successful. PRs
+nonempty and one untagged fifth-lease Docker image remains; preserve them and
+every proof, approval and build artifact pending separately reviewed cleanup.
+Never reset, delete, bypass, reframe or reclassify a refusal as successful. PRs
 #253 and #254 corrected two observed build-stage defects, but no native matrix
 or release success follows. Release cannot silently defer the originally
 required runtime: record the blocker and obtain a separate operator
