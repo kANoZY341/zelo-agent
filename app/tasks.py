@@ -730,7 +730,9 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
     response.approvals = [
         ApprovalResponse.model_validate(approval)
         for approval in session.scalars(
-            select(Approval).where(Approval.task_id == task.id).order_by(Approval.created_at)
+            select(Approval)
+            .where(Approval.task_id == task.id)
+            .order_by(Approval.action_version, Approval.created_at, Approval.id)
         )
     ]
     return response
@@ -2696,7 +2698,9 @@ class TaskService:
             latest_approval = session.scalar(
                 select(Approval)
                 .where(Approval.task_id == task.id)
-                .order_by(Approval.created_at.desc(), Approval.id.desc())
+                .order_by(
+                    Approval.action_version.desc(), Approval.created_at.desc(), Approval.id.desc()
+                )
                 .limit(1)
             )
             projected_result, result_truncated = _project_task_result(
@@ -3716,7 +3720,11 @@ class TaskService:
                 approval = session.scalar(
                     select(Approval)
                     .where(Approval.task_id == task.id)
-                    .order_by(Approval.created_at.desc())
+                    .order_by(
+                        Approval.action_version.desc(),
+                        Approval.created_at.desc(),
+                        Approval.id.desc(),
+                    )
                     .limit(1)
                 )
                 if approval and self._expire_or_invalidate(
