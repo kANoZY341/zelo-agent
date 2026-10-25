@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from qualification import media_reader_post_cleanup_ledger as post_cleanup
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_run_approval_v4 as approval
 from qualification import media_reader_sixth_ledger as ledger
@@ -27,6 +28,7 @@ def audited():
         "marker_cleared": True,
         "cleanup_completion_sha256": ledger.CLEANUP_SHA256,
         "reconciliation_sha256": ledger.RECONCILIATION_SHA256,
+        "residual_cleanup_completion_sha256": post_cleanup.COMPLETION_SHA256,
         "docker_resources_checked": False,
         "another_attempt_authorized": False,
         "runtime_authority": False,
@@ -46,6 +48,7 @@ def evidence():
         "proof_history_sha256": previous._history_digest(history),
         "cleanup_completion_sha256": ledger.CLEANUP_SHA256,
         "reconciliation_sha256": ledger.RECONCILIATION_SHA256,
+        "residual_cleanup_completion_sha256": post_cleanup.COMPLETION_SHA256,
         "attempts_used_before": 5,
         "additional_attempts": 1,
         "network": "none",
@@ -99,6 +102,7 @@ def test_exact_sixth_comment_is_read_only_evidence():
     assert result["proof_history_sha256"] == previous._history_digest(approval._history())
     assert result["cleanup_completion_sha256"] == ledger.CLEANUP_SHA256
     assert result["reconciliation_sha256"] == ledger.RECONCILIATION_SHA256
+    assert result["residual_cleanup_completion_sha256"] == post_cleanup.COMPLETION_SHA256
     assert "run_authorized" not in result
 
 
@@ -111,6 +115,9 @@ def test_exact_sixth_comment_is_read_only_evidence():
         "six_history",
         "other_cleanup",
         "other_reconciliation",
+        "other_residual_cleanup",
+        "missing_residual_cleanup",
+        "changed_residual_ledger",
         "extra_budget",
         "runtime_authority",
         "wrong_author",
@@ -139,6 +146,14 @@ def test_refuses_prior_budget_and_drift(change):
         body["cleanup_completion_sha256"] = "0" * 64
     elif change == "other_reconciliation":
         body["reconciliation_sha256"] = "0" * 64
+    elif change == "other_residual_cleanup":
+        body["residual_cleanup_completion_sha256"] = "0" * 64
+    elif change == "missing_residual_cleanup":
+        del body["residual_cleanup_completion_sha256"]
+    elif change == "changed_residual_ledger":
+        bad = audited()
+        bad["residual_cleanup_completion_sha256"] = "0" * 64
+        changes["audited_ledger"] = bad
     elif change == "extra_budget":
         body["additional_attempts"] = 2
     elif change == "runtime_authority":
@@ -187,7 +202,7 @@ def test_fetch_reaudits_before_and_after_fixed_github_reads(monkeypatch):
         calls.append(path)
         return copy.deepcopy(endpoints[path])
 
-    monkeypatch.setattr(ledger, "audit", audit)
+    monkeypatch.setattr(post_cleanup, "audit", audit)
     binding = {
         "get": get,
         "expected_comment_id": COMMENT_ID,
@@ -216,7 +231,7 @@ def test_fetch_refuses_ledger_change_before_comment_is_returned(monkeypatch):
             raise ledger.SixthLedgerRefused("marker_drift")
         return audited()
 
-    monkeypatch.setattr(ledger, "audit", audit)
+    monkeypatch.setattr(post_cleanup, "audit", audit)
     with pytest.raises(approval.ApprovalRefused, match="ledger"):
         approval.fetch_validated_snapshot(
             get=lambda _path: next(responses),
@@ -233,7 +248,7 @@ def test_symlink_loop_in_retained_ledger_is_bounded_refusal(monkeypatch):
     def broken(_root):
         raise RuntimeError("Symlink loop from retained root")
 
-    monkeypatch.setattr(ledger, "audit", broken)
+    monkeypatch.setattr(post_cleanup, "audit", broken)
     with pytest.raises(approval.ApprovalRefused, match="ledger") as error:
         approval.fetch_validated_snapshot(
             get=lambda _path: pytest.fail("must not fetch after ledger refusal"),
