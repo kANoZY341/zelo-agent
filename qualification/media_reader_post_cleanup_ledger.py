@@ -22,17 +22,22 @@ class PostCleanupRefused(ValueError):
     """The retained history or exact residual cleanup is absent or changed."""
 
 
+def _audit_held(root: Path) -> dict[str, object]:
+    """Caller owns the shared admission lock throughout this file-only audit."""
+    history = historical._audit_held(root, historical.FILE_PINS)
+    completion = cleanup._completion_held(root)
+    if completion != COMPLETION_SHA256:
+        raise PostCleanupRefused("reader_post_cleanup_completion")
+    # The second historical audit catches drift across the receipt read.
+    if historical._audit_held(root, historical.FILE_PINS) != history:
+        raise PostCleanupRefused("reader_post_cleanup_ledger_drift")
+    return {**history, "residual_cleanup_completion_sha256": completion}
+
+
 def audit(runtime_root: Path) -> dict[str, object]:
     """Verify both receipt chains under one lock; report no Docker authority."""
     if Path(runtime_root) != RETAINED_ROOT:
         raise PostCleanupRefused("reader_post_cleanup_root")
     root = scope._canonical_root(RETAINED_ROOT)
     with fifth._locked(root):
-        history = historical._audit_held(root, historical.FILE_PINS)
-        completion = cleanup._completion_held(root)
-        if completion != COMPLETION_SHA256:
-            raise PostCleanupRefused("reader_post_cleanup_completion")
-        # The second historical audit catches drift across the receipt read.
-        if historical._audit_held(root, historical.FILE_PINS) != history:
-            raise PostCleanupRefused("reader_post_cleanup_ledger_drift")
-        return {**history, "residual_cleanup_completion_sha256": completion}
+        return _audit_held(root)

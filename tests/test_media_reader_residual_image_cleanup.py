@@ -197,10 +197,13 @@ def test_post_cleanup_ledger_requires_exact_durable_completion(fenced, monkeypat
     with pytest.raises(post_cleanup.PostCleanupRefused, match="completion"):
         post_cleanup.audit(root)
     monkeypatch.setattr(post_cleanup, "COMPLETION_SHA256", result["completion_sha256"])
-    assert post_cleanup.audit(root) == {
+    expected = {
         "status": "five-intact",
         "residual_cleanup_completion_sha256": result["completion_sha256"],
     }
+    assert post_cleanup.audit(root) == expected
+    with post_cleanup.fifth._locked(root):
+        assert post_cleanup._audit_held(root) == expected
     evidence = next((root / cleanup.BASE).iterdir())
     (evidence / "removed-01.json").write_text("{}")
     with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_step"):
