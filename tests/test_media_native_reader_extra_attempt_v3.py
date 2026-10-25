@@ -212,6 +212,26 @@ def test_v3_observer_refuses_owned_resources_before_readiness(tmp_path, monkeypa
     assert not list(root.iterdir())
 
 
+def test_v3_observer_includes_untagged_lease_images_before_readiness(tmp_path, monkeypatch):
+    root = tmp_path / "runtime"
+    root.mkdir()
+
+    def docker(argv, _environment, **_kwargs):
+        if "image" in argv and "ls" in argv and "--all" in argv:
+            # The real wrapper has stdout_limit=0, so a listed image
+            # refuses through the bounded output error before returning bytes.
+            raise ValueError("setup_command_output_limit")
+        return b""
+
+    monkeypatch.setattr(grant_cli.reader, "_docker", docker)
+    monkeypatch.setattr(
+        grant_cli.reader, "_docker_readiness", lambda _: pytest.fail("reached readiness")
+    )
+    with pytest.raises(ValueError, match="setup_command_output_limit"):
+        grant_cli._observe(root)
+    assert not list(root.iterdir())
+
+
 def test_v3_cli_requires_confirmation_before_observation(tmp_path, monkeypatch):
     root = tmp_path / "runtime"
     root.mkdir()
