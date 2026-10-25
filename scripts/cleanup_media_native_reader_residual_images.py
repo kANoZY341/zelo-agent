@@ -326,9 +326,12 @@ def inventory() -> dict[str, object]:
     }
 
 
-def _completion_held(root: Path) -> str:
-    """Validate the one-use durable chain; caller owns the shared lock."""
-    ledger._audit_held(root, ledger.FILE_PINS)
+def _completion_held(root: Path, *, expected_marker: bytes | None = None) -> str:
+    """Validate the durable chain under an empty or exact live admission marker."""
+    if expected_marker is None:
+        ledger._audit_held(root, ledger.FILE_PINS)
+    else:
+        ledger._audit_held(root, ledger.FILE_PINS, expected_marker=expected_marker)
     base = root / BASE
     try:
         names = {item.name for item in base.iterdir()}
