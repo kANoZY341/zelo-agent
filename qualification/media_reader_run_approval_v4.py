@@ -16,6 +16,7 @@ from pathlib import Path
 from qualification import media_reader_post_cleanup_ledger as post_cleanup
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_sixth_ledger as ledger
+from qualification.admission import Lease
 
 SCHEMA = "zelo-media-native-reader-sixth-run-approval-v1"
 DECISION = "authorize-one-sixth-native-media-reader-proof"
@@ -317,9 +318,39 @@ def fetch_validated_snapshot_held(
     )
 
 
-def recheck_snapshot(*, original: dict, **binding: object) -> dict:
-    """Refuse a changed comment or ledger between two authenticated reads."""
-    fresh = fetch_validated_snapshot(**binding)
+def fetch_validated_snapshot_lease(
+    *,
+    root: Path,
+    lease: Lease,
+    before: dict,
+    get: Callable[[str], dict],
+    expected_comment_id: int,
+    expected_challenge: str,
+    challenge_issued_at: datetime,
+    source_head: str,
+    source_tree: str,
+    clock: Callable[[], datetime],
+) -> dict:
+    """Caller holds Lease.retained() across both live audits and GitHub reads.
+
+    The marker is occupied here. This only checks decision evidence; it does
+    not write a receipt, grant, or run permit.
+    """
+    if not isinstance(root, Path) or root != ledger.RETAINED_ROOT or type(lease) is not Lease:
+        _refuse("root")
+    return _fetch_validated_snapshot(
+        audit=lambda: post_cleanup._audit_held_live(root, lease, before),
+        get=get,
+        expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
+        source_head=source_head,
+        source_tree=source_tree,
+        clock=clock,
+    )
+
+
+def _rechecked(original: dict, fresh: dict) -> dict:
     if (
         type(original) is not dict
         or set(original) != set(fresh)
@@ -327,15 +358,18 @@ def recheck_snapshot(*, original: dict, **binding: object) -> dict:
     ):
         _refuse("comment_drift")
     return fresh
+
+
+def recheck_snapshot(*, original: dict, **binding: object) -> dict:
+    """Refuse a changed comment or ledger between two authenticated reads."""
+    return _rechecked(original, fetch_validated_snapshot(**binding))
 
 
 def recheck_snapshot_held(*, original: dict, **binding: object) -> dict:
     """Repeat the pre-marker held fetch before the lease is created."""
-    fresh = fetch_validated_snapshot_held(**binding)
-    if (
-        type(original) is not dict
-        or set(original) != set(fresh)
-        or any(original[key] != item for key, item in fresh.items() if key != "checked_utc")
-    ):
-        _refuse("comment_drift")
-    return fresh
+    return _rechecked(original, fetch_validated_snapshot_held(**binding))
+
+
+def recheck_snapshot_lease(*, original: dict, **binding: object) -> dict:
+    """Refuse decision drift under the caller's retained live admission lease."""
+    return _rechecked(original, fetch_validated_snapshot_lease(**binding))
