@@ -2,11 +2,13 @@
 
 import asyncio
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import select
+
 from app.developer_contracts import ValidationResult, WorkerIdentity
-from app.models import Task, TaskAttempt
+from app.models import Approval, Task, TaskAttempt
 from app.policy import State, action_hash
 from app.promotion_contracts import (
     CICheckSnapshot,
@@ -297,3 +299,33 @@ def test_interrupted_merge_retry_requires_fresh_approval(settings, database):
     assert retried.approvals[-1].status == "pending"
     assert retried.approvals[-1].action_version == retried.action_version
     assert retried.approvals[-1].action_hash != retried.approvals[0].action_hash
+
+
+def test_retry_approval_order_uses_action_version_when_clock_moves_back(settings, database):
+    configured, source_id, _, _, ci = source_fixture(settings, database)
+    service = TaskService(database, configured, promotion_ci_verifier=FakeCIVerifier(ci))
+    task, _ = service.submit(
+        MergeRunInput(kind="merge_run", payload={"promotion_task_id": source_id}), None
+    )
+    service.decide(task.approvals[0].id, "approve")
+    execution = service.claim()
+    assert execution is not None
+    service.finish(execution, State.INTERRUPTED, error="process_interrupted")
+    service.retry(task.id)
+
+    with database.transaction() as session:
+        approvals = list(session.scalars(select(Approval).where(Approval.task_id == task.id)))
+        old, fresh = sorted(approvals, key=lambda item: item.action_version)
+        old.created_at = fresh.created_at + timedelta(seconds=1)
+
+    response = service.get(task.id)
+    assert [approval.action_version for approval in response.approvals] == [1, 2]
+    assert response.approvals[-1].status == "pending"
+    projection = service.project(task.id)
+    assert projection.latest_approval_id == fresh.id
+    assert projection.latest_approval_status == "pending"
+    service.decide(fresh.id, "approve")
+    claimed = service.claim()
+    assert claimed is not None
+    assert claimed.task_id == task.id
+    assert service.get(task.id).action_version == 2
