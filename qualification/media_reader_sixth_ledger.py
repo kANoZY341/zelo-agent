@@ -44,7 +44,8 @@ def _require(condition: bool, reason: str) -> None:
         raise SixthLedgerRefused("reader_sixth_ledger_" + reason)
 
 
-def _empty_marker(path: Path) -> None:
+def _marker(path: Path, expected: bytes) -> None:
+    _require(type(expected) is bytes and len(expected) <= 4096, "marker_expected")
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     try:
         before = os.fstat(fd)
@@ -65,8 +66,8 @@ def _empty_marker(path: Path) -> None:
             and before.st_uid == os.geteuid()
             and before.st_gid == os.getegid()
             and before.st_nlink == 1
-            and before.st_size == 0
-            and os.read(fd, 1) == b"",
+            and before.st_size == len(expected)
+            and os.read(fd, len(expected) + 1) == expected,
             "marker",
         )
         after = os.fstat(fd)
@@ -87,6 +88,10 @@ def _empty_marker(path: Path) -> None:
         )
     finally:
         os.close(fd)
+
+
+def _empty_marker(path: Path) -> None:
+    _marker(path, b"")
 
 
 def _directories(root: Path) -> None:
@@ -124,10 +129,22 @@ def _directories(root: Path) -> None:
     fifth._children(root / reconciliation.RECON_BASE / RECONCILIATION_NAME, {"pending.json"})
 
 
-def _audit_held(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, object]:
+def _audit_held(
+    root: Path,
+    pins: dict[str, tuple[str, int, int]],
+    *,
+    expected_marker: bytes | None = None,
+) -> dict[str, object]:
     """Caller holds the shared admission lock for the whole inspection."""
     _directories(root)
-    _empty_marker(root / "media-elf-metadata-admission/active.marker")
+    if expected_marker is not None:
+        _require(
+            type(expected_marker) is bytes and 0 < len(expected_marker) <= 4096, "marker_expected"
+        )
+    _marker(
+        root / "media-elf-metadata-admission/active.marker",
+        b"" if expected_marker is None else expected_marker,
+    )
     values = {relative: fifth._read_pinned(root / relative, *pin) for relative, pin in pins.items()}
     fifth_policy = scope._json(values[f"media-native-reader/{fifth.FIFTH}/policy.json"])
     fifth_proof = scope._json(values[f"media-native-reader/{fifth.FIFTH}/cases.json"])
@@ -217,7 +234,7 @@ def _audit_held(root: Path, pins: dict[str, tuple[str, int, int]]) -> dict[str, 
         "proof_history": history,
         "attempts_used": 5,
         "attempt_limit": 5,
-        "marker_cleared": True,
+        "marker_cleared": expected_marker is None,
         "cleanup_completion_sha256": completion_sha,
         "reconciliation_sha256": pins[RECONCILIATION_FILE][0],
         "docker_resources_checked": False,
