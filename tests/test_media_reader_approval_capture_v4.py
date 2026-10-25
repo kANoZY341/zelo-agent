@@ -1,6 +1,7 @@
 """Disposable one-use sixth decision capture; no native attempt or Docker call."""
 
 import json
+import os
 from datetime import UTC, datetime
 
 import pytest
@@ -315,3 +316,170 @@ def test_source_drift_after_marker_leaves_fence_and_no_lease(candidate, monkeypa
         )
     assert (root / capture.GRANT_BASE / "seal.json").is_file()
     assert (root / "media-elf-metadata-admission/active.marker").stat().st_size > 0
+
+
+def test_final_recheck_issues_only_one_live_gate_under_retained_lease(candidate, monkeypatch):
+    root, _, checks, request, get, _ = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    calls = []
+
+    def live(path, active, before):
+        assert path == root and active is lease and before == _audited()
+        assert lease._retained_thread is not None
+        calls.append("live")
+        return before
+
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", live)
+
+    def allocate(path, gate):
+        assert path == root
+        capture._consume_attempt_gate(path, gate)
+        return "one-allocated-directory-placeholder"
+
+    try:
+        fresh, result = session.recheck_before_attempt(
+            lease, get=get, clock=lambda: NOW, allocate=allocate
+        )
+        assert fresh["comment_id"] == COMMENT_ID
+        assert result == "one-allocated-directory-placeholder"
+        assert len(calls) >= 5
+        assert checks.count(root) >= 6
+        assert (root / capture.BASE / "attempt-recheck.json").is_file()
+        assert not (root / "media-native-reader").exists()
+        with pytest.raises(capture.CaptureRefused, match="attempt_recheck_used"):
+            session.recheck_before_attempt(lease, get=get, clock=lambda: NOW, allocate=allocate)
+        with pytest.raises(capture.CaptureRefused, match="attempt_gate"):
+            capture._consume_attempt_gate(root, object())
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_changed_comment_before_allocation_consumes_recheck_without_gate(candidate, monkeypatch):
+    root, _, _, request, get, responses = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", lambda _root, _lease, before: before)
+    responses[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
+    try:
+        with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
+            session.recheck_before_attempt(
+                lease,
+                get=get,
+                clock=lambda: NOW,
+                allocate=lambda *_: pytest.fail("allocation after comment edit"),
+            )
+        assert not (root / capture.BASE / "attempt-recheck.json").exists()
+        with pytest.raises(capture.CaptureRefused, match="attempt_recheck_used"):
+            session.recheck_before_attempt(lease, get=get, clock=lambda: NOW)
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_saved_gate_cannot_be_replayed_after_live_callback(candidate, monkeypatch):
+    root, _, _, request, get, _ = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", lambda _root, _lease, before: before)
+    saved = []
+    try:
+        session.recheck_before_attempt(
+            lease,
+            get=get,
+            clock=lambda: NOW,
+            allocate=lambda _, gate: saved.append(gate),
+        )
+        with lease.retained():
+            with pytest.raises(capture.CaptureRefused, match="attempt_gate"):
+                capture._consume_attempt_gate(root, saved[0])
+        assert not capture._GATES
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_forked_process_cannot_consume_live_gate(candidate, monkeypatch):
+    root, _, _, request, get, _ = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", lambda _root, _lease, before: before)
+
+    def allocate(runtime, gate):
+        read_fd, write_fd = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.close(read_fd)
+            try:
+                capture._consume_attempt_gate(runtime, gate)
+            except capture.CaptureRefused:
+                os.write(write_fd, b"refused")
+            else:
+                os.write(write_fd, b"accepted")
+            os.close(write_fd)
+            os._exit(0)
+        os.close(write_fd)
+        verdict = os.read(read_fd, 16)
+        os.close(read_fd)
+        _, status = os.waitpid(pid, 0)
+        assert status == 0 and verdict == b"refused"
+        capture._consume_attempt_gate(runtime, gate)
+        return "allocated-in-parent-only"
+
+    try:
+        _, result = session.recheck_before_attempt(
+            lease, get=get, clock=lambda: NOW, allocate=allocate
+        )
+        assert result == "allocated-in-parent-only"
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+@pytest.mark.parametrize(
+    ("base", "name"),
+    [
+        (capture.BASE, "receipt.json"),
+        (capture.BASE, "recheck.json"),
+        (capture.BASE, "attempt-recheck.json"),
+        (capture.GRANT_BASE, "grant.json"),
+        (capture.GRANT_BASE, "seal.json"),
+    ],
+)
+def test_each_durable_decision_record_is_pinned_at_gate_consumption(
+    candidate, monkeypatch, base, name
+):
+    root, _, _, request, get, _ = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", lambda _root, _lease, before: before)
+    allocated = root / "media-native-reader"
+
+    def tamper_then_consume(runtime, gate):
+        path = root / base / name
+        path.write_bytes(path.read_bytes() + b" ")
+        capture._consume_attempt_gate(runtime, gate)
+        allocated.mkdir()
+
+    try:
+        with pytest.raises(capture.CaptureRefused, match="record_drift"):
+            session.recheck_before_attempt(
+                lease, get=get, clock=lambda: NOW, allocate=tamper_then_consume
+            )
+        assert not allocated.exists()
+        assert not capture._GATES
+    finally:
+        lease.finish(cleanup_confirmed=False)
+
+
+def test_missing_durable_receipt_blocks_recheck_before_allocation(candidate, monkeypatch):
+    root, _, _, request, get, _ = candidate
+    session = capture.ApprovalCapture(root, expected_source=(ROOT_HEAD, ROOT_TREE))
+    lease, _ = session.acquire("d" * 64, request, get=get, clock=_clock())
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", lambda _root, _lease, before: before)
+    (root / capture.BASE / "receipt.json").unlink()
+    try:
+        with pytest.raises(capture.CaptureRefused, match="record_storage"):
+            session.recheck_before_attempt(
+                lease, get=get, clock=lambda: NOW, allocate=lambda *_: pytest.fail("allocated")
+            )
+        assert not (root / capture.BASE / "attempt-recheck.json").exists()
+    finally:
+        lease.finish(cleanup_confirmed=False)
