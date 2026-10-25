@@ -5,6 +5,7 @@ import sys
 
 import pytest
 
+from qualification import media_reader_post_cleanup_ledger as post_cleanup
 from scripts import cleanup_media_native_reader_residual_images as cleanup
 
 
@@ -181,3 +182,29 @@ def test_inventory_cli_never_enters_cleanup(fenced, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)["image_count"] == 8
     assert not (root / cleanup.BASE).exists()
     assert (root / "media-elf-metadata-admission/active.marker").read_bytes() == b""
+
+
+def test_post_cleanup_ledger_requires_exact_durable_completion(fenced, monkeypatch):
+    root, _ = fenced
+    result = cleanup._cleanup(
+        root,
+        snapshot=lambda *_: None,
+        remove=lambda *_: b"removed",
+        quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    monkeypatch.setattr(cleanup.ledger, "_audit_held", lambda *_: {"status": "five-intact"})
+    monkeypatch.setattr(post_cleanup, "RETAINED_ROOT", root)
+    with pytest.raises(post_cleanup.PostCleanupRefused, match="completion"):
+        post_cleanup.audit(root)
+    monkeypatch.setattr(post_cleanup, "COMPLETION_SHA256", result["completion_sha256"])
+    expected = {
+        "status": "five-intact",
+        "residual_cleanup_completion_sha256": result["completion_sha256"],
+    }
+    assert post_cleanup.audit(root) == expected
+    with post_cleanup.fifth._locked(root):
+        assert post_cleanup._audit_held(root) == expected
+    evidence = next((root / cleanup.BASE).iterdir())
+    (evidence / "removed-01.json").write_text("{}")
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_step"):
+        post_cleanup.audit(root)

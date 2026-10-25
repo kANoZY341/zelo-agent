@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from qualification import media_reader_post_cleanup_ledger as post_cleanup
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_sixth_ledger as ledger
 
@@ -68,6 +69,7 @@ def _verified_ledger(value: object) -> list[dict[str, str]]:
         "marker_cleared": True,
         "cleanup_completion_sha256": ledger.CLEANUP_SHA256,
         "reconciliation_sha256": ledger.RECONCILIATION_SHA256,
+        "residual_cleanup_completion_sha256": post_cleanup.COMPLETION_SHA256,
         "docker_resources_checked": False,
         "another_attempt_authorized": False,
         "runtime_authority": False,
@@ -168,6 +170,7 @@ def validate_snapshot(
         "proof_history_sha256": previous._history_digest(history),
         "cleanup_completion_sha256": ledger.CLEANUP_SHA256,
         "reconciliation_sha256": ledger.RECONCILIATION_SHA256,
+        "residual_cleanup_completion_sha256": post_cleanup.COMPLETION_SHA256,
         "attempts_used_before": 5,
         "additional_attempts": 1,
         "network": "none",
@@ -201,6 +204,7 @@ def validate_snapshot(
         "proof_history_sha256": expected["proof_history_sha256"],
         "cleanup_completion_sha256": ledger.CLEANUP_SHA256,
         "reconciliation_sha256": ledger.RECONCILIATION_SHA256,
+        "residual_cleanup_completion_sha256": post_cleanup.COMPLETION_SHA256,
     }
 
 
@@ -220,7 +224,7 @@ def fetch_validated_snapshot(
     if type(expected_challenge) is not str or HEX64.fullmatch(expected_challenge) is None:
         _refuse("challenge")
     try:
-        before = ledger.audit(ledger.RETAINED_ROOT)
+        before = post_cleanup.audit(ledger.RETAINED_ROOT)
     except (OSError, ValueError, RuntimeError):
         _refuse("ledger")
     base = "/repos/kANoZY341/zelo-agent"
@@ -239,7 +243,7 @@ def fetch_validated_snapshot(
             _refuse("fetch_shape")
         responses.append(response)
     try:
-        after = ledger.audit(ledger.RETAINED_ROOT)
+        after = post_cleanup.audit(ledger.RETAINED_ROOT)
     except (OSError, ValueError, RuntimeError):
         _refuse("ledger")
     if before != after:
