@@ -260,3 +260,59 @@ def test_symlink_loop_in_retained_ledger_is_bounded_refusal(monkeypatch):
             clock=lambda: NOW,
         )
     assert "Symlink loop" not in str(error.value)
+
+
+def test_held_fetch_and_recheck_do_not_reacquire_admission_lock(monkeypatch):
+    repo, issue, comment = evidence()
+    endpoints = {
+        "/repos/kANoZY341/zelo-agent": repo,
+        "/repos/kANoZY341/zelo-agent/issues/166": issue,
+        f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}": comment,
+    }
+    calls = []
+
+    def held(root):
+        assert root == ledger.RETAINED_ROOT
+        calls.append("held")
+        return audited()
+
+    def public(_root):
+        pytest.fail("would reacquire the already held admission lock")
+
+    def get(path):
+        calls.append(path)
+        return copy.deepcopy(endpoints[path])
+
+    monkeypatch.setattr(post_cleanup, "_audit_held", held)
+    monkeypatch.setattr(post_cleanup, "audit", public)
+    binding = {
+        "root": ledger.RETAINED_ROOT,
+        "get": get,
+        "expected_comment_id": COMMENT_ID,
+        "expected_challenge": CHALLENGE,
+        "challenge_issued_at": ISSUED,
+        "source_head": HEAD,
+        "source_tree": TREE,
+        "clock": lambda: NOW,
+    }
+    original = approval.fetch_validated_snapshot_held(**binding)
+    assert calls == ["held", *endpoints, "held"]
+    endpoints[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
+    with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
+        approval.recheck_snapshot_held(original=original, **binding)
+    assert calls == ["held", *endpoints, "held", "held", *endpoints, "held"]
+
+
+def test_held_fetch_refuses_wrong_root_before_github_read(monkeypatch):
+    monkeypatch.setattr(post_cleanup, "_audit_held", lambda _root: pytest.fail("no audit"))
+    with pytest.raises(approval.ApprovalRefused, match="root"):
+        approval.fetch_validated_snapshot_held(
+            root=ledger.RETAINED_ROOT.parent,
+            get=lambda _path: pytest.fail("no fetch"),
+            expected_comment_id=COMMENT_ID,
+            expected_challenge=CHALLENGE,
+            challenge_issued_at=ISSUED,
+            source_head=HEAD,
+            source_tree=TREE,
+            clock=lambda: NOW,
+        )
