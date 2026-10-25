@@ -1,11 +1,14 @@
 """Disposable exact eight-image cleanup coordination; never invokes Docker."""
 
 import json
+import os
 import sys
+import threading
 
 import pytest
 
 from qualification import media_reader_post_cleanup_ledger as post_cleanup
+from qualification.admission import AdmissionController
 from scripts import cleanup_media_native_reader_residual_images as cleanup
 
 
@@ -208,3 +211,101 @@ def test_post_cleanup_ledger_requires_exact_durable_completion(fenced, monkeypat
     (evidence / "removed-01.json").write_text("{}")
     with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_step"):
         post_cleanup.audit(root)
+
+
+def test_completion_chain_can_be_rechecked_under_an_exact_live_marker(fenced, monkeypatch):
+    root, _ = fenced
+    result = cleanup._cleanup(
+        root,
+        snapshot=lambda *_: None,
+        remove=lambda *_: b"removed",
+        quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    marker = root / "media-elf-metadata-admission/active.marker"
+    payload = b'{"version": 1, "lease": "held", "policy": "digest"}'
+    marker.write_bytes(payload)
+    calls = []
+
+    def audit(path, pins, *, expected_marker=None):
+        assert path == root and pins == cleanup.ledger.FILE_PINS
+        calls.append(expected_marker)
+        assert marker.read_bytes() == expected_marker
+
+    monkeypatch.setattr(cleanup.ledger, "_audit_held", audit)
+    with post_cleanup.fifth._locked(root):
+        assert (
+            cleanup._completion_held(root, expected_marker=payload) == result["completion_sha256"]
+        )
+    assert calls == [payload]
+    assert marker.read_bytes() == payload
+
+
+def test_post_cleanup_live_audit_preserves_the_pre_marker_snapshot(fenced, monkeypatch):
+    root, _ = fenced
+    result = cleanup._cleanup(
+        root,
+        snapshot=lambda *_: None,
+        remove=lambda *_: b"removed",
+        quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    monkeypatch.setattr(post_cleanup, "RETAINED_ROOT", root)
+    monkeypatch.setattr(post_cleanup, "COMPLETION_SHA256", result["completion_sha256"])
+
+    def historical(_root, _pins, *, expected_marker=None):
+        return {"status": "five-intact", "marker_cleared": expected_marker is None}
+
+    monkeypatch.setattr(cleanup.ledger, "_audit_held", historical)
+    before = post_cleanup.audit(root)
+    marker = root / "media-elf-metadata-admission/active.marker"
+    lease = AdmissionController(marker.parent).acquire("b" * 64)
+    payload = marker.read_bytes()
+    entered, release = threading.Event(), threading.Event()
+
+    def other_thread():
+        with lease.retained():
+            entered.set()
+            assert release.wait(timeout=5)
+
+    thread = threading.Thread(target=other_thread)
+    thread.start()
+    try:
+        assert entered.wait(timeout=5)
+        with pytest.raises(post_cleanup.PostCleanupRefused, match="binding"):
+            post_cleanup._audit_held_live(root, lease, before)
+    finally:
+        release.set()
+        thread.join(timeout=5)
+    assert not thread.is_alive()
+    with lease.retained():
+        assert post_cleanup._audit_held_live(root, lease, before) == before
+        moved = root.with_name("runtime-moved")
+        root.rename(moved)
+        root.symlink_to(moved, target_is_directory=True)
+        try:
+            with pytest.raises(post_cleanup.PostCleanupRefused, match="binding"):
+                post_cleanup._audit_held_live(root, lease, before)
+        finally:
+            root.unlink()
+            moved.rename(root)
+        alternate = root / "unrelated.lock"
+        alternate.touch(mode=0o600)
+        wrong_lock = os.open(alternate, os.O_RDWR | os.O_CLOEXEC)
+        original_fds = lease._fds
+        try:
+            lease._fds = (original_fds[0], wrong_lock, original_fds[2])
+            with pytest.raises(post_cleanup.PostCleanupRefused, match="binding"):
+                post_cleanup._audit_held_live(root, lease, before)
+        finally:
+            lease._fds = original_fds
+            os.close(wrong_lock)
+        altered = dict(before, attempts_used=6)
+        with pytest.raises(post_cleanup.PostCleanupRefused, match="drift"):
+            post_cleanup._audit_held_live(root, lease, altered)
+        evidence = next((root / cleanup.BASE).iterdir())
+        (evidence / "removed-01.json").write_text("{}")
+        with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_step"):
+            post_cleanup._audit_held_live(root, lease, before)
+    assert marker.read_bytes() == payload
+    with pytest.raises(post_cleanup.PostCleanupRefused, match="binding"):
+        post_cleanup._audit_held_live(root, lease, before)
+    lease.finish(cleanup_confirmed=True)
