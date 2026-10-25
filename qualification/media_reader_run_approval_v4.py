@@ -208,8 +208,9 @@ def validate_snapshot(
     }
 
 
-def fetch_validated_snapshot(
+def _fetch_validated_snapshot(
     *,
+    audit: Callable[[], dict],
     get: Callable[[str], dict],
     expected_comment_id: int,
     expected_challenge: str,
@@ -218,13 +219,13 @@ def fetch_validated_snapshot(
     source_tree: str,
     clock: Callable[[], datetime],
 ) -> dict:
-    """Read fixed GitHub endpoints and the retained ledger, without a grant."""
+    """Read fixed GitHub endpoints between two audits, without a grant."""
     if type(expected_comment_id) is not int or expected_comment_id <= 0:
         _refuse("comment_id")
     if type(expected_challenge) is not str or HEX64.fullmatch(expected_challenge) is None:
         _refuse("challenge")
     try:
-        before = post_cleanup.audit(ledger.RETAINED_ROOT)
+        before = audit()
     except (OSError, ValueError, RuntimeError):
         _refuse("ledger")
     base = "/repos/kANoZY341/zelo-agent"
@@ -243,7 +244,7 @@ def fetch_validated_snapshot(
             _refuse("fetch_shape")
         responses.append(response)
     try:
-        after = post_cleanup.audit(ledger.RETAINED_ROOT)
+        after = audit()
     except (OSError, ValueError, RuntimeError):
         _refuse("ledger")
     if before != after:
@@ -263,9 +264,74 @@ def fetch_validated_snapshot(
     )
 
 
+def fetch_validated_snapshot(
+    *,
+    get: Callable[[str], dict],
+    expected_comment_id: int,
+    expected_challenge: str,
+    challenge_issued_at: datetime,
+    source_head: str,
+    source_tree: str,
+    clock: Callable[[], datetime],
+) -> dict:
+    """Public read-only check takes the shared lock around each ledger audit."""
+    return _fetch_validated_snapshot(
+        audit=lambda: post_cleanup.audit(ledger.RETAINED_ROOT),
+        get=get,
+        expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
+        source_head=source_head,
+        source_tree=source_tree,
+        clock=clock,
+    )
+
+
+def fetch_validated_snapshot_held(
+    *,
+    root: Path,
+    get: Callable[[str], dict],
+    expected_comment_id: int,
+    expected_challenge: str,
+    challenge_issued_at: datetime,
+    source_head: str,
+    source_tree: str,
+    clock: Callable[[], datetime],
+) -> dict:
+    """Caller owns the lock while the marker is empty, before lease creation.
+
+    The historical audit requires an empty marker. A post-lease recheck needs
+    its own marker-aware evidence check; this function cannot be used there.
+    """
+    if not isinstance(root, Path) or root != ledger.RETAINED_ROOT:
+        _refuse("root")
+    return _fetch_validated_snapshot(
+        audit=lambda: post_cleanup._audit_held(root),
+        get=get,
+        expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
+        source_head=source_head,
+        source_tree=source_tree,
+        clock=clock,
+    )
+
+
 def recheck_snapshot(*, original: dict, **binding: object) -> dict:
     """Refuse a changed comment or ledger between two authenticated reads."""
     fresh = fetch_validated_snapshot(**binding)
+    if (
+        type(original) is not dict
+        or set(original) != set(fresh)
+        or any(original[key] != item for key, item in fresh.items() if key != "checked_utc")
+    ):
+        _refuse("comment_drift")
+    return fresh
+
+
+def recheck_snapshot_held(*, original: dict, **binding: object) -> dict:
+    """Repeat the pre-marker held fetch before the lease is created."""
+    fresh = fetch_validated_snapshot_held(**binding)
     if (
         type(original) is not dict
         or set(original) != set(fresh)
