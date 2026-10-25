@@ -19,7 +19,11 @@ def observe(runtime: Path) -> None:
 
         def require_no_owned_resources() -> None:
             for kind in ("container", "image"):
-                prefix = ("container", "ls", "--all") if kind == "container" else ("image", "ls")
+                prefix = (
+                    ("container", "ls", "--all")
+                    if kind == "container"
+                    else ("image", "ls", "--all")
+                )
                 output = reader._docker(
                     (
                         setup.DOCKER,
