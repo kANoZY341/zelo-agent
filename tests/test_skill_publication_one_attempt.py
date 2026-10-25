@@ -677,6 +677,50 @@ def test_missing_source_approval_cannot_enter_sender(database, proposal_case, tm
     assert transport.calls == []
 
 
+def test_retried_source_and_solo_review_use_current_approval_version(
+    database, proposal_case, tmp_path
+):
+    store, claim, request, _transport, _fence, _service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _solo_source(database, request, store, claim)
+    with database.transaction() as session:
+        promotion = session.get(Task, request.promotion_task_id)
+        developer = session.get(Task, request.promotion.review.developer_task_id)
+        assert promotion is not None and developer is not None
+        for task in (promotion, developer):
+            current = session.scalar(select(Approval).where(Approval.task_id == task.id))
+            assert current is not None and current.status == "approved"
+            task.action_version = 2
+            task.action_hash = action_hash(
+                task.kind,
+                task.payload,
+                task.timeout_seconds,
+                2,
+                task.promotion_spec if task.kind == "promotion_run" else task.developer_spec,
+            )
+            current.action_version = 2
+            current.action_hash = task.action_hash
+            session.add(
+                Approval(
+                    task_id=task.id,
+                    action_version=1,
+                    action_hash="0" * 64,
+                    status="cancelled",
+                    created_at=current.created_at + timedelta(seconds=1),
+                    expires_at=datetime.now(UTC) + timedelta(days=1),
+                )
+            )
+        review_context = developer.developer_spec["review_instruction"]
+        request = request.model_copy(
+            update={"promotion_action_version": 2, "promotion_action_hash": promotion.action_hash}
+        )
+    with database.read() as session:
+        SkillPublicationOneAttemptService._source_task(
+            session, request, solo=True, review_context=review_context
+        )
+
+
 def test_provider_head_change_refuses_before_durable_attempt(database, proposal_case, tmp_path):
     _store, claim, request, transport, _fence, service, _template = _setup_one(
         database, proposal_case, tmp_path

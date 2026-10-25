@@ -335,7 +335,9 @@ class SkillPublicationOneAttemptService:
         approval = session.scalar(
             select(Approval)
             .where(Approval.task_id == task.id)
-            .order_by(Approval.created_at.desc())
+            .order_by(
+                Approval.action_version.desc(), Approval.created_at.desc(), Approval.id.desc()
+            )
             .limit(1)
         )
         if (
@@ -381,7 +383,9 @@ class SkillPublicationOneAttemptService:
         approval = session.scalar(
             select(Approval)
             .where(Approval.task_id == task.id)
-            .order_by(Approval.created_at.desc())
+            .order_by(
+                Approval.action_version.desc(), Approval.created_at.desc(), Approval.id.desc()
+            )
             .limit(1)
         )
         if (
