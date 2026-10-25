@@ -1,0 +1,183 @@
+"""Disposable exact eight-image cleanup coordination; never invokes Docker."""
+
+import json
+import sys
+
+import pytest
+
+from scripts import cleanup_media_native_reader_residual_images as cleanup
+
+
+@pytest.fixture
+def fenced(tmp_path, monkeypatch):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    (admission / "admission.lock").touch(mode=0o600)
+    (admission / "active.marker").touch(mode=0o600)
+    audits = []
+
+    def audit(path, pins):
+        assert path == root
+        assert pins == cleanup.ledger.FILE_PINS
+        audits.append(True)
+
+    monkeypatch.setattr(cleanup.ledger, "_audit_held", audit)
+    monkeypatch.setattr(cleanup.ledger, "RETAINED_ROOT", root)
+    return root, audits
+
+
+def test_exact_batch_has_durable_one_use_receipts_and_preserves_marker(fenced):
+    root, audits = fenced
+    snapshots = []
+    removed = []
+
+    def snapshot(_config, remaining):
+        snapshots.append(remaining)
+        assert remaining == tuple(image for image in cleanup.IDS if image not in removed)
+
+    def remove(_config, image_id):
+        assert image_id == cleanup.IDS[len(removed)]
+        removed.append(image_id)
+        return b"exact image removed"
+
+    result = cleanup._cleanup(
+        root,
+        snapshot=snapshot,
+        remove=remove,
+        quiet_window=lambda _config: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    assert result["status"] == "exact-residual-images-cleaned"
+    assert result["images_removed"] == 8
+    assert removed == list(cleanup.IDS)
+    assert snapshots[:2] == [cleanup.IDS, cleanup.IDS]
+    assert snapshots[-1] == ()
+    assert len(audits) >= len(cleanup.IDS) + 2
+    assert (root / "media-elf-metadata-admission/active.marker").read_bytes() == b""
+    record = json.loads(
+        (
+            root / cleanup.BASE / next((root / cleanup.BASE).iterdir()).name / "completed.json"
+        ).read_text()
+    )
+    assert record["images_removed"] == list(cleanup.IDS)
+    assert len(record["step_sha256"]) == 8
+    assert record["another_attempt_authorized"] is False
+    assert cleanup.completed_cleanup(root) == result["completion_sha256"]
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="prior_consumption"):
+        cleanup._cleanup(root, snapshot=snapshot, remove=remove, quiet_window=lambda _: ("", ""))
+    assert removed == list(cleanup.IDS)
+
+
+def test_default_remove_uses_no_prune_and_exact_pinned_ids(fenced, monkeypatch):
+    root, _ = fenced
+    calls = []
+
+    def command(_config, *args):
+        calls.append(args)
+        return b"exact image removed"
+
+    monkeypatch.setattr(cleanup, "_command", command)
+    cleanup._cleanup(
+        root,
+        snapshot=lambda *_: None,
+        quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    assert calls == [("image", "rm", "--no-prune", image_id) for image_id in cleanup.IDS]
+
+
+def test_drift_before_evidence_prevents_any_remove(fenced):
+    root, _ = fenced
+    calls = []
+
+    def snapshot(_config, _remaining):
+        raise cleanup.ResidualCleanupRefused("reader_residual_cleanup_resource_inventory")
+
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="resource_inventory"):
+        cleanup._cleanup(root, snapshot=snapshot, remove=lambda *_: calls.append("remove"))
+    assert calls == []
+    assert not (root / cleanup.BASE).exists()
+    assert (root / "media-elf-metadata-admission/active.marker").read_bytes() == b""
+
+
+def test_partial_failure_retains_pending_and_step_without_retry(fenced):
+    root, _ = fenced
+    removed = []
+
+    def remove(_config, image_id):
+        if len(removed) == 1:
+            raise RuntimeError("simulated Docker failure")
+        removed.append(image_id)
+        return b"removed"
+
+    with pytest.raises(RuntimeError, match="simulated Docker failure"):
+        cleanup._cleanup(
+            root,
+            snapshot=lambda *_: None,
+            remove=remove,
+            quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+        )
+    assert removed == [cleanup.IDS[0]]
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_files"):
+        cleanup.completed_cleanup(root)
+    evidence = next((root / cleanup.BASE).iterdir())
+    assert {item.name for item in evidence.iterdir()} == {"pending.json", "removed-01.json"}
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="prior_consumption"):
+        cleanup._cleanup(root, snapshot=lambda *_: None, remove=remove)
+    assert removed == [cleanup.IDS[0]]
+
+
+def test_completion_refuses_rewritten_step_after_apparent_success(fenced):
+    root, _ = fenced
+    cleanup._cleanup(
+        root,
+        snapshot=lambda *_: None,
+        remove=lambda *_: b"removed",
+        quiet_window=lambda _: ("2026-10-25T00:00:00Z", "2026-10-25T00:00:02Z"),
+    )
+    evidence = next((root / cleanup.BASE).iterdir())
+    step = evidence / "removed-01.json"
+    value = json.loads(step.read_text())
+    value["runtime_authority"] = True
+    step.write_text(json.dumps(value))
+    with pytest.raises(cleanup.ResidualCleanupRefused, match="completion_step"):
+        cleanup.completed_cleanup(root)
+
+
+def test_exact_docker_inventory_includes_all_images_and_unlabelled_dependents(
+    tmp_path, monkeypatch
+):
+    config = tmp_path / "docker-config"
+    config.mkdir()
+    calls = []
+
+    def command(_config, *args):
+        calls.append(args)
+        if args[:2] == ("image", "ls") and "label=org.zelo.media-reader.lease" in args:
+            return (cleanup.IDS[0] + "\n").encode()
+        if args[:2] == ("image", "ls"):
+            return (cleanup.IDS[0] + "\n").encode()
+        return b""
+
+    monkeypatch.setattr(cleanup, "_command", command)
+    monkeypatch.setattr(cleanup, "_verify", lambda *_: None)
+    monkeypatch.setattr(cleanup, "_inspect", lambda *_: {})
+    cleanup._snapshot(config, (cleanup.IDS[0],))
+    assert any(args[:3] == ("image", "ls", "--all") for args in calls)
+    assert any("ancestor=" + cleanup.IDS[0] in args for args in calls)
+    assert all("--no-trunc" in args for args in calls)
+
+
+def test_inventory_cli_never_enters_cleanup(fenced, monkeypatch, capsys):
+    root, _ = fenced
+    checks = []
+    monkeypatch.setattr(cleanup, "_snapshot", lambda _config, ids: checks.append(ids))
+    monkeypatch.setattr(cleanup, "cleanup", lambda: pytest.fail("cleanup invoked"))
+    monkeypatch.setattr(
+        sys, "argv", ["cleanup_media_native_reader_residual_images.py", "--inventory"]
+    )
+    assert cleanup.main() == 0
+    assert checks == [cleanup.IDS]
+    assert json.loads(capsys.readouterr().out)["image_count"] == 8
+    assert not (root / cleanup.BASE).exists()
+    assert (root / "media-elf-metadata-admission/active.marker").read_bytes() == b""
