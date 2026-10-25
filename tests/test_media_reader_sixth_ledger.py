@@ -176,3 +176,20 @@ def test_cleanup_receipt_must_link_even_if_files_are_pinned(retained, monkeypatc
     monkeypatch.setattr(ledger.cleanup, "completed_cleanup", lambda *args: "f" * 64)
     with pytest.raises(ledger.SixthLedgerRefused, match="cleanup_completion"):
         ledger._audit(root, pins)
+
+
+def test_held_audit_accepts_only_exact_live_marker_without_clearing_it(retained):
+    root, pins, marker = retained
+    payload = _raw({"version": 1, "lease": "a" * 64, "policy": "b" * 64})
+    marker.write_bytes(payload)
+    with fifth._locked(root):
+        result = ledger._audit_held(root, pins, expected_marker=payload)
+    assert result["marker_cleared"] is False
+    assert marker.read_bytes() == payload
+    with fifth._locked(root):
+        with pytest.raises(ledger.SixthLedgerRefused, match="marker"):
+            ledger._audit_held(root, pins)
+    marker.write_bytes(payload + b" ")
+    with fifth._locked(root):
+        with pytest.raises(ledger.SixthLedgerRefused, match="marker"):
+            ledger._audit_held(root, pins, expected_marker=payload)
