@@ -10,6 +10,7 @@ from qualification import media_reader_post_cleanup_ledger as post_cleanup
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_run_approval_v4 as approval
 from qualification import media_reader_sixth_ledger as ledger
+from qualification.admission import AdmissionController
 
 NOW = datetime(2026, 10, 25, 18, 0, tzinfo=UTC)
 ISSUED = datetime(2026, 10, 25, 17, 29, tzinfo=UTC)
@@ -316,3 +317,83 @@ def test_held_fetch_refuses_wrong_root_before_github_read(monkeypatch):
             source_tree=TREE,
             clock=lambda: NOW,
         )
+
+
+def test_live_lease_recheck_reads_only_fixed_endpoints_between_held_audits(monkeypatch, tmp_path):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    monkeypatch.setattr(ledger, "RETAINED_ROOT", root)
+    monkeypatch.setattr(post_cleanup, "RETAINED_ROOT", root)
+    repo, issue, comment = evidence()
+    original = check(repo, issue, comment)
+    endpoints = {
+        "/repos/kANoZY341/zelo-agent": repo,
+        "/repos/kANoZY341/zelo-agent/issues/166": issue,
+        f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}": comment,
+    }
+    calls = []
+    lease = AdmissionController(admission).acquire("b" * 64)
+
+    def live(path, active, before):
+        assert path == root and active is lease and before == audited()
+        assert lease._retained_thread is not None
+        calls.append("live")
+        return audited()
+
+    def get(path):
+        calls.append(path)
+        return copy.deepcopy(endpoints[path])
+
+    monkeypatch.setattr(post_cleanup, "_audit_held_live", live)
+    monkeypatch.setattr(post_cleanup, "audit", lambda _root: pytest.fail("nested lock"))
+    binding = {
+        "root": root,
+        "lease": lease,
+        "before": audited(),
+        "get": get,
+        "expected_comment_id": COMMENT_ID,
+        "expected_challenge": CHALLENGE,
+        "challenge_issued_at": ISSUED,
+        "source_head": HEAD,
+        "source_tree": TREE,
+        "clock": lambda: NOW,
+    }
+    with lease.retained():
+        assert approval.recheck_snapshot_lease(original=original, **binding) == original
+        assert calls == ["live", *endpoints, "live"]
+        endpoints[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
+        with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
+            approval.recheck_snapshot_lease(original=original, **binding)
+    lease.finish(cleanup_confirmed=True)
+
+
+def test_live_lease_recheck_refuses_ledger_before_remote_read(monkeypatch, tmp_path):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    monkeypatch.setattr(ledger, "RETAINED_ROOT", root)
+    lease = AdmissionController(admission).acquire("b" * 64)
+    monkeypatch.setattr(
+        post_cleanup,
+        "_audit_held_live",
+        lambda *_: (_ for _ in ()).throw(post_cleanup.PostCleanupRefused("changed marker")),
+    )
+    with lease.retained():
+        with pytest.raises(approval.ApprovalRefused, match="ledger"):
+            approval.recheck_snapshot_lease(
+                original={},
+                root=root,
+                lease=lease,
+                before=audited(),
+                get=lambda _path: pytest.fail("must not fetch"),
+                expected_comment_id=COMMENT_ID,
+                expected_challenge=CHALLENGE,
+                challenge_issued_at=ISSUED,
+                source_head=HEAD,
+                source_tree=TREE,
+                clock=lambda: NOW,
+            )
+    lease.finish(cleanup_confirmed=True)
