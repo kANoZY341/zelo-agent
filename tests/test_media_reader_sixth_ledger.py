@@ -1,13 +1,16 @@
-"""Disposable read-only checks; never grants or runs a sixth native proof."""
+"""Disposable five-refusal ledger and local sixth-directory gate checks."""
 
 import hashlib
 import json
 import os
+import threading
 
 import pytest
 
+from qualification import media_reader_approval_capture_v4 as capture_v4
 from qualification import media_reader_fifth_reconcile as fifth
 from qualification import media_reader_sixth_ledger as ledger
+from qualification.admission import AdmissionController
 from scripts import cleanup_media_native_reader_fifth_image as cleanup
 
 
@@ -193,3 +196,47 @@ def test_held_audit_accepts_only_exact_live_marker_without_clearing_it(retained)
     with fifth._locked(root):
         with pytest.raises(ledger.SixthLedgerRefused, match="marker"):
             ledger._audit_held(root, pins, expected_marker=payload)
+
+
+def test_sixth_directory_requires_an_issued_live_one_use_gate(retained, monkeypatch):
+    from scripts import qualify_media_native_reader as reader
+
+    root, pins, marker = retained
+    monkeypatch.setattr(
+        reader.reconcile,
+        "POLICY_SHA256",
+        pins[f"media-native-reader/{ledger.first.ATTEMPT_NAME}/policy.json"][0],
+    )
+    monkeypatch.setattr(
+        reader.reconcile,
+        "CASES_SHA256",
+        pins[f"media-native-reader/{ledger.first.ATTEMPT_NAME}/cases.json"][0],
+    )
+    lease = AdmissionController(marker.parent).acquire("b" * 64)
+    try:
+        with pytest.raises(ValueError, match="attempt_limit"):
+            reader._attempt_directory(root, extra_grant=True, recovery_version=4)
+        with pytest.raises(capture_v4.CaptureRefused, match="attempt_gate"):
+            reader._attempt_directory(
+                root, extra_grant=True, recovery_version=4, v4_before_mkdir=object()
+            )
+        assert len(list((root / "media-native-reader").iterdir())) == 5
+        with lease.retained():
+            gate = object()
+            with capture_v4._GATE_LOCK:
+                capture_v4._GATES[gate] = (
+                    root,
+                    lease,
+                    lambda: None,
+                    os.getpid(),
+                    threading.get_ident(),
+                )
+            attempt = reader._attempt_directory(
+                root, extra_grant=True, recovery_version=4, v4_before_mkdir=gate
+            )
+            assert attempt.is_dir()
+            assert len(list((root / "media-native-reader").iterdir())) == 6
+            with pytest.raises(capture_v4.CaptureRefused, match="attempt_gate"):
+                capture_v4._consume_attempt_gate(root, gate)
+    finally:
+        lease.finish(cleanup_confirmed=False)
