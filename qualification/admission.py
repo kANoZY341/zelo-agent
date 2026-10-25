@@ -59,6 +59,7 @@ class Lease:
         self._policy_digest = digest
         self._fds: tuple[int, int, int] | None = (directory, lock, marker)
         self._lifecycle = threading.Lock()
+        self._retained_thread: int | None = None
 
     @property
     def identity(self) -> str:
@@ -74,7 +75,11 @@ class Lease:
         with self._lifecycle:
             if self._fds is None:
                 raise AdmissionDenied("lease_finished")
-            yield
+            self._retained_thread = threading.get_ident()
+            try:
+                yield
+            finally:
+                self._retained_thread = None
 
     def finish(self, *, cleanup_confirmed: bool) -> None:
         with self._lifecycle:
