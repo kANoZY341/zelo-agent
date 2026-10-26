@@ -105,21 +105,21 @@ edits. Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
-The four earlier native Media reader refusals and the separately authorized
-fifth refusal remain terminal. The Managing Director authorized exactly one
-fifth attempt on 24 October; `native-reader-proof-5r1zlt2c` refused at the
-build image-configuration check. Its single-run decision is consumed.
-**No sixth** native proof is authorized. The separately authorized, reviewed
-exact-image cleanup removed the fifth-lease Docker image; its durable completion
-receipt was verified before the shared admission marker was cleared. The marker
-and lock are now empty; all five refused attempts, approval and build artifacts
-remain. See [issue #166's receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6388059721)
-and PR #257. Never reset, delete, bypass, reframe or reclassify a refusal as
-successful. PRs #253 and #254 corrected two observed build-stage defects,
-but no native matrix or release success follows. Release cannot silently defer the originally
-required runtime: record the blocker and obtain a separate operator
-release-scope decision if necessary. See issue #166 and
-`docs/v0.15-release-closeout.md` for current receipts and gates.
+The four earlier native Media Reader refusals and the separately authorized
+fifth and sixth refusals remain terminal. The sixth one-run decision was
+consumed on 26 October: `native-reader-proof-60_k7n6n` refused at the matrix
+stage, and its underlying exception was not persisted. **No seventh native
+proof is authorized.** The separately approved, reviewed one-use cleanup
+removed only the pinned untagged sixth-lease image; its durable completion
+SHA-256 is `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
+The read-only verifier confirmed an empty admission marker, no remaining
+lease-labelled Docker resources and all six refusals and approval records
+intact. See [issue #166's receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6420493467)
+and PRs #272–#273. Never reset, delete, bypass, reframe or reclassify a
+refusal as successful. No native matrix or release success follows. Release
+cannot silently defer the originally required runtime: record the blocker
+and obtain a separate operator release-scope decision if necessary. See issue
+#166 and `docs/v0.15-release-closeout.md` for current receipts and gates.
 
 ## Earlier Core-first work and source restrictions (8 October 2026)
 
@@ -147,10 +147,11 @@ or initialize optional external engine submodules because a file suggests it.
 Only Zelo-reviewed, operator-approved actions may receive new permissions.
 
 Preserve draft UI PR #61 and its independent branches/data. Redesign the
-interface only after the currently prioritized Core work. Preserve all four
-exhausted Media native-reader qualification attempts and associated evidence.
-**No fifth native-reader proof attempt is authorized**: never retry, reset,
-delete or reclassify those records as success or a fresh quota.
+interface only after the currently prioritized Core work. At the 8 October
+checkpoint, four Media native-reader attempts were exhausted and no fifth was
+then authorized. That historical limit was superseded by the separate fifth
+and sixth decisions recorded above. Never retry, reset, delete or reclassify
+any of the six refused records as success or a fresh quota.
 
 ## Historical: PR93 native-reader refusal checkpoint (not active work)
 
