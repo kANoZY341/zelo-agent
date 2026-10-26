@@ -99,6 +99,7 @@ def _command(args, config, timeout=6):
         raise ValueError("reader_reconcile_command")
     env = {
         "DOCKER_CONFIG": str(config),
+        "GOMAXPROCS": "2",
         "HOME": "/nonexistent",
         "LANG": "C.UTF-8",
         "PATH": "/usr/bin:/bin",
