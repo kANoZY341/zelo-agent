@@ -263,6 +263,41 @@ def test_resource_or_namespace_drift_refused(field, value):
         m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
 
 
+def test_limit_refusal_exposes_only_fixed_fields_and_bounded_observations():
+    data = container()
+    data["HostConfig"]["Init"] = None
+    data["HostConfig"]["MemorySwap"] = -1
+    data["HostConfig"]["Runtime"] = "secret=untrusted-daemon-text"
+    with pytest.raises(m.LimitRefused, match="reader_container_limits") as failure:
+        m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+    assert failure.value.differences == (
+        {"field": "MemorySwap", "observed_kind": "integer", "observed_value": -1},
+        {"field": "Runtime", "observed_kind": "other_string"},
+        {"field": "Init", "observed_kind": "null"},
+    )
+
+
+def test_limit_refusal_bounds_unknown_and_large_values():
+    data = container()
+    data["HostConfig"]["Memory"] = 10**100
+    data["HostConfig"]["NetworkMode"] = {"secret": "/private/token"}
+    data["HostConfig"]["IpcMode"] = "private"  # Unchanged fields are omitted.
+    with pytest.raises(m.LimitRefused) as failure:
+        m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+    assert failure.value.differences == (
+        {"field": "Memory", "observed_kind": "integer_out_of_range"},
+        {"field": "NetworkMode", "observed_kind": "other"},
+    )
+
+
+def test_limit_refusal_distinguishes_absent_field_from_null():
+    data = container()
+    del data["HostConfig"]["Init"]
+    with pytest.raises(m.LimitRefused) as failure:
+        m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+    assert failure.value.differences == ({"field": "Init", "observed_kind": "missing"},)
+
+
 @pytest.mark.parametrize(
     "path,value",
     [

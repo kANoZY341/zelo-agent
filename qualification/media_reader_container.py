@@ -40,6 +40,42 @@ class Refused(ValueError):
     """Fixed contract refusal without daemon or peer diagnostic content."""
 
 
+class LimitRefused(Refused):
+    """Fixed container limit mismatch evidence."""
+
+    def __init__(self, host: dict, expected: dict) -> None:
+        super().__init__("reader_container_limits")
+        self.differences = tuple(
+            {
+                "field": field,
+                **(
+                    _bounded_observation(host[field])
+                    if field in host
+                    else {"observed_kind": "missing"}
+                ),
+            }
+            for field, value in expected.items()
+            if not _same(host.get(field), value)
+        )
+
+
+def _bounded_observation(value: object) -> dict[str, object]:
+    """Classify daemon values without retaining arbitrary text or structures."""
+    if value is None:
+        return {"observed_kind": "null"}
+    if type(value) is bool:
+        return {"observed_kind": "boolean", "observed_value": value}
+    if type(value) is int:
+        if -1 <= value <= 10**12:
+            return {"observed_kind": "integer", "observed_value": value}
+        return {"observed_kind": "integer_out_of_range"}
+    if type(value) is str:
+        if value in ("", "none", "private", "runc", "host", "default"):
+            return {"observed_kind": "known_string", "observed_value": value}
+        return {"observed_kind": "other_string"}
+    return {"observed_kind": "other"}
+
+
 def _require(condition: bool, code: str) -> None:
     if not condition:
         raise Refused("reader_container_" + code)
@@ -196,10 +232,8 @@ def verify_container(
         "OomKillDisable": False,
         "UsernsMode": "",
     }
-    _require(
-        all(_same(host.get(key), value) for key, value in expected_host.items()),
-        "limits",
-    )
+    if not all(_same(host.get(key), value) for key, value in expected_host.items()):
+        raise LimitRefused(host, expected_host)
     _require(
         data.get("Name") == "/" + name
         and data.get("Image") == contract.image_identity
