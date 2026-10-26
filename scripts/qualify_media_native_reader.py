@@ -430,7 +430,7 @@ def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     if type(environment) is not dict or set(environment) != expected_keys:
         raise ValueError("reader_native_docker_environment")
     # Keep the trusted Go CLI inside the operator's fixed address-space cap.
-    docker_environment = {**environment, "GOMAXPROCS": "2"}
+    docker_environment = {**environment, "GOMAXPROCS": "1"}
     if len(argv) > 2 and argv[2] == "build":
         return browser_setup._command(
             list(argv),

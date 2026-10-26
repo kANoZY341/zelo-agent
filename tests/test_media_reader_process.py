@@ -211,7 +211,7 @@ class Daemon:
     async def spawn(self, *args, **kwargs):
         assert args[: len(CLI)] == CLI
         assert set(kwargs["env"]) == {"DOCKER_CONFIG", "GOMAXPROCS"}
-        assert kwargs["env"]["GOMAXPROCS"] == "2"
+        assert kwargs["env"]["GOMAXPROCS"] == "1"
         case = Path(kwargs["env"]["DOCKER_CONFIG"])
         assert case.parent == self.jobs and case.name.startswith("native-reader-")
         args = args[len(CLI) :]
