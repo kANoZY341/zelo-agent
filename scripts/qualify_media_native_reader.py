@@ -430,7 +430,7 @@ def _docker(argv, environment, timeout=20, *, stdout_limit=131072):
     if type(environment) is not dict or set(environment) != expected_keys:
         raise ValueError("reader_native_docker_environment")
     # Keep the trusted Go CLI inside the operator's fixed address-space cap.
-    docker_environment = {**environment, "GOMAXPROCS": "2"}
+    docker_environment = {**environment, "GOMAXPROCS": "1"}
     if len(argv) > 2 and argv[2] == "build":
         return browser_setup._command(
             list(argv),
@@ -802,7 +802,7 @@ def _build_and_attest(attempt, lease_identity, environment, runtime_root=None):
         _inspect("container", cid, environment), value, image_identity
     )
     archive = attempt / "image-rootfs.tar"
-    browser_setup.export_bounded(setup.DOCKER, cid, archive)
+    browser_setup.export_bounded(setup.DOCKER, cid, archive, go_maxprocs=1)
     with archive.open("rb") as stream:
         payload_digest = browser_setup.verify_image_archive(stream, setup.expected_export(manifest))
     _docker(

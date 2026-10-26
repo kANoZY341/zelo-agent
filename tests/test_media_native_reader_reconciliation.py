@@ -33,7 +33,7 @@ def test_docker_inventory_uses_bounded_go_concurrency_under_operator_limits(tmp_
         "HOME": "/nonexistent",
         "LANG": "C.UTF-8",
         "PATH": "/usr/bin:/bin",
-        "GOMAXPROCS": "2",
+        "GOMAXPROCS": "1",
     }
 
 

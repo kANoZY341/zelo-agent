@@ -468,7 +468,7 @@ def test_docker_cli_fixes_go_concurrency_without_mutating_caller(monkeypatch):
         "HOME": "/nonexistent",
         "LANG": "C.UTF-8",
         "PATH": "/usr/bin:/bin",
-        "GOMAXPROCS": "2",
+        "GOMAXPROCS": "1",
     }
     assert seen[0][3:] == (0, False)
     assert seen[1][0] == list(build_argv)
