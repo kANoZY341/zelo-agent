@@ -125,7 +125,7 @@ def test_discovery_and_cleanup_remove_only_exact_owned_resources(monkeypatch):
     assert state["removed"] == [("container", cid), ("image", iid)]
 
 
-def test_lost_build_ack_can_still_clean_owned_image(monkeypatch):
+def test_lost_build_ack_can_still_clean_untagged_owned_image(monkeypatch):
     identity = "a" * 64
     iid = "sha256:" + "b" * 64
     state = {"image": True, "removed": False}
@@ -135,7 +135,7 @@ def test_lost_build_ack_can_still_clean_owned_image(monkeypatch):
         if words[:2] == ("container", "ls"):
             return b""
         if words[:2] == ("image", "ls"):
-            return ((iid + "\n") if state["image"] else "").encode()
+            return ((iid + "\n") if state["image"] and "--all" in words else "").encode()
         if words[:2] == ("image", "inspect"):
             return json.dumps(
                 [{"Id": iid, "Config": {"Labels": {container.LEASE_LABEL: identity}}}]

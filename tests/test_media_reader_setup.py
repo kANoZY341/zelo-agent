@@ -98,6 +98,8 @@ def test_discovery_is_exact_lease_only(kind):
     args = m.discovery_arguments(kind, LEASE)
     assert f"label={container.LEASE_LABEL}={LEASE}" in args
     assert "--no-trunc" in args
+    if kind == "image":
+        assert args[2:5] == ("image", "ls", "--all")
 
 
 @pytest.mark.parametrize(
