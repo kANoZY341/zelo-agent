@@ -662,7 +662,7 @@ _MATRIX_CONTAINER_CAUSES = frozenset(
 )
 
 
-def _matrix_failure_evidence(error: Exception) -> dict[str, str]:
+def _matrix_failure_evidence(error: Exception) -> dict[str, object]:
     """Retain fixed reason codes, never daemon text or arbitrary exception content."""
     if isinstance(error, TimeoutError):
         return {"kind": "timeout"}
@@ -685,6 +685,8 @@ def _matrix_failure_evidence(error: Exception) -> dict[str, str]:
         cause = error.__cause__
         if isinstance(cause, container.Refused) and str(cause) in _MATRIX_CONTAINER_CAUSES:
             evidence["cause_code"] = str(cause)
+            if isinstance(cause, container.LimitRefused):
+                evidence["limit_differences"] = list(cause.differences)
         return evidence
     return {"kind": "unclassified"}
 

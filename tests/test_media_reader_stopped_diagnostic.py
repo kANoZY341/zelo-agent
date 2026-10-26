@@ -9,7 +9,7 @@ import pytest
 from qualification import media_reader_container as container
 from qualification import media_reader_image as image
 from qualification.admission import AdmissionDenied
-from qualification.media_reader_process import ReaderDockerCommandError
+from qualification.media_reader_process import QualificationError, ReaderDockerCommandError
 from scripts import diagnose_media_native_reader_build as build_diagnostic
 from scripts import diagnose_media_reader_stopped as diagnostic
 
@@ -107,6 +107,33 @@ def test_create_refusal_is_bounded_and_cleanup_remains_eligible(tmp_path, monkey
     assert receipt["cleanup_confirmed"] is True
     assert (runtime / "media-elf-metadata-admission" / "active.marker").read_bytes() == b""
     assert "private" not in path.read_text()
+
+
+def test_limit_refusal_receipt_identifies_fixed_fields_without_daemon_text(tmp_path, monkeypatch):
+    runtime = _runtime(tmp_path)
+    try:
+        raise container.LimitRefused(
+            {"Runtime": "/private/token=secret", "Init": None},
+            {"Runtime": "runc", "Init": False},
+        )
+    except container.LimitRefused as cause:
+        error = QualificationError("reader_container_refused")
+        error.__cause__ = cause
+    _external_docker(monkeypatch, create_error=error)
+    path, receipt = asyncio.run(diagnostic.run_stopped_diagnostic(runtime))
+
+    assert receipt["failure"] == {
+        "stage": "stopped_create",
+        "kind": "validation",
+        "code": "reader_container_refused",
+        "cause_code": "reader_container_limits",
+        "limit_differences": [
+            {"field": "Runtime", "observed_kind": "other_string"},
+            {"field": "Init", "observed_kind": "null"},
+        ],
+    }
+    assert "secret" not in path.read_text() and "/private" not in path.read_text()
+    assert receipt["cleanup_confirmed"] is True
 
 
 def test_uncertain_cleanup_fences_shared_admission_and_persists_receipt(tmp_path, monkeypatch):
