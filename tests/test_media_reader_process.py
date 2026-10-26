@@ -354,6 +354,38 @@ def test_stage_failure_cleanup(setup, stage):
     run(case())
 
 
+@pytest.mark.parametrize(
+    "stage,operation",
+    [
+        ("image inspect", "image_inspect"),
+        ("create", "create"),
+        ("container inspect", "container_inspect"),
+    ],
+)
+def test_docker_command_failure_identifies_fixed_operation(setup, stage, operation):
+    async def case():
+        daemon = Daemon(setup[1], failure=stage)
+        lease = AdmissionController(setup[0]).acquire(digest())
+        daemon.identity = lease.identity
+        handle = DockerReaderHandle(
+            lease,
+            m.ReaderContainerContract(image_id(), build_identity()),
+            setup[1],
+            seccomp.profile_bytes(),
+            spawn=daemon.spawn,
+        )
+        try:
+            with pytest.raises(QualificationError, match="reader_docker_command") as caught:
+                await handle.stream(
+                    fixture.fixture("positive"), asyncio.get_running_loop().time() + 2
+                )
+            assert caught.value.operation == operation
+        finally:
+            lease.finish(cleanup_confirmed=await handle.stop_and_confirm_cleanup())
+
+    run(case())
+
+
 @pytest.mark.parametrize("drift", ["network", "user", "capability"])
 def test_container_drift_blocks_start_and_cleans(setup, drift):
     async def case():

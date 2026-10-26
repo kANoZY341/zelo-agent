@@ -28,6 +28,12 @@ class ReaderProcessResult:
     exit_code: int
 
 
+class ReaderDockerCommandError(QualificationError):
+    def __init__(self, operation: str) -> None:
+        super().__init__("reader_docker_command")
+        self.operation = operation
+
+
 class DockerReaderHandle:
     """Own exactly one fixed reader container under one admission lease."""
 
@@ -150,7 +156,13 @@ class DockerReaderHandle:
                     ]
                     output, _ = await asyncio.gather(*readers)
                     if await process.wait() != 0:
-                        raise QualificationError("reader_docker_command")
+                        operation = {
+                            ("image", "inspect"): "image_inspect",
+                            ("container", "inspect"): "container_inspect",
+                            ("container", "ls"): "container_list",
+                            ("container", "rm"): "container_remove",
+                        }.get(args[:2], "create" if args[:1] == ("create",) else "unknown")
+                        raise ReaderDockerCommandError(operation)
                     return output
             finally:
                 for task in readers:

@@ -10,9 +10,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from qualification import media_reader_cgroup as cgroup
 from qualification import media_reader_container as container
 from qualification import media_reader_fixture as fixture
 from qualification import media_reader_image as image
+from qualification.dns import QualificationError
 from scripts import qualify_media_native_reader as q
 
 
@@ -930,3 +932,111 @@ def test_cleanup_directory_sync_failure_keeps_admission_fenced(tmp_path, monkeyp
     attempts = list((runtime / q.RUNTIME_PROOF_BASE).iterdir())
     assert len(attempts) == 1
     assert (attempts[0] / "cases.json").exists()
+
+
+@pytest.mark.parametrize(
+    "failure,expected",
+    [
+        (TimeoutError("/private/token=secret"), {"kind": "timeout"}),
+        (
+            RuntimeError("/private/token=secret"),
+            {"kind": "unclassified"},
+        ),
+        (ValueError("reader_native_secret_token"), {"kind": "unclassified"}),
+        (
+            QualificationError("reader_docker_command"),
+            {"kind": "validation", "code": "reader_docker_command"},
+        ),
+    ],
+)
+def test_matrix_failure_evidence_records_only_safe_categories(failure, expected):
+    assert q._matrix_failure_evidence(failure) == expected
+
+
+def test_matrix_failure_evidence_includes_only_fixed_docker_operation():
+    error = QualificationError("reader_docker_command")
+    error.operation = "container_inspect"
+    assert q._matrix_failure_evidence(error) == {
+        "kind": "validation",
+        "code": "reader_docker_command",
+        "operation": "container_inspect",
+    }
+    error.operation = "/private/token=secret"
+    assert q._matrix_failure_evidence(error) == {
+        "kind": "validation",
+        "code": "reader_docker_command",
+    }
+
+
+@pytest.mark.parametrize(
+    "reason,expected",
+    [
+        (
+            "container",
+            {
+                "kind": "validation",
+                "code": "reader_container_refused",
+                "cause_code": "reader_container_security",
+            },
+        ),
+        ("fixture", {"kind": "validation", "code": "reader_fixture_positive_stdout"}),
+        ("cgroup", {"kind": "validation", "code": "reader_cgroup_membership"}),
+    ],
+)
+def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch, reason, expected):
+    runtime = tmp_path / "runtime"
+    base = runtime / q.RUNTIME_PROOF_BASE
+    base.mkdir(parents=True, mode=0o700)
+    (runtime / q.RUNTIME_ADMISSION).mkdir(mode=0o700)
+    finish_calls = []
+
+    class FakeLease:
+        identity = "a" * 64
+
+        def finish(self, *, cleanup_confirmed):
+            finish_calls.append(cleanup_confirmed)
+
+    class FakeAdmission:
+        def __init__(self, path):
+            assert path == runtime / q.RUNTIME_ADMISSION
+
+        def acquire(self, digest):
+            return FakeLease()
+
+    async def refuse_matrix(*args):
+        if reason == "fixture":
+            raise fixture.Refused("reader_fixture_positive_stdout")
+        if reason == "cgroup":
+            raise cgroup.Refused("reader_cgroup_membership")
+        try:
+            raise container.Refused("reader_container_security")
+        except container.Refused as cause:
+            raise QualificationError("reader_container_refused") from cause
+
+    def fake_build(attempt, *args):
+        (attempt / "build").mkdir(mode=0o700)
+        return None, None, None, None
+
+    monkeypatch.setattr(q.scope, "validate_runtime_scope", lambda path: {})
+    monkeypatch.setattr(q, "_docker_readiness", lambda path: {"ready": True})
+    monkeypatch.setattr(q, "AdmissionController", FakeAdmission)
+    monkeypatch.setattr(q, "_require_empty_lease", lambda *args: None)
+    monkeypatch.setattr(q, "_build_and_attest", fake_build)
+    monkeypatch.setattr(q, "_matrix", refuse_matrix)
+    monkeypatch.setattr(q, "_cleanup_owned", lambda *args: True)
+
+    with pytest.raises(ValueError):
+        run(q._qualify(runtime))
+
+    attempts = list(base.iterdir())
+    assert len(attempts) == 1
+    raw = (attempts[0] / "cases.json").read_bytes()
+    assert json.loads(raw) == {
+        "status": "refused",
+        "stage": "matrix",
+        "matrix_failure": expected,
+        "support_release_confirmed": False,
+        "runtime_authority": False,
+    }
+    assert b"/private" not in raw and b"secret" not in raw
+    assert finish_calls == [True]
