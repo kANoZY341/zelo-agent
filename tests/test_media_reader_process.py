@@ -312,6 +312,40 @@ def test_success_result_only_after_cleanup(setup):
     run(case())
 
 
+def test_stopped_preparation_verifies_container_without_start(setup):
+    async def case():
+        daemon = Daemon(setup[1])
+        lease = AdmissionController(setup[0]).acquire(digest())
+        daemon.identity = lease.identity
+        handle = DockerReaderHandle(
+            lease,
+            m.ReaderContainerContract(image_id(), build_identity()),
+            setup[1],
+            seccomp.profile_bytes(),
+            spawn=daemon.spawn,
+        )
+        try:
+            identified = await handle.prepare_stopped(
+                fixture.fixture("positive"), asyncio.get_running_loop().time() + 2
+            )
+            assert identified == "positive"
+            assert daemon.exists is True
+            assert daemon.attached is None
+            assert any(command[0] == "create" for command in daemon.commands)
+            assert any(command[:2] == ("container", "inspect") for command in daemon.commands)
+            assert not any(command[0] == "start" for command in daemon.commands)
+            with pytest.raises(QualificationError, match="reader_terminal"):
+                await handle.stream(
+                    fixture.fixture("positive"), asyncio.get_running_loop().time() + 2
+                )
+        finally:
+            lease.finish(cleanup_confirmed=await handle.stop_and_confirm_cleanup())
+        assert not daemon.exists
+        assert (setup[0] / "active.marker").read_bytes() == b""
+
+    run(case())
+
+
 def test_wrong_input_refused_before_docker(setup):
     async def case():
         admission, jobs = setup

@@ -188,44 +188,51 @@ class DockerReaderHandle:
             raise QualificationError("reader_inspect_shape")
         return value[0]
 
-    async def stream(self, payload: bytes, deadline: float) -> ReaderProcessResult:
+    async def _prepare_stopped(self, payload: bytes) -> str:
         if self._close is not None or self._attempted:
             raise QualificationError("reader_terminal")
         try:
             case = fixture.identify(payload)
         except fixture.Refused:
             raise QualificationError("reader_input_identity") from None
+        profile = self._profile()
+        try:
+            container.verify_image(
+                await self._inspect("image", self.image), self.contract, self.identity
+            )
+        except container.Refused as exc:
+            raise QualificationError("reader_image_refused") from exc
+        self._attempted = True
+        try:
+            create = container.create_arguments(self.contract, self.name, self.identity, profile)
+        except container.Refused as exc:
+            raise QualificationError("reader_create_contract") from exc
+        await self._command(*create)
+        self._acknowledged = True
+        self._profile()
+        try:
+            container.verify_image(
+                await self._inspect("image", self.image), self.contract, self.identity
+            )
+            container.verify_container(
+                await self._inspect("container", self.name),
+                self.contract,
+                self.name,
+                self.identity,
+                self.profile_bytes,
+            )
+        except container.Refused as exc:
+            raise QualificationError("reader_container_refused") from exc
+        return case
+
+    async def prepare_stopped(self, payload: bytes, deadline: float) -> str:
+        """Verify one created, stopped container without starting its entrypoint."""
         async with asyncio.timeout_at(deadline):
-            profile = self._profile()
-            try:
-                container.verify_image(
-                    await self._inspect("image", self.image), self.contract, self.identity
-                )
-            except container.Refused as exc:
-                raise QualificationError("reader_image_refused") from exc
-            self._attempted = True
-            try:
-                create = container.create_arguments(
-                    self.contract, self.name, self.identity, profile
-                )
-            except container.Refused as exc:
-                raise QualificationError("reader_create_contract") from exc
-            await self._command(*create)
-            self._acknowledged = True
-            self._profile()
-            try:
-                container.verify_image(
-                    await self._inspect("image", self.image), self.contract, self.identity
-                )
-                container.verify_container(
-                    await self._inspect("container", self.name),
-                    self.contract,
-                    self.name,
-                    self.identity,
-                    self.profile_bytes,
-                )
-            except container.Refused as exc:
-                raise QualificationError("reader_container_refused") from exc
+            return await self._prepare_stopped(payload)
+
+    async def stream(self, payload: bytes, deadline: float) -> ReaderProcessResult:
+        async with asyncio.timeout_at(deadline):
+            case = await self._prepare_stopped(payload)
             self._attach = asyncio.create_task(
                 self._spawn(
                     *CLI,
