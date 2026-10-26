@@ -594,6 +594,65 @@ def _build_failure_evidence(error: Exception) -> dict[str, str | int | list[str]
     return {"kind": "unclassified"}
 
 
+_MATRIX_CODES = frozenset(
+    {
+        "reader_create_contract",
+        "reader_docker_command",
+        "reader_image_refused",
+        "reader_input_identity",
+        "reader_inspect_shape",
+        "reader_native_case_missing",
+        "reader_native_cgroup_missing",
+        "reader_native_control_cleanup",
+        "reader_native_control_not_triggered",
+        "reader_native_runtime_pid",
+        "reader_pipe_missing",
+        "reader_profile_drift",
+        "reader_profile_write",
+        "reader_runtime_probe",
+        "reader_runtime_unsafe",
+        "reader_container_refused",
+        "process_output_limit",
+    }
+)
+_MATRIX_CONTAINER_CAUSES = frozenset(
+    {
+        "reader_container_shape",
+        "reader_container_limits",
+        "reader_container_configuration",
+        "reader_container_capabilities",
+        "reader_container_ulimits",
+        "reader_container_security",
+        "reader_container_restart",
+        "reader_container_logging",
+        "reader_container_autoremove",
+        "reader_container_ports",
+        "reader_container_authority",
+        "reader_container_mounts",
+        "reader_container_image_shape",
+        "reader_container_image_identity",
+        "reader_container_image_configuration",
+    }
+)
+
+
+def _matrix_failure_evidence(error: Exception) -> dict[str, str]:
+    """Retain fixed reason codes, never daemon text or arbitrary exception content."""
+    if isinstance(error, TimeoutError):
+        return {"kind": "timeout"}
+    if isinstance(error, FileNotFoundError):
+        return {"kind": "file_not_found"}
+    if isinstance(error, PermissionError):
+        return {"kind": "permission_denied"}
+    if isinstance(error, ValueError) and str(error) in _MATRIX_CODES:
+        evidence = {"kind": "validation", "code": str(error)}
+        cause = error.__cause__
+        if isinstance(cause, container.Refused) and str(cause) in _MATRIX_CONTAINER_CAUSES:
+            evidence["cause_code"] = str(cause)
+        return evidence
+    return {"kind": "unclassified"}
+
+
 def _docker_readiness(runtime_root=None):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     info = runtime.lstat()
@@ -1142,6 +1201,8 @@ async def _qualify(
             }
             if stage == "build":
                 refusal["build_failure"] = _build_failure_evidence(error)
+            if stage == "matrix":
+                refusal["matrix_failure"] = _matrix_failure_evidence(error)
             store.json("cases.json", refusal)
         raise
     finally:

@@ -941,6 +941,7 @@ def test_cleanup_directory_sync_failure_keeps_admission_fenced(tmp_path, monkeyp
             RuntimeError("/private/token=secret"),
             {"kind": "unclassified"},
         ),
+        (ValueError("reader_native_secret_token"), {"kind": "unclassified"}),
         (
             QualificationError("reader_docker_command"),
             {"kind": "validation", "code": "reader_docker_command"},
@@ -977,11 +978,15 @@ def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch
         except container.Refused as cause:
             raise QualificationError("reader_container_refused") from cause
 
+    def fake_build(attempt, *args):
+        (attempt / "build").mkdir(mode=0o700)
+        return None, None, None, None
+
     monkeypatch.setattr(q.scope, "validate_runtime_scope", lambda path: {})
     monkeypatch.setattr(q, "_docker_readiness", lambda path: {"ready": True})
     monkeypatch.setattr(q, "AdmissionController", FakeAdmission)
     monkeypatch.setattr(q, "_require_empty_lease", lambda *args: None)
-    monkeypatch.setattr(q, "_build_and_attest", lambda *args: (None, None, None, None))
+    monkeypatch.setattr(q, "_build_and_attest", fake_build)
     monkeypatch.setattr(q, "_matrix", refuse_matrix)
     monkeypatch.setattr(q, "_cleanup_owned", lambda *args: True)
 
