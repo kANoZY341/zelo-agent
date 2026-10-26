@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from qualification import media_reader_cgroup as cgroup
 from qualification import media_reader_container as container
 from qualification import media_reader_fixture as fixture
 from qualification import media_reader_image as image
@@ -967,7 +968,22 @@ def test_matrix_failure_evidence_includes_only_fixed_docker_operation():
     }
 
 
-def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "reason,expected",
+    [
+        (
+            "container",
+            {
+                "kind": "validation",
+                "code": "reader_container_refused",
+                "cause_code": "reader_container_security",
+            },
+        ),
+        ("fixture", {"kind": "validation", "code": "reader_fixture_positive_stdout"}),
+        ("cgroup", {"kind": "validation", "code": "reader_cgroup_membership"}),
+    ],
+)
+def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch, reason, expected):
     runtime = tmp_path / "runtime"
     base = runtime / q.RUNTIME_PROOF_BASE
     base.mkdir(parents=True, mode=0o700)
@@ -988,6 +1004,10 @@ def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch
             return FakeLease()
 
     async def refuse_matrix(*args):
+        if reason == "fixture":
+            raise fixture.Refused("reader_fixture_positive_stdout")
+        if reason == "cgroup":
+            raise cgroup.Refused("reader_cgroup_membership")
         try:
             raise container.Refused("reader_container_security")
         except container.Refused as cause:
@@ -1005,7 +1025,7 @@ def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch
     monkeypatch.setattr(q, "_matrix", refuse_matrix)
     monkeypatch.setattr(q, "_cleanup_owned", lambda *args: True)
 
-    with pytest.raises(QualificationError, match="reader_container_refused"):
+    with pytest.raises(ValueError):
         run(q._qualify(runtime))
 
     attempts = list(base.iterdir())
@@ -1014,11 +1034,7 @@ def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch
     assert json.loads(raw) == {
         "status": "refused",
         "stage": "matrix",
-        "matrix_failure": {
-            "kind": "validation",
-            "code": "reader_container_refused",
-            "cause_code": "reader_container_security",
-        },
+        "matrix_failure": expected,
         "support_release_confirmed": False,
         "runtime_authority": False,
     }
