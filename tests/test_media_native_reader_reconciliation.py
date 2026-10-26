@@ -5,12 +5,36 @@ import hashlib
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 import pytest
 
 from qualification import media_reader_reconcile as contract
 from scripts import reconcile_media_native_reader as r
+
+
+def test_docker_inventory_uses_bounded_go_concurrency_under_operator_limits(tmp_path, monkeypatch):
+    """The qualifier's 1 GiB address-space cap must not strand Docker's Go CLI."""
+    spawned = []
+    original = r.subprocess.Popen
+
+    def launch(args, **kwargs):
+        spawned.append((args, kwargs["env"].copy()))
+        return original([sys.executable, "-c", "print('ready')"], **kwargs)
+
+    monkeypatch.setattr(r.subprocess, "Popen", launch)
+    monkeypatch.setenv("GOMAXPROCS", "128")
+    monkeypatch.setenv("DOCKER_HOST", "tcp://untrusted.example:2375")
+    assert r._command((r.DOCKER, "version"), tmp_path.resolve()) == b"ready\n"
+    assert spawned[0][0] == (r.DOCKER, "version")
+    assert spawned[0][1] == {
+        "DOCKER_CONFIG": str(tmp_path.resolve()),
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "GOMAXPROCS": "2",
+    }
 
 
 def test_committed_attempt1_refusal_fixtures_match_contract():
