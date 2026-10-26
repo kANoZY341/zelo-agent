@@ -18,6 +18,20 @@ v0.16/v0.17 code does not mean those versions, or v0.15, are released.
 The [live project status](docs/zelo-project-status.md) records implementation
 and qualification evidence. UI #61 and unrelated later features are parked.
 
+The optional stopped-container Reader diagnostic is invoked only after an
+operator reviews its exact source and host scope:
+
+```bash
+.venv/bin/python -m scripts.diagnose_media_reader_stopped --run --runtime-root /absolute/trusted/runtime
+```
+
+It builds and attests the pinned image, creates and inspects one stopped Reader
+container under the shared Media admission lock, then removes its labelled
+resources and writes a private receipt. It does not start the Reader, allocate a
+native proof attempt, grant runtime authority, or resolve the six refused
+proofs. An uncertain cleanup or receipt write leaves admission fenced for
+operator reconciliation. This diagnostic has not been run on the Zelo host.
+
 The optional [Computer Specialist startup workflow](docs/v0.15-computer-specialist-startup.md)
 connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
 Space file operations. It requires an exact operator-reviewed registry selection,

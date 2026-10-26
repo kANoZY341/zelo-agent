@@ -53,7 +53,9 @@ def _write_receipt(directory: Path, receipt: dict) -> tuple[Path, dict]:
     ).encode()
     if len(raw) > MAX_RECEIPT_BYTES:
         raise ValueError("diagnostic_receipt_bound")
-    path = directory / (receipt["diagnostic_id"] + ".json")
+    # Keep an unverified write out of the published JSON namespace.
+    path = directory / (".pending-" + receipt["diagnostic_id"])
+    published = directory / (receipt["diagnostic_id"] + ".json")
     fd = os.open(
         path,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
@@ -101,7 +103,25 @@ def _write_receipt(directory: Path, receipt: dict) -> tuple[Path, dict]:
     decoded = json.loads(readback)
     if type(decoded) is not dict or decoded.get("diagnostic_id") != receipt["diagnostic_id"]:
         raise ValueError("diagnostic_receipt_readback")
-    return path, decoded
+    if published.exists() or published.is_symlink():
+        raise ValueError("diagnostic_receipt_collision")
+    dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        os.rename(path, published)
+        try:
+            os.fsync(dir_fd)
+        except BaseException:
+            # A failed publication sync must not leave a visible success receipt.
+            # The caller keeps admission fenced even if this best-effort removal fails.
+            try:
+                os.unlink(published)
+                os.fsync(dir_fd)
+            except OSError:
+                pass
+            raise
+    finally:
+        os.close(dir_fd)
+    return published, decoded
 
 
 def run_build_diagnostic(runtime_root: Path, receipt_dir: Path | None = None) -> tuple[Path, dict]:
