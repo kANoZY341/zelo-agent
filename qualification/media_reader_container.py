@@ -139,6 +139,8 @@ def create_arguments(
         "--read-only",
         f"--user={USER}",
         f"--runtime={RUNTIME}",
+        # Unset Init inherits the daemon default; insist on an inspected false.
+        "--init=false",
         "--ulimit",
         f"nofile={NOFILE}:{NOFILE}",
         "--workdir=/",

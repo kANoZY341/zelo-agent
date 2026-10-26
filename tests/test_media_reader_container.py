@@ -158,6 +158,7 @@ def test_create_arguments_are_exact_and_no_mounts_or_tmpfs():
     assert "--pids-limit=8" in args and "--cpu-quota=50000" in args
     assert "--entrypoint=/reader/ld.so" in args
     assert "--runtime=runc" in args
+    assert args.count("--init=false") == 1
     assert "--ulimit" in args and "nofile=32:32" in args
     assert "--workdir=/" in args
     assert args[-len(m.COMMAND) :] == m.COMMAND
