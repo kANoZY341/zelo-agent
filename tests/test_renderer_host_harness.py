@@ -306,7 +306,22 @@ def test_export_uses_the_same_private_local_docker_process(tmp_path, monkeypatch
 
     monkeypatch.setattr(harness, "_export_bounded", export)
     harness.export_bounded("/usr/bin/docker", "a" * 64, tmp_path / "export.tar")
+    harness.export_bounded("/usr/bin/docker", "b" * 64, tmp_path / "reader.tar", go_maxprocs=1)
     argv, destination, environment = calls[0]
     assert argv == ["/usr/bin/docker", "--host=unix:///var/run/docker.sock", "export", "a" * 64]
     assert destination == tmp_path / "export.tar"
+    assert environment["GOMAXPROCS"] == "2"
     assert not Path(environment["DOCKER_CONFIG"]).exists()
+    reader_argv, reader_destination, reader_environment = calls[1]
+    assert reader_argv == [
+        "/usr/bin/docker",
+        "--host=unix:///var/run/docker.sock",
+        "export",
+        "b" * 64,
+    ]
+    assert reader_destination == tmp_path / "reader.tar"
+    assert reader_environment["GOMAXPROCS"] == "1"
+    assert set(reader_environment) == set(environment)
+    assert not Path(reader_environment["DOCKER_CONFIG"]).exists()
+    with pytest.raises(ValueError, match="setup_go_maxprocs_invalid"):
+        harness.export_bounded("/usr/bin/docker", "b" * 64, tmp_path / "invalid.tar", go_maxprocs=3)

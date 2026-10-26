@@ -802,7 +802,7 @@ def _build_and_attest(attempt, lease_identity, environment, runtime_root=None):
         _inspect("container", cid, environment), value, image_identity
     )
     archive = attempt / "image-rootfs.tar"
-    browser_setup.export_bounded(setup.DOCKER, cid, archive)
+    browser_setup.export_bounded(setup.DOCKER, cid, archive, go_maxprocs=1)
     with archive.open("rb") as stream:
         payload_digest = browser_setup.verify_image_archive(stream, setup.expected_export(manifest))
     _docker(

@@ -334,7 +334,7 @@ def verify_image_archive(
     ).hexdigest()
 
 
-def export_bounded(docker: str, container: str, destination: Path) -> None:
+def export_bounded(docker: str, container: str, destination: Path, *, go_maxprocs: int = 2) -> None:
     """Copy a Docker export with explicit byte/time/CLI-child ownership bounds."""
     import re
 
@@ -342,7 +342,10 @@ def export_bounded(docker: str, container: str, destination: Path) -> None:
         raise ValueError("invalid_container_identity")
     if docker != "/usr/bin/docker":
         raise ValueError("setup_docker_executable_invalid")
+    if type(go_maxprocs) is not int or go_maxprocs not in (1, 2):
+        raise ValueError("setup_go_maxprocs_invalid")
     with operator_process([docker, "export", container]) as (argv, environment):
+        environment["GOMAXPROCS"] = str(go_maxprocs)
         _export_bounded(argv, destination, environment)
 
 
