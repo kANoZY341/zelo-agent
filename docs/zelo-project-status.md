@@ -1,5 +1,24 @@
 # Zelo live project status
 
+**26 October sixth native Reader checkpoint:** The separately authorized
+sixth attempt was consumed and refused at the matrix stage. Its retained proof
+SHA-256 is `96a54922cac16c3aedc3f2af280aa316275956990fba73c0d58c2f6daed07e10`;
+the underlying exception was not persisted, and no native Reader or runtime
+authority passed. [PR #272](https://github.com/kANoZY341/zelo-agent/pull/272)
+fixed discovery of untagged Docker images; [PR #273](https://github.com/kANoZY341/zelo-agent/pull/273)
+provided an independently reviewed, one-use exact-image cleanup and verifier.
+Both passed exact-head and distinct post-merge main CI. At clean main
+`cbb4585e8ebe44f20d94837f0347ea41f7f4c751` (tree
+`3d555ba79786a1923b1d20bdfbcb990a7fe75a12`), one separately authorized
+cleanup removed only the pinned sixth image. Read-only verification linked
+completion SHA-256 `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`
+to the intact six refusals, empty marker and zero remaining lease-labelled
+Docker resources. See the [issue #166 receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6420493467)
+and [closeout ledger](v0.15-release-closeout.md#26-october-sixth-reader-refusal-and-exact-image-cleanup).
+Six of six attempts are terminal; no seventh is authorized. Full v0.15 stays
+**HOLD** across native Reader and the other Space, Skill, Worker, curated
+integration, rollback and release-audit gates. Last release is `v0.14.0`.
+
 **24 October fifth-refusal reconciliation:** After the Managing Director's
 scoped authorization, the one-use [PR #257](https://github.com/kANoZY341/zelo-agent/pull/257)
 operator tools removed only the pinned fifth-lease Docker image and cleared the

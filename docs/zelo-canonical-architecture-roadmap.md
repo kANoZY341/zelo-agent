@@ -2,7 +2,21 @@
 
 ## Status
 
-**24 October fifth-refusal reconciliation:** After the Managing Director's
+**26 October sixth Reader refusal and cleanup:** The one authorized sixth
+native attempt at `1e5b871` is terminally refused at the matrix stage;
+`cases.json` SHA-256 is
+`96a54922cac16c3aedc3f2af280aa316275956990fba73c0d58c2f6daed07e10`.
+The exact exception was not retained. The separate one-use cleanup at reviewed
+main `cbb4585` removed the one untagged sixth-lease image; its completion
+receipt SHA-256 is
+`6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
+All six refusals remain intact, the admission marker is empty and the broad
+lease-labelled Docker inventory is clear. [Issue #166's receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6420493467)
+and the [closeout ledger](v0.15-release-closeout.md#26-october-sixth-reader-refusal-and-exact-image-cleanup)
+bind the exact source and CI. No seventh proof, native Reader authority,
+release-scope change or v0.15 tag is authorized; full v0.15 remains **HOLD**.
+
+**Earlier 24 October fifth-refusal reconciliation:** After the Managing Director's
 scoped authorization, the one-use [PR #257](https://github.com/kANoZY341/zelo-agent/pull/257)
 operator tools removed only the pinned fifth-lease Docker image and cleared the
 shared admission marker after verifying the durable cleanup completion receipt
