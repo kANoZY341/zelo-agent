@@ -119,7 +119,7 @@ def setup_create_arguments(value: BuildPlan, image_identity: str) -> tuple[str, 
 def discovery_arguments(kind: str, identity: str) -> tuple[str, ...]:
     _identity(identity)
     _require(kind in ("container", "image"), "kind")
-    prefix = ("container", "ls", "--all") if kind == "container" else ("image", "ls")
+    prefix = ("container", "ls", "--all") if kind == "container" else ("image", "ls", "--all")
     return (
         DOCKER,
         "--host=unix:///var/run/docker.sock",
