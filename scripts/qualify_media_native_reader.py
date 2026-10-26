@@ -646,6 +646,16 @@ def _matrix_failure_evidence(error: Exception) -> dict[str, str]:
         return {"kind": "permission_denied"}
     if isinstance(error, ValueError) and str(error) in _MATRIX_CODES:
         evidence = {"kind": "validation", "code": str(error)}
+        if str(error) == "reader_docker_command":
+            operation = getattr(error, "operation", None)
+            if type(operation) is str and operation in {
+                "image_inspect",
+                "container_inspect",
+                "container_list",
+                "container_remove",
+                "create",
+            }:
+                evidence["operation"] = operation
         cause = error.__cause__
         if isinstance(cause, container.Refused) and str(cause) in _MATRIX_CONTAINER_CAUSES:
             evidence["cause_code"] = str(cause)

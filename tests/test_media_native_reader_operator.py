@@ -952,6 +952,21 @@ def test_matrix_failure_evidence_records_only_safe_categories(failure, expected)
     assert q._matrix_failure_evidence(failure) == expected
 
 
+def test_matrix_failure_evidence_includes_only_fixed_docker_operation():
+    error = QualificationError("reader_docker_command")
+    error.operation = "container_inspect"
+    assert q._matrix_failure_evidence(error) == {
+        "kind": "validation",
+        "code": "reader_docker_command",
+        "operation": "container_inspect",
+    }
+    error.operation = "/private/token=secret"
+    assert q._matrix_failure_evidence(error) == {
+        "kind": "validation",
+        "code": "reader_docker_command",
+    }
+
+
 def test_matrix_refusal_persists_safe_cause_without_secret(tmp_path, monkeypatch):
     runtime = tmp_path / "runtime"
     base = runtime / q.RUNTIME_PROOF_BASE
