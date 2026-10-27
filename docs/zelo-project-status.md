@@ -1,6 +1,19 @@
 # Zelo live project status
 
-**26 October sixth native Reader checkpoint:** The separately authorized
+**28 October eighth native Reader checkpoint:** The separately authorized
+one-use decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`
+was consumed through [issue #166 comment 6455367560](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6455367560).
+Attempt `native-reader-proof-plhsvu3q` is terminally **REFUSED** at the
+matrix runtime probe: `reader_container_limits` reported
+`OomKillDisable=null`. Its retained `cases.json` SHA-256 is
+`9d11825abaa2b707e6d7d928155c958d39f5460a123694c5039a1f7fa69c0bc7`.
+The marker and lease-labelled Docker inventory are empty. A local source
+correction accepts Docker's nullable default but has no native proof; eight
+attempts are consumed, no ninth is authorized, and v0.15 remains **HOLD**.
+See the [closeout ledger](v0.15-release-closeout.md#28-october-eighth-native-reader-refusal-and-oom-field-correction).
+The last published release is `v0.14.0`.
+
+**Historical 26 October sixth native Reader checkpoint:** The separately authorized
 sixth attempt was consumed and refused at the matrix stage. Its retained proof
 SHA-256 is `96a54922cac16c3aedc3f2af280aa316275956990fba73c0d58c2f6daed07e10`;
 the underlying exception was not persisted, and no native Reader or runtime

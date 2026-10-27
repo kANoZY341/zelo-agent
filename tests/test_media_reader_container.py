@@ -203,6 +203,15 @@ def test_valid_image_and_container():
     m.verify_container(container(), contract(), NAME, LEASE, seccomp.profile_bytes())
 
 
+def test_unspecified_oom_kill_disable_preserves_default_oom_killer():
+    data = container()
+    data["HostConfig"]["OomKillDisable"] = None
+    m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+    del data["HostConfig"]["OomKillDisable"]
+    with pytest.raises(m.LimitRefused, match="reader_container_limits"):
+        m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+
+
 @pytest.mark.parametrize(
     "path,value",
     [
@@ -262,6 +271,15 @@ def test_resource_or_namespace_drift_refused(field, value):
     data["HostConfig"][field] = value
     with pytest.raises(m.Refused, match="reader_container_limits"):
         m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+
+
+def test_other_limit_refusal_does_not_report_safe_oom_default():
+    data = container()
+    data["HostConfig"]["OomKillDisable"] = None
+    data["HostConfig"]["NetworkMode"] = "bridge"
+    with pytest.raises(m.LimitRefused, match="reader_container_limits") as failure:
+        m.verify_container(data, contract(), NAME, LEASE, seccomp.profile_bytes())
+    assert failure.value.differences == ({"field": "NetworkMode", "observed_kind": "other_string"},)
 
 
 def test_limit_refusal_exposes_only_fixed_fields_and_bounded_observations():

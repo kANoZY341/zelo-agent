@@ -2,7 +2,19 @@
 
 ## Status
 
-**26 October sixth Reader refusal and cleanup:** The one authorized sixth
+**28 October eighth Reader refusal:** The one-use decision at reviewed main
+`90afa73d7383ddba39553e7cfd40233c91375e77` was consumed. The
+retained eighth `cases.json` SHA-256 is
+`9d11825abaa2b707e6d7d928155c958d39f5460a123694c5039a1f7fa69c0bc7`;
+it refused at matrix `reader_container_limits` on `OomKillDisable=null`.
+All eight refusals remain intact, the admission marker and Docker lease
+namespace are empty, and no ninth attempt is authorized. The local candidate
+verifier correction is fake-tested, with no native pass or runtime authority.
+Full v0.15 remains **HOLD**. See
+[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166) and the
+[closeout ledger](v0.15-release-closeout.md#28-october-eighth-native-reader-refusal-and-oom-field-correction).
+
+**Historical 26 October sixth Reader refusal and cleanup:** The one authorized sixth
 native attempt at `1e5b871` is terminally refused at the matrix stage;
 `cases.json` SHA-256 is
 `96a54922cac16c3aedc3f2af280aa316275956990fba73c0d58c2f6daed07e10`.

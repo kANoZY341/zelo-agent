@@ -120,6 +120,8 @@ def container_record(name, identity, cid, *, drift=None, running=False):
     }
     if drift == "network":
         value["HostConfig"]["NetworkMode"] = "bridge"
+    elif drift == "oom_unspecified":
+        value["HostConfig"]["OomKillDisable"] = None
     elif drift == "user":
         value["Config"]["User"] = "0:0"
     elif drift == "capability":
@@ -308,6 +310,19 @@ def test_success_result_only_after_cleanup(setup):
         assert len(handle.identity) == 64
         assert not any(command[0] in ("build", "pull") for command in daemon.commands)
         assert not any(command[:2] == ("image", "rm") for command in daemon.commands)
+
+    run(case())
+
+
+def test_unspecified_oom_kill_disable_runs_and_cleans_up(setup):
+    async def case():
+        daemon = Daemon(setup[1], drift="oom_unspecified")
+        owner, _, result = await exercise(setup, daemon)
+        assert owner.cleanup_confirmed is True
+        assert result.exit_code == 0
+        assert daemon.attached.returncode == 0
+        assert (setup[0] / "active.marker").read_bytes() == b""
+        assert not daemon.exists
 
     run(case())
 
