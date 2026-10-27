@@ -620,6 +620,7 @@ _MATRIX_CODES = frozenset(
         "reader_profile_drift",
         "reader_profile_write",
         "reader_runtime_probe",
+        "reader_start_exited",
         "reader_runtime_unsafe",
         "reader_container_refused",
         "process_output_limit",

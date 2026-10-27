@@ -230,6 +230,39 @@ class DockerReaderHandle:
         async with asyncio.timeout_at(deadline):
             return await self._prepare_stopped(payload)
 
+    async def _wait_for_running(self, process) -> dict:
+        """Verify the stopped state until Docker has processed the start request."""
+        while True:
+            data = await self._inspect("container", self.name)
+            try:
+                container.verify_container(
+                    data,
+                    self.contract,
+                    self.name,
+                    self.identity,
+                    self.profile_bytes,
+                    running=True,
+                )
+            except container.Refused as exc:
+                if data.get("State", {}).get("Running") is not False:
+                    raise QualificationError("reader_runtime_probe") from exc
+                try:
+                    container.verify_container(
+                        data,
+                        self.contract,
+                        self.name,
+                        self.identity,
+                        self.profile_bytes,
+                        running=False,
+                    )
+                except container.Refused as stopped_exc:
+                    raise QualificationError("reader_runtime_probe") from stopped_exc
+                if process.returncode is not None:
+                    raise QualificationError("reader_start_exited") from None
+                await asyncio.sleep(0.05)
+            else:
+                return data
+
     async def stream(self, payload: bytes, deadline: float) -> ReaderProcessResult:
         async with asyncio.timeout_at(deadline):
             case = await self._prepare_stopped(payload)
@@ -252,18 +285,7 @@ class DockerReaderHandle:
             if process.stdin is None or process.stdout is None or process.stderr is None:
                 raise QualificationError("reader_pipe_missing")
             if self._runtime_probe is not None:
-                data = await self._inspect("container", self.name)
-                try:
-                    container.verify_container(
-                        data,
-                        self.contract,
-                        self.name,
-                        self.identity,
-                        self.profile_bytes,
-                        running=True,
-                    )
-                except container.Refused as exc:
-                    raise QualificationError("reader_runtime_probe") from exc
+                data = await self._wait_for_running(process)
                 await self._runtime_probe(data)
             self._stdout = asyncio.create_task(_read_bounded(process.stdout, self._stdout_limit))
             self._stderr = asyncio.create_task(_read_bounded(process.stderr, self._stderr_limit))

@@ -626,3 +626,104 @@ def test_runtime_probe_runs_before_stdin_and_sees_running_container(setup):
         assert owner.cleanup_confirmed is True
 
     run(case())
+
+
+def test_runtime_probe_waits_for_delayed_docker_start(setup):
+    async def case():
+        class DelayedStartDaemon(Daemon):
+            def __init__(self, jobs):
+                super().__init__(jobs)
+                self.start_requested = False
+                self.stopped_after_request = False
+
+            async def spawn(self, *args, **kwargs):
+                command = args[len(CLI) :]
+                if command[:1] == ("start",):
+                    process = await super().spawn(*args, **kwargs)
+                    self.attached = None
+                    self.start_requested = True
+
+                    async def become_running():
+                        await asyncio.sleep(0.05)
+                        self.attached = process
+
+                    asyncio.create_task(become_running())
+                    return process
+                if (
+                    command[:2] == ("container", "inspect")
+                    and self.start_requested
+                    and self.attached is None
+                ):
+                    self.stopped_after_request = True
+                return await super().spawn(*args, **kwargs)
+
+        admission, jobs = setup
+        daemon = DelayedStartDaemon(jobs)
+        owner = LeaseResourceOwner(AdmissionController(admission), digest(), 2)
+        seen = []
+
+        async def probe(data):
+            seen.append((data["State"]["Running"], bytes(daemon.attached.stdin.raw)))
+
+        async def factory(lease):
+            daemon.identity = lease.identity
+            return DockerReaderHandle(
+                lease,
+                m.ReaderContainerContract(image_id(), build_identity()),
+                jobs,
+                seccomp.profile_bytes(),
+                spawn=daemon.spawn,
+                runtime_probe=probe,
+            )
+
+        result = await owner.run(
+            factory,
+            lambda handle: handle.stream(fixture.fixture("positive"), owner.deadline),
+        )
+        assert result.exit_code == 0
+        assert daemon.stopped_after_request is True
+        assert seen == [(True, b"")]
+        assert owner.cleanup_confirmed is True
+
+    run(case())
+
+
+def test_runtime_probe_reports_start_cli_exit_before_running(setup):
+    async def case():
+        class ExitedStartDaemon(Daemon):
+            async def spawn(self, *args, **kwargs):
+                if args[len(CLI) :][:1] == ("start",):
+                    process = Process(attached=True)
+                    process.returncode = 1
+                    process.stdout.feed_eof()
+                    process.stderr.feed_eof()
+                    process.dead.set()
+                    self.attached = process
+                    return process
+                return await super().spawn(*args, **kwargs)
+
+        admission, jobs = setup
+        daemon = ExitedStartDaemon(jobs)
+        owner = LeaseResourceOwner(AdmissionController(admission), digest(), 2)
+
+        async def factory(lease):
+            daemon.identity = lease.identity
+            return DockerReaderHandle(
+                lease,
+                m.ReaderContainerContract(image_id(), build_identity()),
+                jobs,
+                seccomp.profile_bytes(),
+                spawn=daemon.spawn,
+                runtime_probe=lambda data: asyncio.sleep(0),
+            )
+
+        with pytest.raises(QualificationError, match="owner_failed") as caught:
+            await owner.run(
+                factory,
+                lambda handle: handle.stream(fixture.fixture("positive"), owner.deadline),
+            )
+        assert isinstance(caught.value.__cause__, QualificationError)
+        assert str(caught.value.__cause__) == "reader_start_exited"
+        assert owner.cleanup_confirmed is True
+
+    run(case())
