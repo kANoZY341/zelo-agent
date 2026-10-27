@@ -106,16 +106,20 @@ The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
 The four earlier native Media Reader refusals and the separately authorized
-fifth and sixth refusals remain terminal. The sixth one-run decision was
-consumed on 26 October: `native-reader-proof-60_k7n6n` refused at the matrix
-stage, and its underlying exception was not persisted. **No seventh native
+fifth, sixth and seventh refusals remain terminal. The seventh one-run
+decision at main `e9893060f04208f8b788534fc1b92c41220f0a47`, tree
+`192fc40fb842c4ff2f725f36247e8d5e325838a3`, was consumed on
+27 October through issue #166 comment 6442334016.
+`native-reader-proof-v2sr2b2m` refused at the matrix runtime probe with
+`reader_container_configuration`; its `cases.json` SHA-256 is
+`4102226af8a74b47ec47db1ab1ad08b877f766d3641a5631c448d0ded26cf5c4`.
+The sixth underlying matrix exception was not persisted. **No eighth native
 proof is authorized.** The separately approved, reviewed one-use cleanup
 removed only the pinned untagged sixth-lease image; its durable completion
 SHA-256 is `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
-The read-only verifier confirmed an empty admission marker, no remaining
-lease-labelled Docker resources and all six refusals and approval records
-intact. See [issue #166's receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6420493467)
-and PRs #272–#273. Never reset, delete, bypass, reframe or reclassify a
+After the seventh refusal, the marker was empty and no lease-labelled
+Docker resources remained. See [the seventh decision](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6442334016)
+and `docs/v0.15-release-closeout.md`. Never reset, delete, bypass, reframe or reclassify a
 refusal as successful. No native matrix or release success follows. Release
 cannot silently defer the originally required runtime: record the blocker
 and obtain a separate operator release-scope decision if necessary. See issue

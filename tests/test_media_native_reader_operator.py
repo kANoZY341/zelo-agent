@@ -947,6 +947,10 @@ def test_cleanup_directory_sync_failure_keeps_admission_fenced(tmp_path, monkeyp
             QualificationError("reader_docker_command"),
             {"kind": "validation", "code": "reader_docker_command"},
         ),
+        (
+            QualificationError("reader_start_exited"),
+            {"kind": "validation", "code": "reader_start_exited"},
+        ),
     ],
 )
 def test_matrix_failure_evidence_records_only_safe_categories(failure, expected):
