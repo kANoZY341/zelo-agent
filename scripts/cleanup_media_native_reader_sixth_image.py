@@ -71,11 +71,11 @@ def _digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _audit(root: Path) -> dict[str, str]:
+def _audit(root: Path, *, expected_marker: bytes = b"") -> dict[str, str]:
     """Read the pinned six-refusal history while the caller owns the shared lock."""
     if root != ROOT or scope._canonical_root(root) != root:
         _refuse("root")
-    history._marker(root / "media-elf-metadata-admission/active.marker", b"")
+    history._marker(root / "media-elf-metadata-admission/active.marker", expected_marker)
     fifth._children(
         root / "media-native-reader",
         {
@@ -254,9 +254,9 @@ def _completed(root: Path, pending_sha: str, stdout_sha: str) -> dict[str, objec
     }
 
 
-def _completion_held(root: Path) -> str:
+def _completion_held(root: Path, *, expected_marker: bytes = b"") -> str:
     """Caller owns the admission lock; verify exactly one complete receipt."""
-    pins = _audit(root)
+    pins = _audit(root) if expected_marker == b"" else _audit(root, expected_marker=expected_marker)
     base = root / BASE
     names = [path.name for path in base.iterdir()]
     if len(names) != 1 or re.fullmatch(r"cleanup-[a-z0-9_]+", names[0]) is None:

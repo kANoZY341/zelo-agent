@@ -208,6 +208,7 @@ def _attempt_directory(
     recovery_version=1,
     v3_before_mkdir=None,
     v4_before_mkdir=None,
+    v5_before_mkdir=None,
 ):
     runtime = Path(runtime_root) if runtime_root is not None else ROOT / "runtime"
     base = runtime / RUNTIME_PROOF_BASE
@@ -229,6 +230,9 @@ def _attempt_directory(
         elif recovery_version == 4 and len(entries) == 5 and v4_before_mkdir is not None:
             # Only the one-use live v4 gate below may attest the fifth refusal.
             pass
+        elif recovery_version == 5 and len(entries) == 6 and v5_before_mkdir is not None:
+            # The live v5 gate attests all six refusals immediately before mkdir.
+            pass
         else:
             raise ValueError("reader_native_attempt_limit")
     for entry in entries:
@@ -236,7 +240,7 @@ def _attempt_directory(
         _private_runtime_path(path, runtime)
         if not entry.name.startswith(PREFIX) or stat.S_IMODE(path.lstat().st_mode) != 0o700:
             raise ValueError("reader_native_old_attempt")
-        if recovery_version == 4:
+        if recovery_version in (4, 5):
             from qualification import media_reader_fifth_reconcile as fifth
 
             if entry.name == fifth.FIFTH:
@@ -299,6 +303,12 @@ def _attempt_directory(
         from qualification import media_reader_approval_capture_v4 as capture_v4
 
         capture_v4._consume_attempt_gate(runtime, v4_before_mkdir)
+    if recovery_version == 5:
+        if not (extra_grant and attempt_count == 6 and v5_before_mkdir is not None):
+            raise ValueError("reader_native_attempt_limit")
+        from qualification import media_reader_approval_capture_v5 as capture_v5
+
+        capture_v5._consume_attempt_gate(runtime, v5_before_mkdir)
     path = Path(tempfile.mkdtemp(prefix=PREFIX, dir=base))
     os.chmod(path, 0o700)
     _fsync_directory(path)
@@ -1046,6 +1056,9 @@ async def _qualify(
     v4_request_comment_id=None,
     v4_clock=None,
     v4_get=None,
+    v5_request_comment_id=None,
+    v5_clock=None,
+    v5_get=None,
 ):
     if runtime_root is None:
         raise ValueError("reader_native_scope_required")
@@ -1054,8 +1067,19 @@ async def _qualify(
     recovery_version = 0
     expected_v3_source = None
     expected_v4_source = None
+    expected_v5_source = None
     try:
-        if v3_request_comment_id is not None and v4_request_comment_id is not None:
+        if (
+            sum(
+                callback is not None
+                for callback in (
+                    v3_request_comment_id,
+                    v4_request_comment_id,
+                    v5_request_comment_id,
+                )
+            )
+            > 1
+        ):
             raise ValueError("reader_native_approval_version_conflict")
         try:
             scope.validate_runtime_scope(runtime)
@@ -1087,6 +1111,17 @@ async def _qualify(
                     raise ValueError("reader_native_v4_prior_consumption") from None
                 expected_v4_source = capture_v4._source_identity()
                 recovery_version = 4
+            elif len(names) == 6 and v5_request_comment_id is not None:
+                from qualification import media_reader_approval_capture_v5 as capture_v5
+                from qualification import media_reader_seventh_ledger as seventh
+
+                seventh.audit(runtime)
+                if (runtime / capture_v5.BASE).exists() or (
+                    runtime / capture_v5.GRANT_BASE
+                ).exists():
+                    raise ValueError("reader_native_v5_prior_consumption") from None
+                expected_v5_source = capture_v5._source_identity()
+                recovery_version = 5
             else:
                 raise
             extra_grant = True
@@ -1094,6 +1129,8 @@ async def _qualify(
             raise ValueError("reader_native_v3_scope")
         if v4_request_comment_id is not None and recovery_version != 4:
             raise ValueError("reader_native_v4_scope")
+        if v5_request_comment_id is not None and recovery_version != 5:
+            raise ValueError("reader_native_v5_scope")
     except Exception as exc:
         raise _precondition_refusal("scope", exc) from None
     started = time.monotonic()
@@ -1115,6 +1152,8 @@ async def _qualify(
             if recovery_version == 3
             else 6
             if recovery_version == 4
+            else 7
+            if recovery_version == 5
             else MAX_ATTEMPTS
         )
         spec = policy(attempt_limit)
@@ -1133,6 +1172,14 @@ async def _qualify(
             session = capture_v4.ApprovalCapture(runtime, expected_source=expected_v4_source)
             lease, _ = session.acquire(digest, v4_request_comment_id, get=get, clock=clock)
             deadline = time.monotonic() + WHOLE_SECONDS
+        elif recovery_version == 5:
+            from qualification import media_reader_approval_capture_v5 as capture_v5
+
+            clock = v5_clock or (lambda: datetime.now(UTC))
+            get = v5_get or approval_v3.gh_api_get
+            session = capture_v5.ApprovalCapture(runtime, expected_source=expected_v5_source)
+            lease, _ = session.acquire(digest, v5_request_comment_id, get=get, clock=clock)
+            deadline = time.monotonic() + WHOLE_SECONDS
         else:
             lease = AdmissionController(admission).acquire(digest)
     except Exception as exc:
@@ -1144,13 +1191,14 @@ async def _qualify(
     report_attempted = False
     stage = "attempt"
     try:
-        if recovery_version in (3, 4):
+        if recovery_version in (3, 4, 5):
             try:
                 readiness = _docker_readiness(runtime)
                 _deadline(deadline)
             except BaseException:
                 # No attempt or owned Docker resource exists in this invocation yet.
-                # The durable grant remains consumed, but the shared marker can clear.
+                # The durable grant remains consumed. V4/V5 keep the marker fenced;
+                # only the legacy v3 path clears it here.
                 lease.finish(cleanup_confirmed=recovery_version == 3)
                 raise
             allocation_started = False
@@ -1164,10 +1212,11 @@ async def _qualify(
                     recovery_version=recovery_version,
                     v3_before_mkdir=gate if recovery_version == 3 else None,
                     v4_before_mkdir=gate if recovery_version == 4 else None,
+                    v5_before_mkdir=gate if recovery_version == 5 else None,
                 )
 
             try:
-                if recovery_version == 4:
+                if recovery_version in (4, 5):
                     _, attempt = session.recheck_before_attempt(
                         lease, get=get, clock=clock, allocate=allocate_once
                     )
@@ -1361,6 +1410,41 @@ def _request_v4_comment_id(runtime, challenge, history):
     return int(raw)
 
 
+def _request_v5_comment_id(runtime, challenge, history):
+    """Show the exact fresh seventh decision under the admission lock."""
+    from qualification import media_reader_approval_capture_v5 as capture_v5
+    from qualification import media_reader_run_approval_v5 as approval_v5
+    from qualification import media_reader_seventh_ledger as seventh
+
+    head, tree = capture_v5._source_identity()
+    body = {
+        "schema": approval_v5.SCHEMA,
+        "decision": approval_v5.DECISION,
+        "challenge": challenge,
+        "runtime_root": str(runtime),
+        "source_head": head,
+        "source_tree": tree,
+        "proof_history": history,
+        "proof_history_sha256": approval_v3._history_digest(history),
+        "sixth_image_cleanup_completion_sha256": seventh.COMPLETION_SHA256,
+        "attempts_used_before": 6,
+        "additional_attempts": 1,
+        "network": "none",
+        "runtime_authority": False,
+        "expires_utc": (datetime.now(UTC) + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    rendered = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    if len(rendered.encode("utf-8")) > approval_v3.MAX_BODY_BYTES:
+        raise ValueError("reader_native_v5_body_bound")
+    print("Post this exact JSON as a new one-run decision on GitHub issue #166.", flush=True)
+    print("Create the comment after this challenge appeared; do not edit it.", flush=True)
+    print(rendered, flush=True)
+    raw = input("New comment's numeric GitHub ID: ")
+    if re.fullmatch(r"[1-9][0-9]{0,18}", raw) is None:
+        raise ValueError("reader_native_v5_comment_id")
+    return int(raw)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true", required=True)
@@ -1368,6 +1452,7 @@ def main():
     choice = parser.add_mutually_exclusive_group()
     choice.add_argument("--one-run-v3", action="store_true")
     choice.add_argument("--one-run-v4", action="store_true")
+    choice.add_argument("--one-run-v5", action="store_true")
     args = parser.parse_args()
     try:
         if args.one_run_v3:
@@ -1384,6 +1469,15 @@ def main():
                 _qualify(
                     args.runtime_root,
                     v4_request_comment_id=lambda challenge, history: _request_v4_comment_id(
+                        args.runtime_root, challenge, history
+                    ),
+                )
+            )
+        elif args.one_run_v5:
+            receipt, deadline = asyncio.run(
+                _qualify(
+                    args.runtime_root,
+                    v5_request_comment_id=lambda challenge, history: _request_v5_comment_id(
                         args.runtime_root, challenge, history
                     ),
                 )

@@ -3,6 +3,7 @@
 import pytest
 
 from qualification import media_reader_seventh_ledger as ledger
+from qualification.admission import AdmissionController
 
 
 def test_six_refusals_and_cleanup_are_pinned_without_grant(tmp_path, monkeypatch):
@@ -82,3 +83,51 @@ def test_completion_drift_during_locked_audit_refuses(tmp_path, monkeypatch):
 def test_public_audit_is_fixed_to_retained_root(tmp_path):
     with pytest.raises(ledger.SeventhLedgerRefused, match="root"):
         ledger.audit(tmp_path)
+
+
+def test_retained_live_lease_rechecks_marker_and_six_pins(tmp_path, monkeypatch):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    (admission / "admission.lock").touch(mode=0o600)
+    marker = admission / "active.marker"
+    marker.touch(mode=0o600)
+    monkeypatch.setattr(ledger, "RETAINED_ROOT", root)
+    reads = []
+
+    def completion(path, *, expected_marker=b""):
+        assert path == root
+        reads.append(expected_marker)
+        return ledger.COMPLETION_SHA256
+
+    monkeypatch.setattr(ledger.cleanup, "_completion_held", completion)
+    before = ledger._audit(root)
+    lease = AdmissionController(admission).acquire("a" * 64)
+    try:
+        with lease.retained():
+            assert ledger._audit_held_live(root, lease, before) == before
+            assert len(reads) == 6
+            assert reads[:2] == [b"", b""]
+            assert all(value == marker.read_bytes() for value in reads[2:])
+            marker.write_bytes(b"changed")
+            with pytest.raises(ledger.SeventhLedgerRefused, match="marker"):
+                ledger._audit_held_live(root, lease, before)
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_live_audit_refuses_lease_not_retained(tmp_path, monkeypatch):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    marker = admission / "active.marker"
+    marker.touch(mode=0o600)
+    monkeypatch.setattr(ledger, "RETAINED_ROOT", root)
+    lease = AdmissionController(admission).acquire("a" * 64)
+    try:
+        with pytest.raises(ledger.SeventhLedgerRefused, match="live_binding"):
+            ledger._audit_held_live(root, lease, {"marker_cleared": True})
+    finally:
+        lease.finish(cleanup_confirmed=True)
