@@ -7,12 +7,17 @@ inspect Docker, issue a grant, clear a marker, or authorize an eighth proof.
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import re
+import threading
 from pathlib import Path
 
 from qualification import media_reader_fifth_reconcile as fifth
 from qualification import media_reader_scope as scope
 from qualification import media_reader_seventh_ledger as previous
 from qualification import media_reader_sixth_ledger as historical
+from qualification.admission import Lease
 from scripts import cleanup_media_native_reader_sixth_image as cleanup
 
 RETAINED_ROOT = previous.RETAINED_ROOT
@@ -83,7 +88,60 @@ def _refuse(reason: str) -> None:
     raise EighthLedgerRefused("reader_eighth_ledger_" + reason) from None
 
 
-def _directories(root: Path) -> None:
+def _history() -> tuple[dict[str, str], ...]:
+    return (
+        *previous._history(),
+        {
+            "attempt": ATTEMPT,
+            "policy_sha256": PINS[f"media-native-reader/{ATTEMPT}/policy.json"][0],
+            "proof_sha256": PINS[f"media-native-reader/{ATTEMPT}/cases.json"][0],
+            "source_head": SOURCE_HEAD,
+            "source_tree": SOURCE_TREE,
+        },
+    )
+
+
+_PROGRESS_STAGES = (
+    frozenset(),
+    frozenset({("media-native-reader-run-approval-v6", "receipt.json")}),
+    frozenset(
+        {
+            ("media-native-reader-run-approval-v6", "receipt.json"),
+            ("media-native-reader-run-approval-v6", "recheck.json"),
+        }
+    ),
+    frozenset(
+        {
+            ("media-native-reader-run-approval-v6", "receipt.json"),
+            ("media-native-reader-run-approval-v6", "recheck.json"),
+            ("media-native-reader-extra-attempt-v6", "grant.json"),
+            ("media-native-reader-extra-attempt-v6", "seal.json"),
+        }
+    ),
+    frozenset(
+        {
+            ("media-native-reader-run-approval-v6", "receipt.json"),
+            ("media-native-reader-run-approval-v6", "recheck.json"),
+            ("media-native-reader-run-approval-v6", "attempt-recheck.json"),
+            ("media-native-reader-extra-attempt-v6", "grant.json"),
+            ("media-native-reader-extra-attempt-v6", "seal.json"),
+        }
+    ),
+)
+
+
+def _progress_pins(pins: dict[tuple[str, str], str]) -> dict[str, tuple[str, int, int]]:
+    if type(pins) is not dict or frozenset(pins) not in _PROGRESS_STAGES:
+        _refuse("progress_shape")
+    result = {}
+    for (base, name), digest in pins.items():
+        if type(digest) is not str or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+            _refuse("progress_pin")
+        result[f"{base}/{name}"] = (digest, 0o600, 65536)
+    return result
+
+
+def _directories(root: Path, progress: dict[str, tuple[str, int, int]]) -> None:
     """Check the fixed evidence tree, including absence of an eighth proof."""
     children: dict[Path, set[str]] = {}
     for relative in PINS:
@@ -100,23 +158,32 @@ def _directories(root: Path) -> None:
     children[Path("media-native-reader") / fifth_name].add("docker-config")
     children[Path("media-native-reader") / first / "docker-config"] = set()
     children[Path("media-native-reader") / fifth_name / "docker-config"] = set()
+    for relative in progress:
+        base, name = relative.split("/", 1)
+        children.setdefault(Path(base), set()).add(name)
     for relative, expected in children.items():
         fifth._children(root / relative, expected)
-    approved_bases = {Path(relative).parts[0] for relative in PINS}
+    retained_bases = {Path(relative).parts[0] for relative in (*PINS, *progress)}
     for entry in root.iterdir():
         if (
             entry.name.startswith(
                 ("media-native-reader-extra-attempt", "media-native-reader-run-approval")
             )
-            and entry.name not in approved_bases
+            and entry.name not in retained_bases
         ):
             _refuse("eighth_artifact")
 
 
-def _audit_held(root: Path) -> dict[str, object]:
-    historical._marker(root / "media-elf-metadata-admission/active.marker", b"")
-    _directories(root)
-    values = {relative: fifth._read_pinned(root / relative, *pin) for relative, pin in PINS.items()}
+def _audit_evidence(
+    root: Path, *, expected_marker: bytes, progress_pins: dict[tuple[str, str], str]
+) -> dict[str, object]:
+    progress = _progress_pins(progress_pins)
+    historical._marker(root / "media-elf-metadata-admission/active.marker", expected_marker)
+    _directories(root, progress)
+    values = {
+        relative: fifth._read_pinned(root / relative, *pin)
+        for relative, pin in {**PINS, **progress}.items()
+    }
     case = scope._json(values[f"media-native-reader/{ATTEMPT}/cases.json"])
     policy = scope._json(values[f"media-native-reader/{ATTEMPT}/policy.json"])
     grant_raw = values["media-native-reader-extra-attempt-v5/grant.json"]
@@ -157,26 +224,85 @@ def _audit_held(root: Path) -> dict[str, object]:
         or seal.get("source_tree") != SOURCE_TREE
     ):
         _refuse("seventh_binding")
-    historical._marker(root / "media-elf-metadata-admission/active.marker", b"")
+    historical._marker(root / "media-elf-metadata-admission/active.marker", expected_marker)
     return {
         "status": "verified-seven-terminal-refusals",
-        "proof_history": (
-            *previous._history(),
-            {
-                "attempt": ATTEMPT,
-                "policy_sha256": PINS[f"media-native-reader/{ATTEMPT}/policy.json"][0],
-                "proof_sha256": PINS[f"media-native-reader/{ATTEMPT}/cases.json"][0],
-                "source_head": SOURCE_HEAD,
-                "source_tree": SOURCE_TREE,
-            },
-        ),
+        "proof_history": _history(),
         "attempts_used": 7,
         "attempt_limit": 7,
-        "marker_cleared": True,
+        "marker_cleared": expected_marker == b"",
         "docker_resources_checked": False,
         "another_attempt_authorized": False,
         "runtime_authority": False,
     }
+
+
+def _audit_held(root: Path, *, expected_marker: bytes = b"") -> dict[str, object]:
+    """Strict initial audit: any v6 receipt remains an unexpected artifact."""
+    return _audit_evidence(root, expected_marker=expected_marker, progress_pins={})
+
+
+def _audit_held_progress(root: Path, pins: dict[tuple[str, str], str]) -> dict[str, object]:
+    """Caller holds admission; check exact pinned v6 records for one phase."""
+    try:
+        return _audit_evidence(root, expected_marker=b"", progress_pins=pins)
+    except (
+        OSError,
+        historical.SixthLedgerRefused,
+        fifth.FifthReconciliationRefused,
+        scope.ScopeRefused,
+    ):
+        _refuse("progress_evidence")
+
+
+def _audit_held_live(root: Path, lease: Lease, before: dict) -> dict[str, object]:
+    return _audit_held_live_progress(root, lease, before, {})
+
+
+def _audit_held_live_progress(
+    root: Path, lease: Lease, before: dict, pins: dict[tuple[str, str], str]
+) -> dict[str, object]:
+    """Recheck the same pins under the exact occupied and retained lease."""
+    owner = threading.get_ident()
+    if (
+        root != RETAINED_ROOT
+        or type(lease) is not Lease
+        or lease._fds is None
+        or not lease._lifecycle.locked()
+        or lease._retained_thread != owner
+        or type(before) is not dict
+        or before.get("marker_cleared") is not True
+    ):
+        _refuse("live_binding")
+    try:
+        if scope._canonical_root(root) != root:
+            _refuse("live_binding")
+        directory, lock_fd, marker_fd = lease._fds
+        marker_path = root / "media-elf-metadata-admission/active.marker"
+        for fd, path in (
+            (directory, marker_path.parent),
+            (lock_fd, marker_path.parent / "admission.lock"),
+            (marker_fd, marker_path),
+        ):
+            held, named = os.fstat(fd), path.lstat()
+            if (held.st_dev, held.st_ino) != (named.st_dev, named.st_ino):
+                _refuse("live_binding")
+        expected_marker = json.dumps(
+            {"version": 1, "lease": lease.identity, "policy": lease.policy_digest}
+        ).encode("ascii")
+        live = _audit_evidence(root, expected_marker=expected_marker, progress_pins=pins)
+        if live != {**before, "marker_cleared": False}:
+            _refuse("live_drift")
+        if _audit_evidence(root, expected_marker=expected_marker, progress_pins=pins) != live:
+            _refuse("live_drift")
+    except (
+        OSError,
+        historical.SixthLedgerRefused,
+        fifth.FifthReconciliationRefused,
+        scope.ScopeRefused,
+    ):
+        _refuse("live_evidence")
+    return before
 
 
 def audit(runtime_root: Path) -> dict[str, object]:

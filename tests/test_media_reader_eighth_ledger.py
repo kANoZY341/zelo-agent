@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from qualification.admission import AdmissionController
+
 
 def _raw(value):
     return (json.dumps(value, sort_keys=True) + "\n").encode()
@@ -131,3 +133,40 @@ def test_public_audit_refuses_any_other_root(tmp_path):
     ledger = importlib.import_module("qualification.media_reader_eighth_ledger")
     with pytest.raises(ledger.EighthLedgerRefused, match="root"):
         ledger.audit(tmp_path)
+
+
+def test_live_lease_rechecks_seventh_pins_under_occupied_marker(retained):
+    ledger, root, marker = retained
+    before = ledger.audit(root)
+    lease = AdmissionController(root / "media-elf-metadata-admission").acquire("a" * 64)
+    try:
+        with pytest.raises(ledger.EighthLedgerRefused, match="live_binding"):
+            ledger._audit_held_live(root, lease, before)
+        with lease.retained():
+            assert ledger._audit_held_live(root, lease, before) == before
+            assert marker.stat().st_size > 0
+            (root / f"media-native-reader/{ledger.ATTEMPT}/cases.json").write_bytes(b"changed")
+            with pytest.raises(ledger.EighthLedgerRefused):
+                ledger._audit_held_live(root, lease, before)
+    finally:
+        lease.finish(cleanup_confirmed=True)
+
+
+def test_inflight_inventory_accepts_only_pinned_receipt_stage(retained):
+    ledger, root, _ = retained
+    base = "media-native-reader-run-approval-v6"
+    receipt = root / base / "receipt.json"
+    receipt.parent.mkdir(mode=0o700)
+    receipt.write_bytes(b"one bounded receipt")
+    receipt.chmod(0o600)
+    pins = {(base, "receipt.json"): hashlib.sha256(receipt.read_bytes()).hexdigest()}
+    with ledger.fifth._locked(root):
+        with pytest.raises(ledger.EighthLedgerRefused):
+            ledger._audit_held(root)
+        assert ledger._audit_held_progress(root, pins)["attempts_used"] == 7
+        receipt.write_bytes(b"changed receipt")
+        with pytest.raises(ledger.EighthLedgerRefused):
+            ledger._audit_held_progress(root, pins)
+        pins[(base, "recheck.json")] = "a" * 64
+        with pytest.raises(ledger.EighthLedgerRefused):
+            ledger._audit_held_progress(root, pins)
