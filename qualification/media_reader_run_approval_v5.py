@@ -15,6 +15,7 @@ from pathlib import Path
 
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_seventh_ledger as ledger
+from qualification.admission import Lease
 
 SCHEMA = "zelo-media-native-reader-seventh-run-approval-v1"
 DECISION = "authorize-one-seventh-native-media-reader-proof"
@@ -289,6 +290,34 @@ def fetch_validated_snapshot_held(
     )
 
 
+def fetch_validated_snapshot_lease(
+    *,
+    root: Path,
+    lease: Lease,
+    before: dict,
+    get: Callable[[str], dict],
+    expected_comment_id: int,
+    expected_challenge: str,
+    challenge_issued_at: datetime,
+    source_head: str,
+    source_tree: str,
+    clock: Callable[[], datetime],
+) -> dict:
+    """Caller retains the exact live lease across both audits and GitHub reads."""
+    if not isinstance(root, Path) or root != ledger.RETAINED_ROOT or type(lease) is not Lease:
+        _refuse("root")
+    return _fetch_validated_snapshot(
+        audit=lambda: ledger._audit_held_live(root, lease, before),
+        get=get,
+        expected_comment_id=expected_comment_id,
+        expected_challenge=expected_challenge,
+        challenge_issued_at=challenge_issued_at,
+        source_head=source_head,
+        source_tree=source_tree,
+        clock=clock,
+    )
+
+
 def _rechecked(original: dict, fresh: dict) -> dict:
     if (
         type(original) is not dict
@@ -307,3 +336,8 @@ def recheck_snapshot(*, original: dict, **binding: object) -> dict:
 def recheck_snapshot_held(*, original: dict, **binding: object) -> dict:
     """Repeat the held fetch before the lease marker is written."""
     return _rechecked(original, fetch_validated_snapshot_held(**binding))
+
+
+def recheck_snapshot_lease(*, original: dict, **binding: object) -> dict:
+    """Refuse post-marker decision drift under the caller's retained lease."""
+    return _rechecked(original, fetch_validated_snapshot_lease(**binding))

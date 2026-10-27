@@ -9,6 +9,7 @@ import pytest
 from qualification import media_reader_run_approval_v3 as previous
 from qualification import media_reader_run_approval_v5 as approval
 from qualification import media_reader_seventh_ledger as ledger
+from qualification.admission import AdmissionController
 
 NOW = datetime(2026, 10, 27, 18, 0, tzinfo=UTC)
 ISSUED = datetime(2026, 10, 27, 17, 29, tzinfo=UTC)
@@ -256,3 +257,53 @@ def test_held_fetch_uses_caller_lock_and_refuses_changed_comment(monkeypatch):
     endpoints[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
     with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
         approval.recheck_snapshot_held(original=original, **binding)
+
+
+def test_lease_fetch_rechecks_decision_under_occupied_marker(tmp_path, monkeypatch):
+    root = tmp_path / "runtime"
+    root.mkdir(mode=0o700)
+    admission = root / "media-elf-metadata-admission"
+    admission.mkdir(mode=0o700)
+    (admission / "admission.lock").touch(mode=0o600)
+    marker = admission / "active.marker"
+    marker.touch(mode=0o600)
+    monkeypatch.setattr(ledger, "RETAINED_ROOT", root)
+    repo, issue, comment = evidence()
+    body = json.loads(comment["body"])
+    body["runtime_root"] = str(root)
+    comment["body"] = json.dumps(body, sort_keys=True)
+    endpoints = {
+        "/repos/kANoZY341/zelo-agent": repo,
+        "/repos/kANoZY341/zelo-agent/issues/166": issue,
+        f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}": comment,
+    }
+    monkeypatch.setattr(
+        ledger.cleanup,
+        "_completion_held",
+        lambda _root, **_kwargs: ledger.COMPLETION_SHA256,
+    )
+    before = ledger._audit(root)
+    lease = AdmissionController(admission).acquire("a" * 64)
+    try:
+        binding = {
+            "root": root,
+            "lease": lease,
+            "before": before,
+            "get": lambda endpoint: copy.deepcopy(endpoints[endpoint]),
+            "expected_comment_id": COMMENT_ID,
+            "expected_challenge": CHALLENGE,
+            "challenge_issued_at": ISSUED,
+            "source_head": HEAD,
+            "source_tree": TREE,
+            "clock": lambda: NOW,
+        }
+        with lease.retained():
+            original = approval.fetch_validated_snapshot_lease(**binding)
+            assert original["comment_id"] == COMMENT_ID
+            endpoints[f"/repos/kANoZY341/zelo-agent/issues/comments/{COMMENT_ID}"]["body"] += " "
+            with pytest.raises(approval.ApprovalRefused, match="comment_drift"):
+                approval.recheck_snapshot_lease(original=original, **binding)
+        with pytest.raises(approval.ApprovalRefused, match="ledger"):
+            approval.fetch_validated_snapshot_lease(**binding)
+    finally:
+        lease.finish(cleanup_confirmed=True)

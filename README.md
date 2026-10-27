@@ -30,7 +30,23 @@ container under the shared Media admission lock, then removes its labelled
 resources and writes a private receipt. It does not start the Reader, allocate a
 native proof attempt, grant runtime authority, or resolve the six refused
 proofs. An uncertain cleanup or receipt write leaves admission fenced for
-operator reconciliation. This diagnostic has not been run on the Zelo host.
+operator reconciliation.
+
+On clean main `44ac15f`, the corrected diagnostic returned `verified_stopped`
+with confirmed cleanup, no Reader start and no proof-ledger touch. The private
+receipt SHA-256 is
+`e8a192b30a855963f9b0682c3d01fcee23b7b3897f57b4d6730cfa0e967465f2`;
+the [closeout ledger](docs/v0.15-release-closeout.md#26-october-stopped-container-diagnosis-no-native-proof)
+records the earlier refusals and exact CI gates.
+
+The prospective seventh native Reader qualifier uses the explicit
+`--run --one-run-v5` options with the same retained `--runtime-root`. It
+requires a fresh exact one-run Managing Director decision on issue #166
+inside the live invocation, plus the six pinned refusals, the exact sixth
+image cleanup and an empty admission marker. The reviewed source/CI/host
+preflight and new operator decision must precede use. This option has not
+run a seventh proof; Media provenance, decoder and Core authority remain
+unqualified, and v0.15 remains on hold.
 
 The optional [Computer Specialist startup workflow](docs/v0.15-computer-specialist-startup.md)
 connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
