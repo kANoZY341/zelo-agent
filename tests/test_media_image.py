@@ -9,6 +9,7 @@ import resource
 import stat
 import threading
 import zipfile
+from types import ModuleType
 
 import pytest
 
@@ -237,6 +238,10 @@ def test_construction_failure_cleanup(candidate, monkeypatch, phase):
 
         monkeypatch.setattr(m.os, "memfd_create", create)
     elif phase == "stat":
+        # Pytest also calls os.fstat; inject the failure only into this module.
+        isolated_os = ModuleType("media_image_test_os")
+        isolated_os.__dict__.update(vars(os))
+        monkeypatch.setattr(m, "os", isolated_os)
         monkeypatch.setattr(m.os, "fstat", refused)
     elif phase == "chmod":
         monkeypatch.setattr(m.os, "fchmod", refused)

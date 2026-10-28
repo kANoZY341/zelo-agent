@@ -86,7 +86,18 @@ class FakeWorker:
 
 
 @pytest.fixture
-def developer_case(settings):
+def developer_case(settings, monkeypatch):
+    # Isolate parallel tests while preserving shared locks across forked children.
+    lock_root = settings.runtime_dir / "developer-locks"
+
+    def isolated_lock_root(self):
+        root = self.root()
+        root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.root()
+        lock_root.mkdir(exist_ok=True, mode=0o700)
+        return lock_root
+
+    monkeypatch.setattr(DeveloperRuntime, "_lock_root", isolated_lock_root)
     (ROOT / "workspaces").mkdir(exist_ok=True)
     with TemporaryDirectory(prefix="developer-test-", dir=ROOT / "workspaces") as directory:
         root = Path(directory)
