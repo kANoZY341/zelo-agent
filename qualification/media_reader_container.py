@@ -56,6 +56,7 @@ class LimitRefused(Refused):
             }
             for field, value in expected.items()
             if not _same(host.get(field), value)
+            and not (field == "OomKillDisable" and _oom_default(host))
         )
 
 
@@ -87,6 +88,14 @@ def _sha(value: object) -> bool:
 
 def _same(actual: object, expected: object) -> bool:
     return type(actual) is type(expected) and actual == expected
+
+
+def _oom_default(host: dict) -> bool:
+    # The nullable Docker setting does not disable the OOM killer when unset.
+    # On unsupported hosts (including cgroup v2), inspect may report null.
+    return host.get("OomKillDisable") is False or (
+        "OomKillDisable" in host and host["OomKillDisable"] is None
+    )
 
 
 @dataclass(frozen=True)
@@ -234,7 +243,11 @@ def verify_container(
         "OomKillDisable": False,
         "UsernsMode": "",
     }
-    if not all(_same(host.get(key), value) for key, value in expected_host.items()):
+    if not _oom_default(host) or not all(
+        _same(host.get(key), value)
+        for key, value in expected_host.items()
+        if key != "OomKillDisable"
+    ):
         raise LimitRefused(host, expected_host)
     _require(
         data.get("Name") == "/" + name

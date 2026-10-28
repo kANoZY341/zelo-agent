@@ -105,25 +105,25 @@ edits. Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
-The four earlier native Media Reader refusals and the separately authorized
-fifth, sixth and seventh refusals remain terminal. The seventh one-run
-decision at main `e9893060f04208f8b788534fc1b92c41220f0a47`, tree
-`192fc40fb842c4ff2f725f36247e8d5e325838a3`, was consumed on
-27 October through issue #166 comment 6442334016.
-`native-reader-proof-v2sr2b2m` refused at the matrix runtime probe with
-`reader_container_configuration`; its `cases.json` SHA-256 is
-`4102226af8a74b47ec47db1ab1ad08b877f766d3641a5631c448d0ded26cf5c4`.
-The sixth underlying matrix exception was not persisted. **No eighth native
-proof is authorized.** The separately approved, reviewed one-use cleanup
-removed only the pinned untagged sixth-lease image; its durable completion
-SHA-256 is `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
-After the seventh refusal, the marker was empty and no lease-labelled
-Docker resources remained. See [the seventh decision](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6442334016)
-and `docs/v0.15-release-closeout.md`. Never reset, delete, bypass, reframe or reclassify a
-refusal as successful. No native matrix or release success follows. Release
-cannot silently defer the originally required runtime: record the blocker
-and obtain a separate operator release-scope decision if necessary. See issue
-#166 and `docs/v0.15-release-closeout.md` for current receipts and gates.
+The four earlier native Media Reader refusals and separately authorized fifth,
+sixth, seventh and eighth refusals remain terminal. The eighth one-run
+decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`, tree
+`206b4a93f3361fe2d30a66187fefb78af90e071d`, was consumed on
+28 October through [issue #166 comment 6455367560](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6455367560).
+`native-reader-proof-plhsvu3q` refused at the matrix runtime probe with
+`reader_container_limits` (`OomKillDisable=null`); its `cases.json` SHA-256 is
+`9d11825abaa2b707e6d7d928155c958d39f5460a123694c5039a1f7fa69c0bc7`.
+The seventh `native-reader-proof-v2sr2b2m` refusal remains pinned at
+`4102226af8a74b47ec47db1ab1ad08b877f766d3641a5631c448d0ded26cf5c4`;
+the sixth underlying matrix exception was not persisted. The separately
+approved one-use cleanup of the pinned sixth image has completion SHA-256
+`6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
+After the eighth refusal the marker and lease-labelled Docker namespace are
+empty. **No ninth native proof is authorized.** See `docs/v0.15-release-closeout.md`.
+Never reset, delete, bypass, reframe or reclassify a refusal as successful.
+No native matrix or release success follows. Release cannot silently defer the
+originally required runtime: record the blocker and obtain a separate operator
+release-scope decision if necessary. See issue #166 for current gates.
 
 ## Earlier Core-first work and source restrictions (8 October 2026)
 
