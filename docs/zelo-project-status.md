@@ -1,5 +1,7 @@
 # Zelo live project status
 
+**29 October integration and ninth-path preparation:** [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) merged the narrowly scoped Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`). [PR CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40780296539) and distinct [main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40782574947) each passed 6,881 tests with two skipped. A new read-only eight-refusal ledger and one-use ninth-path code are under review; neither grants an attempt. Eight of eight refusals remain terminal, no ninth attempt is authorized, and v0.15 is **HOLD**. See the [issue #166 integration receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6483006388).
+
 **28 October eighth native Reader checkpoint:** The separately authorized
 one-use decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`
 was consumed through [issue #166 comment 6455367560](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6455367560).

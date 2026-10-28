@@ -119,7 +119,7 @@ the sixth underlying matrix exception was not persisted. The separately
 approved one-use cleanup of the pinned sixth image has completion SHA-256
 `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
 After the eighth refusal the marker and lease-labelled Docker namespace are
-empty. **No ninth native proof is authorized.** See `docs/v0.15-release-closeout.md`.
+empty. [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) integrated the Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`); exact-head and distinct main CI passed. A proposed ninth-path source and read-only ledger have no run authority. **No ninth native proof is authorized.** See `docs/v0.15-release-closeout.md`.
 Never reset, delete, bypass, reframe or reclassify a refusal as successful.
 No native matrix or release success follows. Release cannot silently defer the
 originally required runtime: record the blocker and obtain a separate operator
