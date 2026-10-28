@@ -1,18 +1,25 @@
 """No-network, no-install integrity gates for the full REA source import."""
 
+import shutil
+
 import pytest
 
 from qualification.rea_source_vendor import (
     EXPECTED_COMMIT,
     EXPECTED_GITLINKS,
     EXPECTED_TRACKED_FILES,
+    VENDOR_ROOT,
     ReaVendorRefusal,
     _git_blob_digest,
     _safe_relative_path,
     verify_vendored_rea_source,
 )
 
-pytestmark = pytest.mark.xdist_group("rea_vendor_inventory")
+
+@pytest.fixture
+def isolated_vendor(tmp_path):
+    # Mutation tests must not race with checks of the shared source tree.
+    return shutil.copytree(VENDOR_ROOT, tmp_path / "rea")
 
 
 def test_full_vendored_rea_release_has_exact_source_provenance():
@@ -68,30 +75,26 @@ def test_smaller_remaining_budget_refused_before_reading(tmp_path):
         _read_bounded_regular_file(path, 9)
 
 
-def test_extra_fifo_cannot_hide_outside_source_inventory():
+def test_extra_fifo_cannot_hide_outside_source_inventory(isolated_vendor):
     import os
 
-    from qualification.rea_source_vendor import VENDOR_ROOT
-
-    fifo = VENDOR_ROOT / "_zelo_qualification_fifo"
+    fifo = isolated_vendor / "_zelo_qualification_fifo"
     assert not fifo.exists()
     os.mkfifo(fifo, mode=0o600)
     try:
         with pytest.raises(ReaVendorRefusal, match="rea_vendor_special_entry_forbidden"):
-            verify_vendored_rea_source()
+            verify_vendored_rea_source(vendor_root=isolated_vendor)
     finally:
         fifo.unlink()
 
 
-def test_extra_symlink_cannot_escape_source_inventory(tmp_path):
-    from qualification.rea_source_vendor import VENDOR_ROOT
-
-    alias = VENDOR_ROOT / "_zelo_qualification_symlink"
+def test_extra_symlink_cannot_escape_source_inventory(tmp_path, isolated_vendor):
+    alias = isolated_vendor / "_zelo_qualification_symlink"
     assert not alias.is_symlink()
     alias.symlink_to(tmp_path, target_is_directory=True)
     try:
         with pytest.raises(ReaVendorRefusal, match="rea_vendor_symlink_forbidden"):
-            verify_vendored_rea_source()
+            verify_vendored_rea_source(vendor_root=isolated_vendor)
     finally:
         alias.unlink()
 
@@ -106,15 +109,13 @@ def test_oversized_manifest_refuses_before_json_load(tmp_path):
         verify_vendored_rea_source(manifest_path=manifest)
 
 
-def test_untracked_empty_directory_cannot_hide_from_exact_inventory():
-    from qualification.rea_source_vendor import VENDOR_ROOT
-
-    new_dir = VENDOR_ROOT / "_zelo_unlisted_empty_directory"
+def test_untracked_empty_directory_cannot_hide_from_exact_inventory(isolated_vendor):
+    new_dir = isolated_vendor / "_zelo_unlisted_empty_directory"
     assert not new_dir.exists()
     new_dir.mkdir(mode=0o700)
     try:
         with pytest.raises(ReaVendorRefusal, match="rea_vendor_directory_inventory_mismatch"):
-            verify_vendored_rea_source()
+            verify_vendored_rea_source(vendor_root=isolated_vendor)
     finally:
         new_dir.rmdir()
 
