@@ -39,14 +39,15 @@ receipt SHA-256 is
 the [closeout ledger](docs/v0.15-release-closeout.md#26-october-stopped-container-diagnosis-no-native-proof)
 records the earlier refusals and exact CI gates.
 
-The prospective seventh native Reader qualifier uses the explicit
-`--run --one-run-v5` options with the same retained `--runtime-root`. It
-requires a fresh exact one-run Managing Director decision on issue #166
-inside the live invocation, plus the six pinned refusals, the exact sixth
-image cleanup and an empty admission marker. The reviewed source/CI/host
-preflight and new operator decision must precede use. This option has not
-run a seventh proof; Media provenance, decoder and Core authority remain
-unqualified, and v0.15 remains on hold.
+The candidate ninth native Reader qualifier adds the explicit
+`--run --one-run-v7` options with the same retained `--runtime-root`. It
+requires all eight terminal refusals and pinned v6 decision records, an empty
+admission marker and Docker lease namespace, and a fresh challenge-bound
+one-run Managing Director decision on issue #166 during the live invocation.
+Source review, exact-head and main CI, and a current host preflight must
+precede any separate one-run authorization. The eighth refusal remains
+terminal; no ninth proof is authorized or run. Media provenance, decoder and
+Core authority remain unqualified, and v0.15 remains on hold.
 
 The optional [Computer Specialist startup workflow](docs/v0.15-computer-specialist-startup.md)
 connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
