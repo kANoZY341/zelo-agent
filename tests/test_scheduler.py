@@ -656,8 +656,10 @@ def test_restart_retries_same_logical_occurrence_without_double_charge(settings,
         campaign = create_campaign(client)
         configure_wake_budget(client, campaign["id"], limit_units=3)
         conversation = create_conversation(client)
-        schedule = create_schedule(client, campaign["id"], conversation["id"])
         scheduler = client.app.state.scheduler
+        clock = MutableClock(datetime.now(UTC))
+        scheduler.clock = clock
+        schedule = create_schedule(client, campaign["id"], conversation["id"], run_at=clock.value)
         controls: CampaignControlService = client.app.state.campaign_controls
 
         holder = f"schedule:{schedule['id']}"
