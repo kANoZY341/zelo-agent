@@ -24,7 +24,7 @@ HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ApprovalRefused(ValueError):
-    """The eighth decision is missing, changed, stale, or unbound."""
+    """The ninth decision is missing, changed, stale, or unbound."""
 
 
 def _refuse(reason: str) -> None:

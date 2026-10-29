@@ -11,6 +11,7 @@ from qualification import media_reader_ninth_ledger as ledger
 from qualification import media_reader_run_approval_v3 as prior
 from qualification import media_reader_run_approval_v7 as approval
 from qualification.admission import AdmissionDenied
+from scripts import qualify_media_native_reader as reader
 from tests.test_media_reader_ninth_ledger import retained as retained_fixture
 
 ROOT_HEAD = "a" * 40
@@ -38,12 +39,21 @@ def real_retained(tmp_path, monkeypatch):
     return retained_fixture.__wrapped__(tmp_path, monkeypatch)
 
 
-def test_real_ledger_accepts_only_its_exact_inflight_receipts(real_retained, monkeypatch):
+def test_real_ledger_and_allocator_accept_only_one_live_gate(real_retained, monkeypatch):
     ledger, root, marker = real_retained
     monkeypatch.setattr(capture, "RETAINED_ROOT", root)
     monkeypatch.setattr(capture.preflight, "RETAINED_ROOT", root)
     monkeypatch.setattr(capture, "_source_identity", lambda: (ROOT_HEAD, ROOT_TREE))
     monkeypatch.setattr(capture.preflight, "observe_held", lambda path: None)
+    first = ledger.historical.first.ATTEMPT_NAME
+    monkeypatch.setattr(
+        reader.reconcile,
+        "POLICY_SHA256",
+        ledger.PINS[f"media-native-reader/{first}/policy.json"][0],
+    )
+    monkeypatch.setattr(
+        reader.reconcile, "CASES_SHA256", ledger.PINS[f"media-native-reader/{first}/cases.json"][0]
+    )
     responses = {
         "/repos/kANoZY341/zelo-agent": {
             "id": prior.REPOSITORY_ID,
@@ -100,12 +110,16 @@ def test_real_ledger_accepts_only_its_exact_inflight_receipts(real_retained, mon
             lease,
             get=lambda path: responses[path],
             clock=lambda: NOW,
-            allocate=lambda path, gate: (capture._consume_attempt_gate(path, gate), "once")[1],
+            allocate=lambda path, gate: reader._attempt_directory(
+                path, extra_grant=True, recovery_version=7, v7_before_mkdir=gate
+            ),
         )
-        assert fresh["comment_id"] == COMMENT_ID and value == "once"
+        assert fresh["comment_id"] == COMMENT_ID and value.is_dir()
+        assert value.parent == root / "media-native-reader"
+        assert len(list(value.parent.iterdir())) == 9
         assert (root / capture.BASE / "attempt-recheck.json").is_file()
     finally:
-        lease.finish(cleanup_confirmed=True)
+        lease.finish(cleanup_confirmed=False)
     with pytest.raises(ledger.NinthLedgerRefused):
         ledger.audit(root)
 

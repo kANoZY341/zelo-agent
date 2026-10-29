@@ -1,4 +1,4 @@
-"""An ninth directory requires one live v6 gate under the same lease."""
+"""A ninth directory requires one live v7 gate under the same lease."""
 
 import os
 import threading
