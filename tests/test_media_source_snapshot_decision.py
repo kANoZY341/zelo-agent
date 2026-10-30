@@ -96,6 +96,7 @@ class SnapshotDecisionTests(unittest.TestCase):
         git("init", "-q")
         source = root / "operator.py"
         source.write_text("print('reviewed')\n")
+        source.chmod(0o644)
         git("add", "operator.py")
         git(
             "-c",

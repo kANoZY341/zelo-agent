@@ -31,8 +31,9 @@ def source_identity(root: Path) -> tuple[str, str]:
         _refuse("root")
     environment = {
         "PATH": "/usr/bin:/bin",
-        "HOME": str(HOST_ROOT),
+        "HOME": str(root),
         "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_OPTIONAL_LOCKS": "0",
     }
     try:
