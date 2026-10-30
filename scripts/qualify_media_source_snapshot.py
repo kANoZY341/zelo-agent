@@ -8,6 +8,7 @@ import json
 import os
 import re
 import resource
+import stat
 import sys
 import time
 from pathlib import Path
@@ -107,6 +108,23 @@ def _journal(state: _State, ledger: evidence.StageSLedger, name: str, value) -> 
     ).encode()
     _helper(state, ledger.save_journal, name, raw)
     return raw
+
+
+def _private_host_admission() -> None:
+    if ADMISSION.parent != HOST_ROOT or PROOF_BASE.parent != HOST_ROOT:
+        raise SnapshotRefused("media_snapshot_host_root")
+    parent = HOST_ROOT.lstat()
+    target = ADMISSION.lstat()
+    if (
+        not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.geteuid()
+        or parent.st_mode & 0o022
+        or not stat.S_ISDIR(target.st_mode)
+        or target.st_uid != os.geteuid()
+        or target.st_gid != os.getegid()
+        or stat.S_IMODE(target.st_mode) != 0o700
+    ):
+        raise SnapshotRefused("media_snapshot_host_admission")
 
 
 class _Inputs:
@@ -272,14 +290,13 @@ def _qualify(decision_sha: str | None = None):
     )
     admission_path = ADMISSION
     admission_path.mkdir(mode=0o700, exist_ok=True)
-    shared._private_path(admission_path, directory=True)
+    _private_host_admission()
     state = _State()
     lease = AdmissionController(admission_path).acquire(digest)
     ledger = None
     proof_raw = None
     try:
         ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, PROOF_BASE))
-        shared._private_path(ledger.path, directory=True)
         _journal(state, ledger, "policy.json", specification)
         _helper(state, ledger.save_journal, "decision.json", decision_raw)
         package_operator._baseline(state, deadline)

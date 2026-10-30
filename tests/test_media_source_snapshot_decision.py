@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -80,6 +81,35 @@ class SnapshotDecisionTests(unittest.TestCase):
         os.chmod(self.path, 0o644)
         with self.assertRaises(decision.DecisionRefused):
             self._validate(raw)
+
+    def test_skip_worktree_cannot_hide_changed_executable_bytes(self):
+        root = Path(self.temporary.name) / "repo"
+        root.mkdir()
+
+        def git(*arguments):
+            return subprocess.run(
+                ["/usr/bin/git", *arguments], cwd=root, check=True, capture_output=True
+            ).stdout
+
+        git("init", "-q")
+        source = root / "operator.py"
+        source.write_text("print('reviewed')\n")
+        git("add", "operator.py")
+        git(
+            "-c",
+            "user.name=Reviewer",
+            "-c",
+            "user.email=reviewer@example.test",
+            "commit",
+            "-qm",
+            "pin",
+        )
+        self.assertEqual(len(decision.source_identity(root)), 2)
+        git("update-index", "--skip-worktree", "operator.py")
+        source.write_text("print('changed!')\n")
+        self.assertEqual(git("status", "--porcelain", "--untracked-files=no"), b"")
+        with self.assertRaises(decision.DecisionRefused, msg="skip-worktree must not hide code"):
+            decision.source_identity(root)
 
 
 if __name__ == "__main__":

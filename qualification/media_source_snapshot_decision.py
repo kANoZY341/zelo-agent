@@ -26,7 +26,7 @@ def _refuse(code: str) -> None:
 
 
 def source_identity(root: Path) -> tuple[str, str]:
-    """Require an unmodified tracked tree at the exact Git commit used to run."""
+    """Hash every checked-out blob, including entries hidden by Git index flags."""
     if not isinstance(root, Path):
         _refuse("root")
     environment = {
@@ -37,7 +37,7 @@ def source_identity(root: Path) -> tuple[str, str]:
     }
     try:
         clean = subprocess.run(
-            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=no"],
+            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"],
             cwd=root,
             capture_output=True,
             timeout=5,
@@ -52,9 +52,24 @@ def source_identity(root: Path) -> tuple[str, str]:
             check=True,
             env=environment,
         )
+        entries = subprocess.run(
+            ["/usr/bin/git", "ls-tree", "-r", "-z", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            timeout=5,
+            check=True,
+            env=environment,
+        )
     except (OSError, subprocess.SubprocessError):
         _refuse("source")
-    if clean.stdout or clean.stderr or identity.stderr or len(identity.stdout) != 82:
+    if (
+        clean.stdout
+        or clean.stderr
+        or identity.stderr
+        or entries.stderr
+        or len(identity.stdout) != 82
+        or not 0 < len(entries.stdout) <= 524288
+    ):
         _refuse("source")
     try:
         head, tree, empty = identity.stdout.decode("ascii").split("\n")
@@ -62,6 +77,77 @@ def source_identity(root: Path) -> tuple[str, str]:
         _refuse("source")
     if empty or not HEX40.fullmatch(head) or not HEX40.fullmatch(tree):
         _refuse("source")
+    rows = entries.stdout.split(b"\0")
+    if rows[-1] != b"" or not 0 < len(rows) - 1 <= 5000:
+        _refuse("source_tree")
+    total = 0
+    seen = set()
+    for row in rows[:-1]:
+        try:
+            header, name = row.split(b"\t", 1)
+            mode, kind, expected = header.decode("ascii").split(" ")
+            relative = Path(os.fsdecode(name))
+        except (UnicodeError, ValueError):
+            _refuse("source_tree")
+        if (
+            mode not in ("100644", "100755")
+            or kind != "blob"
+            or not HEX40.fullmatch(expected)
+            or relative.is_absolute()
+            or not relative.parts
+            or any(part in (".", "..") for part in relative.parts)
+            or relative in seen
+        ):
+            _refuse("source_tree")
+        seen.add(relative)
+        fd = -1
+        try:
+            fd = os.open(
+                root / relative, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+            )
+            before = os.fstat(fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.geteuid()
+                or before.st_nlink != 1
+                or stat.S_IMODE(before.st_mode) != (0o755 if mode == "100755" else 0o644)
+                or not 0 <= before.st_size <= 4194304
+            ):
+                _refuse("source_file")
+            total += before.st_size
+            if total > 67108864:
+                _refuse("source_bound")
+            digest = hashlib.sha1(f"blob {before.st_size}\0".encode("ascii"))
+            remaining = before.st_size
+            while remaining:
+                chunk = os.read(fd, min(65536, remaining))
+                if not chunk:
+                    _refuse("source_read")
+                digest.update(chunk)
+                remaining -= len(chunk)
+            after = os.fstat(fd)
+            stable = (
+                "st_dev",
+                "st_ino",
+                "st_mode",
+                "st_nlink",
+                "st_size",
+                "st_mtime_ns",
+                "st_ctime_ns",
+            )
+            if (
+                digest.hexdigest() != expected
+                or any(getattr(before, field) != getattr(after, field) for field in stable)
+            ):
+                _refuse("source_drift")
+        except OSError:
+            _refuse("source_file")
+        finally:
+            if fd >= 0:
+                try:
+                    os.close(fd)
+                except OSError:
+                    _refuse("source_close")
     return head, tree
 
 

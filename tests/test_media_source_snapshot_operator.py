@@ -36,6 +36,31 @@ def test_invalid_decision_refuses_before_admission_or_network(monkeypatch):
         operator._qualify("a" * 64)
 
 
+def test_valid_decision_reaches_fixed_host_ledger_before_network(tmp_path: Path, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("operator reached network")
+
+    def stop_at_baseline(*args, **kwargs):
+        raise ValueError("offline stop")
+
+    monkeypatch.setattr(operator.os, "getresuid", lambda: (1000, 1000, 1000))
+    monkeypatch.setattr(operator.os, "getresgid", lambda: (1000, 1000, 1000))
+    monkeypatch.setattr(operator, "HOST_ROOT", tmp_path)
+    monkeypatch.setattr(operator, "ADMISSION", tmp_path / "admission")
+    monkeypatch.setattr(operator, "PROOF_BASE", tmp_path / "proofs")
+    monkeypatch.setattr(operator.decision, "validate", lambda **kwargs: b"decision\n")
+    monkeypatch.setattr(operator.package_operator, "_baseline", stop_at_baseline)
+    monkeypatch.setattr(operator.transport, "NetworkOwner", forbidden)
+    with pytest.raises(operator.SnapshotRefused, match="stage_s_refused"):
+        operator._qualify("a" * 64)
+    attempts = list((tmp_path / "proofs").iterdir())
+    assert len(attempts) == 1
+    assert (attempts[0] / "decision.json").read_bytes() == b"decision\n"
+    assert (attempts[0] / "failure.json").is_file()
+    with pytest.raises(evidence.LedgerRefused, match="attempt_consumed"):
+        evidence.allocate_attempt(tmp_path / "proofs")
+
+
 def test_one_use_namespace_is_fixed_across_worktrees():
     assert operator.PROOF_BASE == Path("/home/zelo/zelo/media-source-snapshot-stage-s-proof")
     assert operator.ADMISSION == Path("/home/zelo/zelo/media-source-snapshot-stage-s-admission")

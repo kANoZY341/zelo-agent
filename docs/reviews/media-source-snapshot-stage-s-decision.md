@@ -101,8 +101,10 @@ retroactively treat the live 29 October cached Release as this snapshot.
 The operator remains inert without `--decision-sha256` and a private
 `/home/zelo/zelo/media-source-snapshot-stage-s-decision.json`. The exact file
 must be regular, owner/group matched, mode 0600, one link, at most 8,192 bytes,
-and match the supplied SHA-256. It names the current clean tracked Git HEAD
-and tree, the policy digest, the fixed host root, both exact URLs and body
+and match the supplied SHA-256. It names the current clean Git HEAD and tree;
+the gate hashes every tracked worktree blob against HEAD, including files
+hidden by skip-worktree or assume-unchanged index flags. It also binds the
+policy digest, the fixed host root, both exact URLs and body
 caps, one additional attempt, no runtime authority, and canonical issued and
 expiry times no more than ten minutes apart. The operator retains those exact
 bytes in `decision.json` before its first request and binds their digest into
