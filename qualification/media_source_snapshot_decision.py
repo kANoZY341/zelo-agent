@@ -135,9 +135,8 @@ def source_identity(root: Path) -> tuple[str, str]:
                 "st_mtime_ns",
                 "st_ctime_ns",
             )
-            if (
-                digest.hexdigest() != expected
-                or any(getattr(before, field) != getattr(after, field) for field in stable)
+            if digest.hexdigest() != expected or any(
+                getattr(before, field) != getattr(after, field) for field in stable
             ):
                 _refuse("source_drift")
         except OSError:
