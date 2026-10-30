@@ -22,7 +22,8 @@ jobs:
       - Linux
       - X64
       - zelo-ci
-    # Keep the full pytest/Ruff/diff gates while running test files in parallel.
+    # Keep the full pytest/Ruff/diff gates. Run process timing assertions after
+    # the parallel suite so worker contention in CI does not hide real failures.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -51,5 +52,7 @@ jobs:
       - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - name: Run full test suite (eight workers)
-        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --durations=30
+      - name: Run parallel test suite (eight workers)
+        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --ignore=tests/test_worker_concurrency.py --durations=30
+      - name: Run worker concurrency tests (serial)
+        run: .venv/bin/python -m pytest -q tests/test_worker_concurrency.py --durations=30
