@@ -1,0 +1,86 @@
+"""Offline decision binding; no snapshot request or host admission."""
+
+import hashlib
+import json
+import os
+import tempfile
+import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
+
+from qualification import media_source_snapshot_decision as decision
+
+
+class SnapshotDecisionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.path = Path(self.temporary.name) / "decision.json"
+        self.now = datetime(2026, 10, 30, 21, 0, tzinfo=UTC)
+        self.urls = ("https://snapshot.ubuntu.com/one", "https://snapshot.ubuntu.com/two")
+        self.caps = (524288, 4194304)
+        self.value = {
+            "schema": "zelo-media-source-snapshot-stage-s-decision-v1",
+            "decision": "authorize-one-stage-s-source-snapshot-input",
+            "source_head": "a" * 40,
+            "source_tree": "b" * 40,
+            "policy_digest": "c" * 64,
+            "host_root": "/home/zelo/zelo",
+            "urls": list(self.urls),
+            "body_caps": list(self.caps),
+            "additional_attempts": 1,
+            "runtime_authority": False,
+            "issued_utc": "2026-10-30T20:59:00Z",
+            "expires_utc": "2026-10-30T21:09:00Z",
+        }
+
+    def _write(self, raw=None):
+        raw = raw if raw is not None else (json.dumps(self.value, sort_keys=True) + "\n").encode()
+        self.path.write_bytes(raw)
+        os.chmod(self.path, 0o600)
+        return raw
+
+    def _validate(self, raw, *, now=None):
+        with (
+            patch.object(decision, "DECISION_PATH", self.path),
+            patch.object(decision, "source_identity", return_value=("a" * 40, "b" * 40)),
+        ):
+            return decision.validate(
+                path=self.path,
+                expected_sha256=hashlib.sha256(raw).hexdigest(),
+                root=Path(self.temporary.name),
+                policy_digest="c" * 64,
+                urls=self.urls,
+                caps=self.caps,
+                now=self.now if now is None else now,
+            )
+
+    def test_exact_private_decision_is_retained_as_bytes(self):
+        raw = self._write()
+        self.assertEqual(self._validate(raw), raw)
+
+    def test_expired_changed_or_wrong_source_refuses(self):
+        raw = self._write()
+        with self.assertRaises(decision.DecisionRefused):
+            self._validate(raw, now=self.now + timedelta(minutes=10))
+        self.path.write_bytes(raw + b"x")
+        with self.assertRaises(decision.DecisionRefused):
+            self._validate(raw)
+        self.value["source_tree"] = "d" * 40
+        changed = self._write()
+        with self.assertRaises(decision.DecisionRefused):
+            self._validate(changed)
+
+    def test_duplicate_fields_and_nonprivate_file_refuse(self):
+        raw = self._write(b'{"schema":1,"schema":2}\n')
+        with self.assertRaises(decision.DecisionRefused):
+            self._validate(raw)
+        raw = self._write()
+        os.chmod(self.path, 0o644)
+        with self.assertRaises(decision.DecisionRefused):
+            self._validate(raw)
+
+
+if __name__ == "__main__":
+    unittest.main()

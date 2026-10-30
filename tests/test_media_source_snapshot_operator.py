@@ -20,6 +20,22 @@ def test_inactive_decision_refuses_before_admission_or_network(monkeypatch):
         operator._qualify()
 
 
+def test_invalid_decision_refuses_before_admission_or_network(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("operator reached an external boundary")
+
+    def invalid(*args, **kwargs):
+        raise operator.decision.DecisionRefused("media_snapshot_decision_binding")
+
+    monkeypatch.setattr(operator.os, "getresuid", lambda: (1000, 1000, 1000))
+    monkeypatch.setattr(operator.os, "getresgid", lambda: (1000, 1000, 1000))
+    monkeypatch.setattr(operator.decision, "validate", invalid)
+    monkeypatch.setattr(operator, "AdmissionController", forbidden)
+    monkeypatch.setattr(operator.transport, "NetworkOwner", forbidden)
+    with pytest.raises(operator.decision.DecisionRefused, match="decision_binding"):
+        operator._qualify("a" * 64)
+
+
 def test_one_use_namespace_is_fixed_across_worktrees():
     assert operator.PROOF_BASE == Path("/home/zelo/zelo/media-source-snapshot-stage-s-proof")
     assert operator.ADMISSION == Path("/home/zelo/zelo/media-source-snapshot-stage-s-admission")
