@@ -56,7 +56,9 @@ refuses. Neither descriptor nor tarball is requested at Stage S.
   a new exclusive regular file with no-follow semantics, fsynced, read back
   and checked for size/hash and stable descriptor identity. Retain partial
   failure bytes and a refusal record. No automatic cleanup can erase the
-  consumed-attempt evidence.
+  consumed-attempt evidence. Catchable interrupts make a bounded best-effort
+  durable partial/refusal record while retaining uncertain resources; abrupt
+  process death or host failure cannot guarantee a final record.
 - Hold one admission lease across acquisition, isolated verification,
   parsing and durable receipt. Uncertain process, network, file or lease
   settlement refuses; no receipt may imply a successful release of resources

@@ -95,3 +95,54 @@ def test_fixed_url_sequence_and_hash_mismatch_retain_body(tmp_path: Path, monkey
         operator.stage.SOURCES_PATH,
     ]
     state.close_all()
+
+
+def test_catchable_interrupt_retains_partial_body_and_refusal(tmp_path: Path, monkeypatch):
+    state = operator._State()
+    proof = evidence.StageSLedger(evidence.allocate_attempt(tmp_path / "proofs"))
+    observed = []
+
+    class FakeOwner:
+        def __init__(self, state, context, deadline, *, host):
+            self.state = state
+            self.response = type(
+                "Response",
+                (),
+                {
+                    "status": 200,
+                    "version": 11,
+                    "chunked": False,
+                    "length": 10,
+                    "headers": type(
+                        "Headers",
+                        (),
+                        {"defects": (), "items": lambda self: [("Content-Length", "10")]},
+                    )(),
+                },
+            )()
+
+        def request(self, path):
+            return self.response
+
+        def read1(self, count):
+            if not observed:
+                observed.append("partial")
+                return b"first"
+            raise KeyboardInterrupt()
+
+        def unknown(self):
+            self.state.close_ok = False
+            observed.append("quarantined")
+
+    monkeypatch.setattr(operator.transport, "NetworkOwner", FakeOwner)
+    inputs = operator._Inputs(state, proof, object(), float("inf"), {})
+    with pytest.raises(KeyboardInterrupt):
+        inputs.fetch(operator.stage.RELEASE_PATH, evidence.RELEASE_CAP)
+    assert inputs.calls == 1
+    assert observed == ["partial", "quarantined"]
+    assert state.close_ok is False
+    assert (proof.path / "InRelease").read_bytes() == b"first"
+    record = json.loads((proof.path / "request.json").read_text())
+    assert record["bytes"] == 5
+    assert record["sha256"] == hashlib.sha256(b"first").hexdigest()
+    state.close_all()

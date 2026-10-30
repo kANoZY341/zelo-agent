@@ -164,7 +164,7 @@ class _Inputs:
             request_raw = self.ledger.finish_body(
                 name, fd, size, expected["sha256"] if expected is not None else None
             )
-        except Exception:
+        except BaseException:
             partial = _helper(self.state, self.ledger.persist_partial, name, fd)
             _journal(
                 self.state,
@@ -305,7 +305,7 @@ def _qualify():
             },
         )
         transport.check_deadline(deadline)
-    except Exception as exc:
+    except BaseException as exc:
         if ledger is not None and "failure.json" not in ledger.journal_names:
             try:
                 _journal(
@@ -316,7 +316,9 @@ def _qualify():
                 )
             except BaseException:
                 state.close_ok = False
-        raise SnapshotRefused("media_snapshot_stage_s_refused") from exc
+        if isinstance(exc, Exception):
+            raise SnapshotRefused("media_snapshot_stage_s_refused") from exc
+        raise
     finally:
         error_type = sys.exc_info()[0]
         if error_type is not None and not issubclass(error_type, Exception):
