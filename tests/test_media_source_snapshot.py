@@ -63,6 +63,17 @@ def test_selects_only_fixed_source_index_and_exact_version():
     }
 
 
+def test_ubuntu_release_without_valid_until_is_metadata_only():
+    compressed = lzma.compress(stanza())
+    unsigned_metadata = release(compressed).replace(
+        b"Valid-Until: Thu, 05 Nov 2026 23:35:03 UTC\n", b""
+    )
+    declaration = source.select_source_index(unsigned_metadata)
+    selected = source.parse_source_index(compressed, declaration)
+    assert selected["metadata_only"] is True
+    assert selected["historical_time_policy_verified"] is False
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

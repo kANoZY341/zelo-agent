@@ -64,7 +64,10 @@ def select_source_index(plaintext: bytes) -> dict:
         _refuse("release_components")
     dates = fields.get("Date", [])
     validity = fields.get("Valid-Until", [])
-    if len(dates) != 1 or len(validity) != 1 or _date(dates[0]) >= _date(validity[0]):
+    if len(dates) != 1 or len(validity) > 1:
+        _refuse("release_dates")
+    release_time = _date(dates[0])
+    if validity and release_time >= _date(validity[0]):
         _refuse("release_dates")
     rows = fields.get("SHA256", [])
     if len(rows) < 2 or rows[0] != "":
