@@ -15,6 +15,7 @@ INDEX_PROOF_SHA = "199b3b16ee247497b782d78356bb88f3f67ed717401d5cb39ec7a8fc2c0b2
 INDEX_HEAD = "7cc8849c761e450bf683b7010b7b2f38cf4577f6"
 INDEX_MERGE = "19e0be24cb0a60bac1f540f08a27d82082895e9d"
 HOST = "archive.ubuntu.com"
+SNAPSHOT_HOST = "snapshot.ubuntu.com"
 PORT = 443
 ARCHIVE_BYTES = 4194304
 TOTAL_ARCHIVE_BYTES = 8745084
@@ -210,6 +211,41 @@ def validate_headers(response, size):
         raise Refused("acquisition_http_length")
 
 
+def bounded_content_length(response, maximum):
+    """Validate an unknown-size response before reading its first body byte."""
+    if type(maximum) is not int or not 0 < maximum <= 4194304:
+        raise Refused("acquisition_response_limit")
+    if (
+        response.status != 200
+        or response.version != 11
+        or response.chunked is not False
+        or response.headers.defects
+    ):
+        raise Refused("acquisition_http_framing")
+    fields = {}
+    for name, value in response.headers.items():
+        if (
+            type(name) is not str
+            or not _TOKEN.fullmatch(name)
+            or type(value) is not str
+            or len(value) > HEADER_LINE_BYTES
+            or any(ord(char) < 32 or ord(char) > 126 for char in value)
+            or name.lower() in fields
+        ):
+            raise Refused("acquisition_http_headers")
+        fields[name.lower()] = value
+    raw = fields.get("content-length", "")
+    if (
+        not re.fullmatch(r"[1-9][0-9]{0,6}", raw)
+        or int(raw) > maximum
+        or response.length != int(raw)
+        or "transfer-encoding" in fields
+        or fields.get("content-encoding") not in (None, "identity")
+    ):
+        raise Refused("acquisition_http_length")
+    return int(raw)
+
+
 def tls_context(ca_bytes):
     if type(ca_bytes) is not bytes or not 0 < len(ca_bytes) <= CA_BYTES:
         raise Refused("acquisition_ca_bound")
@@ -228,8 +264,11 @@ def tls_context(ca_bytes):
 class NetworkOwner:
     """One application cleanup path over inspected stdlib object transitions."""
 
-    def __init__(self, state, context, deadline):
+    def __init__(self, state, context, deadline, *, host=HOST):
+        if host not in (HOST, SNAPSHOT_HOST):
+            raise Refused("acquisition_host")
         self.state = state
+        self.host = host
         self.deadline = deadline
         self.connection = None
         self.response = None
@@ -253,11 +292,11 @@ class NetworkOwner:
         return response
 
     def connect(self, address, timeout, source_address):
-        if address != (HOST, PORT) or source_address is not None:
+        if address != (self.host, PORT) or source_address is not None:
             raise Refused("acquisition_connect_identity")
         check_deadline(self.deadline)
         records = socket.getaddrinfo(
-            HOST, PORT, socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
+            self.host, PORT, socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
         )
         check_deadline(self.deadline)
         if type(records) is not list or not 1 <= len(records) <= 16:
@@ -296,11 +335,12 @@ class NetworkOwner:
         try:
             check_deadline(self.deadline)
             self.connection = http.client.HTTPSConnection(
-                HOST, PORT, timeout=10, context=self.context
+                self.host, PORT, timeout=10, context=self.context
             )
             self.connection.response_class = self.response_factory
             self.connection._create_connection = self.connect
-            self.connection.request("GET", path, headers=HEADERS)
+            headers = dict(HEADERS, Host=self.host)
+            self.connection.request("GET", path, headers=headers)
             # Successful TLS wrapping detached the remembered original socket.
             if self.raw_socket is not None and self.raw_socket.fileno() != -1:
                 raise Refused("acquisition_tls_transfer")
