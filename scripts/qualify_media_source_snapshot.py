@@ -46,8 +46,9 @@ from scripts import qualify_media_package_acquisition as package_operator  # noq
 from scripts import qualify_media_publisher as shared  # noqa: E402
 from scripts.qualify_media_elf_version_metadata import _helper, _release, _State  # noqa: E402
 
-ADMISSION = "runtime/media-elf-metadata-admission"
-PROOF_BASE = "runtime/media-source-snapshot-stage-s"
+HOST_ROOT = Path("/home/zelo/zelo")
+ADMISSION = HOST_ROOT / "media-source-snapshot-stage-s-admission"
+PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-s-proof"
 WHOLE_SECONDS = 120
 CASE_SECONDS = 15
 # Filled only by a separately reviewed one-use input decision at an exact tree.
@@ -88,8 +89,8 @@ def policy():
         "keyring": KEYRING,
         "signer": snapshot.origin.FINGERPRINT,
         "guest_input_difference": "one fixed source identity in reviewed origin guest",
-        "proof_scope": PROOF_BASE + "/snapshot-proof-*",
-        "admission_scope": ADMISSION,
+        "proof_scope": str(PROOF_BASE / "snapshot-proof-*"),
+        "admission_scope": str(ADMISSION),
         "host_assumption": "trusted-ancestors-and-no-concurrent-mutator",
         "uploader_identity_verified": False,
         "installed_binary_provenance_verified": False,
@@ -254,7 +255,7 @@ def _qualify():
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise SnapshotRefused("media_snapshot_operator_ids")
     deadline = time.monotonic() + WHOLE_SECONDS
-    admission_path = ROOT / ADMISSION
+    admission_path = ADMISSION
     admission_path.mkdir(mode=0o700, exist_ok=True)
     shared._private_path(admission_path, directory=True)
     specification = policy()
@@ -264,7 +265,7 @@ def _qualify():
     ledger = None
     proof_raw = None
     try:
-        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, ROOT / PROOF_BASE))
+        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, PROOF_BASE))
         shared._private_path(ledger.path, directory=True)
         _journal(state, ledger, "policy.json", specification)
         package_operator._baseline(state, deadline)

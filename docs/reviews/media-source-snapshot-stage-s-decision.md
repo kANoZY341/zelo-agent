@@ -46,9 +46,12 @@ refuses. Neither descriptor nor tarball is requested at Stage S.
   whole-attempt deadline, including verification and cleanup. These are
   cooperative bounds; DNS, TLS, buffered I/O and filesystem calls are not
   claimed to have hard deadlines.
-- Reserve at most 4,718,592 response bytes before the first request, plus
+- Set a hard cap of 4,718,592 response bytes before the first request, plus
   at most 1,048,576 bytes across eight private journal/proof files. The
   complete retained-attempt budget is 5,767,168 bytes and ten files.
+  Use the fixed `/home/zelo/zelo/media-source-snapshot-stage-s-proof` root
+  across worktrees, with its own fixed admission directory alongside it;
+  a new checkout must not create a new one-use slot.
   Each body is written to
   a new exclusive regular file with no-follow semantics, fsynced, read back
   and checked for size/hash and stable descriptor identity. Retain partial

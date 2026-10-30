@@ -20,6 +20,12 @@ def test_inactive_decision_refuses_before_admission_or_network(monkeypatch):
         operator._qualify()
 
 
+def test_one_use_namespace_is_fixed_across_worktrees():
+    assert operator.PROOF_BASE == Path("/home/zelo/zelo/media-source-snapshot-stage-s-proof")
+    assert operator.ADMISSION == Path("/home/zelo/zelo/media-source-snapshot-stage-s-admission")
+    assert operator.PROOF_BASE != operator.ROOT / "runtime/media-source-snapshot-stage-s"
+
+
 def test_fixed_url_sequence_and_hash_mismatch_retain_body(tmp_path: Path, monkeypatch):
     state = operator._State()
     proof = evidence.StageSLedger(evidence.allocate_attempt(tmp_path / "proofs"))
