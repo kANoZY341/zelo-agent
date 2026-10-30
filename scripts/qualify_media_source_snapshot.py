@@ -194,7 +194,7 @@ class _Inputs:
             request_raw = self.ledger.finish_body(
                 name, fd, size, expected["sha256"] if expected is not None else None
             )
-        except BaseException:
+        except BaseException as exc:
             partial = _helper(self.state, self.ledger.persist_partial, name, fd)
             _journal(
                 self.state,
@@ -204,6 +204,12 @@ class _Inputs:
                     "status": "partial-refused",
                     "path": path,
                     "requests_started": self.calls,
+                    "refusal_code": (
+                        str(exc)
+                        if type(exc) is transport.Refused
+                        and re.fullmatch(r"acquisition_[a-z_]{1,48}", str(exc))
+                        else "unclassified"
+                    ),
                     **partial,
                 },
             )

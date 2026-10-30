@@ -1,10 +1,40 @@
 # Stage S snapshot input decision candidate
 
-Status: **inactive design**, prepared after the offline selector merged in
-PR #287 and the candidate date policy in PR #288. This document makes no
-request and grants no runtime or release authority. The execution record
-must pin the then-current main SHA and tree,
-reviewed operator code, host baseline and one-use decision before a request.
+Status: **one Stage S attempt consumed; refused, release HOLD**. This design
+was prepared after PRs #287 and #288. PR #290 merged its one-use decision
+gate. The execution record below grants no runtime or release authority.
+
+## 30 October UTC execution record
+
+The Managing Director authorized exactly one Stage S source snapshot input at
+main `ee6d2120f15448ee493675ec71621447f3d5710b`, tree
+`6c84e4cf486e2a62a433833eb780d1a1a61c9dce`. Exact-head PR CI
+`41133146986` and distinct main CI `41135282471` passed 6,957 parallel tests,
+21 serial tests, Ruff and diff checks. Public main and the clean Zelo host
+checkout matched. The keyring, `gpgv`, Python transport files, storage and
+unoccupied fixed proof/admission paths passed read-only preflight.
+
+The private decision was issued `2026-10-30T22:38:26Z`, expiring ten minutes
+later. Its SHA-256 is
+`513454c0026f5aad71301f875de31813f30dd0b67ff00f5bbd65946be1f0d777`;
+policy digest is
+`cc8368edc7ee7f81b390205abed7ee925a41763376782bba4e2387ddef4c2017`.
+The sole invocation allocated
+`/home/zelo/zelo/media-source-snapshot-stage-s-proof/snapshot-proof-10cwy2xm`
+and returned `media_snapshot_stage_s_refused`. Its `request.json` (SHA-256
+`e63fafb182433f97caa901c7b35c94747f0ae76414381059fd87d2bb7afadbbd`)
+records one `InRelease` request started and zero body bytes, with a partial
+refusal. The zero-byte `InRelease` file and `failure.json` (SHA-256
+`0df5f5cca68caad1ebdf2a78eea80aaa7b3df19d4ebe5045521fac1b0b07dcec`)
+record `type=Refused`. No `Sources.xz`, manifest, accepted cases or source
+stanza exists. The admission marker is empty and the checkout remains clean.
+
+The existing journal records no specific transport refusal code or response
+headers, so the precise first-response failure is **unknown**. The request
+slot is consumed even if remote receipt cannot be established; do not retry
+or infer source provenance from this record. Any new input needs a separate
+reviewed scope and decision. A follow-up offline change retains a bounded
+transport code in future refusal journals; it cannot repair this attempt.
 
 ## Fixed input
 

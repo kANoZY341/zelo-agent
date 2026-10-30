@@ -156,6 +156,49 @@ def test_fixed_url_sequence_and_hash_mismatch_retain_body(tmp_path: Path, monkey
     state.close_all()
 
 
+def test_first_response_invalid_length_retains_specific_refusal(tmp_path: Path, monkeypatch):
+    state = operator._State()
+    proof = evidence.StageSLedger(evidence.allocate_attempt(tmp_path / "proofs"))
+    paths = []
+
+    class FakeOwner:
+        def __init__(self, state, context, deadline, *, host):
+            assert host == operator.transport.SNAPSHOT_HOST
+
+        def request(self, path):
+            paths.append(path)
+            return type(
+                "Response",
+                (),
+                {
+                    "status": 200,
+                    "version": 11,
+                    "chunked": False,
+                    "length": 0,
+                    "headers": type(
+                        "Headers",
+                        (),
+                        {"defects": (), "items": lambda self: [("Content-Length", "0")]},
+                    )(),
+                },
+            )()
+
+        def cleanup(self):
+            return True
+
+    monkeypatch.setattr(operator.transport, "NetworkOwner", FakeOwner)
+    inputs = operator._Inputs(state, proof, object(), float("inf"), {})
+    with pytest.raises(operator.transport.Refused, match="acquisition_http_length"):
+        inputs.fetch(operator.stage.RELEASE_PATH, evidence.RELEASE_CAP)
+    record = json.loads((proof.path / "request.json").read_text())
+    assert record["refusal_code"] == "acquisition_http_length"
+    assert record["bytes"] == 0
+    assert record["requests_started"] == 1
+    assert paths == [operator.stage.RELEASE_PATH]
+    assert not (proof.path / "Sources.xz").exists()
+    state.close_all()
+
+
 def test_catchable_interrupt_retains_partial_body_and_refusal(tmp_path: Path, monkeypatch):
     state = operator._State()
     proof = evidence.StageSLedger(evidence.allocate_attempt(tmp_path / "proofs"))
