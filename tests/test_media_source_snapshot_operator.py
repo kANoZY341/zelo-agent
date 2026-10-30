@@ -35,7 +35,9 @@ def test_fixed_url_sequence_and_hash_mismatch_retain_body(tmp_path: Path, monkey
         def __init__(self):
             self.length = len(body)
             self.headers = type(
-                "Headers", (), {"defects": (), "items": lambda self: [("Content-Length", str(len(body)))]}
+                "Headers",
+                (),
+                {"defects": (), "items": lambda self: [("Content-Length", str(len(body)))]},
             )()
 
     class FakeOwner:

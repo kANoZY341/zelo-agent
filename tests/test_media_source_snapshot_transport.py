@@ -38,9 +38,7 @@ class SnapshotTransportTests(unittest.TestCase):
     def test_snapshot_host_is_explicit_and_default_archive_host_is_preserved(self):
         state = SimpleNamespace(close_ok=True)
         default = transport.NetworkOwner(state, object(), float("inf"))
-        snapshot = transport.NetworkOwner(
-            state, object(), float("inf"), host="snapshot.ubuntu.com"
-        )
+        snapshot = transport.NetworkOwner(state, object(), float("inf"), host="snapshot.ubuntu.com")
         self.assertEqual(default.host, "archive.ubuntu.com")
         self.assertEqual(snapshot.host, "snapshot.ubuntu.com")
         with self.assertRaises(transport.Refused):
@@ -62,9 +60,13 @@ class SnapshotTransportTests(unittest.TestCase):
         marker = object()
         snapshot.response = marker
         with patch.object(transport.http.client, "HTTPSConnection", FakeConnection):
-            self.assertIs(snapshot.request("/ubuntu/20261030T000000Z/dists/noble-updates/InRelease"), marker)
+            self.assertIs(
+                snapshot.request("/ubuntu/20261030T000000Z/dists/noble-updates/InRelease"), marker
+            )
         self.assertEqual(seen[0][1:3], ("snapshot.ubuntu.com", 443))
-        self.assertEqual(seen[1][1:3], ("GET", "/ubuntu/20261030T000000Z/dists/noble-updates/InRelease"))
+        self.assertEqual(
+            seen[1][1:3], ("GET", "/ubuntu/20261030T000000Z/dists/noble-updates/InRelease")
+        )
         self.assertEqual(seen[1][3]["Host"], "snapshot.ubuntu.com")
 
     def test_snapshot_dns_and_connect_cannot_switch_to_archive_host(self):

@@ -10,8 +10,16 @@ RELEASE_CAP = 524288
 SOURCES_CAP = 4194304
 _CAPS = {"InRelease": RELEASE_CAP, "Sources.xz": SOURCES_CAP}
 _JOURNALS = frozenset(
-    ("policy.json", "manifest.json", "cases.json", "failure.json",
-     "verification.json", "request.json", "plaintext.bin", "status.bin")
+    (
+        "policy.json",
+        "manifest.json",
+        "cases.json",
+        "failure.json",
+        "verification.json",
+        "request.json",
+        "plaintext.bin",
+        "status.bin",
+    )
 )
 JOURNAL_BYTES = 1048576
 _QUARANTINED_FDS: list[int] = []
@@ -161,7 +169,15 @@ class StageSLedger:
             if len(raw) > size:
                 raise LedgerRefused("media_snapshot_body_read")
         after = self._identity(fd, size)
-        stable = ("st_dev", "st_ino", "st_mode", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+        stable = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
         if (
             len(raw) != size
             or any(getattr(before, name) != getattr(after, name) for name in stable)
@@ -186,7 +202,15 @@ class StageSLedger:
             if len(raw) > before.st_size:
                 raise LedgerRefused("media_snapshot_partial_read")
         after = self._identity(fd, before.st_size)
-        stable = ("st_dev", "st_ino", "st_mode", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+        stable = (
+            "st_dev",
+            "st_ino",
+            "st_mode",
+            "st_nlink",
+            "st_size",
+            "st_mtime_ns",
+            "st_ctime_ns",
+        )
         if len(raw) != before.st_size or any(
             getattr(before, field) != getattr(after, field) for field in stable
         ):

@@ -88,7 +88,10 @@ class StageSSequenceTests(unittest.TestCase):
                 (
                     base + snapshot.INDEX_PATH,
                     snapshot.COMPRESSED_BYTES,
-                    {"bytes": len(self.compressed), "sha256": hashlib.sha256(self.compressed).hexdigest()},
+                    {
+                        "bytes": len(self.compressed),
+                        "sha256": hashlib.sha256(self.compressed).hexdigest(),
+                    },
                 ),
             ],
         )

@@ -40,7 +40,7 @@ from qualification import media_source_snapshot_acquisition as stage  # noqa: E4
 from qualification import media_source_snapshot_guest as guest  # noqa: E402
 from qualification import media_source_snapshot_ledger as evidence  # noqa: E402
 from qualification.admission import AdmissionController  # noqa: E402
-from qualification.media_origin_guest import KEYRING, TOOL, GUEST_BOOTSTRAP  # noqa: E402
+from qualification.media_origin_guest import GUEST_BOOTSTRAP, KEYRING, TOOL  # noqa: E402
 from scripts import qualify_media_origin as origin_operator  # noqa: E402
 from scripts import qualify_media_package_acquisition as package_operator  # noqa: E402
 from scripts import qualify_media_publisher as shared  # noqa: E402
@@ -99,7 +99,9 @@ def policy():
 
 
 def _journal(state: _State, ledger: evidence.StageSLedger, name: str, value) -> bytes:
-    raw = (json.dumps(value, sort_keys=True, allow_nan=False, separators=(",", ":")) + "\n").encode()
+    raw = (
+        json.dumps(value, sort_keys=True, allow_nan=False, separators=(",", ":")) + "\n"
+    ).encode()
     _helper(state, ledger.save_journal, name, raw)
     return raw
 
@@ -164,7 +166,9 @@ class _Inputs:
         except Exception:
             partial = _helper(self.state, self.ledger.persist_partial, name, fd)
             _journal(
-                self.state, self.ledger, "request.json",
+                self.state,
+                self.ledger,
+                "request.json",
                 {
                     "status": "partial-refused",
                     "path": path,
@@ -193,8 +197,12 @@ class _Inputs:
         fds = self.pins
         selected = origin_operator._prepare_fds(fds, "input")
         argv = origin_operator._argv(
-            fds, "input", self.ledger.path / "host-only-sentinel",
-            os.readlink("/proc/self/ns/net"), 0, None
+            fds,
+            "input",
+            self.ledger.path / "host-only-sentinel",
+            os.readlink("/proc/self/ns/net"),
+            0,
+            None,
         )
         if argv.count(GUEST_BOOTSTRAP) != 1:
             raise SnapshotRefused("media_snapshot_guest_argv")
@@ -226,7 +234,9 @@ class _Inputs:
         if result.stdout:
             _helper(self.state, self.ledger.save_journal, "plaintext.bin", result.stdout)
         _journal(
-            self.state, self.ledger, "verification.json",
+            self.state,
+            self.ledger,
+            "verification.json",
             {
                 "guest_sha256": hashlib.sha256(code.encode()).hexdigest(),
                 "stdout_sha256": hashlib.sha256(result.stdout).hexdigest(),
@@ -254,9 +264,7 @@ def _qualify():
     ledger = None
     proof_raw = None
     try:
-        ledger = evidence.StageSLedger(
-            _helper(state, evidence.allocate_attempt, ROOT / PROOF_BASE)
-        )
+        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, ROOT / PROOF_BASE))
         shared._private_path(ledger.path, directory=True)
         _journal(state, ledger, "policy.json", specification)
         package_operator._baseline(state, deadline)
@@ -270,7 +278,9 @@ def _qualify():
         if inputs.calls != 2 or not state.processes_settled or not state.close_ok:
             raise SnapshotRefused("media_snapshot_incomplete")
         manifest_raw = _journal(
-            state, ledger, "manifest.json",
+            state,
+            ledger,
+            "manifest.json",
             {
                 "schema": "zelo-media-source-snapshot-stage-s-manifest-v1",
                 "policy_digest": digest,
@@ -281,7 +291,9 @@ def _qualify():
             },
         )
         proof_raw = _journal(
-            state, ledger, "cases.json",
+            state,
+            ledger,
+            "cases.json",
             {
                 "status": "stage-s-conditional-accepted-pending-support-release",
                 "policy_digest": digest,
@@ -296,7 +308,9 @@ def _qualify():
         if ledger is not None and "failure.json" not in ledger.journal_names:
             try:
                 _journal(
-                    state, ledger, "failure.json",
+                    state,
+                    ledger,
+                    "failure.json",
                     {"status": "refused", "type": type(exc).__name__, "runtime_authority": False},
                 )
             except BaseException:

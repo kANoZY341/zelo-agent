@@ -29,9 +29,7 @@ class StageSLedgerTests(unittest.TestCase):
             try:
                 attempt.write_body("InRelease", fd, b"signed")
                 self.assertEqual(
-                    attempt.finish_body(
-                        "InRelease", fd, 6, hashlib.sha256(b"signed").hexdigest()
-                    ),
+                    attempt.finish_body("InRelease", fd, 6, hashlib.sha256(b"signed").hexdigest()),
                     b"signed",
                 )
                 with self.assertRaises(ledger.LedgerRefused):
@@ -46,9 +44,7 @@ class StageSLedgerTests(unittest.TestCase):
             try:
                 attempt.write_body("Sources.xz", fd, b"abc")
                 with self.assertRaises(ledger.LedgerRefused):
-                    attempt.finish_body(
-                        "Sources.xz", fd, 4, hashlib.sha256(b"abc").hexdigest()
-                    )
+                    attempt.finish_body("Sources.xz", fd, 4, hashlib.sha256(b"abc").hexdigest())
                 with self.assertRaises(ledger.LedgerRefused):
                     attempt.write_body("Sources.xz", fd, b"x" * 4194304)
             finally:

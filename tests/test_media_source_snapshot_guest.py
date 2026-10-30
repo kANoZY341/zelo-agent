@@ -11,17 +11,21 @@ class SnapshotGuestTests(unittest.TestCase):
         digest = "a" * 64
         result = guest.bootstrap(126125, digest)
         old = "INPUTS = " + repr(original.INPUTS) + "\n"
-        new = "INPUTS = " + repr(
-            (
-                {
-                    "source": "/opt/zelo-origin.InRelease",
-                    "suite": "noble-updates",
-                    "bytes": 126125,
-                    "sha256": digest,
-                    "mode": 0o644,
-                },
+        new = (
+            "INPUTS = "
+            + repr(
+                (
+                    {
+                        "source": "/opt/zelo-origin.InRelease",
+                        "suite": "noble-updates",
+                        "bytes": 126125,
+                        "sha256": digest,
+                        "mode": 0o644,
+                    },
+                )
             )
-        ) + "\n"
+            + "\n"
+        )
         self.assertEqual(result, original.GUEST_BOOTSTRAP.replace(old, new, 1))
         self.assertEqual(original.GUEST_BOOTSTRAP.count(old), 1)
 
