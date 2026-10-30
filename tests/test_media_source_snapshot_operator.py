@@ -13,7 +13,11 @@ from scripts import qualify_media_source_snapshot as operator
 
 
 def test_cli_requires_isolated_imports_before_a_decision():
-    command = [sys.executable, str(operator.ROOT / "scripts/qualify_media_source_snapshot.py"), "--run"]
+    command = [
+        sys.executable,
+        str(operator.ROOT / "scripts/qualify_media_source_snapshot.py"),
+        "--run",
+    ]
     ordinary = subprocess.run(command, capture_output=True, timeout=10)
     isolated = subprocess.run(command[:1] + ["-I"] + command[1:], capture_output=True, timeout=10)
     assert ordinary.returncode != 0

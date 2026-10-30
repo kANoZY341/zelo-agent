@@ -128,7 +128,10 @@ class SnapshotDecisionTests(unittest.TestCase):
                 sys.executable,
                 "-I",
                 "-c",
-                f"import sys; sys.path.insert(0, {str(root)!r}); import module; print(module.VALUE)",
+                (
+                    f"import sys; sys.path.insert(0, {str(root)!r}); "
+                    "import module; print(module.VALUE)"
+                ),
             ],
             check=True,
             capture_output=True,
