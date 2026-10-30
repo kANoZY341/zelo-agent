@@ -12,6 +12,7 @@ _CAPS = {"InRelease": RELEASE_CAP, "Sources.xz": SOURCES_CAP}
 _JOURNALS = frozenset(
     (
         "policy.json",
+        "decision.json",
         "manifest.json",
         "cases.json",
         "failure.json",

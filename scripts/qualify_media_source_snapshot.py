@@ -8,9 +8,12 @@ import json
 import os
 import re
 import resource
+import stat
 import sys
 import time
 from pathlib import Path
+
+_ISOLATED_RUNTIME = False
 
 
 def _operator_limits():
@@ -28,6 +31,14 @@ def _operator_limits():
 
 
 if __name__ == "__main__":
+    if not sys.flags.isolated:
+        raise SystemExit("media_snapshot_isolated_python_required")
+    cache_prefix = f"/home/zelo/zelo/.stage-s-pycache-{os.urandom(16).hex()}"
+    if os.path.lexists(cache_prefix):
+        raise SystemExit("media_snapshot_cache_prefix_occupied")
+    sys.pycache_prefix = cache_prefix
+    sys.dont_write_bytecode = True
+    _ISOLATED_RUNTIME = True
     _operator_limits()
 if not __debug__:
     raise SystemExit("media_snapshot_optimized_python_refused")
@@ -37,6 +48,7 @@ from app.developer_process import NativeExecutionObservation, run_process  # noq
 from qualification import media_package_acquisition as transport  # noqa: E402
 from qualification import media_source_snapshot as snapshot  # noqa: E402
 from qualification import media_source_snapshot_acquisition as stage  # noqa: E402
+from qualification import media_source_snapshot_decision as decision  # noqa: E402
 from qualification import media_source_snapshot_guest as guest  # noqa: E402
 from qualification import media_source_snapshot_ledger as evidence  # noqa: E402
 from qualification.admission import AdmissionController  # noqa: E402
@@ -51,8 +63,6 @@ ADMISSION = HOST_ROOT / "media-source-snapshot-stage-s-admission"
 PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-s-proof"
 WHOLE_SECONDS = 120
 CASE_SECONDS = 15
-# Filled only by a separately reviewed one-use input decision at an exact tree.
-APPROVED_DECISION_SHA = None
 _QUARANTINED = []
 
 
@@ -91,6 +101,9 @@ def policy():
         "guest_input_difference": "one fixed source identity in reviewed origin guest",
         "proof_scope": str(PROOF_BASE / "snapshot-proof-*"),
         "admission_scope": str(ADMISSION),
+        "decision_path": str(decision.DECISION_PATH),
+        "decision_max_bytes": decision.MAX_BYTES,
+        "decision_lifetime_seconds": 600,
         "host_assumption": "trusted-ancestors-and-no-concurrent-mutator",
         "uploader_identity_verified": False,
         "installed_binary_provenance_verified": False,
@@ -105,6 +118,23 @@ def _journal(state: _State, ledger: evidence.StageSLedger, name: str, value) -> 
     ).encode()
     _helper(state, ledger.save_journal, name, raw)
     return raw
+
+
+def _private_host_admission() -> None:
+    if ADMISSION.parent != HOST_ROOT or PROOF_BASE.parent != HOST_ROOT:
+        raise SnapshotRefused("media_snapshot_host_root")
+    parent = HOST_ROOT.lstat()
+    target = ADMISSION.lstat()
+    if (
+        not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.geteuid()
+        or parent.st_mode & 0o022
+        or not stat.S_ISDIR(target.st_mode)
+        or target.st_uid != os.geteuid()
+        or target.st_gid != os.getegid()
+        or stat.S_IMODE(target.st_mode) != 0o700
+    ):
+        raise SnapshotRefused("media_snapshot_host_admission")
 
 
 class _Inputs:
@@ -249,25 +279,38 @@ class _Inputs:
         return result.stdout, result.stderr, result.exit_code, observation.cleanup_confirmed
 
 
-def _qualify():
-    if APPROVED_DECISION_SHA is None:
+def _qualify(decision_sha: str | None = None):
+    if decision_sha is None:
         raise SnapshotRefused("media_snapshot_decision_missing")
+    if not _ISOLATED_RUNTIME:
+        raise SnapshotRefused("media_snapshot_isolation_missing")
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise SnapshotRefused("media_snapshot_operator_ids")
     deadline = time.monotonic() + WHOLE_SECONDS
-    admission_path = ADMISSION
-    admission_path.mkdir(mode=0o700, exist_ok=True)
-    shared._private_path(admission_path, directory=True)
     specification = policy()
     digest = shared._digest(specification)
+    decision_raw = decision.validate(
+        path=decision.DECISION_PATH,
+        expected_sha256=decision_sha,
+        root=ROOT,
+        policy_digest=digest,
+        urls=(
+            f"https://{transport.SNAPSHOT_HOST}{stage.RELEASE_PATH}",
+            f"https://{transport.SNAPSHOT_HOST}{stage.SOURCES_PATH}",
+        ),
+        caps=(evidence.RELEASE_CAP, evidence.SOURCES_CAP),
+    )
+    admission_path = ADMISSION
+    admission_path.mkdir(mode=0o700, exist_ok=True)
+    _private_host_admission()
     state = _State()
     lease = AdmissionController(admission_path).acquire(digest)
     ledger = None
     proof_raw = None
     try:
         ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, PROOF_BASE))
-        shared._private_path(ledger.path, directory=True)
         _journal(state, ledger, "policy.json", specification)
+        _helper(state, ledger.save_journal, "decision.json", decision_raw)
         package_operator._baseline(state, deadline)
         ca = package_operator._root_bytes(state, transport.CA_PATH, transport.CA_BYTES)
         context = _helper(state, transport.tls_context, ca)
@@ -285,6 +328,7 @@ def _qualify():
             {
                 "schema": "zelo-media-source-snapshot-stage-s-manifest-v1",
                 "policy_digest": digest,
+                "decision_sha256": hashlib.sha256(decision_raw).hexdigest(),
                 "ca_sha256": hashlib.sha256(ca).hexdigest(),
                 "source": selected,
                 "requests": inputs.calls,
@@ -337,6 +381,7 @@ def _qualify():
         "proof": str(ledger.path / "cases.json"),
         "proof_sha256": hashlib.sha256(proof_raw).hexdigest(),
         "policy_digest": digest,
+        "decision_sha256": hashlib.sha256(decision_raw).hexdigest(),
         "admission_release_confirmed": True,
         "uploader_identity_verified": False,
         "installed_binary_provenance_verified": False,
@@ -348,9 +393,10 @@ def _qualify():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true", required=True)
-    parser.parse_args()
+    parser.add_argument("--decision-sha256")
+    args = parser.parse_args()
     try:
-        result = _qualify()
+        result = _qualify(args.decision_sha256)
     except Exception:
         print("media_snapshot_stage_s_refused", file=sys.stderr)
         return 1

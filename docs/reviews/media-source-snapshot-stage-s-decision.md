@@ -95,3 +95,28 @@ Verify request URL and transport behavior, tool/keyring host pins, source
 snapshot metadata, storage capacity and resource settlement before one
 operator decision. Record the actual response and refusal receipts; never
 retroactively treat the live 29 October cached Release as this snapshot.
+
+## One-use operator decision gate
+
+The operator remains inert without `--decision-sha256` and a private
+`/home/zelo/zelo/media-source-snapshot-stage-s-decision.json`. The exact file
+must be regular, owner/group matched, mode 0600, one link, at most 8,192 bytes,
+and match the supplied SHA-256. It names the current clean Git HEAD and tree;
+the gate hashes every tracked worktree blob against HEAD, including files
+hidden by skip-worktree or assume-unchanged index flags. It also binds the
+policy digest, the fixed host root, both exact URLs and body
+caps, one additional attempt, no runtime authority, and canonical issued and
+expiry times no more than ten minutes apart. The operator retains those exact
+bytes in `decision.json` before its first request and binds their digest into
+the source manifest. The fixed host proof root then consumes its sole slot.
+
+Invoke the script with isolated Python (`-I`) in a fresh
+checkout. Before importing repo modules it selects a fresh, nonexistent
+bytecode-cache prefix and disables bytecode writes, so ignored cache files in
+the checkout cannot replace verified source. Direct module calls cannot use a
+decision unless the isolated CLI startup completed.
+
+An operator must independently confirm that the named HEAD is the reviewed
+then-current public main commit and that the decision file was created under
+the approved one-use scope. A local decision file by itself does not
+authenticate a Managing Director identity or grant Media runtime authority.
