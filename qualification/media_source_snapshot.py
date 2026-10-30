@@ -3,8 +3,7 @@
 import hashlib
 import lzma
 import re
-from datetime import UTC
-from email.utils import parsedate_to_datetime
+from datetime import UTC, datetime
 
 from qualification import media_origin as origin
 
@@ -18,6 +17,9 @@ DIRECTORY = "pool/main/d/dpkg"
 TARBALL = "dpkg_1.22.6ubuntu6.6.tar.xz"
 TARBALL_BYTES = 5548716
 TARBALL_SHA = "7048ee31e30066ae123cdcb891cfa1ad55b2f42a4e04fca2c5db41607ae25196"
+SNAPSHOT_ID = "20261030T000000Z"
+SNAPSHOT_TIME = int(datetime(2026, 10, 30, tzinfo=UTC).timestamp())
+SNAPSHOT_DATE_WINDOW_SECONDS = 3600
 _NAME = re.compile(rb"[A-Za-z][A-Za-z0-9-]{0,63}\Z")
 _HASH = re.compile(rb"[0-9a-f]{64}\Z")
 _NUMBER = re.compile(rb"[1-9][0-9]{0,11}\Z")
@@ -33,13 +35,20 @@ def _refuse(code: str) -> None:
 
 
 def _date(value: str) -> int:
+    if not re.fullmatch(
+        r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-9]{2} "
+        r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) "
+        r"[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} UTC",
+        value,
+    ):
+        _refuse("release_date")
     try:
-        parsed = parsedate_to_datetime(value)
-    except (ValueError, TypeError, IndexError, OverflowError):
+        parsed = datetime.strptime(value, "%a, %d %b %Y %H:%M:%S UTC")
+    except ValueError:
         _refuse("release_date")
-    if parsed.tzinfo is None or parsed.utcoffset().total_seconds() != 0:
+    if parsed.strftime("%a, %d %b %Y %H:%M:%S UTC") != value:
         _refuse("release_date")
-    return int(parsed.astimezone(UTC).timestamp())
+    return int(parsed.replace(tzinfo=UTC).timestamp())
 
 
 def select_source_index(plaintext: bytes) -> dict:
@@ -94,6 +103,41 @@ def select_source_index(plaintext: bytes) -> dict:
     if selected is None:
         _refuse("release_index_missing")
     return selected
+
+
+def candidate_snapshot_release(plaintext: bytes) -> dict:
+    """Construct one fixed URL pair from syntax-only Release metadata; no I/O grant."""
+    index = select_source_index(plaintext)
+    try:
+        fields = origin._fields(
+            origin._lines(
+                plaintext, bound=origin.RELEASE_BYTES, count=8192, width=4096, code="release"
+            )
+        )
+    except origin.OriginError:
+        _refuse("release_format")
+    date = fields["Date"][0]
+    created = _date(date)
+    if not 0 <= SNAPSHOT_TIME - created <= SNAPSHOT_DATE_WINDOW_SECONDS:
+        _refuse("snapshot_date_window")
+    valid_until = fields.get("Valid-Until")
+    if valid_until and _date(valid_until[0]) < SNAPSHOT_TIME:
+        _refuse("snapshot_expired")
+    base = f"https://snapshot.ubuntu.com/ubuntu/{SNAPSHOT_ID}/dists/noble-updates/"
+    return {
+        "schema": "zelo-media-source-snapshot-candidate-v1",
+        "snapshot_id": SNAPSHOT_ID,
+        "inrelease_url": base + "InRelease",
+        "sources_url": base + INDEX_PATH,
+        "release_date": date,
+        "plaintext_sha256": hashlib.sha256(plaintext).hexdigest(),
+        "index": index,
+        "metadata_only": True,
+        "signature_verified": False,
+        "snapshot_binding_verified": False,
+        "source_acquired": False,
+        "runtime_authority": False,
+    }
 
 
 def _stanza(raw: bytes) -> dict[str, list[bytes]]:
