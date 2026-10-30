@@ -3,7 +3,9 @@
 import hashlib
 import json
 import os
+import py_compile
 import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -110,6 +112,43 @@ class SnapshotDecisionTests(unittest.TestCase):
         self.assertEqual(git("status", "--porcelain", "--untracked-files=no"), b"")
         with self.assertRaises(decision.DecisionRefused, msg="skip-worktree must not hide code"):
             decision.source_identity(root)
+
+    def test_fresh_cache_prefix_ignores_timestamp_matched_bytecode(self):
+        root = Path(self.temporary.name) / "imports"
+        root.mkdir()
+        source = root / "module.py"
+        source.write_text("VALUE = 'evil'\n")
+        stamp = 1700000000
+        os.utime(source, (stamp, stamp))
+        py_compile.compile(str(source), doraise=True)
+        source.write_text("VALUE = 'safe'\n")
+        os.utime(source, (stamp, stamp))
+        ordinary = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                f"import sys; sys.path.insert(0, {str(root)!r}); import module; print(module.VALUE)",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        self.assertEqual(ordinary.stdout, b"evil\n")
+        isolated = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                (
+                    f"import sys; sys.pycache_prefix={str(root / 'fresh-cache')!r}; "
+                    f"sys.dont_write_bytecode=True; sys.path.insert(0, {str(root)!r}); "
+                    "import module; print(module.VALUE)"
+                ),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        self.assertEqual(isolated.stdout, b"safe\n")
 
 
 if __name__ == "__main__":

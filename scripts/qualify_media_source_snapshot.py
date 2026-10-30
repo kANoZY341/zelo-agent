@@ -13,6 +13,8 @@ import sys
 import time
 from pathlib import Path
 
+_ISOLATED_RUNTIME = False
+
 
 def _operator_limits():
     for kind, bound in (
@@ -29,6 +31,14 @@ def _operator_limits():
 
 
 if __name__ == "__main__":
+    if not sys.flags.isolated:
+        raise SystemExit("media_snapshot_isolated_python_required")
+    cache_prefix = f"/home/zelo/zelo/.stage-s-pycache-{os.urandom(16).hex()}"
+    if os.path.lexists(cache_prefix):
+        raise SystemExit("media_snapshot_cache_prefix_occupied")
+    sys.pycache_prefix = cache_prefix
+    sys.dont_write_bytecode = True
+    _ISOLATED_RUNTIME = True
     _operator_limits()
 if not __debug__:
     raise SystemExit("media_snapshot_optimized_python_refused")
@@ -272,6 +282,8 @@ class _Inputs:
 def _qualify(decision_sha: str | None = None):
     if decision_sha is None:
         raise SnapshotRefused("media_snapshot_decision_missing")
+    if not _ISOLATED_RUNTIME:
+        raise SnapshotRefused("media_snapshot_isolation_missing")
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise SnapshotRefused("media_snapshot_operator_ids")
     deadline = time.monotonic() + WHOLE_SECONDS

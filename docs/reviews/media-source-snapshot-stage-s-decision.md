@@ -110,6 +110,12 @@ expiry times no more than ten minutes apart. The operator retains those exact
 bytes in `decision.json` before its first request and binds their digest into
 the source manifest. The fixed host proof root then consumes its sole slot.
 
+Invoke the script with isolated Python (`-I`) in a fresh
+checkout. Before importing repo modules it selects a fresh, nonexistent
+bytecode-cache prefix and disables bytecode writes, so ignored cache files in
+the checkout cannot replace verified source. Direct module calls cannot use a
+decision unless the isolated CLI startup completed.
+
 An operator must independently confirm that the named HEAD is the reviewed
 then-current public main commit and that the decision file was created under
 the approved one-use scope. A local decision file by itself does not
