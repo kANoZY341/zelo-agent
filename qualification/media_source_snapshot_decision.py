@@ -92,9 +92,8 @@ def _read_private(path: Path) -> bytes:
             "st_mtime_ns",
             "st_ctime_ns",
         )
-        if (
-            len(raw) != before.st_size
-            or any(getattr(before, field) != getattr(after, field) for field in stable)
+        if len(raw) != before.st_size or any(
+            getattr(before, field) != getattr(after, field) for field in stable
         ):
             _refuse("drift")
         return raw
