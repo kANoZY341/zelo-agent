@@ -271,6 +271,7 @@ def test_header_decision_retained_before_network_and_one_use(tmp_path: Path, mon
     monkeypatch.setattr(operator, "HEADER_ADMISSION", tmp_path / "header-admission")
     monkeypatch.setattr(operator, "HEADER_PROOF_BASE", tmp_path / "header-proofs")
     monkeypatch.setattr(decision, "validate_header_diagnostic", lambda **kwargs: b"decision\n")
+    monkeypatch.setattr(operator, "_verify_spent_stage_s", lambda: None)
     monkeypatch.setattr(operator.package_operator, "_baseline", stop_at_baseline)
     monkeypatch.setattr(operator, "_HeaderOwner", forbidden)
     with pytest.raises(operator.SnapshotRefused, match="diagnostic_refused"):
