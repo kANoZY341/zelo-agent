@@ -21,6 +21,50 @@ class SnapshotTransportTests(unittest.TestCase):
 
         good = response([("Content-Length", "126125"), ("Content-Encoding", "identity")])
         self.assertEqual(transport.bounded_content_length(good, 524288), 126125)
+        metadata_duplicate = response(
+            [("Content-Length", "126125"), ("Via", "edge-a"), ("via", "edge-b")]
+        )
+        with self.assertRaises(transport.Refused):
+            transport.bounded_content_length(metadata_duplicate, 524288)
+        self.assertEqual(
+            transport.bounded_content_length(
+                metadata_duplicate, 524288, allow_duplicate_metadata=True
+            ),
+            126125,
+        )
+        for unsafe_duplicate in (
+            [("Content-Length", "126125"), ("content-length", "126125")],
+            [
+                ("Content-Length", "126125"),
+                ("Content-Encoding", "identity"),
+                ("content-encoding", "identity"),
+            ],
+            [
+                ("Content-Length", "126125"),
+                ("Connection", "close"),
+                ("connection", "keep-alive"),
+            ],
+            [
+                ("Content-Length", "126125"),
+                ("Transfer-Encoding", "identity"),
+                ("transfer-encoding", "identity"),
+            ],
+            [
+                ("Content-Length", "126125"),
+                ("Proxy-Connection", "close"),
+                ("proxy-connection", "keep-alive"),
+            ],
+            [("Content-Length", "126125"), ("Content-Range", "a"), ("content-range", "b")],
+            [("Content-Length", "126125"), ("Location", "a"), ("location", "b")],
+            [("Content-Length", "126125"), ("Trailer", "a"), ("trailer", "b")],
+            [("Content-Length", "126125"), ("Upgrade", "a"), ("upgrade", "b")],
+            [("Content-Length", "126125"), ("Via", "edge-a"), ("via", "bad\nvalue")],
+        ):
+            with self.subTest(unsafe_duplicate=unsafe_duplicate):
+                with self.assertRaises(transport.Refused):
+                    transport.bounded_content_length(
+                        response(unsafe_duplicate), 524288, allow_duplicate_metadata=True
+                    )
         for unsafe in (
             response([("Content-Length", "126125")], status=302),
             response([("Content-Length", "126125")], chunked=True),

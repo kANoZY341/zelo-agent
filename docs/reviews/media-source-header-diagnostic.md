@@ -1,11 +1,29 @@
-# Stage H — first-response header diagnostic candidate
+# Stage H — first-response header diagnostic
 
-Status: **inactive**. This candidate grants no request, source provenance,
-Media runtime authority, or v0.15 release. The Stage S input authorized on
+Status: **consumed**. The one authorized Stage H diagnostic ran once at main
+`51c2425effbfac0d96c041b3ac911b79fac8db61`, tree
+`204f2b753bacfe944e65190da14cebaf10164e08`. Its private proof is
+`/home/zelo/zelo/media-source-snapshot-stage-h-proof/snapshot-proof-m_c_seem`;
+`cases.json` SHA-256 is
+`003cbad44e0f1fb9ed94dd1efb63f03a13193282ed8e767f09cbf51564c622e3`.
+The marker was empty after the operator confirmed release. No body file exists.
+The observation grants no source provenance, Media runtime authority, or v0.15
+release. The Stage S input authorized on
 31 October 2026 (Dubai time) remains terminally refused. Its sole proof is
 `/home/zelo/zelo/media-source-snapshot-stage-s-proof/snapshot-proof-10cwy2xm`.
 It recorded one `InRelease` request started, zero retained body bytes and no
 `Sources.xz` request. The exact response condition was not retained.
+
+The Stage H response was HTTP/1.1 200 with one valid Content-Length of 126,125,
+no transfer or content encoding, no Location, zero malformed header fields and
+**one duplicate header name**. The diagnostic retained no header names or
+values, so it cannot establish which name repeated. The old Stage S parser
+rejected any duplicate before reading body bytes. This is a plausible
+explanation for its zero-byte refusal, not proof of that historical cause.
+The new snapshot-only policy may still refuse if the duplicate belongs to a
+framing, encoding, routing or other singular field. Another source input needs
+a separately reviewed, one-use decision and a fresh namespace; neither the
+spent Stage S nor Stage H allowance can be reused.
 
 ## Fixed question and scope
 

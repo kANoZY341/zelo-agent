@@ -177,6 +177,22 @@ def test_real_framing_discards_unused_wire_not_certifies_absence():
     assert owner.cleanup() is True and sock.file.closures == 1
 
 
+def test_snapshot_metadata_duplicate_is_validated_before_body_but_archive_stays_strict():
+    raw = wire(b"abc", headers=[b"Content-Length: 3", b"Via: edge-a", b"via: edge-b"])
+    owner, response, sock = parsed(raw)
+    try:
+        position = sock.file.tell()
+        with pytest.raises(m.Refused, match="http_headers"):
+            m.validate_headers(response, 3)
+        with pytest.raises(m.Refused, match="http_headers"):
+            m.bounded_content_length(response, 3)
+        assert m.bounded_content_length(response, 3, allow_duplicate_metadata=True) == 3
+        assert sock.file.tell() == position
+        assert owner.read1(3) == b"abc"
+    finally:
+        owner.cleanup()
+
+
 @pytest.mark.parametrize(
     "status",
     [
@@ -225,6 +241,34 @@ def test_header_contract_before_body(headers):
         position = sock.file.tell()
         with pytest.raises(m.Refused):
             m.validate_headers(response, 3)
+        assert sock.file.tell() == position
+    finally:
+        owner.cleanup()
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        [b"Content-Length: 3", b"content-length: 3"],
+        [b"Content-Encoding: identity", b"content-encoding: identity"],
+        [b"Connection: close", b"connection: keep-alive"],
+        [b"Proxy-Connection: close", b"proxy-connection: keep-alive"],
+        [b"Location: first", b"location: second"],
+        [b"Transfer-Encoding: identity", b"transfer-encoding: identity"],
+        [b"Via: edge-a", b"via: bad\x00value"],
+    ],
+)
+def test_snapshot_rejects_critical_or_malformed_duplicate_on_wire(duplicate):
+    headers = (
+        duplicate
+        if duplicate[0].lower().startswith(b"content-length:")
+        else [b"Content-Length: 3", *duplicate]
+    )
+    owner, response, sock = parsed(wire(b"abc", headers=headers))
+    try:
+        position = sock.file.tell()
+        with pytest.raises(m.Refused):
+            m.bounded_content_length(response, 3, allow_duplicate_metadata=True)
         assert sock.file.tell() == position
     finally:
         owner.cleanup()

@@ -12,6 +12,8 @@ from pathlib import Path
 DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-s-decision.json")
 HEADER_DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-h-decision.json")
 HEADER_MINIMUM_SECONDS = 120
+FOLLOWUP_DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-s2-decision.json")
+FOLLOWUP_MINIMUM_SECONDS = 120
 HOST_ROOT = Path("/home/zelo/zelo")
 MAX_BYTES = 8192
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -336,6 +338,64 @@ def validate_header_diagnostic(
         or clock.utcoffset() != timedelta(0)
         or not issued <= clock < expiry <= issued + timedelta(minutes=10)
         or clock + timedelta(seconds=HEADER_MINIMUM_SECONDS) > expiry
+    ):
+        _refuse("expired")
+    return raw
+
+
+def validate_followup(
+    *,
+    path: Path,
+    expected_sha256: str,
+    root: Path,
+    policy_digest: str,
+    urls: tuple[str, str],
+    caps: tuple[int, int],
+    now: datetime | None = None,
+) -> bytes:
+    """Bind a new, one-use Stage S2 input to its own private decision path."""
+    if type(expected_sha256) is not str or not HEX64.fullmatch(expected_sha256):
+        _refuse("digest")
+    if type(policy_digest) is not str or not HEX64.fullmatch(policy_digest):
+        _refuse("policy")
+    if type(urls) is not tuple or len(urls) != 2 or type(caps) is not tuple or len(caps) != 2:
+        _refuse("scope")
+    head, tree = source_identity(root)
+    raw = _read_private_at(path, FOLLOWUP_DECISION_PATH)
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        _refuse("digest")
+    try:
+        parsed = json.loads(raw, object_pairs_hook=_unique_pairs)
+    except (ValueError, UnicodeError, RecursionError):
+        _refuse("json")
+    expected = {
+        "schema": "zelo-media-source-snapshot-stage-s2-decision-v1",
+        "decision": "authorize-one-stage-s2-source-snapshot-input",
+        "source_head": head,
+        "source_tree": tree,
+        "policy_digest": policy_digest,
+        "host_root": str(HOST_ROOT),
+        "urls": list(urls),
+        "body_caps": list(caps),
+        "additional_attempts": 1,
+        "runtime_authority": False,
+    }
+    if type(parsed) is not dict or set(parsed) != set(expected) | {"issued_utc", "expires_utc"}:
+        _refuse("shape")
+    if any(
+        type(parsed[key]) is not type(value) or parsed[key] != value
+        for key, value in expected.items()
+    ):
+        _refuse("binding")
+    issued = _timestamp(parsed["issued_utc"])
+    expiry = _timestamp(parsed["expires_utc"])
+    clock = datetime.now(UTC) if now is None else now
+    if (
+        type(clock) is not datetime
+        or clock.tzinfo is None
+        or clock.utcoffset() != timedelta(0)
+        or not issued <= clock < expiry <= issued + timedelta(minutes=10)
+        or clock + timedelta(seconds=FOLLOWUP_MINIMUM_SECONDS) > expiry
     ):
         _refuse("expired")
     return raw
