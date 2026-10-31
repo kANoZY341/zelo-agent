@@ -246,6 +246,34 @@ def test_header_contract_before_body(headers):
         owner.cleanup()
 
 
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        [b"Content-Length: 3", b"content-length: 3"],
+        [b"Content-Encoding: identity", b"content-encoding: identity"],
+        [b"Connection: close", b"connection: keep-alive"],
+        [b"Proxy-Connection: close", b"proxy-connection: keep-alive"],
+        [b"Location: first", b"location: second"],
+        [b"Transfer-Encoding: identity", b"transfer-encoding: identity"],
+        [b"Via: edge-a", b"via: bad\x00value"],
+    ],
+)
+def test_snapshot_rejects_critical_or_malformed_duplicate_on_wire(duplicate):
+    headers = (
+        duplicate
+        if duplicate[0].lower().startswith(b"content-length:")
+        else [b"Content-Length: 3", *duplicate]
+    )
+    owner, response, sock = parsed(wire(b"abc", headers=headers))
+    try:
+        position = sock.file.tell()
+        with pytest.raises(m.Refused):
+            m.bounded_content_length(response, 3, allow_duplicate_metadata=True)
+        assert sock.file.tell() == position
+    finally:
+        owner.cleanup()
+
+
 def test_header_line_bound_before_parser():
     raw = wire(headers=[b"Content-Length: 3", b"X: " + b"a" * 8192])
     sock = WireSocket(raw)
