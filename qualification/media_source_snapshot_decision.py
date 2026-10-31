@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-s-decision.json")
+HEADER_DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-h-decision.json")
+HEADER_MINIMUM_SECONDS = 120
 HOST_ROOT = Path("/home/zelo/zelo")
 MAX_BYTES = 8192
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -151,8 +153,8 @@ def source_identity(root: Path) -> tuple[str, str]:
     return head, tree
 
 
-def _read_private(path: Path) -> bytes:
-    if path != DECISION_PATH:
+def _read_private_at(path: Path, exact_path: Path) -> bytes:
+    if path != exact_path:
         _refuse("path")
     fd = -1
     try:
@@ -191,6 +193,10 @@ def _read_private(path: Path) -> bytes:
                 os.close(fd)
             except OSError:
                 _refuse("close")
+
+
+def _read_private(path: Path) -> bytes:
+    return _read_private_at(path, DECISION_PATH)
 
 
 def _timestamp(value: object) -> datetime:
@@ -276,3 +282,60 @@ def _unique_pairs(pairs):
             _refuse("duplicate")
         result[key] = value
     return result
+
+
+def validate_header_diagnostic(
+    *,
+    path: Path,
+    expected_sha256: str,
+    root: Path,
+    policy_digest: str,
+    url: str,
+    now: datetime | None = None,
+) -> bytes:
+    """Return a private one-use header-only decision, without Stage S authority."""
+    if type(expected_sha256) is not str or not HEX64.fullmatch(expected_sha256):
+        _refuse("digest")
+    if type(policy_digest) is not str or not HEX64.fullmatch(policy_digest):
+        _refuse("policy")
+    if type(url) is not str or not url.startswith("https://snapshot.ubuntu.com/"):
+        _refuse("scope")
+    head, tree = source_identity(root)
+    raw = _read_private_at(path, HEADER_DECISION_PATH)
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        _refuse("digest")
+    try:
+        parsed = json.loads(raw, object_pairs_hook=_unique_pairs)
+    except (ValueError, UnicodeError, RecursionError):
+        _refuse("json")
+    expected = {
+        "schema": "zelo-media-source-header-diagnostic-decision-v1",
+        "decision": "authorize-one-header-only-snapshot-diagnostic",
+        "source_head": head,
+        "source_tree": tree,
+        "policy_digest": policy_digest,
+        "host_root": str(HOST_ROOT),
+        "url": url,
+        "additional_attempts": 1,
+        "body_bytes": 0,
+        "runtime_authority": False,
+    }
+    if type(parsed) is not dict or set(parsed) != set(expected) | {"issued_utc", "expires_utc"}:
+        _refuse("shape")
+    if any(
+        type(parsed[key]) is not type(value) or parsed[key] != value
+        for key, value in expected.items()
+    ):
+        _refuse("binding")
+    issued = _timestamp(parsed["issued_utc"])
+    expiry = _timestamp(parsed["expires_utc"])
+    clock = datetime.now(UTC) if now is None else now
+    if (
+        type(clock) is not datetime
+        or clock.tzinfo is None
+        or clock.utcoffset() != timedelta(0)
+        or not issued <= clock < expiry <= issued + timedelta(minutes=10)
+        or clock + timedelta(seconds=HEADER_MINIMUM_SECONDS) > expiry
+    ):
+        _refuse("expired")
+    return raw
