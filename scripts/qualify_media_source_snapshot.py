@@ -4,6 +4,7 @@
 import argparse
 import asyncio
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -61,6 +62,16 @@ from scripts.qualify_media_elf_version_metadata import _helper, _release, _State
 HOST_ROOT = Path("/home/zelo/zelo")
 ADMISSION = HOST_ROOT / "media-source-snapshot-stage-s-admission"
 PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-s-proof"
+HEADER_ADMISSION = HOST_ROOT / "media-source-snapshot-stage-h-admission"
+HEADER_PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-h-proof"
+PRIOR_PROOF = PROOF_BASE / "snapshot-proof-10cwy2xm"
+PRIOR_ADMISSION = ADMISSION
+PRIOR_HASHES = {
+    "decision.json": "513454c0026f5aad71301f875de31813f30dd0b67ff00f5bbd65946be1f0d777",
+    "policy.json": "f0f9cdbb9f41550ca1b60ed2fa6f19f34279aabc15181acdaaf09a67b103eaee",
+    "failure.json": "0df5f5cca68caad1ebdf2a78eea80aaa7b3df19d4ebe5045521fac1b0b07dcec",
+    "request.json": "e63fafb182433f97caa901c7b35c94747f0ae76414381059fd87d2bb7afadbbd",
+}
 WHOLE_SECONDS = 120
 CASE_SECONDS = 15
 _QUARANTINED = []
@@ -135,6 +146,234 @@ def _private_host_admission() -> None:
         or stat.S_IMODE(target.st_mode) != 0o700
     ):
         raise SnapshotRefused("media_snapshot_host_admission")
+
+
+def _private_header_admission() -> None:
+    if HEADER_ADMISSION.parent != HOST_ROOT or HEADER_PROOF_BASE.parent != HOST_ROOT:
+        raise SnapshotRefused("media_header_host_root")
+    parent = HOST_ROOT.lstat()
+    target = HEADER_ADMISSION.lstat()
+    if (
+        not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.geteuid()
+        or parent.st_mode & 0o022
+        or not stat.S_ISDIR(target.st_mode)
+        or target.st_uid != os.geteuid()
+        or target.st_gid != os.getegid()
+        or stat.S_IMODE(target.st_mode) != 0o700
+    ):
+        raise SnapshotRefused("media_header_host_admission")
+
+
+def _verify_spent_stage_s() -> None:
+    """Pin the terminal first attempt before a separate header-only input."""
+    root = PRIOR_PROOF.parent
+    for folder in (root, PRIOR_PROOF, PRIOR_ADMISSION):
+        info = folder.lstat()
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.geteuid()
+            or info.st_gid != os.getegid()
+            or stat.S_IMODE(info.st_mode) != 0o700
+        ):
+            raise SnapshotRefused("media_header_prior_directory")
+    if set(os.listdir(root)) != {PRIOR_PROOF.name} or set(os.listdir(PRIOR_PROOF)) != (
+        set(PRIOR_HASHES) | {"InRelease"}
+    ):
+        raise SnapshotRefused("media_header_prior_entries")
+    for path, expected in (
+        *((PRIOR_PROOF / name, digest) for name, digest in PRIOR_HASHES.items()),
+        (PRIOR_PROOF / "InRelease", hashlib.sha256(b"").hexdigest()),
+        (PRIOR_ADMISSION / "active.marker", hashlib.sha256(b"").hexdigest()),
+    ):
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            before = os.fstat(fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.geteuid()
+                or before.st_gid != os.getegid()
+                or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_nlink != 1
+                or not 0 <= before.st_size <= 1048576
+            ):
+                raise SnapshotRefused("media_header_prior_file")
+            raw = os.read(fd, before.st_size + 1)
+            after = os.fstat(fd)
+            stable = (
+                "st_dev",
+                "st_ino",
+                "st_mode",
+                "st_nlink",
+                "st_size",
+                "st_mtime_ns",
+                "st_ctime_ns",
+            )
+            if (
+                len(raw) != before.st_size
+                or hashlib.sha256(raw).hexdigest() != expected
+                or any(getattr(before, key) != getattr(after, key) for key in stable)
+            ):
+                raise SnapshotRefused("media_header_prior_drift")
+        finally:
+            os.close(fd)
+
+
+def header_policy():
+    return {
+        "schema": "zelo-media-source-header-diagnostic-policy-v1",
+        "url": f"https://{transport.SNAPSHOT_HOST}{stage.RELEASE_PATH}",
+        "method": "GET",
+        "requests": 1,
+        "body_bytes": 0,
+        "no_redirect_proxy_retry_resume": True,
+        "headers": dict(transport.HEADERS, Host=transport.SNAPSHOT_HOST),
+        "header_bytes": transport.HEADER_BYTES,
+        "header_lines": transport.HEADER_LINES,
+        "socket_seconds": 10,
+        "whole_seconds": WHOLE_SECONDS,
+        "deadline": "cooperative;DNS-TLS-buffered-I/O-filesystem-not-hard",
+        "transport_baseline": transport.BASELINE,
+        "ca_path": transport.CA_PATH,
+        "ca_bytes": transport.CA_BYTES,
+        "proof_scope": str(HEADER_PROOF_BASE / "snapshot-proof-*"),
+        "admission_scope": str(HEADER_ADMISSION),
+        "decision_path": str(decision.HEADER_DECISION_PATH),
+        "decision_max_bytes": decision.MAX_BYTES,
+        "decision_lifetime_seconds": 600,
+        "prior_stage_s_proof": str(PRIOR_PROOF),
+        "prior_stage_s_hashes": PRIOR_HASHES,
+        "prior_stage_s_admission": str(PRIOR_ADMISSION),
+        "retained_journal_bytes": evidence.JOURNAL_BYTES,
+        "host_assumption": "trusted-ancestors-and-no-concurrent-mutator",
+        "source_provenance_verified": False,
+        "runtime_authority": False,
+    }
+
+
+class _HeaderResponse(http.client.HTTPResponse):
+    def begin(self):
+        super().begin()
+        self.fp.header_mode = False
+
+
+class _HeaderOwner(transport.NetworkOwner):
+    def response_factory(self, sock, *args, **kwargs):
+        response = _HeaderResponse(sock, *args, **kwargs)
+        self.response = response
+        self.stream = transport.HeaderStream(response.fp, self.deadline)
+        response.fp = self.stream
+        return response
+
+
+def _header_summary(response, header_bytes: int, header_lines: int) -> dict:
+    if (
+        type(response.status) is not int
+        or not 100 <= response.status <= 599
+        or type(response.version) is not int
+        or not 0 <= header_bytes <= transport.HEADER_BYTES
+        or not 0 <= header_lines <= transport.HEADER_LINES
+    ):
+        raise SnapshotRefused("media_header_response_shape")
+    rows = response.headers.items()
+    if len(rows) > transport.HEADER_LINES or len(response.headers.defects) > transport.HEADER_LINES:
+        raise SnapshotRefused("media_header_count")
+    fields = {
+        name: [] for name in ("content-length", "transfer-encoding", "content-encoding", "location")
+    }
+    for name, value in rows:
+        if type(name) is not str or type(value) is not str:
+            raise SnapshotRefused("media_header_field_shape")
+        lowered = name.lower()
+        if lowered in fields:
+            fields[lowered].append(value)
+    lengths = fields["content-length"]
+    length = (
+        int(lengths[0]) if len(lengths) == 1 and re.fullmatch(r"[0-9]{1,9}", lengths[0]) else None
+    )
+    return {
+        "status": response.status,
+        "http_version": response.version,
+        "header_bytes": header_bytes,
+        "header_lines": header_lines,
+        "header_count": len(rows),
+        "header_defects": len(response.headers.defects),
+        "content_length_count": len(lengths),
+        "content_length": length,
+        "transfer_encoding_count": len(fields["transfer-encoding"]),
+        "chunked": response.chunked is True,
+        "content_encoding_count": len(fields["content-encoding"]),
+        "identity_encoding": (
+            len(fields["content-encoding"]) == 1
+            and fields["content-encoding"][0].lower() == "identity"
+        ),
+        "location_count": len(fields["location"]),
+    }
+
+
+class _HeaderInput:
+    def __init__(self, state, ledger, context, deadline):
+        self.state = state
+        self.ledger = ledger
+        self.context = context
+        self.deadline = deadline
+        self.calls = 0
+
+    def observe(self) -> dict:
+        if self.calls:
+            raise SnapshotRefused("media_header_attempt_consumed")
+        self.calls = 1
+        _journal(
+            self.state,
+            self.ledger,
+            "request.json",
+            {
+                "status": "started",
+                "path": stage.RELEASE_PATH,
+                "requests_started": 1,
+                "body_bytes": 0,
+            },
+        )
+        transport.check_deadline(self.deadline)
+        owner = _HeaderOwner(self.state, self.context, self.deadline, host=transport.SNAPSHOT_HOST)
+        try:
+            response = owner.request(stage.RELEASE_PATH)
+            summary = _header_summary(
+                response, owner.stream.header_bytes, owner.stream.header_lines
+            )
+        except BaseException as exc:
+            _journal(
+                self.state,
+                self.ledger,
+                "failure.json",
+                {
+                    "status": "refused",
+                    "type": type(exc).__name__,
+                    "refusal_code": (
+                        str(exc)
+                        if type(exc) is transport.Refused
+                        and re.fullmatch(r"acquisition_[a-z_]{1,48}", str(exc))
+                        else "unclassified"
+                    ),
+                    "runtime_authority": False,
+                },
+            )
+            raise
+        finally:
+            error_type = sys.exc_info()[0]
+            if error_type is not None and not issubclass(error_type, Exception):
+                owner.unknown()
+            elif not owner.cleanup():
+                self.state.close_ok = False
+                raise SnapshotRefused("media_header_network_cleanup")
+        transport.check_deadline(self.deadline)
+        _journal(
+            self.state,
+            self.ledger,
+            "manifest.json",
+            {"schema": "zelo-media-header-observation-v1", "response": summary, "body_bytes": 0},
+        )
+        return summary
 
 
 class _Inputs:
@@ -396,15 +635,109 @@ def _qualify(decision_sha: str | None = None):
     }
 
 
+def _qualify_header_diagnostic(decision_sha: str | None = None):
+    if decision_sha is None:
+        raise SnapshotRefused("media_header_decision_missing")
+    if not _ISOLATED_RUNTIME:
+        raise SnapshotRefused("media_header_isolation_missing")
+    if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
+        raise SnapshotRefused("media_header_operator_ids")
+    deadline = time.monotonic() + WHOLE_SECONDS
+    specification = header_policy()
+    digest = shared._digest(specification)
+    decision_raw = decision.validate_header_diagnostic(
+        path=decision.HEADER_DECISION_PATH,
+        expected_sha256=decision_sha,
+        root=ROOT,
+        policy_digest=digest,
+        url=specification["url"],
+    )
+    _verify_spent_stage_s()
+    HEADER_ADMISSION.mkdir(mode=0o700, exist_ok=True)
+    _private_header_admission()
+    state = _State()
+    lease = AdmissionController(HEADER_ADMISSION).acquire(digest)
+    ledger = None
+    cases = None
+    try:
+        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, HEADER_PROOF_BASE))
+        _journal(state, ledger, "policy.json", specification)
+        _helper(state, ledger.save_journal, "decision.json", decision_raw)
+        package_operator._baseline(state, deadline)
+        ca = package_operator._root_bytes(state, transport.CA_PATH, transport.CA_BYTES)
+        context = _helper(state, transport.tls_context, ca)
+        observed = _HeaderInput(state, ledger, context, deadline).observe()
+        cases = _journal(
+            state,
+            ledger,
+            "cases.json",
+            {
+                "status": "header-observed-pending-support-release",
+                "policy_digest": digest,
+                "decision_sha256": hashlib.sha256(decision_raw).hexdigest(),
+                "response": observed,
+                "body_bytes": 0,
+                "admission_release_confirmed": False,
+                "source_provenance_verified": False,
+                "runtime_authority": False,
+            },
+        )
+        transport.check_deadline(deadline)
+    except BaseException as exc:
+        if ledger is not None and "failure.json" not in ledger.journal_names:
+            try:
+                _journal(
+                    state,
+                    ledger,
+                    "failure.json",
+                    {"status": "refused", "type": type(exc).__name__, "runtime_authority": False},
+                )
+            except BaseException:
+                state.close_ok = False
+        if isinstance(exc, Exception):
+            raise SnapshotRefused("media_header_diagnostic_refused") from exc
+        raise
+    finally:
+        error_type = sys.exc_info()[0]
+        if error_type is not None and not issubclass(error_type, Exception):
+            _QUARANTINED.append((state, lease))
+        else:
+            try:
+                released = _release(state, lease)
+            except BaseException:
+                _QUARANTINED.append((state, lease))
+                raise
+    if released is not True or cases is None:
+        raise SnapshotRefused("media_header_support_release")
+    return {
+        "status": "header-diagnostic-observed",
+        "proof": str(ledger.path / "cases.json"),
+        "proof_sha256": hashlib.sha256(cases).hexdigest(),
+        "policy_digest": digest,
+        "admission_release_confirmed": True,
+        "source_provenance_verified": False,
+        "runtime_authority": False,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true", required=True)
     parser.add_argument("--decision-sha256")
+    parser.add_argument("--headers-diagnostic", action="store_true")
     args = parser.parse_args()
     try:
-        result = _qualify(args.decision_sha256)
+        if args.headers_diagnostic:
+            result = _qualify_header_diagnostic(args.decision_sha256)
+        else:
+            result = _qualify(args.decision_sha256)
     except Exception:
-        print("media_snapshot_stage_s_refused", file=sys.stderr)
+        print(
+            "media_header_diagnostic_refused"
+            if args.headers_diagnostic
+            else "media_snapshot_stage_s_refused",
+            file=sys.stderr,
+        )
         return 1
     print(json.dumps(result, sort_keys=True))
     return 0
