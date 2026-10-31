@@ -310,7 +310,7 @@ def _header_summary(response, header_bytes: int, header_lines: int) -> dict:
     if type(response_length) is not int or not 0 <= response_length <= 999999999:
         response_length = None
     identity_encoding = (
-        len(fields["content-encoding"]) == 1 and fields["content-encoding"][0].lower() == "identity"
+        len(fields["content-encoding"]) == 1 and fields["content-encoding"][0] == "identity"
     )
     return {
         "status": response.status,

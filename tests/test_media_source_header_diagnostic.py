@@ -87,6 +87,7 @@ def test_header_summary_counts_duplicate_and_invalid_fields_without_values():
                         ("X-Trace", "ordinary"),
                         ("x-trace", secret),
                         ("Bad Name", "other"),
+                        ("Content-Encoding", "Identity"),
                     ],
                 },
             )(),
@@ -99,6 +100,8 @@ def test_header_summary_counts_duplicate_and_invalid_fields_without_values():
     assert summary["content_length_syntax_valid"] is True
     assert summary["content_length_within_cap"] is False
     assert summary["response_length"] == 524289
+    assert summary["identity_encoding"] is False
+    assert summary["acceptable_content_encoding"] is False
     assert secret not in json.dumps(summary)
 
 
