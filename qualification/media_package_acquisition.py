@@ -211,9 +211,22 @@ def validate_headers(response, size):
         raise Refused("acquisition_http_length")
 
 
-def bounded_content_length(response, maximum):
-    """Validate an unknown-size response before reading its first body byte."""
-    if type(maximum) is not int or not 0 < maximum <= 4194304:
+_SNAPSHOT_SINGULAR_HEADERS = frozenset(
+    {"connection", "host", "keep-alive", "location", "te", "trailer", "upgrade"}
+)
+
+
+def bounded_content_length(response, maximum, *, allow_duplicate_metadata=False):
+    """Validate an unknown-size response before reading its first body byte.
+
+    The snapshot-only option ignores repeated unused metadata. Framing, encoding,
+    routing and all Content-/Transfer-/Proxy- fields remain singular.
+    """
+    if (
+        type(maximum) is not int
+        or not 0 < maximum <= 4194304
+        or type(allow_duplicate_metadata) is not bool
+    ):
         raise Refused("acquisition_response_limit")
     if (
         response.status != 200
@@ -224,16 +237,24 @@ def bounded_content_length(response, maximum):
         raise Refused("acquisition_http_framing")
     fields = {}
     for name, value in response.headers.items():
+        lowered = name.lower() if type(name) is str else ""
         if (
             type(name) is not str
             or not _TOKEN.fullmatch(name)
             or type(value) is not str
             or len(value) > HEADER_LINE_BYTES
             or any(ord(char) < 32 or ord(char) > 126 for char in value)
-            or name.lower() in fields
         ):
             raise Refused("acquisition_http_headers")
-        fields[name.lower()] = value
+        if lowered in fields:
+            if (
+                not allow_duplicate_metadata
+                or lowered in _SNAPSHOT_SINGULAR_HEADERS
+                or lowered.startswith(("content-", "transfer-", "proxy-"))
+            ):
+                raise Refused("acquisition_http_headers")
+            continue
+        fields[lowered] = value
     raw = fields.get("content-length", "")
     if (
         not re.fullmatch(r"[1-9][0-9]{0,6}", raw)

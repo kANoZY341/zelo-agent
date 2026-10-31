@@ -177,6 +177,22 @@ def test_real_framing_discards_unused_wire_not_certifies_absence():
     assert owner.cleanup() is True and sock.file.closures == 1
 
 
+def test_snapshot_metadata_duplicate_is_validated_before_body_but_archive_stays_strict():
+    raw = wire(b"abc", headers=[b"Content-Length: 3", b"Via: edge-a", b"via: edge-b"])
+    owner, response, sock = parsed(raw)
+    try:
+        position = sock.file.tell()
+        with pytest.raises(m.Refused, match="http_headers"):
+            m.validate_headers(response, 3)
+        with pytest.raises(m.Refused, match="http_headers"):
+            m.bounded_content_length(response, 3)
+        assert m.bounded_content_length(response, 3, allow_duplicate_metadata=True) == 3
+        assert sock.file.tell() == position
+        assert owner.read1(3) == b"abc"
+    finally:
+        owner.cleanup()
+
+
 @pytest.mark.parametrize(
     "status",
     [

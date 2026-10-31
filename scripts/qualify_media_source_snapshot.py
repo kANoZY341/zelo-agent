@@ -64,6 +64,8 @@ ADMISSION = HOST_ROOT / "media-source-snapshot-stage-s-admission"
 PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-s-proof"
 HEADER_ADMISSION = HOST_ROOT / "media-source-snapshot-stage-h-admission"
 HEADER_PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-h-proof"
+FOLLOWUP_ADMISSION = HOST_ROOT / "media-source-snapshot-stage-s2-admission"
+FOLLOWUP_PROOF_BASE = HOST_ROOT / "media-source-snapshot-stage-s2-proof"
 PRIOR_PROOF = PROOF_BASE / "snapshot-proof-10cwy2xm"
 PRIOR_ADMISSION = ADMISSION
 PRIOR_HASHES = {
@@ -75,15 +77,27 @@ PRIOR_HASHES = {
 WHOLE_SECONDS = 120
 CASE_SECONDS = 15
 _QUARANTINED = []
+PRIOR_HEADER_PROOF = HEADER_PROOF_BASE / "snapshot-proof-m_c_seem"
+PRIOR_HEADER_HASHES = {
+    "cases.json": "003cbad44e0f1fb9ed94dd1efb63f03a13193282ed8e767f09cbf51564c622e3",
+    "decision.json": "09b2cbe5e95bccd1807214f89c9ed04b9969139559c9f51e41c824c4d2db1ffb",
+    "manifest.json": "3fc81e48088d73b32d402a7a301a615f08a25c227b41a9694d88770d8c48db6a",
+    "policy.json": "1b8080b414c4b1ada810e053523eaca2ac958fe854076e2c4cba3d12dd190bab",
+    "request.json": "aad639f73270574e495f5609a91da61a02cc7465ff030270a6ad31db13c1b1fd",
+}
 
 
 class SnapshotRefused(ValueError):
     """Stable operator refusal; no network or GPG diagnostics in its text."""
 
 
-def policy():
-    return {
-        "schema": "zelo-media-source-snapshot-stage-s-policy-v1",
+def policy(*, followup: bool = False):
+    specification = {
+        "schema": (
+            "zelo-media-source-snapshot-stage-s2-policy-v1"
+            if followup
+            else "zelo-media-source-snapshot-stage-s-policy-v1"
+        ),
         "snapshot_id": snapshot.SNAPSHOT_ID,
         "host": transport.SNAPSHOT_HOST,
         "release_path": stage.RELEASE_PATH,
@@ -110,9 +124,11 @@ def policy():
         "keyring": KEYRING,
         "signer": snapshot.origin.FINGERPRINT,
         "guest_input_difference": "one fixed source identity in reviewed origin guest",
-        "proof_scope": str(PROOF_BASE / "snapshot-proof-*"),
-        "admission_scope": str(ADMISSION),
-        "decision_path": str(decision.DECISION_PATH),
+        "proof_scope": str((FOLLOWUP_PROOF_BASE if followup else PROOF_BASE) / "snapshot-proof-*"),
+        "admission_scope": str(FOLLOWUP_ADMISSION if followup else ADMISSION),
+        "decision_path": str(
+            decision.FOLLOWUP_DECISION_PATH if followup else decision.DECISION_PATH
+        ),
         "decision_max_bytes": decision.MAX_BYTES,
         "decision_lifetime_seconds": 600,
         "host_assumption": "trusted-ancestors-and-no-concurrent-mutator",
@@ -121,6 +137,19 @@ def policy():
         "decoder_qualified": False,
         "runtime_authority": False,
     }
+    if followup:
+        specification.update(
+            {
+                "duplicate_metadata_headers": "unused-duplicates-validated;critical-singular",
+                "prior_stage_s_proof": str(PRIOR_PROOF),
+                "prior_stage_s_hashes": PRIOR_HASHES,
+                "prior_stage_h_proof": str(PRIOR_HEADER_PROOF),
+                "prior_stage_h_hashes": PRIOR_HEADER_HASHES,
+                "prior_stage_h_admission": str(HEADER_ADMISSION),
+                "decision_minimum_remaining_seconds": WHOLE_SECONDS,
+            }
+        )
+    return specification
 
 
 def _journal(state: _State, ledger: evidence.StageSLedger, name: str, value) -> bytes:
@@ -217,6 +246,76 @@ def _verify_spent_stage_s() -> None:
                 raise SnapshotRefused("media_header_prior_drift")
         finally:
             os.close(fd)
+
+
+def _verify_spent_stage_h() -> None:
+    """Pin the consumed diagnostic and its empty lease before a new source input."""
+    root = PRIOR_HEADER_PROOF.parent
+    for folder in (root, PRIOR_HEADER_PROOF, HEADER_ADMISSION):
+        info = folder.lstat()
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.geteuid()
+            or info.st_gid != os.getegid()
+            or stat.S_IMODE(info.st_mode) != 0o700
+        ):
+            raise SnapshotRefused("media_snapshot_prior_header_directory")
+    if set(os.listdir(root)) != {PRIOR_HEADER_PROOF.name} or set(
+        os.listdir(PRIOR_HEADER_PROOF)
+    ) != set(PRIOR_HEADER_HASHES):
+        raise SnapshotRefused("media_snapshot_prior_header_entries")
+    for path, expected in (
+        *((PRIOR_HEADER_PROOF / name, digest) for name, digest in PRIOR_HEADER_HASHES.items()),
+        (HEADER_ADMISSION / "active.marker", hashlib.sha256(b"").hexdigest()),
+    ):
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            before = os.fstat(fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.geteuid()
+                or before.st_gid != os.getegid()
+                or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_nlink != 1
+                or not 0 <= before.st_size <= 1048576
+            ):
+                raise SnapshotRefused("media_snapshot_prior_header_file")
+            raw = os.read(fd, before.st_size + 1)
+            after = os.fstat(fd)
+            stable = (
+                "st_dev",
+                "st_ino",
+                "st_mode",
+                "st_nlink",
+                "st_size",
+                "st_mtime_ns",
+                "st_ctime_ns",
+            )
+            if (
+                len(raw) != before.st_size
+                or hashlib.sha256(raw).hexdigest() != expected
+                or any(getattr(before, key) != getattr(after, key) for key in stable)
+            ):
+                raise SnapshotRefused("media_snapshot_prior_header_drift")
+        finally:
+            os.close(fd)
+
+
+def _private_followup_admission() -> None:
+    if FOLLOWUP_ADMISSION.parent != HOST_ROOT or FOLLOWUP_PROOF_BASE.parent != HOST_ROOT:
+        raise SnapshotRefused("media_snapshot_followup_host_root")
+    parent = HOST_ROOT.lstat()
+    target = FOLLOWUP_ADMISSION.lstat()
+    if (
+        not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.geteuid()
+        or parent.st_mode & 0o022
+        or not stat.S_ISDIR(target.st_mode)
+        or target.st_uid != os.geteuid()
+        or target.st_gid != os.getegid()
+        or stat.S_IMODE(target.st_mode) != 0o700
+    ):
+        raise SnapshotRefused("media_snapshot_followup_host_admission")
 
 
 def header_policy():
@@ -402,12 +501,13 @@ class _HeaderInput:
 
 
 class _Inputs:
-    def __init__(self, state, ledger, context, deadline, pins):
+    def __init__(self, state, ledger, context, deadline, pins, *, followup=False):
         self.state = state
         self.ledger = ledger
         self.context = context
         self.deadline = deadline
         self.pins = pins
+        self.followup = followup
         self.calls = 0
 
     def fetch(self, path: str, maximum: int, expected: dict | None = None) -> bytes:
@@ -442,7 +542,9 @@ class _Inputs:
         request_raw = None
         try:
             response = owner.request(path)
-            size = transport.bounded_content_length(response, maximum)
+            size = transport.bounded_content_length(
+                response, maximum, allow_duplicate_metadata=self.followup
+            )
             if expected is not None and size != expected["bytes"]:
                 raise SnapshotRefused("media_snapshot_declared_size")
             received = 0
@@ -549,7 +651,7 @@ class _Inputs:
         return result.stdout, result.stderr, result.exit_code, observation.cleanup_confirmed
 
 
-def _qualify(decision_sha: str | None = None):
+def _qualify(decision_sha: str | None = None, *, followup: bool = False):
     if decision_sha is None:
         raise SnapshotRefused("media_snapshot_decision_missing")
     if not _ISOLATED_RUNTIME:
@@ -557,10 +659,13 @@ def _qualify(decision_sha: str | None = None):
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise SnapshotRefused("media_snapshot_operator_ids")
     deadline = time.monotonic() + WHOLE_SECONDS
-    specification = policy()
+    if followup and decision.FOLLOWUP_MINIMUM_SECONDS != WHOLE_SECONDS:
+        raise SnapshotRefused("media_snapshot_followup_lifetime")
+    specification = policy(followup=followup)
     digest = shared._digest(specification)
-    decision_raw = decision.validate(
-        path=decision.DECISION_PATH,
+    validate = decision.validate_followup if followup else decision.validate
+    decision_raw = validate(
+        path=decision.FOLLOWUP_DECISION_PATH if followup else decision.DECISION_PATH,
         expected_sha256=decision_sha,
         root=ROOT,
         policy_digest=digest,
@@ -570,15 +675,22 @@ def _qualify(decision_sha: str | None = None):
         ),
         caps=(evidence.RELEASE_CAP, evidence.SOURCES_CAP),
     )
-    admission_path = ADMISSION
+    if followup:
+        _verify_spent_stage_s()
+        _verify_spent_stage_h()
+    admission_path = FOLLOWUP_ADMISSION if followup else ADMISSION
     admission_path.mkdir(mode=0o700, exist_ok=True)
-    _private_host_admission()
+    if followup:
+        _private_followup_admission()
+    else:
+        _private_host_admission()
     state = _State()
     lease = AdmissionController(admission_path).acquire(digest)
     ledger = None
     proof_raw = None
     try:
-        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, PROOF_BASE))
+        proof_base = FOLLOWUP_PROOF_BASE if followup else PROOF_BASE
+        ledger = evidence.StageSLedger(_helper(state, evidence.allocate_attempt, proof_base))
         _journal(state, ledger, "policy.json", specification)
         _helper(state, ledger.save_journal, "decision.json", decision_raw)
         package_operator._baseline(state, deadline)
@@ -587,7 +699,7 @@ def _qualify(decision_sha: str | None = None):
         pins = {}
         for role, pin in (("tool", TOOL), ("keyring", KEYRING)):
             pins[role], _ = origin_operator._host_file(state, *pin)
-        inputs = _Inputs(state, ledger, context, deadline, pins)
+        inputs = _Inputs(state, ledger, context, deadline, pins, followup=followup)
         selected = stage.assess_snapshot(inputs.fetch, inputs.verify)
         if inputs.calls != 2 or not state.processes_settled or not state.close_ok:
             raise SnapshotRefused("media_snapshot_incomplete")
@@ -596,7 +708,11 @@ def _qualify(decision_sha: str | None = None):
             ledger,
             "manifest.json",
             {
-                "schema": "zelo-media-source-snapshot-stage-s-manifest-v1",
+                "schema": (
+                    "zelo-media-source-snapshot-stage-s2-manifest-v1"
+                    if followup
+                    else "zelo-media-source-snapshot-stage-s-manifest-v1"
+                ),
                 "policy_digest": digest,
                 "decision_sha256": hashlib.sha256(decision_raw).hexdigest(),
                 "ca_sha256": hashlib.sha256(ca).hexdigest(),
@@ -610,7 +726,11 @@ def _qualify(decision_sha: str | None = None):
             ledger,
             "cases.json",
             {
-                "status": "stage-s-conditional-accepted-pending-support-release",
+                "status": (
+                    "stage-s2-conditional-accepted-pending-support-release"
+                    if followup
+                    else "stage-s-conditional-accepted-pending-support-release"
+                ),
                 "policy_digest": digest,
                 "manifest_sha256": hashlib.sha256(manifest_raw).hexdigest(),
                 "requests": inputs.calls,
@@ -647,7 +767,11 @@ def _qualify(decision_sha: str | None = None):
         raise SnapshotRefused("media_snapshot_support_release")
     transport.check_deadline(deadline)
     return {
-        "status": "stage-s-conditional-archive-source-evidence",
+        "status": (
+            "stage-s2-conditional-archive-source-evidence"
+            if followup
+            else "stage-s-conditional-archive-source-evidence"
+        ),
         "proof": str(ledger.path / "cases.json"),
         "proof_sha256": hashlib.sha256(proof_raw).hexdigest(),
         "policy_digest": digest,
@@ -752,12 +876,15 @@ def main():
     parser.add_argument("--run", action="store_true", required=True)
     parser.add_argument("--decision-sha256")
     parser.add_argument("--headers-diagnostic", action="store_true")
+    parser.add_argument("--followup-source", action="store_true")
     args = parser.parse_args()
+    if args.headers_diagnostic and args.followup_source:
+        parser.error("choose one input mode")
     try:
         if args.headers_diagnostic:
             result = _qualify_header_diagnostic(args.decision_sha256)
         else:
-            result = _qualify(args.decision_sha256)
+            result = _qualify(args.decision_sha256, followup=args.followup_source)
     except Exception:
         print(
             "media_header_diagnostic_refused"
