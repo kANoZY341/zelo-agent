@@ -51,7 +51,10 @@ The operator is inert without an isolated `python -I` entrypoint,
 `/home/zelo/zelo/media-source-snapshot-stage-h-decision.json`. The file must
 match the supplied SHA-256 and bind the then-current clean public main SHA and
 tree, exact policy digest and URL, one additional attempt, zero body bytes,
-no runtime authority and issue/expiry times at most ten minutes apart. The
+no runtime authority and issue/expiry times at most ten minutes apart. At
+validation, at least 120 seconds must remain, covering the cooperative
+whole-attempt deadline from its earlier start. Network and filesystem calls
+are not hard bounded, so this does not guarantee settlement by expiry. The
 checked-out bytes are hashed against the Git tree, including index-hidden
 files, before admission. A local file alone does not authenticate the
 Managing Director or establish the public-main identity; both require an

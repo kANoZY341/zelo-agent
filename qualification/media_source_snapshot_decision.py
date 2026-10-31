@@ -11,6 +11,7 @@ from pathlib import Path
 
 DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-s-decision.json")
 HEADER_DECISION_PATH = Path("/home/zelo/zelo/media-source-snapshot-stage-h-decision.json")
+HEADER_MINIMUM_SECONDS = 120
 HOST_ROOT = Path("/home/zelo/zelo")
 MAX_BYTES = 8192
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -334,6 +335,7 @@ def validate_header_diagnostic(
         or clock.tzinfo is None
         or clock.utcoffset() != timedelta(0)
         or not issued <= clock < expiry <= issued + timedelta(minutes=10)
+        or clock + timedelta(seconds=HEADER_MINIMUM_SECONDS) > expiry
     ):
         _refuse("expired")
     return raw

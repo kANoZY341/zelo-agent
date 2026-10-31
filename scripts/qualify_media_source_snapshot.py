@@ -241,6 +241,7 @@ def header_policy():
         "decision_path": str(decision.HEADER_DECISION_PATH),
         "decision_max_bytes": decision.MAX_BYTES,
         "decision_lifetime_seconds": 600,
+        "decision_minimum_remaining_seconds": decision.HEADER_MINIMUM_SECONDS,
         "prior_stage_s_proof": str(PRIOR_PROOF),
         "prior_stage_s_hashes": PRIOR_HASHES,
         "prior_stage_s_admission": str(PRIOR_ADMISSION),
@@ -642,6 +643,8 @@ def _qualify_header_diagnostic(decision_sha: str | None = None):
         raise SnapshotRefused("media_header_isolation_missing")
     if os.getresuid() != (1000, 1000, 1000) or os.getresgid() != (1000, 1000, 1000):
         raise SnapshotRefused("media_header_operator_ids")
+    if decision.HEADER_MINIMUM_SECONDS != WHOLE_SECONDS:
+        raise SnapshotRefused("media_header_lifetime")
     deadline = time.monotonic() + WHOLE_SECONDS
     specification = header_policy()
     digest = shared._digest(specification)

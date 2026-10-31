@@ -113,6 +113,15 @@ def test_header_decision_binds_private_file_and_single_url(tmp_path: Path):
             )
             == raw
         )
+        with pytest.raises(decision.DecisionRefused, match="expired"):
+            decision.validate_header_diagnostic(
+                path=path,
+                expected_sha256=hashlib.sha256(raw).hexdigest(),
+                root=tmp_path,
+                policy_digest="c" * 64,
+                url=value["url"],
+                now=datetime(2026, 10, 31, 7, 8, tzinfo=UTC),
+            )
         value["body_bytes"] = 1
         changed = (json.dumps(value, sort_keys=True) + "\n").encode()
         path.write_bytes(changed)
