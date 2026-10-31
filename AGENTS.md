@@ -105,6 +105,15 @@ edits. Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
+Current 31 October checkpoint: the separately authorized ninth native Reader
+attempt passed the bounded synthetic matrix once (issue #166 comment 6520804167).
+Its actual package provenance, image decoder and Core runtime authority remain
+false. Stage S and Stage H snapshot inputs are consumed; Stage S2 is prepared
+on main `8e4e0ff1f2106544cf3b3ec3aebff60346c3a0e0` but has zero input
+authority. No tenth native attempt, Stage S2 input or v0.15 release is
+authorized by this status. The historical eighth-attempt text below describes
+its dated checkpoint, not current authority.
+
 The four earlier native Media Reader refusals and separately authorized fifth,
 sixth, seventh and eighth refusals remain terminal. The eighth one-run
 decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`, tree
@@ -118,12 +127,18 @@ The seventh `native-reader-proof-v2sr2b2m` refusal remains pinned at
 the sixth underlying matrix exception was not persisted. The separately
 approved one-use cleanup of the pinned sixth image has completion SHA-256
 `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
-After the eighth refusal the marker and lease-labelled Docker namespace are
-empty. [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) integrated the Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`); exact-head and distinct main CI passed. A proposed ninth-path source and read-only ledger have no run authority. **No ninth native proof is authorized.** See `docs/v0.15-release-closeout.md`.
+After the eighth refusal the marker and lease-labelled Docker namespace were
+empty. [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283)
+integrated the Docker nullable OOM default correction as main
+`14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree
+`aa9ab97646b8ac611f41aa772d7c9d8481174f68`); exact-head and distinct
+main CI passed. The proposed ninth path had no run authority at that
+checkpoint; the later ninth synthetic pass is recorded above.
 Never reset, delete, bypass, reframe or reclassify a refusal as successful.
-No native matrix or release success follows. Release cannot silently defer the
-originally required runtime: record the blocker and obtain a separate operator
-release-scope decision if necessary. See issue #166 for current gates.
+No release success follows. Release cannot silently defer the originally
+required runtime: record the blocker and obtain a separate operator
+release-scope decision if necessary. See issue #166 and
+`docs/v0.15-release-closeout.md` for current gates.
 
 ## Earlier Core-first work and source restrictions (8 October 2026)
 

@@ -2,7 +2,16 @@
 
 ## Status
 
-**28 October eighth Reader refusal:** The one-use decision at reviewed main
+**31 October current checkpoint:** The ninth Reader attempt passed only the
+bounded synthetic matrix; its [receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6520804167)
+records false actual-package provenance, decoder and Core runtime authority.
+[PR #293](https://github.com/kANoZY341/zelo-agent/pull/293) integrated a
+separate Stage S2 source input candidate on main `8e4e0ff1f2106544cf3b3ec3aebff60346c3a0e0`.
+Stage S and H are spent; Stage S2 has no input decision or proof. No tenth
+native attempt or v0.15 release is authorized. The dated text below is
+historical; full v0.15 remains **HOLD**.
+
+**Historical 28 October eighth Reader refusal:** The one-use decision at reviewed main
 `90afa73d7383ddba39553e7cfd40233c91375e77` was consumed. The
 retained eighth `cases.json` SHA-256 is
 `9d11825abaa2b707e6d7d928155c958d39f5460a123694c5039a1f7fa69c0bc7`;

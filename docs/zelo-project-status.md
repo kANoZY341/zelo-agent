@@ -1,8 +1,17 @@
 # Zelo live project status
 
-**29 October integration and ninth-path preparation:** [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) merged the narrowly scoped Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`). [PR CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40780296539) and distinct [main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40782574947) each passed 6,881 tests with two skipped. A new read-only eight-refusal ledger and one-use ninth-path code are under review; neither grants an attempt. Eight of eight refusals remain terminal, no ninth attempt is authorized, and v0.15 is **HOLD**. See the [issue #166 integration receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6483006388).
+**31 October current checkpoint:** The ninth native Reader attempt passed its
+bounded synthetic matrix once; [the retained receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6520804167)
+records false actual-package provenance, decoder and Core runtime authority.
+[PR #293](https://github.com/kANoZY341/zelo-agent/pull/293) merged the
+Stage S2 one-use candidate at main `8e4e0ff1f2106544cf3b3ec3aebff60346c3a0e0`;
+its input has not run or been authorized. Stage S and H are consumed. No
+tenth native attempt or v0.15 tag exists. The full release remains **HOLD**.
+The older dated checkpoints below are historical, not current authority.
 
-**28 October eighth native Reader checkpoint:** The separately authorized
+**Historical 29 October integration and ninth-path preparation:** [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) merged the narrowly scoped Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`). [PR CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40780296539) and distinct [main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40782574947) each passed 6,881 tests with two skipped. A new read-only eight-refusal ledger and one-use ninth-path code are under review; neither grants an attempt. Eight of eight refusals remain terminal, no ninth attempt is authorized, and v0.15 is **HOLD**. See the [issue #166 integration receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6483006388).
+
+**Historical 28 October eighth native Reader checkpoint:** The separately authorized
 one-use decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`
 was consumed through [issue #166 comment 6455367560](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6455367560).
 Attempt `native-reader-proof-plhsvu3q` is terminally **REFUSED** at the
