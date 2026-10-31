@@ -825,8 +825,12 @@ def test_skill_reconciliation_migration_failure_preserves_data_and_retries(setti
         database.close()
 
 
-def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None:
-    """A stopped Core can return to its prior SQLite snapshot and retry upgrade."""
+@pytest.mark.parametrize(
+    "starting_revision",
+    ["0025_hierarchy_child_creation", "0046_skill_publication_one_attempt"],
+)
+def test_upgrade_can_restore_prior_backup(settings, starting_revision) -> None:
+    """A stopped Core can restore a v0.14-era or newer snapshot and retry upgrade."""
     database = Database(settings.database_path)
     backup_path = settings.runtime_dir / "before-skill-reconciliation.sqlite3"
     table = "skill_publication_post_attempt_reconciliations"
@@ -834,7 +838,7 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
         config = migration_config()
         with database.engine.connect() as connection:
             config.attributes["connection"] = connection
-            command.upgrade(config, "0046_skill_publication_one_attempt")
+            command.upgrade(config, starting_revision)
         with database.transaction() as session:
             session.execute(
                 text(
@@ -865,7 +869,7 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
             database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0046_skill_publication_one_attempt"
+                starting_revision
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
             assert session.scalar(text("PRAGMA integrity_check")) == "ok"
