@@ -26,6 +26,7 @@ def test_header_summary_reveals_structure_without_peer_values():
             "status": 302,
             "version": 11,
             "chunked": True,
+            "length": None,
             "headers": type(
                 "Headers",
                 (),
@@ -48,15 +49,57 @@ def test_header_summary_reveals_structure_without_peer_values():
         "header_lines": 4,
         "header_count": 3,
         "header_defects": 0,
+        "duplicate_header_names": 0,
+        "invalid_header_names": 0,
+        "invalid_header_values": 0,
         "content_length_count": 0,
         "content_length": None,
+        "content_length_syntax_valid": False,
+        "content_length_within_cap": False,
+        "response_length": None,
         "transfer_encoding_count": 1,
         "chunked": True,
         "content_encoding_count": 0,
         "identity_encoding": False,
+        "acceptable_content_encoding": True,
         "location_count": 1,
     }
     assert "secret" not in json.dumps(summary)
+
+
+def test_header_summary_counts_duplicate_and_invalid_fields_without_values():
+    secret = "sensitive-value\x01"
+    response = type(
+        "Response",
+        (),
+        {
+            "status": 200,
+            "version": 11,
+            "chunked": False,
+            "length": 524289,
+            "headers": type(
+                "Headers",
+                (),
+                {
+                    "defects": (),
+                    "items": lambda self: [
+                        ("Content-Length", "524289"),
+                        ("X-Trace", "ordinary"),
+                        ("x-trace", secret),
+                        ("Bad Name", "other"),
+                    ],
+                },
+            )(),
+        },
+    )()
+    summary = operator._header_summary(response, 110, 5)
+    assert summary["duplicate_header_names"] == 1
+    assert summary["invalid_header_names"] == 1
+    assert summary["invalid_header_values"] == 1
+    assert summary["content_length_syntax_valid"] is True
+    assert summary["content_length_within_cap"] is False
+    assert summary["response_length"] == 524289
+    assert secret not in json.dumps(summary)
 
 
 def test_header_response_accepts_non_200_without_reading_body():
@@ -155,6 +198,7 @@ def test_header_input_starts_one_get_and_retains_no_body(tmp_path: Path, monkeyp
                     "status": 200,
                     "version": 11,
                     "chunked": True,
+                    "length": None,
                     "headers": type(
                         "Headers",
                         (),

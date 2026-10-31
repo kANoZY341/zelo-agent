@@ -282,15 +282,35 @@ def _header_summary(response, header_bytes: int, header_lines: int) -> dict:
     fields = {
         name: [] for name in ("content-length", "transfer-encoding", "content-encoding", "location")
     }
+    seen = set()
+    duplicate_names = 0
+    invalid_names = 0
+    invalid_values = 0
     for name, value in rows:
         if type(name) is not str or type(value) is not str:
             raise SnapshotRefused("media_header_field_shape")
         lowered = name.lower()
+        if lowered in seen:
+            duplicate_names += 1
+        seen.add(lowered)
+        if not transport._TOKEN.fullmatch(name):
+            invalid_names += 1
+        if len(value) > transport.HEADER_LINE_BYTES or any(
+            ord(char) < 32 or ord(char) > 126 for char in value
+        ):
+            invalid_values += 1
         if lowered in fields:
             fields[lowered].append(value)
     lengths = fields["content-length"]
     length = (
         int(lengths[0]) if len(lengths) == 1 and re.fullmatch(r"[0-9]{1,9}", lengths[0]) else None
+    )
+    length_syntax_valid = len(lengths) == 1 and bool(re.fullmatch(r"[1-9][0-9]{0,6}", lengths[0]))
+    response_length = response.length
+    if type(response_length) is not int or not 0 <= response_length <= 999999999:
+        response_length = None
+    identity_encoding = (
+        len(fields["content-encoding"]) == 1 and fields["content-encoding"][0].lower() == "identity"
     )
     return {
         "status": response.status,
@@ -299,15 +319,19 @@ def _header_summary(response, header_bytes: int, header_lines: int) -> dict:
         "header_lines": header_lines,
         "header_count": len(rows),
         "header_defects": len(response.headers.defects),
+        "duplicate_header_names": duplicate_names,
+        "invalid_header_names": invalid_names,
+        "invalid_header_values": invalid_values,
         "content_length_count": len(lengths),
         "content_length": length,
+        "content_length_syntax_valid": length_syntax_valid,
+        "content_length_within_cap": length_syntax_valid and length <= evidence.RELEASE_CAP,
+        "response_length": response_length,
         "transfer_encoding_count": len(fields["transfer-encoding"]),
         "chunked": response.chunked is True,
         "content_encoding_count": len(fields["content-encoding"]),
-        "identity_encoding": (
-            len(fields["content-encoding"]) == 1
-            and fields["content-encoding"][0].lower() == "identity"
-        ),
+        "identity_encoding": identity_encoding,
+        "acceptable_content_encoding": not fields["content-encoding"] or identity_encoding,
         "location_count": len(fields["location"]),
     }
 

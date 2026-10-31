@@ -27,10 +27,11 @@ filesystem hard deadlines apply. The diagnostic response parser accepts a
 non-200 status for *observation* and never promotes it to source evidence.
 
 Retain only numeric and boolean response facts: status, HTTP version, header
-bytes/lines/count and defect count; Content-Length count and a bounded
-decimal value if unambiguous; transfer/content encoding counts, chunked and
-identity flags, and Location count. No header name/value, Location URL,
-cookie, body or peer diagnostic string is retained. If parsing fails before
+bytes/lines/count and defect count; duplicate or invalid name/value counts;
+Content-Length count, a bounded decimal value if unambiguous, syntax and cap
+flags, and parsed response length; transfer/content encoding counts, chunked
+and identity flags, and Location count. No response header name/value,
+Location URL, cookie, body or peer diagnostic string is retained. If parsing fails before
 those facts are available, retain only a fixed bounded refusal code or an
 unclassified failure. No observation authorizes an altered acquisition
 policy; a separate review must decide any transport change.
