@@ -637,6 +637,12 @@ class SkillPublicationOneAttemptService:
         ):
             raise ValueError("skill_publication_single_attempt_stale")
 
+        # Branch protection can change during the local attempt transaction.
+        # Recheck at the external use point; a refusal consumes this one-use
+        # attempt, so no later caller can send under a stale policy.
+        if await self._require_protected_main(fence.repository) != policy_mode:
+            raise DeveloperError("skill_publication_main_protection_changed")
+
         # EXACTLY ONE possible externally visible write after durable commit.
         # There is intentionally no retry loop, public API or Tool registration.
         endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"

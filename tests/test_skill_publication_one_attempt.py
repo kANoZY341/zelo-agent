@@ -156,6 +156,8 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
             },
         )
     )
+    # The final pre-PUT policy observation uses a separate provider GET.
+    transport.responses.append(deepcopy(transport.responses[-1]))
     template = deepcopy(transport.responses)
     transport.calls = []
     return (
@@ -341,10 +343,11 @@ def _solo_source(database, request, store, claim, *, ignored_artifact=False):
 
 
 def _solo_policy(transport):
-    reviews = transport.responses[12][2]["required_pull_request_reviews"]
-    reviews["required_approving_review_count"] = 0
-    reviews["require_last_push_approval"] = False
-    reviews.pop("bypass_pull_request_allowances")
+    for index in (12, 13):
+        reviews = transport.responses[index][2]["required_pull_request_reviews"]
+        reviews["required_approving_review_count"] = 0
+        reviews["require_last_push_approval"] = False
+        reviews.pop("bypass_pull_request_allowances")
 
 
 def _add_success_response(request, transport, template, *, merge_sha="f" * 40):
@@ -598,7 +601,7 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _failures(database) == 0
     assert service.get_failure(claim.id, OPERATOR) is None
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
-    assert len(transport.calls) == 22
+    assert len(transport.calls) == 23
     assert transport.responses == []
     assert store.get_promotion_link(claim.proposal_id) is None
 
@@ -795,7 +798,7 @@ def test_post_put_changed_base_commit_is_unresolved_and_never_retried(
     _add_success_response(request, transport, template)
     # The provider may accept the exact head but merge against a different
     # base in the race between GET and PUT. Never record success or retry.
-    transport.responses[15][2]["parents"][0]["sha"] = "e" * 40
+    transport.responses[16][2]["parents"][0]["sha"] = "e" * 40
     with pytest.raises(DeveloperError, match="single_attempt_outcome_unresolved"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -1135,6 +1138,27 @@ def test_unsafe_main_branch_protection_refuses_before_external_merge(
     assert _rows(database) == (0, 0)
     assert _failures(database) == 0
     assert all(method == "GET" for method, _, _ in transport.calls)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_main_protection_drift_after_attempt_blocks_external_merge(
+    database, proposal_case, tmp_path
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    first = transport.responses[12]
+    second = transport.responses[13]
+    assert first[1] == second[1] and first[1].endswith("/branches/main/protection")
+    second[2]["required_status_checks"]["strict"] = False
+
+    with pytest.raises(DeveloperError, match="skill_publication_main_protection_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (1, 0)
+    assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+    with pytest.raises(ValueError, match="single_attempt_already_recorded"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
 
 
