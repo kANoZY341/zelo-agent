@@ -129,6 +129,39 @@ async def run(value, binding=None):
     )
 
 
+@pytest.mark.parametrize("deadline", [True, float("nan"), float("inf"), "invalid"])
+def test_invalid_direct_deadline_refused_before_renderer(setup, deadline):
+    value = runtime(setup)
+    binding = spec(value)
+    with pytest.raises(BrowserRuntimeError, match="browser_execution_spec_invalid"):
+        asyncio.run(
+            value.run(
+                spec=binding,
+                path=binding.path,
+                timeout_seconds=binding.timeout_seconds,
+                emit=lambda *_: None,
+                deadline=deadline,
+            )
+        )
+    assert value.made == []
+
+
+@pytest.mark.parametrize("timeout", [True, float("nan"), float("inf"), "invalid", 0.0, 31.0])
+def test_invalid_direct_timeout_refused_before_renderer(setup, timeout):
+    value = runtime(setup)
+    binding = spec(value)
+    with pytest.raises(BrowserRuntimeError, match="browser_execution_spec_invalid"):
+        asyncio.run(
+            value.run(
+                spec=binding,
+                path=binding.path,
+                timeout_seconds=timeout,
+                emit=lambda *_: None,
+            )
+        )
+    assert value.made == []
+
+
 def test_disabled_needs_no_files_or_factories(settings, monkeypatch):
     monkeypatch.setattr("app.browser_worker.load_receipt", lambda *_: pytest.fail("receipt opened"))
     assert configured_browser_runtime(settings) is None

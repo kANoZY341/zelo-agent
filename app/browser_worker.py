@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import math
 import os
 import stat
 from collections.abc import Callable
@@ -241,6 +242,16 @@ class BrowserRuntime:
         deadline: float | None = None,
         authorize_action: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
+        if (
+            type(timeout_seconds) not in (int, float)
+            or not math.isfinite(timeout_seconds)
+            or not 0.1 <= timeout_seconds <= 30
+        ):
+            raise BrowserRuntimeError("browser_execution_spec_invalid")
+        if deadline is not None and (
+            type(deadline) not in (int, float) or not math.isfinite(deadline)
+        ):
+            raise BrowserRuntimeError("browser_execution_spec_invalid")
         self._prune_owners()
         loop = asyncio.get_running_loop()
         limit = loop.time() + timeout_seconds
