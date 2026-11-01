@@ -13,12 +13,34 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
+from qualification.dns import QualificationError
+from qualification.renderer_process import DockerHandle
 from scripts.qualify_browser_renderer import (
     cleanup_owned_setup,
     command,
     expected_image_files,
     prepare_candidate,
 )
+
+
+class _HeldDockerHandle(DockerHandle):
+    def __init__(self, *args, rendered: asyncio.Event):
+        super().__init__(*args)
+        self._rendered = rendered
+
+    async def render(self, *args, **kwargs):
+        result = await super().render(*args, **kwargs)
+        self._rendered.set()
+        await asyncio.Event().wait()
+        return result
+
+
+class _LostAckDockerHandle(DockerHandle):
+    async def _command(self, *args, **kwargs):
+        value = await super()._command(*args, **kwargs)
+        if args[0] == "create":
+            raise QualificationError("controlled_lost_ack")
+        return value
 
 
 async def exercise_core(image, bundle, manifest, attachment, root):
@@ -35,7 +57,6 @@ async def exercise_core(image, bundle, manifest, attachment, root):
     from app.worker_registry import Supervisor, WorkerRegistry, descriptor_for_browser_worker
     from qualification.broker import PageSession, Policy
     from qualification.browser_seccomp import build_profile
-    from qualification.dns import QualificationError
     from qualification.renderer import DocumentRenderer
     from qualification.renderer_contracts import (
         CONTROLLER_DIGEST,
@@ -44,7 +65,6 @@ async def exercise_core(image, bundle, manifest, attachment, root):
         RendererContract,
         origins_digest,
     )
-    from qualification.renderer_process import DockerHandle
     from qualification.runtime_contracts import ExecutionPolicy, ResourcePolicy
 
     registry = ApiEndpointRegistry.from_entries(("fixture=https://example.com",))
@@ -101,20 +121,6 @@ async def exercise_core(image, bundle, manifest, attachment, root):
         async def aclose(self):
             pass
 
-    class Held(DockerHandle):
-        async def render(self, *args):
-            result = await super().render(*args)
-            rendered.set()
-            await asyncio.Event().wait()
-            return result
-
-    class LostAck(DockerHandle):
-        async def _command(self, *args):
-            value = await super()._command(*args)
-            if args[0] == "create":
-                raise QualificationError("controlled_lost_ack")
-            return value
-
     class DelayedCleanup(DockerHandle):
         async def _cleanup(self):
             cleanup_started.set()
@@ -142,13 +148,15 @@ async def exercise_core(image, bundle, manifest, attachment, root):
             )
 
         def handle_factory(*handle_args):
-            kind = {
-                "normal": DockerHandle,
-                "held": Held,
-                "lost": LostAck,
-                "cleanup": DelayedCleanup,
-            }[handle_kind]
-            handle = kind(*handle_args)
+            if handle_kind == "held":
+                handle = _HeldDockerHandle(*handle_args, rendered=rendered)
+            else:
+                kind = {
+                    "normal": DockerHandle,
+                    "lost": _LostAckDockerHandle,
+                    "cleanup": DelayedCleanup,
+                }[handle_kind]
+                handle = kind(*handle_args)
             handles.append(handle)
             return handle
 
