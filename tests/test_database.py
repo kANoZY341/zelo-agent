@@ -850,6 +850,14 @@ def test_upgrade_can_restore_prior_backup(settings, starting_revision) -> None:
                 ),
                 {"action": "a" * 64, "request": "b" * 64},
             )
+            session.execute(
+                text(
+                    "INSERT INTO audit_events (id,task_id,event,created_at,details) "
+                    "VALUES ('backup-audit','backup-task','snapshot_marker',"
+                    "'2026-01-01 00:00:00',:details)"
+                ),
+                {"details": '{"preserved":true}'},
+            )
         with sqlite3.connect(settings.database_path) as source:
             with sqlite3.connect(backup_path) as destination:
                 source.backup(destination)
@@ -872,6 +880,15 @@ def test_upgrade_can_restore_prior_backup(settings, starting_revision) -> None:
                 starting_revision
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT COUNT(*) FROM audit_events WHERE id='backup-audit' "
+                        "AND task_id='backup-task'"
+                    )
+                )
+                == 1
+            )
             assert session.scalar(text("PRAGMA integrity_check")) == "ok"
 
         database.migrate()
@@ -879,6 +896,15 @@ def test_upgrade_can_restore_prior_backup(settings, starting_revision) -> None:
         assert table in inspect(database.engine).get_table_names()
         with database.read() as session:
             assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT COUNT(*) FROM audit_events WHERE id='backup-audit' "
+                        "AND task_id='backup-task'"
+                    )
+                )
+                == 1
+            )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
         database.close()
