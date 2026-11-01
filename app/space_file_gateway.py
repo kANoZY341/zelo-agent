@@ -127,6 +127,17 @@ def _stamp(info: os.stat_result) -> tuple[int, ...]:
     )
 
 
+def _require_runtime_root_unchanged(runtime_dir: Path, root_fd: int) -> None:
+    """Refuse a pinned tree that is no longer at the configured runtime path."""
+    visible = os.stat(runtime_dir, follow_symlinks=False)
+    opened = os.fstat(root_fd)
+    if not stat.S_ISDIR(visible.st_mode) or (
+        visible.st_dev,
+        visible.st_ino,
+    ) != (opened.st_dev, opened.st_ino):
+        raise OSError("runtime_root_changed")
+
+
 def _list_bounded_entries(
     runtime_dir: Path,
     *,
@@ -211,6 +222,7 @@ def _list_bounded_entries(
                 visible.st_ino,
             ) != (referenced.st_dev, referenced.st_ino):
                 raise OSError("space_directory_alias_changed")
+        _require_runtime_root_unchanged(runtime_dir, opened[0])
         return tuple(sorted(names, key=lambda item: str(item["path"])))
     except (OSError, ValueError):
         raise DomainError("Space directory listing unavailable or unsafe", 409) from None
@@ -291,6 +303,7 @@ def _open_bounded_utf8(
                 referenced.st_ino,
             ):
                 raise OSError("space_directory_alias_changed")
+        _require_runtime_root_unchanged(runtime_dir, opened[0])
         raw = bytes(content)
         text = raw.decode("utf-8", errors="strict")
         return text, len(raw), hashlib.sha256(raw).hexdigest()

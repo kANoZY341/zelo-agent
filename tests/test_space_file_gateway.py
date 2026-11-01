@@ -583,3 +583,102 @@ def test_no_delegation_or_other_task_kind_auto_grants_file_access(database, sett
     with pytest.raises(DomainError, match="claimed Computer execution"):
         _read(env, replace(execution, kind="research_run"))
     assert _read(env, execution).text == "no"
+
+
+def test_runtime_root_replacement_during_read_refuses_content(tmp_path, monkeypatch):
+    import app.space_file_gateway as module
+
+    runtime = tmp_path / "runtime"
+    root = runtime / "spaces" / "project" / "workroom" / "documents"
+    root.mkdir(parents=True)
+    (root / "notes.txt").write_text("private")
+    identity = root.stat()
+    original_read = module.os.read
+    moved = False
+
+    def replace_runtime_at_read(fd, count):
+        nonlocal moved
+        if not moved:
+            moved = True
+            runtime.rename(tmp_path / "relocated")
+            runtime.mkdir()
+        return original_read(fd, count)
+
+    monkeypatch.setattr(module.os, "read", replace_runtime_at_read)
+    with pytest.raises(DomainError, match="unavailable or unsafe"):
+        module._open_bounded_utf8(
+            runtime,
+            project_id="project",
+            space_id="workroom",
+            resource_id="documents",
+            device=identity.st_dev,
+            inode=identity.st_ino,
+            relative_parts=("notes.txt",),
+        )
+    assert moved
+
+
+def test_runtime_root_replacement_during_list_refuses_metadata(tmp_path, monkeypatch):
+    import app.space_file_gateway as module
+
+    runtime = tmp_path / "runtime"
+    root = runtime / "spaces" / "project" / "workroom" / "documents"
+    root.mkdir(parents=True)
+    (root / "notes.txt").write_text("private")
+    identity = root.stat()
+    original_scandir = module.os.scandir
+    moved = False
+
+    def replace_runtime_at_list(fd):
+        nonlocal moved
+        if not moved:
+            moved = True
+            runtime.rename(tmp_path / "relocated")
+            runtime.mkdir()
+        return original_scandir(fd)
+
+    monkeypatch.setattr(module.os, "scandir", replace_runtime_at_list)
+    with pytest.raises(DomainError, match="unavailable or unsafe"):
+        module._list_bounded_entries(
+            runtime,
+            project_id="project",
+            space_id="workroom",
+            resource_id="documents",
+            device=identity.st_dev,
+            inode=identity.st_ino,
+            relative_parts=(),
+        )
+    assert moved
+
+
+def test_gateway_runtime_root_replacement_denies_read_and_audit(database, settings, monkeypatch):
+    import app.space_file_gateway as module
+
+    isolated_runtime = settings.runtime_dir / "space-runtime"
+    isolated_runtime.mkdir()
+    space_settings = settings.model_copy(update={"runtime_dir": isolated_runtime})
+    env = _fixture(database, space_settings)
+    (env["root"] / "notes.txt").write_text("private")
+    execution = _claim(env)
+    original_read = module.os.read
+    moved = False
+
+    def replace_runtime_at_read(fd, count):
+        nonlocal moved
+        if not moved:
+            moved = True
+            isolated_runtime.rename(settings.runtime_dir / "relocated-space-runtime")
+            isolated_runtime.mkdir()
+        return original_read(fd, count)
+
+    monkeypatch.setattr(module.os, "read", replace_runtime_at_read)
+    with pytest.raises(DomainError, match="unavailable or unsafe"):
+        _read(env, execution)
+    assert moved
+    with database.read() as session:
+        assert not session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.task_id == execution.task_id,
+                AuditEvent.event == "space_file_read_completed",
+            )
+        ).all()
