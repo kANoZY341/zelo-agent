@@ -129,7 +129,7 @@ async def run(value, binding=None):
     )
 
 
-@pytest.mark.parametrize("deadline", [True, float("nan"), float("inf"), "invalid"])
+@pytest.mark.parametrize("deadline", [True, float("nan"), float("inf"), "invalid", 10**1000])
 def test_invalid_direct_deadline_refused_before_renderer(setup, deadline):
     value = runtime(setup)
     binding = spec(value)
@@ -146,7 +146,9 @@ def test_invalid_direct_deadline_refused_before_renderer(setup, deadline):
     assert value.made == []
 
 
-@pytest.mark.parametrize("timeout", [True, float("nan"), float("inf"), "invalid", 0.0, 31.0])
+@pytest.mark.parametrize(
+    "timeout", [True, float("nan"), float("inf"), "invalid", 0.0, 31.0, 10**1000]
+)
 def test_invalid_direct_timeout_refused_before_renderer(setup, timeout):
     value = runtime(setup)
     binding = spec(value)
