@@ -1,9 +1,9 @@
-"""Operator-only API for *inert* learned-Skill publication evidence.
+"""Operator-only API for reviewed learned-Skill publication.
 
-Never grants GitHub merge, Skill loading, Worker, Tool or delegated authority.
-Only the explicit owner can reserve or inspect a claim, record an immutable
-review decision and link an independently positive merge receipt. Fresh external
-checks use GET only and fail closed.
+Claim, review and fence preparation use provider GET only. The separate
+one-attempt merge route is default disabled and requires an exact owner
+confirmation plus all service-side source, CI, policy and durable retry gates.
+Neither a receipt nor this API activates a Skill or broadens Agent authority.
 """
 
 import json
@@ -16,6 +16,10 @@ from sqlalchemy import select
 from app.auth import OperatorPrincipal, require_operator
 from app.developer_process import DeveloperError
 from app.models import (
+    SkillPublicationDispatchFenceRecord,
+    SkillPublicationMergeAttemptRecord,
+    SkillPublicationMergeFailureRecord,
+    SkillPublicationMergeReceiptRecord,
     SkillPublicationOperatorDecisionRecord,
     SkillPublicationPromotionReceiptLinkRecord,
 )
@@ -34,13 +38,21 @@ from app.skill_publication_claim import (
     SkillPublicationClaim,
     SkillPublicationClaimService,
 )
-from app.skill_publication_dispatch_fence import SkillPublicationDispatchFenceService
+from app.skill_publication_dispatch_fence import (
+    SkillPublicationDispatchFence,
+    SkillPublicationDispatchFenceService,
+)
 from app.skill_publication_intent import prepare_skill_publication_intent
 from app.skill_publication_merge_preview import (
     SkillPublicationMergePreview,
     SkillPublicationMergePreviewService,
 )
-from app.skill_publication_one_attempt import SkillPublicationOneAttemptService
+from app.skill_publication_one_attempt import (
+    SkillPublicationMergeAttempt,
+    SkillPublicationMergeFailure,
+    SkillPublicationMergeReceipt,
+    SkillPublicationOneAttemptService,
+)
 from app.skill_publication_operator_decision import (
     SkillPublicationOperatorDecision,
     SkillPublicationOperatorDecisionService,
@@ -96,6 +108,20 @@ class SkillPositiveReceiptLinkRequest(BaseModel):
     merge_request: MergeRequest
 
 
+class SkillDispatchFenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    confirmation: Literal["APPROVE_EXACT_SKILL_PUBLICATION_FENCE_NO_SEND"]
+    merge_request: MergeRequest
+
+
+class SkillMergeOnceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    confirmation: Literal["MERGE_EXACT_APPROVED_SKILL_ONCE_WITHOUT_RETRY"]
+    merge_request: MergeRequest
+
+
 def _claims(request: Request) -> SkillPublicationClaimService:
     return SkillPublicationClaimService(request.app.state.skill_learning_store)
 
@@ -112,17 +138,26 @@ def _remote(request: Request) -> SkillPublicationRemoteEvidenceService:
     )
 
 
+def _fences(request: Request) -> SkillPublicationDispatchFenceService:
+    return SkillPublicationDispatchFenceService(
+        SkillPublicationBlobEvidenceService(_remote(request))
+    )
+
+
 def _post_attempt_reconciler(request: Request) -> SkillPublicationPostAttemptReconciliationService:
-    remote = _remote(request)
-    fences = SkillPublicationDispatchFenceService(SkillPublicationBlobEvidenceService(remote))
-    return SkillPublicationPostAttemptReconciliationService(fences, transport=remote.transport)
+    fences = _fences(request)
+    return SkillPublicationPostAttemptReconciliationService(
+        fences, transport=fences.blob.remote.transport
+    )
+
+
+def _one_attempt(request: Request) -> SkillPublicationOneAttemptService:
+    fences = _fences(request)
+    return SkillPublicationOneAttemptService(fences, request.app.state.settings)
 
 
 def _promotion_receipt_linker(request: Request) -> SkillPublicationPromotionReceiptLinkService:
-    remote = _remote(request)
-    fences = SkillPublicationDispatchFenceService(SkillPublicationBlobEvidenceService(remote))
-    one_attempt = SkillPublicationOneAttemptService(fences, request.app.state.settings)
-    return SkillPublicationPromotionReceiptLinkService(one_attempt)
+    return SkillPublicationPromotionReceiptLinkService(_one_attempt(request))
 
 
 def _refuse_code(error: ValueError | PermissionError, default: str) -> HTTPException:
@@ -404,3 +439,122 @@ def read_historical_review_selection(
         if row is None:
             raise HTTPException(status_code=404, detail="skill_publication_decision_not_found")
         return SkillPublicationOperatorDecision.model_validate(row)
+
+
+@router.post(
+    "/claims/{claim_id}/dispatch-fence",
+    response_model=SkillPublicationDispatchFence,
+    status_code=201,
+)
+async def reserve_exact_dispatch_fence(
+    claim_id: str,
+    body: SkillDispatchFenceRequest,
+    request: Request,
+    response: Response,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationDispatchFence:
+    """Persist an owner-selected no-send fence after fresh provider GETs."""
+    try:
+        fence, created = await _fences(request).reserve(
+            claim_id, body.merge_request, body.confirmation, principal
+        )
+    except DeveloperError as error:
+        raise _remote_error(error) from None
+    except (PermissionError, ValueError) as error:
+        raise _refuse_code(error, "skill_publication_dispatch_fence_refused") from None
+    response.status_code = 201 if created else 200
+    return fence
+
+
+@router.get("/claims/{claim_id}/dispatch-fence", response_model=SkillPublicationDispatchFence)
+def read_exact_dispatch_fence(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationDispatchFence:
+    with request.app.state.skill_learning_store.database.read() as session:
+        row = session.scalar(
+            select(SkillPublicationDispatchFenceRecord).where(
+                SkillPublicationDispatchFenceRecord.claim_id == claim_id
+            )
+        )
+        if row is None:
+            raise HTTPException(
+                status_code=404, detail="skill_publication_dispatch_fence_not_found"
+            )
+        return SkillPublicationDispatchFence.model_validate(row)
+
+
+@router.post(
+    "/claims/{claim_id}/merge-once",
+    response_model=SkillPublicationMergeReceipt,
+    status_code=201,
+)
+async def merge_exact_skill_once(
+    claim_id: str,
+    body: SkillMergeOnceRequest,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationMergeReceipt:
+    """One explicit owner call; a durable attempt blocks every retry."""
+    if request.app.state.settings.skill_publication_external_merge_enabled is not True:
+        raise HTTPException(status_code=409, detail="skill_publication_single_attempt_disabled")
+    try:
+        return await _one_attempt(request).run_once(
+            claim_id, body.merge_request, body.confirmation, principal
+        )
+    except DeveloperError as error:
+        raise _remote_error(error) from None
+    except (PermissionError, ValueError) as error:
+        raise _refuse_code(error, "skill_publication_single_attempt_refused") from None
+
+
+@router.get("/claims/{claim_id}/merge-attempt", response_model=SkillPublicationMergeAttempt)
+def read_merge_attempt(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationMergeAttempt:
+    with request.app.state.skill_learning_store.database.read() as session:
+        row = session.scalar(
+            select(SkillPublicationMergeAttemptRecord).where(
+                SkillPublicationMergeAttemptRecord.claim_id == claim_id
+            )
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="skill_publication_merge_attempt_not_found")
+        return SkillPublicationMergeAttempt.model_validate(row)
+
+
+@router.get("/claims/{claim_id}/merge-receipt", response_model=SkillPublicationMergeReceipt)
+def read_merge_receipt(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationMergeReceipt:
+    with request.app.state.skill_learning_store.database.read() as session:
+        row = session.scalar(
+            select(SkillPublicationMergeReceiptRecord).where(
+                SkillPublicationMergeReceiptRecord.claim_id == claim_id
+            )
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="skill_publication_merge_receipt_not_found")
+        return SkillPublicationMergeReceipt.model_validate(row)
+
+
+@router.get("/claims/{claim_id}/merge-failure", response_model=SkillPublicationMergeFailure)
+def read_merge_failure(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationMergeFailure:
+    with request.app.state.skill_learning_store.database.read() as session:
+        row = session.scalar(
+            select(SkillPublicationMergeFailureRecord).where(
+                SkillPublicationMergeFailureRecord.claim_id == claim_id
+            )
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="skill_publication_merge_failure_not_found")
+        return SkillPublicationMergeFailure.model_validate(row)
