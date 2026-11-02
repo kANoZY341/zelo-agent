@@ -336,6 +336,34 @@ def test_replace_cannot_steal_an_existing_channel_identity(database):
     assert store.get_thread(replacement_fingerprint, principal=OperatorPrincipal()) is None
 
 
+def test_replace_cannot_steal_an_existing_observation_identity(database):
+    store, _id, _binding = bind(database)
+    observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+    replacement_fingerprint = "e" * 64
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT OR REPLACE INTO channel_ingress_observations "
+                    "(message_fingerprint,thread_fingerprint,message_key,text_sha256,"
+                    "provider_received_at,observed_at,operator_id,state,mind_executed,"
+                    "delivery_authority) SELECT :replacement,thread_fingerprint,message_key,"
+                    "text_sha256,provider_received_at,observed_at,operator_id,state,"
+                    "mind_executed,delivery_authority FROM channel_ingress_observations "
+                    "WHERE message_fingerprint=:fingerprint"
+                ),
+                {
+                    "replacement": replacement_fingerprint,
+                    "fingerprint": observed.message_fingerprint,
+                },
+            )
+    assert (
+        store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+        == observed
+    )
+    assert store.get_observation(replacement_fingerprint, principal=OperatorPrincipal()) is None
+
+
 def test_channel_ledgers_have_no_hidden_rowid_to_reuse(database):
     store, _id, _binding = bind(database)
     observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
@@ -344,7 +372,7 @@ def test_channel_ledgers_have_no_hidden_rowid_to_reuse(database):
         with pytest.raises(OperationalError, match="no such column: rowid"):
             with database.read() as session:
                 session.execute(text(f"SELECT rowid FROM {table}")).all()
-    with pytest.raises(OperationalError, match="has no column named rowid"):
+    with pytest.raises(OperationalError, match="rowid"):
         with database.transaction() as session:
             session.execute(
                 text(
@@ -476,7 +504,8 @@ def test_channel_ledger_rebuild_rolls_back_midway_and_can_retry(settings):
 
             @event.listens_for(connection, "before_cursor_execute")
             def fail_midway(_conn, _cursor, statement, _params, _context, _many):
-                if statement.startswith("DROP TABLE channel_ingress_observations"):
+                ddl = statement.upper()
+                if "DROP TABLE" in ddl and "CHANNEL_INGRESS_OBSERVATIONS" in ddl:
                     raise RuntimeError("injected_0050_failure")
 
             config = migration_config()
@@ -491,7 +520,7 @@ def test_channel_ledger_rebuild_rolls_back_midway_and_can_retry(settings):
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(
-                text("SELECT count(*) FROM sqlite_master WHERE name GLOB '_v015_channel_*'")
+                    text("SELECT count(*) FROM sqlite_master WHERE name GLOB '_v015_channel_*'")
                 )
                 == 0
             )

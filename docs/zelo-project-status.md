@@ -1,11 +1,12 @@
 # Zelo live project status
 
-**3 November v0.15 integrity candidate:** Migration 0050 closes a confirmed
+**3 November v0.15 integrity candidate:** Migration 0050 addresses a confirmed
 `INSERT OR REPLACE` bypass of the inert channel binding/observation ledgers.
-Four red regressions became green and 238 affected tests passed on an isolated
-connected-host checkout. A populated upgrade preserved both records and an
-in-place downgrade refused. No production database was touched; exact-head
-CI, independent review, the full audit and v0.15 release remain open.
+After a reviewer caught a hidden-rowid edge case in the first design, the
+candidate rebuilds both linked ledgers as `WITHOUT ROWID` and guards duplicate
+inserts. Populated upgrade, foreign-key, injected rollback and downgrade
+refusal checks are part of the candidate. No production database was touched;
+exact-head CI, the full audit and v0.15 release remain open.
 
 **2 November current v0.15 scope:** The owner explicitly deferred the Media
 PNG thumbnail/native Reader from v0.15. Media remains unavailable and
