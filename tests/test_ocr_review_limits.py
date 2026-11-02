@@ -20,6 +20,18 @@ def test_maximum_contiguous_changed_lines_fit_bounded_reviewer_request(developer
     assert len(reviewer.calls) == 1 and not reviewer.calls[0].exists()
 
 
+def test_migration_review_instruction_covers_populated_downgrade():
+    scope = CandidateOcrScope(
+        base_sha="a" * 40,
+        candidate_content_sha256="b" * 64,
+        diff_sha256="c" * 64,
+        changed_lines=(("migrations/versions/0049_example.py", frozenset({1, 2})),),
+    )
+    instruction = scope.instruction()
+    assert "populated valid rows" in instruction
+    assert "lost audit evidence" in instruction
+
+
 def test_sparse_anchor_instruction_refuses_overflow_instead_of_truncation():
     scope = CandidateOcrScope(
         base_sha="a" * 40,
