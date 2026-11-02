@@ -17,7 +17,9 @@ from types import MappingProxyType
 from app.community_review import bind_ocr_review
 
 SHA = re.compile(r"[a-f0-9]{40}\Z")
-SAFE_PATH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/ -]{0,239}\Z")
+# Brackets are ordinary filename bytes in Next route directories; later Git
+# lookups use an explicit literal pathspec and verify the exact returned path.
+SAFE_PATH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/ \[\]-]{0,239}\Z")
 HUNK = re.compile(rb"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: .*)?$")
 MAX_FILES = 64
 MAX_PATCH = 262144
