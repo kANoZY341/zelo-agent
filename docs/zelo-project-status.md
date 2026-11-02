@@ -1,5 +1,14 @@
 # Zelo live project status
 
+**2 November current v0.15 scope:** The owner explicitly deferred the Media
+PNG thumbnail/native Reader from v0.15. Media remains unavailable and
+unqualified; its failed proofs and spent one-use decisions are preserved.
+This is a scope decision, not a Media PASS or release approval.
+Space/Computer, Skill publication, non-Media Workers, curated integrations,
+release verification, independent audit and the final operator decision
+remain mandatory. v0.15 is **HOLD**; the release interlock stays closed.
+See the [current closeout decision](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred).
+
 **29 October integration and ninth-path preparation:** [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) merged the narrowly scoped Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`). [PR CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40780296539) and distinct [main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40782574947) each passed 6,881 tests with two skipped. A new read-only eight-refusal ledger and one-use ninth-path code are under review; neither grants an attempt. Eight of eight refusals remain terminal, no ninth attempt is authorized, and v0.15 is **HOLD**. See the [issue #166 integration receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6483006388).
 
 **28 October eighth native Reader checkpoint:** The separately authorized

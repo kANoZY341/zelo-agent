@@ -2,6 +2,15 @@
 
 ## Status
 
+**2 November current v0.15 scope:** The owner explicitly deferred the Media
+PNG thumbnail/native Reader from v0.15. Media remains unavailable and
+unqualified; its failed proofs and spent one-use decisions are preserved.
+This is a scope decision, not a Media PASS or release approval.
+Space/Computer, Skill publication, non-Media Workers, curated integrations,
+release verification, independent audit and the final operator decision
+remain mandatory. v0.15 is **HOLD**; the release interlock stays closed.
+See the [current closeout decision](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred).
+
 **28 October eighth Reader refusal:** The one-use decision at reviewed main
 `90afa73d7383ddba39553e7cfd40233c91375e77` was consumed. The
 retained eighth `cases.json` SHA-256 is
