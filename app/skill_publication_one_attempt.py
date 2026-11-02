@@ -6,12 +6,15 @@ pre-network fence; after a single possible PUT no automatic retry exists.
 No runtime Skill activation and no generic protected-file merger bypass.
 """
 
+import asyncio
 import re
 from datetime import datetime
+from threading import Lock
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import OperatorPrincipal
 from app.config import Settings
@@ -643,42 +646,83 @@ class SkillPublicationOneAttemptService:
         if await self._require_protected_main(fence.repository) != policy_mode:
             raise DeveloperError("skill_publication_main_protection_changed")
 
-        # The provider GET above can wait while local approval, review or
-        # Agent authority is revoked. Recheck the same bound source and claim
-        # after that await, immediately before the only external write.
-        current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
-        with self.store.database.read() as session:
-            self._source_task(
-                session,
-                request,
-                solo=policy_mode == "solo",
-                review_context=skill_publication_review_instruction(current)
-                if policy_mode == "solo"
-                else None,
-            )
-        if (
-            current.claim_fingerprint != observed.claim_fingerprint
-            or current.merge_request_sha256 != observed.merge_request_sha256
-            or current.artifact_sha256 != observed.artifact_sha256
-        ):
-            raise ValueError("skill_publication_single_attempt_stale")
-
         # EXACTLY ONE possible externally visible write after durable commit.
-        # There is intentionally no retry loop, public API or Tool registration.
+        # Serialize the final source/claim check with the local PUT call. A
+        # separate Core process cannot commit a revocation while this call is
+        # pending; if it committed first, the source check refuses the send.
+        # The committed attempt remains terminal even if this transaction
+        # rolls back after an uncertain provider outcome.
         endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"
         phase = "put_request"
+        send_started = False
+        response_received = False
+        transaction_closed = False
+        cancellation_lock = Lock()
+        cancellation_requested = False
+
+        def send_under_lock():
+            nonlocal send_started, response_received
+            # The sender is operator-only, but keep provider I/O on a separate
+            # event loop so a concurrent Core request waiting for SQLite does
+            # not block this PUT's network timeout and lock release.
+            with self.store.database.transaction() as session:
+                current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
+                self._source_task(
+                    session,
+                    request,
+                    solo=policy_mode == "solo",
+                    review_context=skill_publication_review_instruction(current)
+                    if policy_mode == "solo"
+                    else None,
+                )
+                if (
+                    current.claim_fingerprint != observed.claim_fingerprint
+                    or current.merge_request_sha256 != observed.merge_request_sha256
+                    or current.artifact_sha256 != observed.artifact_sha256
+                ):
+                    raise ValueError("skill_publication_single_attempt_stale")
+                with cancellation_lock:
+                    if cancellation_requested:
+                        raise DeveloperError(
+                            "skill_publication_single_attempt_cancelled_before_send"
+                        )
+                    send_started = True
+                response = asyncio.run(
+                    self.transport.request(
+                        "PUT",
+                        endpoint + "/merge",
+                        {
+                            "sha": fence.pr_head_sha,
+                            "merge_method": "squash",
+                            "commit_title": request.merge_commit_title,
+                            "commit_message": request.merge_commit_message,
+                        },
+                    )
+                )
+                response_received = True
+                return response
+
         try:
-            response = await self.transport.request(
-                "PUT",
-                endpoint + "/merge",
-                {
-                    "sha": fence.pr_head_sha,
-                    "merge_method": "squash",
-                    "commit_title": request.merge_commit_title,
-                    "commit_message": request.merge_commit_message,
-                },
-            )
+            send_task = asyncio.create_task(asyncio.to_thread(send_under_lock))
+            cancelled_during_send = False
+            while True:
+                try:
+                    response = await asyncio.shield(send_task)
+                    break
+                except asyncio.CancelledError:
+                    # Cancel before dispatch when possible. If the PUT has
+                    # started, the worker thread cannot be cancelled, so wait
+                    # for its bounded call before recording an incident.
+                    with cancellation_lock:
+                        cancellation_requested = True
+                    cancelled_during_send = True
+                    if send_task.done():
+                        response = send_task.result()
+                        break
+            transaction_closed = True
             phase = "put_response"
+            if cancelled_during_send:
+                raise DeveloperError("skill_publication_single_attempt_send_cancelled")
             if (
                 type(response) is not dict
                 or response.get("merged") is not True
@@ -752,6 +796,18 @@ class SkillPublicationOneAttemptService:
                 session.flush()
                 return SkillPublicationMergeReceipt.model_validate(receipt)
         except Exception as error:
+            if not send_started:
+                # A lock/storage failure after the durable attempt is spent
+                # must be bounded, and cannot be described as a provider PUT.
+                if isinstance(error, SQLAlchemyError):
+                    raise DeveloperError(
+                        "skill_publication_single_attempt_pre_send_storage_unavailable"
+                    ) from None
+                raise
+            if response_received and not transaction_closed:
+                # The provider returned, but local commit/release failed.
+                # Keep the outcome unresolved and diagnose local storage.
+                phase = "put_response"
             # Stable and bounded incident categories. Never persist raw
             # provider responses, paths, exception text or credentials.
             # Phase is set BEFORE the fallible action so even a crash/timeout
@@ -763,10 +819,12 @@ class SkillPublicationOneAttemptService:
                 "skill_publication_single_attempt_postmerge_blob_invalid": "blob_mismatch",
             }
             code = str(error) if isinstance(error, DeveloperError) else ""
-            if phase == "receipt_persistence":
+            if phase == "receipt_persistence" or (response_received and not transaction_closed):
                 reason = "storage_failure"
             elif code in validation_reasons:
                 reason = validation_reasons[code]
+            elif code == "skill_publication_single_attempt_send_cancelled":
+                reason = "unclassified"
             elif phase == "post_tree" and code.startswith("skill_publication_blob_tree_"):
                 reason = "blob_mismatch"
             else:
