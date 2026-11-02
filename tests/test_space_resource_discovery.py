@@ -20,14 +20,18 @@ def test_discovery_pages_existing_resources_without_implicit_access(owner_env):
             agent + "/space-resources/provision", json=provision_body(resource_id=name)
         )
         assert response.status_code == 201, response.text
-        expected.append(response.json()["id"])
+        expected.append(response.json())
     first = client.get(agent + "/space-resources", params={"limit": 2})
     second = client.get(agent + "/space-resources", params={"limit": 2, "offset": 2})
     assert first.status_code == second.status_code == 200, first.text
     assert first.json()["total"] == second.json()["total"] == 3
     assert first.json()["limit"] == 2 and second.json()["offset"] == 2
     entries = first.json()["items"] + second.json()["items"]
-    assert [item["id"] for item in entries] == expected
+    # Discovery orders by (created_at, id); clock adjustments can make that
+    # differ from the order in which separate provision requests returned.
+    assert [item["id"] for item in entries] == [
+        item["id"] for item in sorted(expected, key=lambda item: (item["created_at"], item["id"]))
+    ]
     assert all(item["project_id"] == project["id"] for item in entries)
     assert all(item["root_attested"] and not item["effective_resource_access"] for item in entries)
     assert "owner-provided evidence" not in first.text + second.text
