@@ -1,8 +1,9 @@
 """Local OCR probe uses ModelProvider with zero Zelo task or tool grants."""
 
 import asyncio
+import hashlib
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from unittest.mock import patch
 
 import pytest
@@ -65,12 +66,23 @@ def run(provider, model_id=_MODEL, timeout=20):
 def test_fake_model_receipt_is_integrity_checked_and_no_authority():
     provider = FakeLocalProvider()
     result = run(provider)
+    assert result.schema_version == "zelo-ocr-local-model-probe-v2"
     assert result.model_id == _MODEL
     assert result.model_digest_sha256 == _DIGEST
     assert result.provider == "ollama"
     assert len(result.case_observations) == 4
     assert len(provider.calls) == 4
     assert provider.attest_count == 2
+    for observed, request in zip(result.case_observations, provider.calls, strict=True):
+        exact_request = json.dumps(
+            asdict(request),
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("ascii")
+        assert observed.request_sha256 == hashlib.sha256(exact_request).hexdigest()
+    assert "category bug for a functional" in provider.calls[0].system_prompt
     assert result.evaluation.matched_finding_count == 2
     assert result.evaluation.unexpected_finding_count == 0
     assert result.evaluation.missed_finding_count == 0
@@ -134,6 +146,21 @@ def test_changed_attested_model_identity_refuses_after_all_four_cases():
     assert len(provider.calls) == 4
 
 
+def test_provider_cannot_mutate_request_after_its_digest_is_bound():
+    provider = FakeLocalProvider()
+    original = provider.generate
+
+    async def mutate(request):
+        result = await original(request)
+        request.user_messages.append("changed after dispatch")
+        return result
+
+    provider.generate = mutate
+    with pytest.raises(OcrLocalModelRefusal, match="request_mutated"):
+        run(provider)
+    assert len(provider.calls) == 1
+
+
 def test_wrong_provider_rejected_without_false_local_observation():
     provider = FakeLocalProvider(wrong_provider=True)
     with pytest.raises(OcrLocalModelRefusal, match="identity_changed"):
@@ -184,6 +211,10 @@ def test_sealed_receipt_tampering_rejected():
     record = run(FakeLocalProvider()).model_dump(mode="json")
     tampered = json.loads(json.dumps(record))
     tampered["model_digest_sha256"] = "f" * 64
+    with pytest.raises(ValidationError, match="ocr_local_probe_digest_invalid"):
+        OcrLocalModelProbe.model_validate_json(json.dumps(tampered), strict=True)
+    tampered = json.loads(json.dumps(record))
+    tampered["case_observations"][0]["request_sha256"] = "f" * 64
     with pytest.raises(ValidationError, match="ocr_local_probe_digest_invalid"):
         OcrLocalModelProbe.model_validate_json(json.dumps(tampered), strict=True)
     tampered = json.loads(json.dumps(record))

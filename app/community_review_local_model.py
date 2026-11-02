@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import time
+from dataclasses import asdict
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -90,7 +91,14 @@ _SYSTEM = (
     "safe example or missing context requires an empty comments array. "
     "Use exact changed_path and changed_lines from the case. Return exactly "
     "the requested OCR JSON object, with schema_version "
-    "zelo-ocr-line-review-input-v1, summary, and comments."
+    "zelo-ocr-line-review-input-v1, summary, and comments. "
+    "Classify findings by demonstrated impact: use category bug for a functional "
+    "or API-contract violation, and category security only when the supplied "
+    "evidence demonstrates unauthorized access, data exposure, or an exploitable "
+    "trust-boundary failure. Use high severity for direct serious exposure and "
+    "medium for an ordinary behavioral contract violation. Do not infer a "
+    "security impact from a contract mismatch alone. Explain the concrete impact "
+    "in each finding's content."
 )
 
 
@@ -130,6 +138,7 @@ def _candidate(model_id: str) -> str:
 class OcrLocalCaseObservation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
     case_id: str
+    request_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     raw_output_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     measured_duration_ns: int = Field(ge=0, le=120_000_000_000)
     prompt_tokens: int | None = Field(default=None, ge=0)
@@ -138,7 +147,7 @@ class OcrLocalCaseObservation(BaseModel):
 
 class OcrLocalModelProbe(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
-    schema_version: Literal["zelo-ocr-local-model-probe-v1"] = "zelo-ocr-local-model-probe-v1"
+    schema_version: Literal["zelo-ocr-local-model-probe-v2"] = "zelo-ocr-local-model-probe-v2"
     model_id: str
     model_digest_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     provider: Literal["ollama"] = "ollama"
@@ -230,12 +239,15 @@ async def probe_local_ocr_model(
             timeout_seconds=timeout_per_case,
             output_schema=_SCHEMA,
         )
+        request_sha256 = _sha(asdict(request))
         start = time.monotonic_ns()
         try:
             response = await asyncio.wait_for(provider.generate(request), timeout=timeout_per_case)
         except (ModelGatewayError, TimeoutError, OSError, ValueError, TypeError):
             raise OcrLocalModelRefusal("ocr_local_model_generation_failed") from None
         elapsed = time.monotonic_ns() - start
+        if _sha(asdict(request)) != request_sha256:
+            raise OcrLocalModelRefusal("ocr_local_model_request_mutated")
         if type(response) is not ModelResult:
             raise OcrLocalModelRefusal("ocr_local_model_output_invalid")
         if response.provider != "ollama" or response.model_id != model_id:
@@ -248,6 +260,7 @@ async def probe_local_ocr_model(
                 raise OcrLocalModelRefusal("ocr_local_model_output_invalid")
             observation = OcrLocalCaseObservation(
                 case_id=case.case_id,
+                request_sha256=request_sha256,
                 raw_output_sha256=hashlib.sha256(raw).hexdigest(),
                 measured_duration_ns=elapsed,
                 prompt_tokens=response.prompt_tokens,
@@ -284,7 +297,7 @@ async def probe_local_ocr_model(
     except (CommunitySourceRefusal, ValueError):
         raise OcrLocalModelRefusal("ocr_local_model_score_unavailable") from None
     material = {
-        "schema_version": "zelo-ocr-local-model-probe-v1",
+        "schema_version": "zelo-ocr-local-model-probe-v2",
         "model_id": model_id,
         "model_digest_sha256": digest,
         "provider": "ollama",
