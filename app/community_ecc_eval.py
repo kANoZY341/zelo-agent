@@ -53,8 +53,10 @@ _FIXED_CASES: dict[str, tuple[tuple[str, str, Disposition], ...]] = {
         ),
         (
             "agent_verified_evaluation",
-            "Fixed task population, frozen worker identity, independent success "
-            "checks, refusals, elapsed times and cost traces are all recorded.",
+            "A fixed task population and same-input baseline use frozen AgentSpec, model, "
+            "Worker and permission identities. Independent evaluators verify per-case outcomes, "
+            "refusals, negative authorization tests, elapsed times, token and cost traces. "
+            "Unexpected positives are reproduced; promotion still needs an operator decision.",
             "pass",
         ),
         (
@@ -87,9 +89,11 @@ _FIXED_CASES: dict[str, tuple[tuple[str, str, Disposition], ...]] = {
     "ecc_architecture_decisions": (
         (
             "adr_reviewable",
-            "Proposed ADR includes current state, two alternatives, threat and "
-            "cost tradeoffs, rollback plan, acceptance checks and human decision owner. "
-            "No automatic migration is requested.",
+            "An ADR tied to a reviewed source revision states current facts and constraints, "
+            "compares the status quo with two viable options across security, cost, reliability, "
+            "maintenance, reversibility and rollout, names changed contracts, permissions and "
+            "data migration, lists assumptions, tests, rollback and acceptance checks, and "
+            "names the human decision owner. It requests no automatic change.",
             "pass",
         ),
         (
@@ -100,8 +104,9 @@ _FIXED_CASES: dict[str, tuple[tuple[str, str, Disposition], ...]] = {
         ),
         (
             "adr_missing_options",
-            "ADR asserts one approach is best, with neither alternatives, "
-            "tradeoffs, acceptance checks nor a rollback strategy.",
+            "An unapproved draft ADR proposes one approach but omits alternatives, tradeoffs, "
+            "acceptance checks and a rollback strategy. No migration or permission change "
+            "occurred, and no decision was taken; evidence is insufficient to approve it.",
             "unverified",
         ),
     ),
