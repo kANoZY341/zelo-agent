@@ -1,7 +1,8 @@
 """Inert, serialized Skill publication link from an exact positive merge receipt.
 
-No route, Task, Tool, GitHub write, generic merge bypass or runtime resolver uses
-this service. A history-only reconciliation cannot become a positive receipt.
+Only the authenticated operator history route calls this service. No Task,
+Tool, GitHub write, generic merge bypass or runtime resolver uses it. A
+history-only reconciliation cannot become a positive receipt.
 """
 
 from datetime import datetime
