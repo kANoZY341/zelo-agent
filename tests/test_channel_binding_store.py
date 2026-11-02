@@ -407,6 +407,37 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
         database.close()
 
 
+def test_existing_negative_rowid_does_not_block_new_channel_evidence(database):
+    conversation_id = conversation(database)
+    original = thread()
+    with database.transaction() as session:
+        session.execute(
+            text(
+                "INSERT INTO channel_thread_bindings "
+                "(rowid,thread_fingerprint,channel,account_key,sender_key,thread_key,"
+                "conversation_id,operator_id,provider_authenticated,transport_authority,"
+                "created_at) VALUES (-1,:fingerprint,'whatsapp',:account,:sender,:thread,"
+                ":conversation,'ahmad',0,0,:created_at)"
+            ),
+            {
+                "fingerprint": original.fingerprint(),
+                "account": original.account_key,
+                "sender": original.sender_key,
+                "thread": original.thread_key,
+                "conversation": conversation_id,
+                "created_at": datetime.now(UTC),
+            },
+        )
+    store = ChannelBindingStore(database)
+    added, created = store.bind_thread(
+        thread(thread_key="f" * 64),
+        conversation_id=conversation_id,
+        principal=OperatorPrincipal(),
+    )
+    assert created and added.thread_fingerprint != original.fingerprint()
+    assert store.get_thread(original.fingerprint(), principal=OperatorPrincipal()) is not None
+
+
 def test_database_rejects_forged_provider_or_transport_authority(database):
     store, _id, bound = bind(database)
     with database.read() as session:
