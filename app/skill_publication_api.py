@@ -1,8 +1,9 @@
 """Operator-only API for *inert* learned-Skill publication evidence.
 
 Never grants GitHub merge, Skill loading, Worker, Tool or delegated authority.
-Only the explicit owner can reserve or inspect a claim and record an immutable
-review decision. Fresh external checks use GET only and fail closed.
+Only the explicit owner can reserve or inspect a claim, record an immutable
+review decision and link an independently positive merge receipt. Fresh external
+checks use GET only and fail closed.
 """
 
 import json
@@ -14,7 +15,10 @@ from sqlalchemy import select
 
 from app.auth import OperatorPrincipal, require_operator
 from app.developer_process import DeveloperError
-from app.models import SkillPublicationOperatorDecisionRecord
+from app.models import (
+    SkillPublicationOperatorDecisionRecord,
+    SkillPublicationPromotionReceiptLinkRecord,
+)
 from app.promotion_contracts import MergeRequest
 from app.schemas import DeveloperPayload, DeveloperRunInput, TaskResponse
 from app.skill_learning import (
@@ -36,6 +40,7 @@ from app.skill_publication_merge_preview import (
     SkillPublicationMergePreview,
     SkillPublicationMergePreviewService,
 )
+from app.skill_publication_one_attempt import SkillPublicationOneAttemptService
 from app.skill_publication_operator_decision import (
     SkillPublicationOperatorDecision,
     SkillPublicationOperatorDecisionService,
@@ -44,6 +49,10 @@ from app.skill_publication_post_attempt_reconciliation import (
     POST_ATTEMPT_RECONCILIATION_CONFIRMATION,
     SkillPublicationPostAttemptReconciliation,
     SkillPublicationPostAttemptReconciliationService,
+)
+from app.skill_publication_promotion_receipt_link import (
+    SkillPublicationPromotionReceiptLink,
+    SkillPublicationPromotionReceiptLinkService,
 )
 from app.skill_publication_remote_evidence import (
     SkillPublicationRemoteEvidence,
@@ -80,6 +89,13 @@ class SkillPostAttemptReconciliationRequest(BaseModel):
     merge_request: MergeRequest
 
 
+class SkillPositiveReceiptLinkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    confirmation: Literal["LINK_EXACT_POSITIVE_SKILL_MERGE_RECEIPT_NO_ACTIVATION"]
+    merge_request: MergeRequest
+
+
 def _claims(request: Request) -> SkillPublicationClaimService:
     return SkillPublicationClaimService(request.app.state.skill_learning_store)
 
@@ -100,6 +116,13 @@ def _post_attempt_reconciler(request: Request) -> SkillPublicationPostAttemptRec
     remote = _remote(request)
     fences = SkillPublicationDispatchFenceService(SkillPublicationBlobEvidenceService(remote))
     return SkillPublicationPostAttemptReconciliationService(fences, transport=remote.transport)
+
+
+def _promotion_receipt_linker(request: Request) -> SkillPublicationPromotionReceiptLinkService:
+    remote = _remote(request)
+    fences = SkillPublicationDispatchFenceService(SkillPublicationBlobEvidenceService(remote))
+    one_attempt = SkillPublicationOneAttemptService(fences, request.app.state.settings)
+    return SkillPublicationPromotionReceiptLinkService(one_attempt)
 
 
 def _refuse_code(error: ValueError | PermissionError, default: str) -> HTTPException:
@@ -295,6 +318,53 @@ def read_post_attempt_reconciliations(
         )
     except (PermissionError, ValueError) as error:
         raise _refuse_code(error, "skill_publication_post_attempt_reconciliation_refused") from None
+
+
+@router.post(
+    "/claims/{claim_id}/promotion-receipt-link",
+    response_model=SkillPublicationPromotionReceiptLink,
+    status_code=201,
+)
+async def record_positive_promotion_receipt_link(
+    claim_id: str,
+    body: SkillPositiveReceiptLinkRequest,
+    request: Request,
+    response: Response,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationPromotionReceiptLink:
+    """Bind only a positive, verified merge receipt as inert local history."""
+    try:
+        link, created = await _promotion_receipt_linker(request).record(
+            claim_id, body.merge_request, principal
+        )
+    except DeveloperError as error:
+        raise _remote_error(error) from None
+    except (PermissionError, ValueError) as error:
+        raise _refuse_code(error, "skill_publication_promotion_link_refused") from None
+    response.status_code = 201 if created else 200
+    return link
+
+
+@router.get(
+    "/claims/{claim_id}/promotion-receipt-link",
+    response_model=SkillPublicationPromotionReceiptLink,
+)
+def read_positive_promotion_receipt_link(
+    claim_id: str,
+    request: Request,
+    principal: Annotated[OperatorPrincipal, Depends(require_operator)],
+) -> SkillPublicationPromotionReceiptLink:
+    with request.app.state.skill_learning_store.database.read() as session:
+        row = session.scalar(
+            select(SkillPublicationPromotionReceiptLinkRecord).where(
+                SkillPublicationPromotionReceiptLinkRecord.claim_id == claim_id
+            )
+        )
+        if row is None:
+            raise HTTPException(
+                status_code=404, detail="skill_publication_promotion_link_not_found"
+            )
+        return SkillPublicationPromotionReceiptLink.model_validate(row)
 
 
 @router.post(

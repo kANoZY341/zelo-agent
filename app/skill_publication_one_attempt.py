@@ -166,7 +166,7 @@ class SkillPublicationMergeFailure(BaseModel):
 
 
 class SkillPublicationOneAttemptService:
-    """Never added to FastAPI routers or the model ToolRegistry."""
+    """Its merge sender is never a FastAPI route or model Tool."""
 
     def __init__(
         self,
