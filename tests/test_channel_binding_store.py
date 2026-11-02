@@ -313,6 +313,55 @@ def test_replace_cannot_rewrite_an_existing_channel_observation(database):
     )
 
 
+def test_replace_cannot_steal_an_existing_channel_identity(database):
+    store, _id, binding = bind(database)
+    replacement_fingerprint = "e" * 64
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT OR REPLACE INTO channel_thread_bindings "
+                    "(thread_fingerprint,channel,account_key,sender_key,thread_key,"
+                    "conversation_id,operator_id,provider_authenticated,transport_authority,"
+                    "created_at) SELECT :replacement,channel,account_key,sender_key,thread_key,"
+                    "conversation_id,operator_id,provider_authenticated,transport_authority,"
+                    "created_at FROM channel_thread_bindings WHERE thread_fingerprint=:fingerprint"
+                ),
+                {"replacement": replacement_fingerprint, "fingerprint": binding.thread_fingerprint},
+            )
+    assert store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
+    assert store.get_thread(replacement_fingerprint, principal=OperatorPrincipal()) is None
+
+
+def test_replace_cannot_reuse_an_observation_rowid(database):
+    store, _id, _binding = bind(database)
+    observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+    replacement_fingerprint = "e" * 64
+    with pytest.raises(IntegrityError, match="append-only"):
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT OR REPLACE INTO channel_ingress_observations "
+                    "(rowid,message_fingerprint,thread_fingerprint,message_key,text_sha256,"
+                    "provider_received_at,observed_at,operator_id,state,mind_executed,"
+                    "delivery_authority) SELECT rowid,:replacement,thread_fingerprint,:key,"
+                    "text_sha256,provider_received_at,observed_at,operator_id,state,"
+                    "mind_executed,delivery_authority FROM channel_ingress_observations "
+                    "WHERE message_fingerprint=:fingerprint"
+                ),
+                {
+                    "replacement": replacement_fingerprint,
+                    "key": "e" * 64,
+                    "fingerprint": observed.message_fingerprint,
+                },
+            )
+    assert (
+        store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+        == observed
+    )
+    assert store.get_observation(replacement_fingerprint, principal=OperatorPrincipal()) is None
+
+
 def test_database_rejects_forged_provider_or_transport_authority(database):
     store, _id, bound = bind(database)
     with database.read() as session:
