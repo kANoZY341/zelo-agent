@@ -105,9 +105,15 @@ edits. Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 
-The four earlier native Media Reader refusals and separately authorized fifth,
-sixth, seventh and eighth refusals remain terminal. The eighth one-run
-decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`, tree
+The owner deferred Media from v0.15 on 2 November 2026. The native Reader,
+package provenance, decoder, PNG thumbnail and Core Media runtime remain
+unqualified and unavailable. Stage S/H/S2 input decisions are spent; the ninth
+Reader attempt passed a synthetic matrix only. No further Media input or native
+attempt is authorized by the release task. Preserve all terminal evidence.
+
+Historical Media evidence: the four earlier native Reader refusals and
+separately authorized fifth, sixth, seventh and eighth refusals remain
+terminal. The eighth one-run decision at main `90afa73d7383ddba39553e7cfd40233c91375e77`, tree
 `206b4a93f3361fe2d30a66187fefb78af90e071d`, was consumed on
 28 October through [issue #166 comment 6455367560](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6455367560).
 `native-reader-proof-plhsvu3q` refused at the matrix runtime probe with
@@ -119,11 +125,18 @@ the sixth underlying matrix exception was not persisted. The separately
 approved one-use cleanup of the pinned sixth image has completion SHA-256
 `6aebba764d8ff5c9dfa373feabd74be01165df08d886c93719171bf2805d078b`.
 After the eighth refusal the marker and lease-labelled Docker namespace are
-empty. [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) integrated the Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`); exact-head and distinct main CI passed. A proposed ninth-path source and read-only ledger have no run authority. **No ninth native proof is authorized.** See `docs/v0.15-release-closeout.md`.
-Never reset, delete, bypass, reframe or reclassify a refusal as successful.
-No native matrix or release success follows. Release cannot silently defer the
-originally required runtime: record the blocker and obtain a separate operator
-release-scope decision if necessary. See issue #166 for current gates.
+empty. [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283)
+integrated the Docker nullable OOM default correction as main
+`14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree
+`aa9ab97646b8ac611f41aa772d7c9d8481174f68`); exact-head and distinct
+main CI passed. The subsequently authorized ninth attempt passed a synthetic
+matrix only;
+real package provenance, decoder and Core runtime remain open. Stage S2's one-use
+source request was consumed and refused on its first GET with zero body bytes.
+See `docs/v0.15-release-closeout.md` and issue #166 for current gates. Never
+reset, delete, bypass, reframe or reclassify a refusal as successful. The
+owner's Media deferral changes v0.15 scope only; it grants no Media authority
+or release decision.
 
 ## Earlier Core-first work and source restrictions (8 October 2026)
 

@@ -348,3 +348,51 @@ def test_parallel_local_link_writers_only_one_insert(database, proposal_case, tm
     assert sorted(created for _, created in results) == [False, True]
     assert results[0][0] == results[1][0]
     assert _count(database) == 1
+
+
+def test_populated_publication_link_refuses_destructive_downgrade(
+    database, proposal_case, tmp_path
+):
+    """Rollback must preserve an immutable positive receipt and its SQL guards."""
+    from alembic import command
+
+    from app.database import migration_config
+
+    _store, claim, request, _transport, attempt_service, _receipt, _ = _case(
+        database, proposal_case, tmp_path
+    )
+    link, created = asyncio.run(
+        SkillPublicationPromotionReceiptLinkService(attempt_service).record(
+            claim.id, request, OPERATOR
+        )
+    )
+    assert created and _count(database) == 1
+
+    with database.engine.connect() as connection:
+        config = migration_config()
+        config.attributes["connection"] = connection
+        with pytest.raises(RuntimeError, match="Destructive downgrade is disabled"):
+            command.downgrade(config, "-1")
+
+    database.check_schema()
+    with database.read() as session:
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+            "0049_skill_publication_promotion_receipt_link"
+        )
+        assert (
+            session.scalar(
+                text(
+                    "SELECT link_fingerprint FROM skill_publication_promotion_receipt_links "
+                    "WHERE id=:id"
+                ),
+                {"id": link.id},
+            )
+            == link.link_fingerprint
+        )
+        assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+    with pytest.raises(IntegrityError, match="immutable"):
+        with database.transaction() as session:
+            session.execute(
+                text("DELETE FROM skill_publication_promotion_receipt_links WHERE id=:id"),
+                {"id": link.id},
+            )
