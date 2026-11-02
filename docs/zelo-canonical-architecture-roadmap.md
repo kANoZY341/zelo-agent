@@ -2,6 +2,13 @@
 
 ## Status
 
+**3 November v0.15 integrity candidate:** The channel audit found a SQLite
+`INSERT OR REPLACE` route around the append-only triggers on inert binding
+and observation records. Migration 0050 adds pre-insert conflict refusal;
+disposable Linux tests preserve populated records through upgrade and refuse
+an in-place downgrade. This is a bounded schema correction, not channel
+activation, full security audit or v0.15 release evidence.
+
 **2 November current v0.15 scope:** The owner explicitly deferred the Media
 PNG thumbnail/native Reader from v0.15. Media remains unavailable and
 unqualified; its failed proofs and spent one-use decisions are preserved.
