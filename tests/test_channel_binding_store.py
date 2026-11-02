@@ -6,12 +6,14 @@ from datetime import UTC, datetime, timedelta
 from threading import Barrier
 
 import pytest
+from alembic import command
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.auth import OperatorPrincipal
 from app.channel_binding_store import ChannelBindingStore
 from app.channel_contracts import ChannelTextIngress, ChannelThreadBindingSpec
+from app.database import Database, migration_config
 from app.models import (
     ChannelIngressObservationRecord,
     ChannelThreadBindingRecord,
@@ -307,8 +309,9 @@ def test_replace_cannot_rewrite_an_existing_channel_observation(database):
                 {"digest": "f" * 64, "fingerprint": observed.message_fingerprint},
             )
     assert (
-        store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
-        .text_sha256
+        store.get_observation(
+            observed.message_fingerprint, principal=OperatorPrincipal()
+        ).text_sha256
         == observed.text_sha256
     )
 
@@ -360,6 +363,48 @@ def test_replace_cannot_reuse_an_observation_rowid(database):
         == observed
     )
     assert store.get_observation(replacement_fingerprint, principal=OperatorPrincipal()) is None
+
+
+def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(settings):
+    database = Database(settings.database_path)
+    try:
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0049_skill_publication_promotion_receipt_link")
+        store, _id, binding = bind(database)
+        observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+
+        database.migrate()
+        database.check_schema()
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0050_channel_ledger_replace_guards"
+            )
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+        assert (
+            store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
+        )
+        assert (
+            store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+            == observed
+        )
+
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            with pytest.raises(RuntimeError, match="Destructive downgrade is disabled"):
+                command.downgrade(config, "-1")
+        database.check_schema()
+        assert (
+            store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
+        )
+        assert (
+            store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+            == observed
+        )
+    finally:
+        database.close()
 
 
 def test_database_rejects_forged_provider_or_transport_authority(database):
