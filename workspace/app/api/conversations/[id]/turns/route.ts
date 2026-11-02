@@ -1,4 +1,9 @@
-import { proxyCore, requireWorkspaceRequest } from "@/lib/core";
+import {
+  MAX_WORKSPACE_CONVERSATION_BODY_BYTES,
+  proxyCore,
+  readBoundedWorkspaceBody,
+  requireWorkspaceRequest,
+} from "@/lib/core";
 
 export async function POST(
   request: Request,
@@ -13,7 +18,11 @@ export async function POST(
   }
 
   const { id } = await context.params;
-  const body = await request.text();
+  const body = await readBoundedWorkspaceBody(
+    request,
+    MAX_WORKSPACE_CONVERSATION_BODY_BYTES,
+  );
+  if (body instanceof Response) return body;
   return proxyCore(`/conversations/${encodeURIComponent(id)}/turns`, {
     method: "POST",
     headers: {

@@ -8,6 +8,69 @@ import {
   shouldShowDetailLoading,
 } from "../lib/control-desk-state";
 
+test("workspace proxy requires a separate access secret before Core authority", async () => {
+  const { requireWorkspaceRequest } = await import("../lib/core");
+  const previous = process.env.ZELO_WORKSPACE_ACCESS_TOKEN;
+  const previousOperator = process.env.ZELO_OPERATOR_TOKEN;
+  const secret = "workspace-test-secret-0123456789abcdef0123456789abcdef";
+  const request = (authorization?: string, marker = "1") =>
+    new Request("http://127.0.0.1:3000/api/conversations", {
+      headers: {
+        "X-Zelo-Workspace": marker,
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+    });
+  process.env.ZELO_WORKSPACE_ACCESS_TOKEN = secret;
+  try {
+    assert.equal(requireWorkspaceRequest(request())?.status, 401);
+    assert.equal(
+      requireWorkspaceRequest(request("Basic " + Buffer.from("zelo:wrong").toString("base64")))?.status,
+      401,
+    );
+    assert.equal(
+      requireWorkspaceRequest(request("Basic " + Buffer.from("zelo:" + secret).toString("base64"), "0"))?.status,
+      403,
+    );
+    assert.equal(
+      requireWorkspaceRequest(request("Basic " + Buffer.from("zelo:" + secret).toString("base64"))),
+      null,
+    );
+    process.env.ZELO_OPERATOR_TOKEN = secret;
+    assert.equal(requireWorkspaceRequest(request())?.status, 503);
+    delete process.env.ZELO_WORKSPACE_ACCESS_TOKEN;
+    assert.equal(requireWorkspaceRequest(request())?.status, 503);
+  } finally {
+    if (previous === undefined) delete process.env.ZELO_WORKSPACE_ACCESS_TOKEN;
+    else process.env.ZELO_WORKSPACE_ACCESS_TOKEN = previous;
+    if (previousOperator === undefined) delete process.env.ZELO_OPERATOR_TOKEN;
+    else process.env.ZELO_OPERATOR_TOKEN = previousOperator;
+  }
+});
+
+test("workspace conversation body rejects oversized input before buffering it all", async () => {
+  const { readBoundedWorkspaceBody } = await import("../lib/core");
+  const oversized = new Request("http://127.0.0.1:3000/api/conversations", {
+    method: "POST",
+    body: "x".repeat(1025),
+  });
+  const result = await readBoundedWorkspaceBody(oversized, 1024);
+  assert.equal(result instanceof Response && result.status, 413);
+
+  const declared = new Request("http://127.0.0.1:3000/api/conversations", {
+    method: "POST",
+    headers: { "Content-Length": "1025" },
+    body: "ok",
+  });
+  const declaredResult = await readBoundedWorkspaceBody(declared, 1024);
+  assert.equal(declaredResult instanceof Response && declaredResult.status, 413);
+
+  const valid = new Request("http://127.0.0.1:3000/api/conversations", {
+    method: "POST",
+    body: '{"title":"test"}',
+  });
+  assert.equal(await readBoundedWorkspaceBody(valid, 1024), '{"title":"test"}');
+});
+
 test("empty selection never renders stale campaign loading", () => {
   assert.equal(shouldShowDetailLoading(null, true, false, false), false);
   assert.equal(shouldShowDetailLoading("campaign-a", true, false, false), true);
