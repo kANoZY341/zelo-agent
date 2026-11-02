@@ -169,7 +169,7 @@ class SkillPublicationMergeFailure(BaseModel):
 
 
 class SkillPublicationOneAttemptService:
-    """Its merge sender is never a FastAPI route or model Tool."""
+    """One explicit operator route may call this sender; model Tools cannot."""
 
     def __init__(
         self,
