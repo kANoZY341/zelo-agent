@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import math
 import os
 import stat
 from collections.abc import Callable
@@ -22,6 +23,15 @@ from qualification.dns import QualificationError
 from qualification.renderer import DocumentRenderer
 from qualification.renderer_contracts import RendererContract
 from qualification.runtime_contracts import validate_digest
+
+
+def _finite_timing(value: object) -> bool:
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 class BrowserRuntimeError(Exception):
@@ -241,6 +251,10 @@ class BrowserRuntime:
         deadline: float | None = None,
         authorize_action: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
+        if not _finite_timing(timeout_seconds) or not 0.1 <= timeout_seconds <= 30:
+            raise BrowserRuntimeError("browser_execution_spec_invalid")
+        if deadline is not None and not _finite_timing(deadline):
+            raise BrowserRuntimeError("browser_execution_spec_invalid")
         self._prune_owners()
         loop = asyncio.get_running_loop()
         limit = loop.time() + timeout_seconds
