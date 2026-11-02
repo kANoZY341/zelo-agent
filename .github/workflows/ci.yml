@@ -22,8 +22,9 @@ jobs:
       - Linux
       - X64
       - zelo-ci
-    # Keep the full pytest/Ruff/diff gates. Run process timing assertions after
-    # the parallel suite so worker contention in CI does not hide real failures.
+    # Keep the full pytest/Ruff/diff gates. Run installed Codex sandbox probes
+    # and Worker timing assertions after the parallel suite, without competing
+    # with eight test workers for their fixed process deadlines.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -53,6 +54,8 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - name: Run parallel test suite (eight workers)
-        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --ignore=tests/test_worker_concurrency.py --durations=30
+        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --ignore=tests/test_developer_boundary.py --ignore=tests/test_worker_concurrency.py --durations=30
+      - name: Run installed Codex sandbox checks (serial)
+        run: .venv/bin/python -m pytest -q tests/test_developer_boundary.py --durations=30
       - name: Run worker concurrency tests (serial)
         run: .venv/bin/python -m pytest -q tests/test_worker_concurrency.py --durations=30
