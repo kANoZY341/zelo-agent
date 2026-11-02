@@ -44,6 +44,46 @@ EXPECTED = {
 }
 
 
+def test_ecc_positive_cases_supply_the_playbooks_required_evidence():
+    agent_cases = {
+        case.case_id: case.evidence for case in ecc_fixed_suite("ecc_agent_evaluation").cases
+    }
+    verified = agent_cases["agent_verified_evaluation"].lower()
+    assert "baseline" in verified
+    assert "negative authorization" in verified
+    assert "independent" in verified
+
+    architecture_cases = {
+        case.case_id: case.evidence for case in ecc_fixed_suite("ecc_architecture_decisions").cases
+    }
+    reviewable = architecture_cases["adr_reviewable"].lower()
+    for required in ("source revision", "status quo", "two", "permissions", "rollback"):
+        assert required in reviewable
+    incomplete = architecture_cases["adr_missing_options"].lower()
+    assert "no migration" in incomplete
+    assert "no decision" in incomplete
+
+
+def test_revised_ecc_fixture_rejects_an_old_operator_suite_identity(monkeypatch):
+    from app import community_ecc_eval as module
+
+    skill_id = "ecc_agent_evaluation"
+    original_suite = ecc_fixed_suite(skill_id)
+    original_cases = module._FIXED_CASES[skill_id]
+    revised_first = (
+        original_cases[0][0],
+        original_cases[0][1] + " Separately reviewed input was added.",
+        original_cases[0][2],
+    )
+    monkeypatch.setitem(module._FIXED_CASES, skill_id, (revised_first, *original_cases[1:]))
+    assert module.ecc_fixed_suite(skill_id).suite_sha256 != original_suite.suite_sha256
+    stale_submission = EccCaseSubmission.model_validate(
+        _input(skill_id, digest=original_suite.suite_sha256), strict=False
+    )
+    with pytest.raises(EccFixtureRefusal, match="ecc_fixture_identity_stale"):
+        evaluate_ecc_fixed_cases(skill_id, stale_submission)
+
+
 def _input(skill_id, verdicts=None, *, digest=None):
     suite = ecc_fixed_suite(skill_id)
     cases = EXPECTED[skill_id]
