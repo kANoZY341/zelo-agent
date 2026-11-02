@@ -637,6 +637,32 @@ class SkillPublicationOneAttemptService:
         ):
             raise ValueError("skill_publication_single_attempt_stale")
 
+        # Branch protection can change during the local attempt transaction.
+        # Recheck at the external use point; a refusal consumes this one-use
+        # attempt, so no later caller can send under a stale policy.
+        if await self._require_protected_main(fence.repository) != policy_mode:
+            raise DeveloperError("skill_publication_main_protection_changed")
+
+        # The provider GET above can wait while local approval, review or
+        # Agent authority is revoked. Recheck the same bound source and claim
+        # after that await, immediately before the only external write.
+        current = self.fences.blob.remote.previews.preview(claim_id, request, principal)
+        with self.store.database.read() as session:
+            self._source_task(
+                session,
+                request,
+                solo=policy_mode == "solo",
+                review_context=skill_publication_review_instruction(current)
+                if policy_mode == "solo"
+                else None,
+            )
+        if (
+            current.claim_fingerprint != observed.claim_fingerprint
+            or current.merge_request_sha256 != observed.merge_request_sha256
+            or current.artifact_sha256 != observed.artifact_sha256
+        ):
+            raise ValueError("skill_publication_single_attempt_stale")
+
         # EXACTLY ONE possible externally visible write after durable commit.
         # There is intentionally no retry loop, public API or Tool registration.
         endpoint = f"/repos/{fence.repository}/pulls/{fence.pr_number}"
