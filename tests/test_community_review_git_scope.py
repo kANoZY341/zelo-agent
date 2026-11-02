@@ -112,6 +112,32 @@ def test_checkout_head_change_invalidates_pending_review(revisions):
         verified_git_review_scope(repo, base_sha=base, head_sha=head)
 
 
+def test_next_dynamic_route_is_bound_as_an_exact_literal_path(revisions):
+    repo, _base, head = revisions
+    route_name = "workspace/app/api/conversations/[id]/turns/route.ts"
+    peer_name = "workspace/app/api/conversations/[other]/turns/route.ts"
+    route = repo / route_name
+    peer = repo / peer_name
+    route.parent.mkdir(parents=True)
+    peer.parent.mkdir(parents=True)
+    route.write_text("old\n")
+    peer.write_text("unchanged\n")
+    git(repo, "add", "--all")
+    git(repo, "-c", "commit.gpgsign=false", "commit", "-qm", "routes base")
+    base = git(repo, "rev-parse", "HEAD")
+    route.write_text("new\n")
+    git(repo, "add", "--all")
+    git(repo, "-c", "commit.gpgsign=false", "commit", "-qm", "routes head")
+    newest = git(repo, "rev-parse", "HEAD")
+    scope = verified_git_review_scope(repo, base_sha=base, head_sha=newest)
+    assert scope.allowed_lines() == {route_name: frozenset({1})}
+    assert peer_name.encode() not in scope.review_patch
+    report, _evidence, _scope = bind_ocr_review_from_git(
+        raw(path=route_name, line=1), repo, base_sha=base, head_sha=newest
+    )
+    assert report.findings[0].path == route_name
+
+
 def test_reject_invalid_identity_empty_scope_and_unsupported_path(revisions):
     repo, base, head = revisions
     with pytest.raises(CommunityGitScopeRefusal, match="ocr_git_review_identity_invalid"):
