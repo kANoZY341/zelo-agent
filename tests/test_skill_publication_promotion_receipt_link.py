@@ -377,7 +377,7 @@ def test_populated_publication_link_refuses_destructive_downgrade(
     database.check_schema()
     with database.read() as session:
         assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0049_skill_publication_promotion_receipt_link"
+            "0050_channel_ledger_replace_guards"
         )
         assert (
             session.scalar(
