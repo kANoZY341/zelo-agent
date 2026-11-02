@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from app.request_body_guard import MAX_VOICE_SYNTHESIS_BODY_BYTES, BoundedAuthenticatedBody
 from voice_service.providers import detect_tts_language, get_transcriber
 from voice_service.synthesis_worker import SynthesisWorker, SynthesisWorkerBusy
 
@@ -21,6 +22,14 @@ DEFAULT_TTS_DEADLINE_SECONDS = 110.0
 SYNTHESIS_POLL_SECONDS = 0.05
 
 app = FastAPI(title="Zelo Voice Adapter", docs_url=None, redoc_url=None)
+app.add_middleware(
+    BoundedAuthenticatedBody,
+    token=lambda: os.getenv("ZELO_VOICE_TOKEN", "").encode("utf-8"),
+    max_bytes=MAX_VOICE_SYNTHESIS_BODY_BYTES,
+    unauthorized_detail="voice_unauthorized",
+    too_large_detail="voice_synthesis_body_too_large",
+    paths=frozenset({"/synthesize"}),
+)
 _synthesis_worker = SynthesisWorker()
 
 

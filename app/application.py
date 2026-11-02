@@ -71,6 +71,7 @@ from app.promotion_review import PromotionReviewer
 from app.python_worker import PythonRuntime
 from app.rea_candidate_api import router as rea_candidate_router
 from app.rea_operator_targets_api import router as rea_operator_targets_router
+from app.request_body_guard import MAX_CORE_BODY_BYTES, BoundedAuthenticatedBody
 from app.research import ResearchRuntime
 from app.runner import Runner
 from app.scheduler import CampaignScheduler
@@ -462,6 +463,17 @@ def create_app(
 
     application = FastAPI(title=configuration.app_name, version=__version__, lifespan=lifespan)
     application.state.settings = configuration
+    application.add_middleware(
+        BoundedAuthenticatedBody,
+        token=lambda: (
+            configuration.operator_token.get_secret_value().encode("utf-8")
+            if configuration.operator_token is not None
+            else b""
+        ),
+        max_bytes=MAX_CORE_BODY_BYTES,
+        unauthorized_detail="Valid operator bearer token required",
+        too_large_detail="request_body_too_large",
+    )
     application.include_router(router)
     application.include_router(task_router)
     application.include_router(capability_router)
