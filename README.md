@@ -100,7 +100,10 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 Stop with `Ctrl+C`. Keep the host set to `127.0.0.1`; this version is intended
 only for local access. Interactive API documentation is at
-<http://127.0.0.1:8000/docs> while the server is running.
+<http://127.0.0.1:8000/docs> while the server is running. Core authenticates
+mutating requests before reading their bodies and rejects bodies over 16 MiB
+with HTTP 413. The separate Voice adapter limits synthesis JSON to 64 KiB;
+its transcription audio retains its 12 MiB limit.
 
 ```bash
 curl http://127.0.0.1:8000/
