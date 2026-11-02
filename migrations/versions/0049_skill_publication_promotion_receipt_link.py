@@ -163,13 +163,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP TRIGGER IF EXISTS skill_learning_promotion_links_no_publication_conflict")
-    for suffix in (
-        "no_duplicate_insert",
-        "source_guard",
-        "no_generic_conflict",
-        "no_update",
-        "no_delete",
-    ):
-        op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_{suffix}")
-    op.drop_table(TABLE)
+    raise RuntimeError("Destructive downgrade is disabled; restore a reviewed backup instead")
