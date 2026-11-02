@@ -2,7 +2,7 @@
 
 from sqlalchemy import func, select
 
-from app.models import AgentSpaceActivationRecord, AgentSpaceIntentRecord
+from app.models import AgentSpaceActivationRecord, AgentSpaceIntentRecord, AgentSpaceResourceRecord
 from tests.test_agent_instances import create_instance, create_project
 from tests.test_space_owner_provision import owner_env as _owner_env
 from tests.test_space_owner_provision import provision_body
@@ -20,7 +20,7 @@ def test_discovery_pages_existing_resources_without_implicit_access(owner_env):
             agent + "/space-resources/provision", json=provision_body(resource_id=name)
         )
         assert response.status_code == 201, response.text
-        expected.append(response.json())
+        expected.append(response.json()["id"])
     first = client.get(agent + "/space-resources", params={"limit": 2})
     second = client.get(agent + "/space-resources", params={"limit": 2, "offset": 2})
     assert first.status_code == second.status_code == 200, first.text
@@ -29,9 +29,17 @@ def test_discovery_pages_existing_resources_without_implicit_access(owner_env):
     entries = first.json()["items"] + second.json()["items"]
     # Discovery orders by (created_at, id); clock adjustments can make that
     # differ from the order in which separate provision requests returned.
-    assert [item["id"] for item in entries] == [
-        item["id"] for item in sorted(expected, key=lambda item: (item["created_at"], item["id"]))
-    ]
+    with database.read() as session:
+        created_at_by_id = dict(
+            session.execute(
+                select(AgentSpaceResourceRecord.id, AgentSpaceResourceRecord.created_at).where(
+                    AgentSpaceResourceRecord.id.in_(expected)
+                )
+            ).all()
+        )
+    assert [item["id"] for item in entries] == sorted(
+        expected, key=lambda resource_id: (created_at_by_id[resource_id], resource_id)
+    )
     assert all(item["project_id"] == project["id"] for item in entries)
     assert all(item["root_attested"] and not item["effective_resource_access"] for item in entries)
     assert "owner-provided evidence" not in first.text + second.text
