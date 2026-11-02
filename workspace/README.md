@@ -17,8 +17,11 @@ browser
 ```
 
 The browser never receives `ZELO_OPERATOR_TOKEN`; Next.js route handlers attach it
-server-side. The local proxy also requires an `X-Zelo-Workspace: 1` request header,
-and Core itself remains bound to loopback.
+server-side. Workspace access requires a separate `ZELO_WORKSPACE_ACCESS_TOKEN`
+secret of 32–256 characters. The browser signs in with HTTP Basic username `zelo`
+and that separate secret. API routes also require the `X-Zelo-Workspace: 1`
+request header; that public marker is not an authentication credential. Both
+Workspace and Core remain bound to loopback.
 
 ## Run locally
 
@@ -33,10 +36,16 @@ set -a
 source ../.env
 set +a
 
+# Set a separate random Workspace secret in this shell or the local .env file.
+# For example, generate one with: python -c 'import secrets; print(secrets.token_urlsafe(40))'
+export ZELO_WORKSPACE_ACCESS_TOKEN=REPLACE_WITH_YOUR_DISTINCT_RANDOM_SECRET
 npm run dev
 ```
 
-Open <http://127.0.0.1:3000>.
+Open <http://127.0.0.1:3000> and enter username `zelo` with the distinct
+Workspace secret when the browser prompts. The server refuses Workspace
+access when the secret is unset or invalid. Do not reuse the Core operator
+token or put either secret in client code or a URL.
 
 Core must already be running on <http://127.0.0.1:8000>. Override the loopback
 URL with `ZELO_CORE_URL` only when using another local port.

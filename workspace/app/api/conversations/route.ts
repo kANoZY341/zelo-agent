@@ -1,4 +1,9 @@
-import { proxyCore, requireWorkspaceRequest } from "@/lib/core";
+import {
+  MAX_WORKSPACE_CONVERSATION_BODY_BYTES,
+  proxyCore,
+  readBoundedWorkspaceBody,
+  requireWorkspaceRequest,
+} from "@/lib/core";
 
 const MAX_PAGE = 100;
 
@@ -45,7 +50,11 @@ export async function POST(request: Request): Promise<Response> {
   const rejected = requireWorkspaceRequest(request);
   if (rejected) return rejected;
 
-  const body = await request.text();
+  const body = await readBoundedWorkspaceBody(
+    request,
+    MAX_WORKSPACE_CONVERSATION_BODY_BYTES,
+  );
+  if (body instanceof Response) return body;
   return proxyCore("/conversations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
