@@ -1162,6 +1162,44 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
 
 
+def test_promotion_approval_revoked_during_final_policy_get_refuses_put(
+    database, proposal_case, tmp_path
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    original_request = transport.request
+    protection_gets = 0
+
+    async def revoke_during_final_policy_get(method, endpoint, body=None):
+        nonlocal protection_gets
+        if method == "GET" and endpoint.endswith("/branches/main/protection"):
+            protection_gets += 1
+            if protection_gets == 2:
+                with database.transaction() as session:
+                    approval = session.scalar(
+                        select(Approval).where(Approval.task_id == request.promotion_task_id)
+                    )
+                    approval.status = "invalidated"
+        return await original_request(method, endpoint, body)
+
+    transport.request = revoke_during_final_policy_get
+    with pytest.raises(ValueError, match="single_attempt_source_approval_invalid"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert protection_gets == 2
+    assert _rows(database) == (1, 0)
+    assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+    with database.transaction() as session:
+        approval = session.scalar(
+            select(Approval).where(Approval.task_id == request.promotion_task_id)
+        )
+        approval.status = "approved"
+    with pytest.raises(ValueError, match="single_attempt_already_recorded"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
 def test_github_main_protection_api_unavailable_denies_all_publication(
     database, proposal_case, tmp_path
 ):
