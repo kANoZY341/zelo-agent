@@ -5,13 +5,15 @@ runtime activation happens in this test suite.
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
+from threading import Event
 
 import pytest
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.agent_instances import AgentInstanceService
 from app.auth import OperatorPrincipal
@@ -1219,3 +1221,256 @@ def test_github_main_protection_api_unavailable_denies_all_publication(
     assert _rows(database) == (0, 0)
     assert _failures(database) == 0
     assert all(method == "GET" for method, _, _ in transport.calls)
+
+
+def test_revocation_cannot_commit_during_in_flight_merge_put(database, proposal_case, tmp_path):
+    """A separate SQLite connection cannot revoke after the send begins."""
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    original_request = transport.request
+    put_started = Event()
+    allow_put = Event()
+    revocation_started = Event()
+    revocation_committed = Event()
+
+    async def paused_put(method, endpoint, body=None):
+        if method == "PUT":
+            put_started.set()
+            assert await asyncio.to_thread(allow_put.wait, 3), "timed out waiting to release PUT"
+        return await original_request(method, endpoint, body)
+
+    transport.request = paused_put
+
+    def revoke_on_separate_connection():
+        from app.database import Database
+
+        other = Database(database.path)
+        try:
+            with other.read() as session:
+                session.execute(text("SELECT 1"))
+            revocation_started.set()
+            with other.transaction() as session:
+                approval = session.scalar(
+                    select(Approval).where(Approval.task_id == request.promotion_task_id)
+                )
+                approval.status = "invalidated"
+            revocation_committed.set()
+        finally:
+            other.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        sender = pool.submit(
+            lambda: asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+        )
+        try:
+            assert put_started.wait(5), "sender never reached GitHub PUT"
+            revoker = pool.submit(revoke_on_separate_connection)
+            assert revocation_started.wait(5), "revoker never started"
+            assert not revocation_committed.wait(1.0), (
+                "approval revocation committed while GitHub PUT was in flight"
+            )
+        finally:
+            allow_put.set()
+        receipt = sender.result(timeout=10)
+        revoker.result(timeout=10)
+
+    assert isinstance(receipt, SkillPublicationMergeReceipt)
+    assert revocation_committed.is_set()
+    assert _rows(database) == (1, 1)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_post_put_transaction_failure_records_storage_incident(
+    database, proposal_case, tmp_path, monkeypatch
+):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    original_request = transport.request
+    original_transaction = database.transaction
+    put_returned = False
+    injected = False
+
+    async def observed_request(method, endpoint, body=None):
+        nonlocal put_returned
+        response = await original_request(method, endpoint, body)
+        if method == "PUT":
+            put_returned = True
+        return response
+
+    @contextmanager
+    def failing_transaction():
+        nonlocal injected
+        with original_transaction() as session:
+            yield session
+            if put_returned and not injected:
+                injected = True
+                raise RuntimeError("simulated local commit failure")
+
+    monkeypatch.setattr(transport, "request", observed_request)
+    monkeypatch.setattr(database, "transaction", failing_transaction)
+    with pytest.raises(DeveloperError, match="outcome_unresolved_put_response"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+
+    assert injected
+    assert _rows(database) == (1, 0)
+    with database.read() as session:
+        failure = session.scalar(select(SkillPublicationMergeFailureRecord))
+        assert failure is not None
+        assert failure.phase == "put_response"
+        assert failure.reason == "storage_failure"
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_pre_send_writer_lock_failure_is_bounded_and_sends_nothing(
+    database, proposal_case, tmp_path, monkeypatch
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    original_transaction = database.transaction
+    injected = False
+
+    @contextmanager
+    def fail_after_durable_attempt():
+        nonlocal injected
+        if not injected and _rows(database)[0] == 1:
+            injected = True
+            raise OperationalError("BEGIN IMMEDIATE", {}, RuntimeError("database is locked"))
+        with original_transaction() as session:
+            yield session
+
+    monkeypatch.setattr(database, "transaction", fail_after_durable_attempt)
+    with pytest.raises(DeveloperError, match="single_attempt_pre_send_storage_unavailable"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+
+    assert injected
+    assert _rows(database) == (1, 0)
+    assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_cancellation_waits_for_local_put_and_records_unresolved(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    original_request = transport.request
+    put_started = Event()
+    allow_put = Event()
+
+    async def paused_put(method, endpoint, body=None):
+        if method == "PUT":
+            put_started.set()
+            assert await asyncio.to_thread(allow_put.wait, 3)
+        return await original_request(method, endpoint, body)
+
+    transport.request = paused_put
+
+    async def scenario():
+        sender = asyncio.create_task(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+        try:
+            assert await asyncio.to_thread(put_started.wait, 5)
+            sender.cancel()
+            await asyncio.sleep(0.05)
+            assert not sender.done(), "sender abandoned an in-flight PUT"
+        finally:
+            allow_put.set()
+        with pytest.raises(DeveloperError, match="outcome_unresolved_put_response"):
+            await sender
+
+    asyncio.run(scenario())
+    assert _rows(database) == (1, 0)
+    assert _failures(database) == 1
+    with database.read() as session:
+        failure = session.scalar(select(SkillPublicationMergeFailureRecord))
+        assert failure.phase == "put_response"
+        assert failure.reason == "unclassified"
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_local_put_progresses_while_same_loop_core_write_waits(database, proposal_case, tmp_path):
+    from app.database import Database
+
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    original_request = transport.request
+    put_started = Event()
+    other = Database(database.path)
+    with other.read() as session:
+        session.execute(text("SELECT 1"))
+
+    async def delayed_put(method, endpoint, body=None):
+        if method == "PUT":
+            put_started.set()
+            await asyncio.sleep(0.2)
+        return await original_request(method, endpoint, body)
+
+    transport.request = delayed_put
+
+    async def scenario():
+        sender = asyncio.create_task(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+        assert await asyncio.to_thread(put_started.wait, 5)
+        # This synchronous Core write runs on the sender's caller event loop.
+        # The separate PUT event loop must still finish and release SQLite.
+        with other.transaction() as session:
+            approval = session.scalar(
+                select(Approval).where(Approval.task_id == request.promotion_task_id)
+            )
+            approval.status = "invalidated"
+        return await sender
+
+    try:
+        receipt = asyncio.run(scenario())
+    finally:
+        other.close()
+    assert isinstance(receipt, SkillPublicationMergeReceipt)
+    assert _rows(database) == (1, 1)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+def test_cancel_before_send_refuses_put_after_durable_attempt(
+    database, proposal_case, tmp_path, monkeypatch
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    original_transaction = database.transaction
+    lock_wait_started = Event()
+    allow_lock = Event()
+    paused = False
+
+    @contextmanager
+    def paused_final_transaction():
+        nonlocal paused
+        if not paused and _rows(database)[0] == 1:
+            paused = True
+            lock_wait_started.set()
+            assert allow_lock.wait(5)
+        with original_transaction() as session:
+            yield session
+
+    monkeypatch.setattr(database, "transaction", paused_final_transaction)
+
+    async def scenario():
+        sender = asyncio.create_task(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+        try:
+            assert await asyncio.to_thread(lock_wait_started.wait, 5)
+            sender.cancel()
+            await asyncio.sleep(0.05)
+            assert not sender.done()
+        finally:
+            allow_lock.set()
+        with pytest.raises(DeveloperError, match="single_attempt_cancelled_before_send"):
+            await sender
+
+    asyncio.run(scenario())
+    assert paused
+    assert _rows(database) == (1, 0)
+    assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
