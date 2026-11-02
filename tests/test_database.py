@@ -825,8 +825,12 @@ def test_skill_reconciliation_migration_failure_preserves_data_and_retries(setti
         database.close()
 
 
-def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None:
-    """A stopped Core can return to its prior SQLite snapshot and retry upgrade."""
+@pytest.mark.parametrize(
+    "starting_revision",
+    ["0025_hierarchy_child_creation", "0046_skill_publication_one_attempt"],
+)
+def test_upgrade_can_restore_prior_backup(settings, starting_revision) -> None:
+    """A stopped Core can restore a v0.14-era or newer snapshot and retry upgrade."""
     database = Database(settings.database_path)
     backup_path = settings.runtime_dir / "before-skill-reconciliation.sqlite3"
     table = "skill_publication_post_attempt_reconciliations"
@@ -834,7 +838,7 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
         config = migration_config()
         with database.engine.connect() as connection:
             config.attributes["connection"] = connection
-            command.upgrade(config, "0046_skill_publication_one_attempt")
+            command.upgrade(config, starting_revision)
         with database.transaction() as session:
             session.execute(
                 text(
@@ -845,6 +849,14 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
                     "'2026-01-01 00:00:00')"
                 ),
                 {"action": "a" * 64, "request": "b" * 64},
+            )
+            session.execute(
+                text(
+                    "INSERT INTO audit_events (id,task_id,event,created_at,details) "
+                    "VALUES ('backup-audit','backup-task','snapshot_marker',"
+                    "'2026-01-01 00:00:00',:details)"
+                ),
+                {"details": '{"preserved":true}'},
             )
         with sqlite3.connect(settings.database_path) as source:
             with sqlite3.connect(backup_path) as destination:
@@ -865,9 +877,18 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
             database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0046_skill_publication_one_attempt"
+                starting_revision
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT COUNT(*) FROM audit_events WHERE id='backup-audit' "
+                        "AND task_id='backup-task'"
+                    )
+                )
+                == 1
+            )
             assert session.scalar(text("PRAGMA integrity_check")) == "ok"
 
         database.migrate()
@@ -875,6 +896,15 @@ def test_skill_reconciliation_upgrade_can_restore_prior_backup(settings) -> None
         assert table in inspect(database.engine).get_table_names()
         with database.read() as session:
             assert session.scalar(text("SELECT COUNT(*) FROM tasks WHERE id='backup-task'")) == 1
+            assert (
+                session.scalar(
+                    text(
+                        "SELECT COUNT(*) FROM audit_events WHERE id='backup-audit' "
+                        "AND task_id='backup-task'"
+                    )
+                )
+                == 1
+            )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
     finally:
         database.close()
