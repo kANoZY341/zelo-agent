@@ -504,6 +504,11 @@ async def merge_exact_skill_once(
             claim_id, body.merge_request, body.confirmation, principal
         )
     except DeveloperError as error:
+        if str(error).startswith("skill_publication_single_attempt_outcome_unresolved_"):
+            raise HTTPException(
+                status_code=409,
+                detail="skill_publication_single_attempt_outcome_unresolved",
+            ) from None
         raise _remote_error(error) from None
     except (PermissionError, ValueError) as error:
         raise _refuse_code(error, "skill_publication_single_attempt_refused") from None

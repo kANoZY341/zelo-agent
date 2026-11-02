@@ -112,3 +112,56 @@ def test_merge_once_api_sends_one_scripted_put_and_replay_refuses(
         == 401
     )
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+
+@pytest.mark.parametrize("failure_phase", ["put_request", "post_pr"])
+def test_merge_once_api_reports_terminal_uncertainty_and_readable_history(
+    failure_phase, proposal_case, database, settings, client, tmp_path, monkeypatch
+):
+    store, claim, merge_request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(merge_request, transport, template)
+    original_request = transport.request
+
+    async def fail_after_dispatch(method, endpoint, body=None):
+        if failure_phase == "put_request" and method == "PUT":
+            transport.calls.append((method, endpoint, body))
+            raise TimeoutError()
+        if (
+            failure_phase == "post_pr"
+            and method == "GET"
+            and any(call[0] == "PUT" for call in transport.calls)
+        ):
+            transport.calls.append((method, endpoint, body))
+            raise RuntimeError("simulated provider outage")
+        return await original_request(method, endpoint, body)
+
+    transport.request = fail_after_dispatch
+    client.app.state.skill_learning_store = store
+    client.app.state.settings = service.settings.model_copy(
+        update={"operator_token": settings.operator_token}
+    )
+    monkeypatch.setattr(skill_publication_api, "_remote", lambda _: service.fences.blob.remote)
+    base = f"/skill-publication/claims/{claim.id}"
+    body = {
+        "confirmation": CONFIRM,
+        "merge_request": merge_request.model_dump(mode="json"),
+    }
+
+    response = client.post(base + "/merge-once", json=body)
+    assert response.status_code == 409
+    assert response.json() == {"detail": "skill_publication_single_attempt_outcome_unresolved"}
+    assert _rows(database) == (1, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
+
+    client.app.state.settings = settings
+    attempt = client.get(base + "/merge-attempt")
+    assert attempt.status_code == 200
+    assert attempt.json()["automatic_retry_allowed"] is False
+    failure = client.get(base + "/merge-failure")
+    assert failure.status_code == 200
+    assert failure.json()["phase"] == failure_phase
+    assert failure.json()["reason"] == "provider_exception"
+    assert client.get(base + "/merge-receipt").status_code == 404
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
