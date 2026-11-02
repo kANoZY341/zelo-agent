@@ -839,6 +839,7 @@ class ChannelThreadBindingRecord(Base):
         CheckConstraint("operator_id = 'ahmad'", name="ck_channel_thread_operator"),
         CheckConstraint("provider_authenticated = 0", name="ck_channel_thread_unverified"),
         CheckConstraint("transport_authority = 0", name="ck_channel_thread_transport"),
+        {"sqlite_with_rowid": False},
     )
 
     thread_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -879,6 +880,7 @@ class ChannelIngressObservationRecord(Base):
         CheckConstraint("state = 'unverified'", name="ck_channel_observation_state"),
         CheckConstraint("mind_executed = 0", name="ck_channel_observation_mind"),
         CheckConstraint("delivery_authority = 0", name="ck_channel_observation_delivery"),
+        {"sqlite_with_rowid": False},
     )
 
     message_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)

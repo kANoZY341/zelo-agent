@@ -7,8 +7,8 @@ from threading import Barrier
 
 import pytest
 from alembic import command
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import event, func, select, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.auth import OperatorPrincipal
 from app.channel_binding_store import ChannelBindingStore
@@ -336,11 +336,15 @@ def test_replace_cannot_steal_an_existing_channel_identity(database):
     assert store.get_thread(replacement_fingerprint, principal=OperatorPrincipal()) is None
 
 
-def test_replace_cannot_reuse_an_observation_rowid(database):
+def test_channel_ledgers_have_no_hidden_rowid_to_reuse(database):
     store, _id, _binding = bind(database)
     observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
     replacement_fingerprint = "e" * 64
-    with pytest.raises(IntegrityError, match="append-only"):
+    for table in ("channel_thread_bindings", "channel_ingress_observations"):
+        with pytest.raises(OperationalError, match="no such column: rowid"):
+            with database.read() as session:
+                session.execute(text(f"SELECT rowid FROM {table}")).all()
+    with pytest.raises(OperationalError, match="has no column named rowid"):
         with database.transaction() as session:
             session.execute(
                 text(
@@ -382,6 +386,17 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
                 "0050_channel_ledger_replace_guards"
             )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+            foreign_keys = session.execute(
+                text("PRAGMA foreign_key_list(channel_ingress_observations)")
+            ).all()
+            assert len(foreign_keys) == 1
+            assert foreign_keys[0][2] == "channel_thread_bindings"
+            for table in ("channel_thread_bindings", "channel_ingress_observations"):
+                sql = session.scalar(
+                    text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:table"),
+                    {"table": table},
+                )
+                assert "WITHOUT ROWID" in sql
         assert (
             store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
         )
@@ -407,35 +422,109 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
         database.close()
 
 
-def test_existing_negative_rowid_does_not_block_new_channel_evidence(database):
-    conversation_id = conversation(database)
-    original = thread()
-    with database.transaction() as session:
-        session.execute(
-            text(
-                "INSERT INTO channel_thread_bindings "
-                "(rowid,thread_fingerprint,channel,account_key,sender_key,thread_key,"
-                "conversation_id,operator_id,provider_authenticated,transport_authority,"
-                "created_at) VALUES (-1,:fingerprint,'whatsapp',:account,:sender,:thread,"
-                ":conversation,'ahmad',0,0,:created_at)"
-            ),
-            {
-                "fingerprint": original.fingerprint(),
-                "account": original.account_key,
-                "sender": original.sender_key,
-                "thread": original.thread_key,
-                "conversation": conversation_id,
-                "created_at": datetime.now(UTC),
-            },
+def test_existing_negative_rowid_does_not_block_new_channel_evidence(settings):
+    database = Database(settings.database_path)
+    try:
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0049_skill_publication_promotion_receipt_link")
+        conversation_id = conversation(database)
+        original = thread()
+        with database.transaction() as session:
+            session.execute(
+                text(
+                    "INSERT INTO channel_thread_bindings "
+                    "(rowid,thread_fingerprint,channel,account_key,sender_key,thread_key,"
+                    "conversation_id,operator_id,provider_authenticated,transport_authority,"
+                    "created_at) VALUES (-1,:fingerprint,'whatsapp',:account,:sender,:thread,"
+                    ":conversation,'ahmad',0,0,:created_at)"
+                ),
+                {
+                    "fingerprint": original.fingerprint(),
+                    "account": original.account_key,
+                    "sender": original.sender_key,
+                    "thread": original.thread_key,
+                    "conversation": conversation_id,
+                    "created_at": datetime.now(UTC),
+                },
+            )
+        database.migrate()
+        store = ChannelBindingStore(database)
+        added, created = store.bind_thread(
+            thread(thread_key="f" * 64),
+            conversation_id=conversation_id,
+            principal=OperatorPrincipal(),
         )
-    store = ChannelBindingStore(database)
-    added, created = store.bind_thread(
-        thread(thread_key="f" * 64),
-        conversation_id=conversation_id,
-        principal=OperatorPrincipal(),
-    )
-    assert created and added.thread_fingerprint != original.fingerprint()
-    assert store.get_thread(original.fingerprint(), principal=OperatorPrincipal()) is not None
+        assert created and added.thread_fingerprint != original.fingerprint()
+        assert store.get_thread(original.fingerprint(), principal=OperatorPrincipal()) is not None
+    finally:
+        database.close()
+
+
+def test_channel_ledger_rebuild_rolls_back_midway_and_can_retry(settings):
+    database = Database(settings.database_path)
+    try:
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0049_skill_publication_promotion_receipt_link")
+        store, _id, binding = bind(database)
+        observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+
+        with database.engine.connect() as connection:
+
+            @event.listens_for(connection, "before_cursor_execute")
+            def fail_midway(_conn, _cursor, statement, _params, _context, _many):
+                if statement.startswith("DROP TABLE channel_ingress_observations"):
+                    raise RuntimeError("injected_0050_failure")
+
+            config = migration_config()
+            config.attributes["connection"] = connection
+            with pytest.raises(RuntimeError, match="injected_0050_failure"):
+                command.upgrade(config, "head")
+
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0049_skill_publication_promotion_receipt_link"
+            )
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+            assert (
+                session.scalar(
+                text("SELECT count(*) FROM sqlite_master WHERE name GLOB '_v015_channel_*'")
+                )
+                == 0
+            )
+            for table in ("channel_thread_bindings", "channel_ingress_observations"):
+                assert (
+                    session.scalar(
+                        text(
+                            "SELECT count(*) FROM sqlite_master "
+                            "WHERE type='trigger' AND tbl_name=:table"
+                        ),
+                        {"table": table},
+                    )
+                    == 2
+                )
+        assert (
+            store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
+        )
+        assert (
+            store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+            == observed
+        )
+
+        database.migrate()
+        database.check_schema()
+        assert (
+            store.get_thread(binding.thread_fingerprint, principal=OperatorPrincipal()) == binding
+        )
+        assert (
+            store.get_observation(observed.message_fingerprint, principal=OperatorPrincipal())
+            == observed
+        )
+    finally:
+        database.close()
 
 
 def test_database_rejects_forged_provider_or_transport_authority(database):
