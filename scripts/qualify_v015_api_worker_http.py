@@ -8,6 +8,7 @@ This opt-in probe sends one unauthenticated GET to the public GitHub API root.
 It never changes the default endpoint registry or the normal Zelo database.
 """
 
+import argparse
 import asyncio
 import os
 import secrets
@@ -168,4 +169,5 @@ async def run() -> None:
 
 
 if __name__ == "__main__":
+    argparse.ArgumentParser(description=__doc__).parse_args()
     asyncio.run(run())
