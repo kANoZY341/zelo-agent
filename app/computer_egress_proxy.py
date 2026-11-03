@@ -268,8 +268,12 @@ class ComputerEgressProxy:
         preauth_acquired = False
         try:
             async with asyncio.timeout(self.connection_seconds):
+                header_seconds = min(self.connection_seconds / 2.0, 5.0)
+                preauth_wait_seconds = min(self.connection_seconds * 0.75, header_seconds + 1.0)
                 try:
-                    await asyncio.wait_for(self._preauth_semaphore.acquire(), timeout=1.0)
+                    await asyncio.wait_for(
+                        self._preauth_semaphore.acquire(), timeout=preauth_wait_seconds
+                    )
                     preauth_acquired = True
                 except TimeoutError:
                     await self._reply(writer, 503, "Busy")
@@ -279,7 +283,7 @@ class ComputerEgressProxy:
                     try:
                         host, port, agent_id, password = await asyncio.wait_for(
                             self._read_connect(reader),
-                            timeout=min(self.connection_seconds / 2.0, 5.0),
+                            timeout=header_seconds,
                         )
                     except TimeoutError:
                         await self._reply(writer, 408, "Request Timeout")

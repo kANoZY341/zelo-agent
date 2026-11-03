@@ -3,6 +3,8 @@
 import asyncio
 import base64
 
+import pytest
+
 from app.agent_factory import AgentComputerSpec, AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
 from app.api_contracts import ApiEndpointRegistry
@@ -153,7 +155,10 @@ def test_connect_tunnels_only_after_agent_policy_and_exact_resolver_target(datab
     assert connector_calls == [("93.184.216.34", 443)]
 
 
-def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(database):
+@pytest.mark.parametrize("idle_count", [1, 2])
+def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(
+    database, idle_count
+):
     policy, instance = setup_policy(database)
     connector_calls: list[tuple[str, int]] = []
 
@@ -172,7 +177,14 @@ def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(
             connector_calls.append((host, port))
             return await asyncio.open_connection("127.0.0.1", echo_port)
 
-        proxy = ComputerEgressProxy(
+        entered = asyncio.Queue()
+
+        class ObservedProxy(ComputerEgressProxy):
+            async def _read_connect(self, reader):
+                entered.put_nowait(None)
+                return await super()._read_connect(reader)
+
+        proxy = ObservedProxy(
             policy,
             host="127.0.0.1",
             port=0,
@@ -182,11 +194,15 @@ def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(
             connection_seconds=5,
         )
         await proxy.start()
-        idle_writer = None
+        idle_writers = []
         authorized_writer = None
         try:
-            _idle_reader, idle_writer = await asyncio.open_connection("127.0.0.1", proxy.bound_port)
-            await asyncio.sleep(0.05)
+            for _ in range(idle_count):
+                _idle_reader, idle_writer = await asyncio.open_connection(
+                    "127.0.0.1", proxy.bound_port
+                )
+                idle_writers.append(idle_writer)
+                await asyncio.wait_for(entered.get(), timeout=1)
             authorized_reader, authorized_writer = await asyncio.open_connection(
                 "127.0.0.1", proxy.bound_port
             )
@@ -202,7 +218,7 @@ def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(
             response = await read_headers(authorized_reader)
             assert response.startswith(b"HTTP/1.1 200 Connection Established")
         finally:
-            if idle_writer is not None:
+            for idle_writer in idle_writers:
                 idle_writer.close()
                 await idle_writer.wait_closed()
             if authorized_writer is not None:
