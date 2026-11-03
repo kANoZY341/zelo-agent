@@ -1,3 +1,9 @@
-# Preserve pinned REA upstream files byte-for-byte, even if upstream has trailing whitespace.
-# Local Zelo source remains subject to the usual whitespace checks.
-third_party/rea/** -whitespace
+# Preserve pinned REA source and manifest bytes through Windows-style checkouts.
+# Upstream REA files retain their trailing whitespace; local Zelo source does not.
+third_party/rea/** -text -whitespace
+integrations/rea/source-v6.0.0.manifest.json -text
+
+# The curated verifier pins exact manifest and upstream source bytes. Git must
+# not rewrite their line endings in Windows-style checkouts.
+integrations/community/sources.json -text
+integrations/community/sources/** -text
