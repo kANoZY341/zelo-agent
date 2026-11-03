@@ -493,44 +493,62 @@ def run_qualification(docker_config: Path) -> None:
             print("CHILD_AGENT_INSTANCE=" + child_id, flush=True)
             print("CORE_BACKEND_IDENTITY=" + backend_id, flush=True)
         finally:
+            cleanup_errors: list[str] = []
             expected_children = {f"{tag}-computer-{item}" for item in instance_ids}
             for name in namespace_containers(tag):
-                info = json.loads(docker("inspect", name))[0]
-                if name == supervisor_name:
-                    require(
+                try:
+                    info = json.loads(docker("inspect", name))[0]
+                    verified = (
                         info["Image"] == SUPERVISOR_DIGEST
-                        and info["Config"]["Labels"].get("zelo.r1.run") == tag,
-                        "supervisor cleanup ownership mismatch",
+                        and info["Config"]["Labels"].get("zelo.r1.run") == tag
+                        if name == supervisor_name
+                        else (
+                            name in expected_children
+                            and info["Image"] == CHILD_DIGEST
+                            and sandbox in info["NetworkSettings"]["Networks"]
+                        )
                     )
-                else:
-                    require(
-                        name in expected_children
-                        and info["Image"] == CHILD_DIGEST
-                        and sandbox in info["NetworkSettings"]["Networks"],
-                        "child cleanup ownership mismatch",
-                    )
-                docker("rm", "-f", "-v", name, timeout=50, allow_failure=True)
+                except (RuntimeError, ValueError, KeyError, TypeError, IndexError):
+                    verified = False
+                if not verified:
+                    cleanup_errors.append("unverified container: " + name)
+                    continue
+                try:
+                    docker("rm", "-f", "-v", name, timeout=50)
+                except (RuntimeError, subprocess.TimeoutExpired):
+                    cleanup_errors.append("container removal failed: " + name)
             for name in namespace_networks(tag):
-                require(name in (sandbox, control_net), "unexpected network in namespace")
-                info = json.loads(docker("network", "inspect", name))[0]
-                require(
-                    info["Labels"].get("zelo.r1.run") == tag,
-                    "network cleanup ownership mismatch",
-                )
-                docker("network", "rm", name, timeout=50, allow_failure=True)
+                try:
+                    info = json.loads(docker("network", "inspect", name))[0]
+                    verified = (
+                        name in (sandbox, control_net) and info["Labels"].get("zelo.r1.run") == tag
+                    )
+                except (RuntimeError, ValueError, KeyError, TypeError, IndexError):
+                    verified = False
+                if not verified:
+                    cleanup_errors.append("unverified network: " + name)
+                    continue
+                try:
+                    docker("network", "rm", name, timeout=50)
+                except (RuntimeError, subprocess.TimeoutExpired):
+                    cleanup_errors.append("network removal failed: " + name)
             expected_volumes = {
                 f"{tag}-{kind}-{item}" for item in instance_ids for kind in ("profile", "workspace")
             }
             for name in namespace_volumes(tag):
-                require(name in expected_volumes, "volume cleanup ownership mismatch")
-                require(
-                    not docker("ps", "-aq", "--filter", "volume=" + name),
-                    "owned volume still mounted",
-                )
-                docker("volume", "rm", name, timeout=50)
-            require(not namespace_containers(tag), "owned container remains")
-            require(not namespace_networks(tag), "owned network remains")
-            require(not namespace_volumes(tag), "owned volume remains")
+                if name not in expected_volumes:
+                    cleanup_errors.append("unverified volume: " + name)
+                    continue
+                try:
+                    if docker("ps", "-aq", "--filter", "volume=" + name):
+                        cleanup_errors.append("volume still mounted: " + name)
+                    else:
+                        docker("volume", "rm", name, timeout=50)
+                except (RuntimeError, subprocess.TimeoutExpired):
+                    cleanup_errors.append("volume removal failed: " + name)
+            if namespace_containers(tag) or namespace_networks(tag) or namespace_volumes(tag):
+                cleanup_errors.append("run namespace still occupied")
+            require(not cleanup_errors, "; ".join(cleanup_errors))
             print("OWNED_DOCKER_RESOURCES_REMOVED=PASS", flush=True)
     print("DISPOSABLE_DB_AND_CREDENTIALS_REMOVED=PASS", flush=True)
 
