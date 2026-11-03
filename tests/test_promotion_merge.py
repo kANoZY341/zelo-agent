@@ -177,6 +177,18 @@ def open_pr(request):
     }
 
 
+def protected_main_policy():
+    return {
+        "required_status_checks": {
+            "strict": True,
+            "checks": [{"context": "checks", "app_id": 15368}],
+        },
+        "enforce_admins": {"enabled": True},
+        "allow_force_pushes": {"enabled": False},
+        "allow_deletions": {"enabled": False},
+    }
+
+
 def merged_pr(request, merge_sha):
     return {
         "number": request.publication.pr_number,
@@ -234,6 +246,7 @@ def test_generic_merge_can_modify_unrelated_skills_sibling(tmp_path):
     transport = ScriptedTransport(
         [
             ("GET", f"/repos/{repo}/pulls/7", open_pr(allowed)),
+            ("GET", f"/repos/{repo}/branches/main/protection", protected_main_policy()),
             ("PUT", f"/repos/{repo}/pulls/7/merge", {"merged": True, "sha": "8" * 40}),
             ("GET", f"/repos/{repo}/pulls/7", merged_pr(allowed, "8" * 40)),
         ]
@@ -243,7 +256,7 @@ def test_generic_merge_can_modify_unrelated_skills_sibling(tmp_path):
 
     assert not result.reused
     assert verifier.calls == [(allowed.promotion, allowed.publication)]
-    assert [call[0] for call in transport.calls] == ["GET", "PUT", "GET"]
+    assert [call[0] for call in transport.calls] == ["GET", "GET", "PUT", "GET"]
 
 
 def test_exact_historical_learned_skill_merge_recovery_remains_read_only(tmp_path):
@@ -269,6 +282,76 @@ def test_exact_historical_learned_skill_merge_recovery_remains_read_only(tmp_pat
     assert verifier.calls == []
 
 
+def test_merge_refuses_loose_main_policy_before_put_even_with_green_ci(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    repo = request.promotion.repository
+    policy = protected_main_policy()
+    policy["required_status_checks"]["strict"] = False
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", open_pr(request)),
+            ("GET", f"/repos/{repo}/branches/main/protection", policy),
+        ]
+    )
+    verifier = FakeCIVerifier(ci)
+
+    with pytest.raises(DeveloperError, match="promotion_merge_main_protection_unqualified"):
+        asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(request))
+
+    assert verifier.calls == [(request.promotion, request.publication)]
+    assert all(method != "PUT" for method, _, _ in transport.calls)
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["missing_checks", "wrong_app", "admin_bypass", "force_push", "deletion"],
+)
+def test_merge_refuses_weak_or_incomplete_main_policy(tmp_path, defect):
+    settings, request, ci = fixture(tmp_path)
+    repo = request.promotion.repository
+    policy = protected_main_policy()
+    if defect == "missing_checks":
+        policy["required_status_checks"]["checks"] = []
+    elif defect == "wrong_app":
+        policy["required_status_checks"]["checks"][0]["app_id"] = 1
+    elif defect == "admin_bypass":
+        policy["enforce_admins"]["enabled"] = False
+    elif defect == "force_push":
+        policy["allow_force_pushes"]["enabled"] = True
+    else:
+        policy["allow_deletions"]["enabled"] = True
+    transport = ScriptedTransport(
+        [
+            ("GET", f"/repos/{repo}/pulls/7", open_pr(request)),
+            ("GET", f"/repos/{repo}/branches/main/protection", policy),
+        ]
+    )
+
+    with pytest.raises(DeveloperError, match="promotion_merge_main_protection_unqualified"):
+        asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
+
+    assert all(method != "PUT" for method, _, _ in transport.calls)
+
+
+def test_merge_refuses_unavailable_main_policy(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    repo = request.promotion.repository
+
+    class UnavailableProtectionTransport(ScriptedTransport):
+        async def request(self, method, endpoint, body=None):
+            if endpoint == f"/repos/{repo}/branches/main/protection":
+                self.calls.append((method, endpoint, body))
+                raise PermissionError("forbidden")
+            return await super().request(method, endpoint, body)
+
+    transport = UnavailableProtectionTransport(
+        [("GET", f"/repos/{repo}/pulls/7", open_pr(request))]
+    )
+    with pytest.raises(DeveloperError, match="promotion_merge_main_protection_unavailable"):
+        asyncio.run(PromotionMergeRuntime(settings, FakeCIVerifier(ci), transport).run(request))
+    assert all(method != "PUT" for method, _, _ in transport.calls)
+
+
 def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
     settings, request, ci = fixture(tmp_path)
     merge_sha = "8" * 40
@@ -280,6 +363,7 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
                 f"/repos/{repo}/pulls/7",
                 open_pr(request),
             ),
+            ("GET", f"/repos/{repo}/branches/main/protection", protected_main_policy()),
             (
                 "PUT",
                 f"/repos/{repo}/pulls/7/merge",
@@ -298,7 +382,7 @@ def test_merge_reverifies_ci_and_binds_exact_head(tmp_path):
     assert result.merge_commit_sha == merge_sha
     assert result.head_sha == request.publication.pr_head_sha
     assert verifier.calls == [(request.promotion, request.publication)]
-    method, endpoint, body = transport.calls[1]
+    method, endpoint, body = transport.calls[2]
     assert method == "PUT"
     assert endpoint.endswith("/pulls/7/merge")
     assert body == {
@@ -330,6 +414,7 @@ def test_merge_rejects_unmerged_or_mismatched_result(tmp_path):
     transport = ScriptedTransport(
         [
             ("GET", f"/repos/{repo}/pulls/7", open_pr(request)),
+            ("GET", f"/repos/{repo}/branches/main/protection", protected_main_policy()),
             (
                 "PUT",
                 f"/repos/{repo}/pulls/7/merge",
