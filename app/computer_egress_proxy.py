@@ -128,6 +128,7 @@ class ComputerEgressProxy:
         self.connector = connector
         self.connection_seconds = float(connection_seconds)
         self.direction_bytes = direction_bytes
+        self._preauth_semaphore = asyncio.Semaphore(max_connections * 2)
         self._semaphore = asyncio.Semaphore(max_connections)
         self._server: asyncio.AbstractServer | None = None
         self._clients: set[asyncio.Task] = set()
@@ -264,43 +265,65 @@ class ComputerEgressProxy:
         upstream_writer: asyncio.StreamWriter | None = None
         resolver: Resolver | None = None
         acquired = False
+        preauth_acquired = False
         try:
             async with asyncio.timeout(self.connection_seconds):
+                header_seconds = min(self.connection_seconds / 2.0, 5.0)
+                preauth_wait_seconds = min(self.connection_seconds * 0.75, header_seconds + 1.0)
                 try:
-                    await asyncio.wait_for(self._semaphore.acquire(), timeout=1.0)
-                    acquired = True
+                    await asyncio.wait_for(
+                        self._preauth_semaphore.acquire(), timeout=preauth_wait_seconds
+                    )
+                    preauth_acquired = True
                 except TimeoutError:
                     await self._reply(writer, 503, "Busy")
                     return
 
                 try:
-                    host, port, agent_id, password = await self._read_connect(reader)
-                except EgressProxyError as error:
-                    if error.args[0] == "egress_proxy_method_denied":
-                        await self._reply(writer, 405, "Method Not Allowed")
-                    elif error.args[0] in {
-                        "egress_proxy_auth_required",
-                        "egress_proxy_auth_invalid",
-                    }:
-                        await self._reply(
-                            writer,
-                            407,
-                            "Proxy Authentication Required",
-                            proxy_authenticate=True,
+                    try:
+                        host, port, agent_id, password = await asyncio.wait_for(
+                            self._read_connect(reader),
+                            timeout=header_seconds,
                         )
-                    else:
-                        await self._reply(writer, 400, "Bad Request")
-                    return
+                    except TimeoutError:
+                        await self._reply(writer, 408, "Request Timeout")
+                        return
+                    except EgressProxyError as error:
+                        if error.args[0] == "egress_proxy_method_denied":
+                            await self._reply(writer, 405, "Method Not Allowed")
+                        elif error.args[0] in {
+                            "egress_proxy_auth_required",
+                            "egress_proxy_auth_invalid",
+                        }:
+                            await self._reply(
+                                writer,
+                                407,
+                                "Proxy Authentication Required",
+                                proxy_authenticate=True,
+                            )
+                        else:
+                            await self._reply(writer, 400, "Bad Request")
+                        return
+
+                    try:
+                        authorization = self.policy.authorize_credentials(
+                            agent_id,
+                            password,
+                            host=host,
+                            port=port,
+                        )
+                    except ComputerEgressError:
+                        await self._reply(writer, 403, "Forbidden")
+                        return
+                finally:
+                    self._preauth_semaphore.release()
+                    preauth_acquired = False
 
                 try:
-                    authorization = self.policy.authorize_credentials(
-                        agent_id,
-                        password,
-                        host=host,
-                        port=port,
-                    )
-                except ComputerEgressError:
-                    await self._reply(writer, 403, "Forbidden")
+                    await asyncio.wait_for(self._semaphore.acquire(), timeout=1.0)
+                    acquired = True
+                except TimeoutError:
+                    await self._reply(writer, 503, "Busy")
                     return
 
                 resolver = self.resolver_factory()
@@ -377,6 +400,8 @@ class ComputerEgressProxy:
             if upstream_writer is not None:
                 await self._close_writer(upstream_writer)
             await self._close_writer(writer)
+            if preauth_acquired:
+                self._preauth_semaphore.release()
             if acquired:
                 self._semaphore.release()
             if owner is not None:

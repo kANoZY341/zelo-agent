@@ -3,6 +3,8 @@
 import asyncio
 import base64
 
+import pytest
+
 from app.agent_factory import AgentComputerSpec, AgentFactory, AgentRegistry, AgentSpec
 from app.agent_instances import AgentInstanceService
 from app.api_contracts import ApiEndpointRegistry
@@ -151,6 +153,110 @@ def test_connect_tunnels_only_after_agent_policy_and_exact_resolver_target(datab
     asyncio.run(scenario())
     assert resolver_calls == [("example.com", 443)]
     assert connector_calls == [("93.184.216.34", 443)]
+
+
+@pytest.mark.parametrize("idle_count", [1, 2])
+def test_idle_unauthenticated_socket_does_not_occupy_authorized_tunnel_capacity(
+    database, idle_count
+):
+    policy, instance = setup_policy(database)
+    connector_calls: list[tuple[str, int]] = []
+
+    async def scenario():
+        async def echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            try:
+                await reader.read()
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        echo_server = await asyncio.start_server(echo, "127.0.0.1", 0)
+        echo_port = echo_server.sockets[0].getsockname()[1]
+
+        async def connector(host: str, port: int):
+            connector_calls.append((host, port))
+            return await asyncio.open_connection("127.0.0.1", echo_port)
+
+        entered = asyncio.Queue()
+
+        class ObservedProxy(ComputerEgressProxy):
+            async def _read_connect(self, reader):
+                entered.put_nowait(None)
+                return await super()._read_connect(reader)
+
+        proxy = ObservedProxy(
+            policy,
+            host="127.0.0.1",
+            port=0,
+            resolver_factory=lambda: FakeResolver([]),
+            connector=connector,
+            max_connections=1,
+            connection_seconds=5,
+        )
+        await proxy.start()
+        idle_writers = []
+        authorized_writer = None
+        try:
+            for _ in range(idle_count):
+                _idle_reader, idle_writer = await asyncio.open_connection(
+                    "127.0.0.1", proxy.bound_port
+                )
+                idle_writers.append(idle_writer)
+                await asyncio.wait_for(entered.get(), timeout=1)
+            authorized_reader, authorized_writer = await asyncio.open_connection(
+                "127.0.0.1", proxy.bound_port
+            )
+            password = policy.derive_password(instance.id)
+            authorized_writer.write(
+                (
+                    "CONNECT example.com:443 HTTP/1.1\r\n"
+                    f"Proxy-Authorization: {auth_header(instance.id, password)}\r\n"
+                    "\r\n"
+                ).encode("ascii")
+            )
+            await authorized_writer.drain()
+            response = await read_headers(authorized_reader)
+            assert response.startswith(b"HTTP/1.1 200 Connection Established")
+        finally:
+            for idle_writer in idle_writers:
+                idle_writer.close()
+                await idle_writer.wait_closed()
+            if authorized_writer is not None:
+                authorized_writer.close()
+                await authorized_writer.wait_closed()
+            await proxy.aclose()
+            echo_server.close()
+            await echo_server.wait_closed()
+
+    asyncio.run(scenario())
+    assert connector_calls == [("93.184.216.34", 443)]
+
+
+def test_silent_header_times_out_before_tunnel_lifetime(database):
+    policy, _instance = setup_policy(database)
+
+    async def scenario():
+        proxy = ComputerEgressProxy(
+            policy,
+            host="127.0.0.1",
+            port=0,
+            resolver_factory=lambda: FakeResolver([]),
+            max_connections=1,
+            connection_seconds=2,
+        )
+        await proxy.start()
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", proxy.bound_port)
+            try:
+                response = await read_headers(reader)
+                assert response.startswith(b"HTTP/1.1 408 Request Timeout")
+            finally:
+                writer.close()
+                await writer.wait_closed()
+        finally:
+            await proxy.aclose()
+
+    asyncio.run(scenario())
 
 
 def test_ungranted_target_is_denied_before_dns_or_connect(database):
