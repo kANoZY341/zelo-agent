@@ -66,6 +66,7 @@ CHILD_DIGEST = "sha256:c233f25e08f394e8aed40d39d27c55d3c1103601016d26faeadce4f15
 SUBNET = "172.30.254.0/24"
 GATEWAY = "172.30.254.1"
 FIXTURE = "two native computers, two independent approvals"
+_DOCKER_CONFIG: Path | None = None
 
 
 def require(condition: bool, reason: str) -> None:
@@ -74,8 +75,20 @@ def require(condition: bool, reason: str) -> None:
 
 
 def docker(*args: str, timeout: int = 100, allow_failure: bool = False) -> str:
+    require(_DOCKER_CONFIG is not None, "private Docker config missing")
+    environment = {
+        "PATH": os.defpath,
+        "LANG": "C.UTF-8",
+        "DOCKER_HOST": "unix:///var/run/docker.sock",
+        "DOCKER_CONFIG": str(_DOCKER_CONFIG),
+    }
     completed = subprocess.run(
-        ["/usr/bin/docker", *args], capture_output=True, text=True, timeout=timeout, check=False
+        ["/usr/bin/docker", *args],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
     )
     if completed.returncode and not allow_failure:
         raise RuntimeError(
@@ -91,13 +104,18 @@ def source_sha() -> str:
     return sha
 
 
-def owned_containers(tag: str) -> list[str]:
+def namespace_containers(tag: str) -> list[str]:
     names = docker("ps", "-a", "--format", "{{.Names}}")
     return [name for name in names.splitlines() if name.startswith(tag + "-")]
 
 
-def owned_volumes(tag: str) -> list[str]:
+def namespace_volumes(tag: str) -> list[str]:
     names = docker("volume", "ls", "--format", "{{.Name}}")
+    return [name for name in names.splitlines() if name.startswith(tag + "-")]
+
+
+def namespace_networks(tag: str) -> list[str]:
+    names = docker("network", "ls", "--format", "{{.Name}}")
     return [name for name in names.splitlines() if name.startswith(tag + "-")]
 
 
@@ -109,7 +127,7 @@ class IsolationSettings(Settings):
         return (init_settings,)
 
 
-async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
+async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple[str, str, str]:
     db = Database(settings.database_path)
     try:
         db.migrate()
@@ -149,6 +167,7 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
             AgentInstanceCreate(agent_id=child_spec.agent_id, project_id=project.id)
         )
         require(parent.id != child.id, "AgentInstance identities collapsed")
+        instance_ids.extend((parent.id, child.id))
         service = AgentComputerService(db, factory, backend)
         for instance in (parent, child):
             try:
@@ -173,6 +192,7 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
         require(len(set(names)) == 2, "Docker child names collapsed")
         for name in names:
             info = json.loads(docker("inspect", name))[0]
+            require(info["Image"] == CHILD_DIGEST, "native Computer image drift")
             require(info["State"]["Running"], "native Computer container stopped")
             require(
                 tuple(info["NetworkSettings"]["Networks"]) == (settings.computer_network_name,),
@@ -269,8 +289,11 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
 
         try:
             submit.submit(child.id, request("files_read", child_activation=activations[0].id), None)
-        except DomainError:
-            pass
+        except DomainError as error:
+            require(
+                error.status_code == 409 and error.message == "computer_space_activation_invalid",
+                "parent substitution refused for an unrelated reason",
+            )
         else:
             raise RuntimeError("parent approval substituted for child")
         print("PARENT_APPROVAL_SUBSTITUTION_DENIED=PASS", flush=True)
@@ -282,6 +305,15 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
             await runner._run(claimed)
             done = tasks.get(task.id)
             require(done.status == State.SUCCEEDED, f"native Space Task failed: {done.error}")
+            completed_event = (
+                "space_file_read_completed"
+                if action == "files_read"
+                else "space_file_list_completed"
+            )
+            require(
+                completed_event in [event.event for event in tasks.events(task.id, 100, 0)],
+                "Space completion audit missing",
+            )
             if action == "files_read":
                 require(done.result["files_read"]["text"] == FIXTURE, "private fixture mismatch")
             else:
@@ -296,8 +328,11 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
         )
         try:
             submit.submit(child.id, request("files_read"), None)
-        except DomainError:
-            pass
+        except DomainError as error:
+            require(
+                error.status_code == 409 and error.message == "Agent delegation is not active",
+                "revocation refused for an unrelated reason",
+            )
         else:
             raise RuntimeError("revoked delegation admitted a new Space Task")
         print("POST_REVOCATION_TASK_DENIED=PASS", flush=True)
@@ -309,7 +344,9 @@ async def qualify(settings: IsolationSettings) -> tuple[str, str, str]:
         db.close()
 
 
-def main() -> None:
+def run_qualification(docker_config: Path) -> None:
+    global _DOCKER_CONFIG
+    _DOCKER_CONFIG = docker_config
     require(__debug__, "optimized mode is unsupported")
     require(os.name == "posix", "native qualification requires the approved Linux host")
     require(not any(key.startswith("ZELO_") for key in os.environ), "ambient Zelo env present")
@@ -328,14 +365,10 @@ def main() -> None:
         tag + "-control",
         tag + "-supervisor",
     )
-    for name in (sandbox, control_net):
-        require(
-            not docker("network", "ls", "--filter", "name=^" + name + "$", "--format", "{{.Name}}"),
-            "network name collision",
-        )
-    require(not owned_containers(tag), "container namespace collision")
-    require(not owned_volumes(tag), "volume namespace collision")
-    created: list[tuple[str, str]] = []
+    require(not namespace_networks(tag), "network namespace collision")
+    require(not namespace_containers(tag), "container namespace collision")
+    require(not namespace_volumes(tag), "volume namespace collision")
+    instance_ids: list[str] = []
     print("SOURCE_SHA=" + sha, flush=True)
     print("RUN_NAMESPACE=" + tag, flush=True)
     (ROOT / "runtime").mkdir(exist_ok=True)
@@ -355,7 +388,7 @@ def main() -> None:
             + "\nCOMPUTER_NAMESPACE="
             + tag
             + "\nCOMPUTER_IMAGE="
-            + CHILD_IMAGE
+            + CHILD_DIGEST
             + "\nCOMPUTER_BROWSER_MODE=headless\nCOMPUTER_NETWORK="
             + sandbox
             + "\nZELO_COMPUTER_EGRESS_PROXY_HOST="
@@ -379,7 +412,6 @@ def main() -> None:
                 sandbox,
                 timeout=40,
             )
-            created.append(("network", sandbox))
             docker(
                 "network",
                 "create",
@@ -390,7 +422,6 @@ def main() -> None:
                 control_net,
                 timeout=40,
             )
-            created.append(("network", control_net))
             docker(
                 "run",
                 "-d",
@@ -412,12 +443,12 @@ def main() -> None:
                 str(env),
                 "-v",
                 "/var/run/docker.sock:/var/run/docker.sock",
-                SUPERVISOR_IMAGE,
+                SUPERVISOR_DIGEST,
                 timeout=70,
             )
-            created.append(("container", supervisor_name))
             docker("network", "connect", sandbox, supervisor_name, timeout=30)
             info = json.loads(docker("inspect", supervisor_name))[0]
+            require(info["Image"] == SUPERVISOR_DIGEST, "running supervisor image drift")
             ports = info["NetworkSettings"]["Ports"]["4300/tcp"]
             require(
                 len(ports) == 1 and ports[0]["HostIp"] == "127.0.0.1",
@@ -457,29 +488,57 @@ def main() -> None:
                 skill_publication_external_merge_enabled=False,
                 scheduler_enabled=False,
             )
-            parent_id, child_id, backend_id = asyncio.run(qualify(settings))
+            parent_id, child_id, backend_id = asyncio.run(qualify(settings, instance_ids))
             print("PARENT_AGENT_INSTANCE=" + parent_id, flush=True)
             print("CHILD_AGENT_INSTANCE=" + child_id, flush=True)
             print("CORE_BACKEND_IDENTITY=" + backend_id, flush=True)
         finally:
-            for name in owned_containers(tag):
-                docker("rm", "-f", "-v", name, timeout=50, allow_failure=True)
-            for kind, name in reversed(created):
-                if kind == "container":
-                    if name in owned_containers(tag):
-                        docker("rm", "-f", name, timeout=50, allow_failure=True)
+            expected_children = {f"{tag}-computer-{item}" for item in instance_ids}
+            for name in namespace_containers(tag):
+                info = json.loads(docker("inspect", name))[0]
+                if name == supervisor_name:
+                    require(
+                        info["Image"] == SUPERVISOR_DIGEST
+                        and info["Config"]["Labels"].get("zelo.r1.run") == tag,
+                        "supervisor cleanup ownership mismatch",
+                    )
                 else:
-                    docker("network", "rm", name, timeout=50, allow_failure=True)
-            for name in owned_volumes(tag):
+                    require(
+                        name in expected_children
+                        and info["Image"] == CHILD_DIGEST
+                        and sandbox in info["NetworkSettings"]["Networks"],
+                        "child cleanup ownership mismatch",
+                    )
+                docker("rm", "-f", "-v", name, timeout=50, allow_failure=True)
+            for name in namespace_networks(tag):
+                require(name in (sandbox, control_net), "unexpected network in namespace")
+                info = json.loads(docker("network", "inspect", name))[0]
+                require(
+                    info["Labels"].get("zelo.r1.run") == tag,
+                    "network cleanup ownership mismatch",
+                )
+                docker("network", "rm", name, timeout=50, allow_failure=True)
+            expected_volumes = {
+                f"{tag}-{kind}-{item}" for item in instance_ids for kind in ("profile", "workspace")
+            }
+            for name in namespace_volumes(tag):
+                require(name in expected_volumes, "volume cleanup ownership mismatch")
                 require(
                     not docker("ps", "-aq", "--filter", "volume=" + name),
                     "owned volume still mounted",
                 )
                 docker("volume", "rm", name, timeout=50)
-            require(not owned_containers(tag), "owned container remains")
-            require(not owned_volumes(tag), "owned volume remains")
+            require(not namespace_containers(tag), "owned container remains")
+            require(not namespace_networks(tag), "owned network remains")
+            require(not namespace_volumes(tag), "owned volume remains")
             print("OWNED_DOCKER_RESOURCES_REMOVED=PASS", flush=True)
     print("DISPOSABLE_DB_AND_CREDENTIALS_REMOVED=PASS", flush=True)
+
+
+def main() -> None:
+    (ROOT / "runtime").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="r1-docker-config-", dir=ROOT / "runtime") as path:
+        run_qualification(Path(path))
 
 
 if __name__ == "__main__":

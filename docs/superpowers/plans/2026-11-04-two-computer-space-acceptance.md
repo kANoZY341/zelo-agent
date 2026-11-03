@@ -33,10 +33,10 @@
 
 **Files:** Create `scripts/qualify_two_computer_space.py`.
 
-**Interfaces:** `source_sha() -> str`, `owned_containers(tag: str) -> list[str]`, `owned_volumes(tag: str) -> list[str]`, `main() -> None`.
+**Interfaces:** `source_sha() -> str`, `namespace_containers(tag: str) -> list[str]`, `namespace_volumes(tag: str) -> list[str]`, `namespace_networks(tag: str) -> list[str]`, `main() -> None`.
 
 - [x] Implement read-only preflight with exact image digests and a clean source SHA.
-- [x] Implement unique resource names and namespace-scoped cleanup, including failure before either UUID is returned.
+- [x] Implement unique resource names and verify label, image, network and exact expected names before cleanup, including failure before either UUID is returned.
 - [x] Run Python syntax, Ruff, and `git diff --check`.
 
 ### Task 2: Two native Computer and Space journey
