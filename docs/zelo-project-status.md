@@ -1,5 +1,18 @@
 # Zelo live project status
 
+**4 November exact-main checkpoint:** Public `main` is
+`e62fbf0ecd8dcadf84c6a6fe5ff521058461e5d8` after
+[PR #318](https://github.com/kANoZY341/zelo-agent/pull/318). Its distinct
+[post-merge CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41583122015)
+passed at that SHA. The 0050 and 0051 migrations in the dated candidate
+entries below are merged. The [exact-main host receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6596838078)
+records bounded disposable Worker, REA fixture and upgrade/recovery proofs,
+but two OCR real-diff checks missed the known migration defect. Native
+two-AgentInstance Computer/Space acceptance, governed Skill publication,
+the complete Worker and curated matrices, final rollback, independent audit
+and operator release decision remain open. Media remains deferred and
+unavailable. Last published release: `v0.14.0`; **v0.15 remains HOLD**.
+
 **3 November Skill ledger correction candidate:** A direct-SQL
 `INSERT OR REPLACE` path could rewrite an unreferenced append-only Skill
 publication row through its hidden SQLite rowid. Migration 0051 rebuilds
