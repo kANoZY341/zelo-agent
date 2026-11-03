@@ -1,5 +1,14 @@
 # Zelo — Canonical Architecture and Roadmap to v1.0
 
+**3 November Skill ledger correction candidate:** Migration 0051 removes
+hidden rowids from eight append-only Skill publication evidence tables and
+guards the link fingerprint identity against `INSERT OR REPLACE`.
+Populated upgrade, rollback and 21 focused tests passed in disposable
+databases; the affected seven-module suite passed 167 tests with 17 warnings.
+Independent review found no actionable migration defect. Full CI is pending.
+This does not activate a Skill, prove external publication, close the
+full audit, or release v0.15.
+
 ## Status
 
 **3 November v0.15 integrity candidate:** The channel audit found a SQLite
