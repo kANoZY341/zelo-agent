@@ -1,5 +1,14 @@
 # Zelo live project status
 
+**3 November Skill ledger correction candidate:** A direct-SQL
+`INSERT OR REPLACE` path could rewrite an unreferenced append-only Skill
+publication row through its hidden SQLite rowid. Migration 0051 rebuilds
+eight ledgers `WITHOUT ROWID` and closes a promotion-link fingerprint
+conflict guard; ORM metadata matches. Twenty-one focused tests and
+independent review passed, with populated upgrade and rollback evidence.
+The affected seven-module suite passed 167 tests with 17 warnings. Full
+CI and live Skill publication remain open; no production database was changed. v0.15 remains **HOLD**.
+
 **3 November v0.15 integrity candidate:** Migration 0050 addresses a confirmed
 `INSERT OR REPLACE` bypass of the inert channel binding/observation ledgers.
 After a reviewer caught a hidden-rowid edge case in the first design, the

@@ -411,7 +411,7 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0050_channel_ledger_replace_guards"
+                "0051_skill_publication_rowid_guards"
             )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             foreign_keys = session.execute(

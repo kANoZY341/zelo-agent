@@ -1123,6 +1123,7 @@ class SkillPublicationClaimRecord(Base):
             "AND (prior_revision_sha256 IS NULL OR length(prior_revision_sha256)=64)",
             name="ck_skill_pub_claim_digests",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1164,6 +1165,7 @@ class SkillPublicationOperatorDecisionRecord(Base):
             "AND length(pr_base_sha)=40",
             name="ck_skill_pub_decision_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1208,6 +1210,7 @@ class SkillPublicationDispatchFenceRecord(Base):
             "AND length(git_blob_oid)=40",
             name="ck_skill_pub_dispatch_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1254,6 +1257,7 @@ class SkillPublicationMergeAttemptRecord(Base):
             "AND length(attempt_fingerprint)=64",
             name="ck_skill_pub_attempt_digest_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1293,6 +1297,7 @@ class SkillPublicationMergeReceiptRecord(Base):
             "AND length(merged_blob_oid)=40 AND length(receipt_fingerprint)=64",
             name="ck_skill_pub_receipt_digest_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1336,6 +1341,7 @@ class SkillPublicationPromotionReceiptLinkRecord(Base):
             "AND length(merge_commit_sha)=40 AND length(revision_sha256)=64",
             name="ck_skill_pub_link_digest_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1385,6 +1391,7 @@ class SkillPublicationMergeFailureRecord(Base):
         CheckConstraint(
             "length(failure_fingerprint)=64", name="ck_skill_pub_failure_digest_length"
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -1441,6 +1448,7 @@ class SkillPublicationPostAttemptReconciliationRecord(Base):
             "AND (merge_commit_sha IS NULL OR length(merge_commit_sha)=40)",
             name="ck_skill_pub_post_attempt_digest_lengths",
         ),
+        {"sqlite_with_rowid": False},
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
