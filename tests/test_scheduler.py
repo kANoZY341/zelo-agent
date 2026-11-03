@@ -278,12 +278,36 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database, prev
         assert run["sequence"] == 1
         assert run["status"] == "succeeded"
         expected_generation = prior.generation + 1 if previous_lease else 1
-        if run["lease_generation"] != expected_generation:
-            events = client.get(f"/campaigns/{campaign['id']}/events", headers=AUTH).json()["items"]
-            pytest.fail(
-                f"unexpected wake lease generation {run['lease_generation']} "
-                f"(expected {expected_generation}); events={events}"
-            )
+        events = client.get(f"/campaigns/{campaign['id']}/events", headers=AUTH).json()["items"]
+        acquisitions = [
+            event
+            for event in events
+            if event["event"] == "lease_acquired"
+            and event["details"].get("scope") == "mind-wake"
+            and event["details"].get("holder_id") == f"schedule:{schedule['id']}"
+        ]
+        assert [event["details"]["generation"] for event in acquisitions] == list(
+            range(expected_generation, run["lease_generation"] + 1)
+        ), events
+        wake_starts = [
+            event
+            for event in events
+            if event["event"] == "schedule_wake_started"
+            and event["details"].get("schedule_id") == schedule["id"]
+        ]
+        assert len(wake_starts) == 1, events
+        for acquisition in acquisitions[:-1]:
+            assert (
+                sum(
+                    event["event"] == "lease_released"
+                    and event["details"].get("scope") == "mind-wake"
+                    and event["details"].get("holder_id") == f"schedule:{schedule['id']}"
+                    and event["details"].get("generation") == acquisition["details"]["generation"]
+                    and acquisition["sequence"] < event["sequence"] < wake_starts[0]["sequence"]
+                    for event in events
+                )
+                == 1
+            ), events
         assert run["budget_reservation_id"] is not None
         assert run["conversation_turn_id"] is not None
         assert "lease_token" not in run
@@ -304,10 +328,6 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database, prev
         assert stored["turns"][0]["assistant_content"] == "Scheduled wake complete."
         assert stored["turns"][0]["core_task"] is None
 
-        events = client.get(
-            f"/campaigns/{campaign['id']}/events",
-            headers=AUTH,
-        ).json()["items"]
         names = [event["event"] for event in events]
         assert "schedule_created" in names
         assert "schedule_wake_started" in names
@@ -332,6 +352,68 @@ def test_one_shot_wake_is_leased_budgeted_and_persisted(settings, database, prev
             )
             == 1
         )
+
+
+def test_clock_rollback_after_lease_retries_without_spending_wake_authority(
+    settings, database, monkeypatch
+):
+    provider = SchedulerMindProvider(reply("Scheduled wake complete."))
+    configured = settings.model_copy(update={"scheduler_enabled": False})
+    with TestClient(create_app(configured, provider=provider), headers=AUTH) as client:
+        campaign = create_campaign(client)
+        configure_wake_budget(client, campaign["id"], limit_units=1)
+        conversation = create_conversation(client)
+        scheduler = client.app.state.scheduler
+        controls = client.app.state.campaign_controls
+        clock = MutableClock(datetime.now(UTC))
+        scheduler.clock = clock
+        controls.clock = clock
+        schedule = create_schedule(
+            client,
+            campaign["id"],
+            conversation["id"],
+            run_at=clock.value - timedelta(seconds=1),
+        )
+
+        acquire_lease = controls.acquire_lease
+        rewound = False
+
+        def acquire_then_rewind(*args, **kwargs):
+            nonlocal rewound
+            lease = acquire_lease(*args, **kwargs)
+            if not rewound:
+                clock.advance(seconds=-2)
+                rewound = True
+            return lease
+
+        monkeypatch.setattr(controls, "acquire_lease", acquire_then_rewind)
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+        assert rewound
+        assert client.get(f"/schedules/{schedule['id']}/runs", headers=AUTH).json()["total"] == 0
+        assert provider.requests == []
+        budget = client.get(f"/campaigns/{campaign['id']}/budgets/mind_wakes", headers=AUTH).json()
+        assert budget["spent_units"] == 0
+        assert budget["reserved_units"] == 0
+        events = client.get(f"/campaigns/{campaign['id']}/events", headers=AUTH).json()["items"]
+        assert [
+            event["event"]
+            for event in events
+            if event["event"] in {"lease_acquired", "lease_released"}
+        ] == ["lease_acquired", "lease_released"]
+        assert not any(
+            event["event"] in {"schedule_wake_started", "budget_reserved"} for event in events
+        )
+
+        clock.advance(seconds=3)
+        asyncio.run(scheduler._execute_due(schedule["id"]))
+        completed = client.get(f"/schedules/{schedule['id']}", headers=AUTH).json()
+        assert completed["status"] == "completed"
+        runs = client.get(f"/schedules/{schedule['id']}/runs", headers=AUTH).json()
+        assert runs["total"] == 1
+        assert runs["items"][0]["lease_generation"] == 2
+        assert len(provider.requests) == 1
+        budget = client.get(f"/campaigns/{campaign['id']}/budgets/mind_wakes", headers=AUTH).json()
+        assert budget["spent_units"] == 1
 
 
 def test_scheduled_mind_core_task_is_forced_into_same_campaign(settings, database):
