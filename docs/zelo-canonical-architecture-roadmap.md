@@ -1,5 +1,15 @@
 # Zelo — Canonical Architecture and Roadmap to v1.0
 
+**4 November v0.15 checkpoint:** `main` is
+`e62fbf0ecd8dcadf84c6a6fe5ff521058461e5d8`; the distinct
+[post-merge CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41583122015)
+passed at that SHA. Migrations 0050 and 0051 below are now integrated.
+The [exact-main operational receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6596838078)
+records bounded Worker and recovery proofs, while real-diff OCR failed and
+the native two-Computer pair, governed Skill publication, final Worker and
+curated qualification, rollback, independent audit and operator decision
+remain open. Media is still deferred and unavailable. **v0.15 remains HOLD.**
+
 **3 November Skill ledger correction candidate:** Migration 0051 removes
 hidden rowids from eight append-only Skill publication evidence tables and
 guards the link fingerprint identity against `INSERT OR REPLACE`.
