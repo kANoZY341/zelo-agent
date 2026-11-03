@@ -508,7 +508,14 @@ def run_qualification(docker_config: Path) -> None:
                             and sandbox in info["NetworkSettings"]["Networks"]
                         )
                     )
-                except (RuntimeError, ValueError, KeyError, TypeError, IndexError):
+                except (
+                    RuntimeError,
+                    subprocess.TimeoutExpired,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    IndexError,
+                ):
                     verified = False
                 if not verified:
                     cleanup_errors.append("unverified container: " + name)
@@ -523,7 +530,14 @@ def run_qualification(docker_config: Path) -> None:
                     verified = (
                         name in (sandbox, control_net) and info["Labels"].get("zelo.r1.run") == tag
                     )
-                except (RuntimeError, ValueError, KeyError, TypeError, IndexError):
+                except (
+                    RuntimeError,
+                    subprocess.TimeoutExpired,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    IndexError,
+                ):
                     verified = False
                 if not verified:
                     cleanup_errors.append("unverified network: " + name)
