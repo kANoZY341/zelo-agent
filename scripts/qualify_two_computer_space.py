@@ -290,8 +290,11 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
         try:
             submit.submit(child.id, request("files_read", child_activation=activations[0].id), None)
         except ValidationError as error:
+            errors = error.errors()
             require(
-                "computer_parent_space_binding_invalid" in str(error),
+                len(errors) == 1
+                and tuple(errors[0]["loc"]) == ("task", "computer_run", "payload")
+                and errors[0]["msg"] == "Value error, computer_parent_space_binding_invalid",
                 "parent substitution refused for an unrelated schema reason",
             )
         except DomainError as error:
