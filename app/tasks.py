@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -158,6 +158,11 @@ def audit(
             details=details,
         )
     )
+
+
+def _attempt_finished_at(attempt: TaskAttempt) -> datetime:
+    """Keep persisted attempt timestamps ordered if the wall clock moves back."""
+    return max(utcnow(), attempt.started_at)
 
 
 def transition(session: Session, task: Task, target: State) -> None:
@@ -2544,7 +2549,7 @@ class TaskService:
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
-                attempt.ended_at = utcnow()
+                attempt.ended_at = _attempt_finished_at(attempt)
                 audit(
                     session,
                     parent,
@@ -2638,7 +2643,7 @@ class TaskService:
             attempt.outcome = State.SUCCEEDED
             attempt.result = result_json
             attempt.error = None
-            attempt.ended_at = utcnow()
+            attempt.ended_at = _attempt_finished_at(attempt)
             audit(session, parent, "execution_completed", attempt_id=attempt.id)
             audit(
                 session,
@@ -4605,7 +4610,7 @@ class TaskService:
             transition(session, task, outcome)
             attempt.outcome = outcome
             attempt.result, attempt.error = result, error
-            attempt.ended_at = utcnow()
+            attempt.ended_at = _attempt_finished_at(attempt)
             event = {
                 State.SUCCEEDED: "execution_completed",
                 State.FAILED: "execution_failed",
@@ -4828,7 +4833,7 @@ class TaskService:
                 attempt.outcome = State.CANCELLED
                 attempt.result = None
                 attempt.error = "cancelled_by_operator"
-                attempt.ended_at = utcnow()
+                attempt.ended_at = _attempt_finished_at(attempt)
                 audit(session, task, "cancellation_completed", attempt_id=attempt.id)
                 if task.kind == "developer_run":
                     audit(
@@ -4849,7 +4854,7 @@ class TaskService:
             attempt.outcome = State.INTERRUPTED
             attempt.result = None
             attempt.error = error
-            attempt.ended_at = utcnow()
+            attempt.ended_at = _attempt_finished_at(attempt)
             audit(
                 session,
                 task,
@@ -4906,7 +4911,7 @@ class TaskService:
                 transition(session, task, State.INTERRUPTED)
                 if attempt:
                     attempt.outcome = State.INTERRUPTED
-                    attempt.ended_at = utcnow()
+                    attempt.ended_at = _attempt_finished_at(attempt)
                     attempt.error = "process_interrupted"
                 audit(
                     session,
