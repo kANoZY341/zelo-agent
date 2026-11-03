@@ -119,6 +119,52 @@ class PromotionMergeRuntime:
             )
         )
 
+    async def _require_protected_main(self) -> None:
+        """Require GitHub to reject a merge if main advances after exact-head CI.
+
+        The merge API pins only the PR head SHA. Strict provider-enforced status
+        checks keep the reviewed base from changing underneath that request.
+        """
+        try:
+            policy = await self.transport.request("GET", self.endpoint("/branches/main/protection"))
+        except Exception:
+            raise DeveloperError("promotion_merge_main_protection_unavailable") from None
+        if type(policy) is not dict:
+            raise DeveloperError("promotion_merge_main_protection_unqualified")
+        status = policy.get("required_status_checks")
+        admin = policy.get("enforce_admins")
+        force = policy.get("allow_force_pushes")
+        deletion = policy.get("allow_deletions")
+        if (
+            not self.settings.promotion_required_checks
+            or len(self.settings.promotion_required_checks) > 32
+            or len(set(self.settings.promotion_required_checks))
+            != len(self.settings.promotion_required_checks)
+            or type(status) is not dict
+            or status.get("strict") is not True
+            or type(status.get("checks")) is not list
+            or len(status["checks"]) > 32
+            or type(admin) is not dict
+            or admin.get("enabled") is not True
+            or type(force) is not dict
+            or force.get("enabled") is not False
+            or type(deletion) is not dict
+            or deletion.get("enabled") is not False
+        ):
+            raise DeveloperError("promotion_merge_main_protection_unqualified")
+        for name in self.settings.promotion_required_checks:
+            matches = [
+                check
+                for check in status["checks"]
+                if type(check) is dict and check.get("context") == name
+            ]
+            if (
+                len(matches) != 1
+                or type(matches[0].get("app_id")) is not int
+                or matches[0]["app_id"] != self.settings.promotion_ci_app_id
+            ):
+                raise DeveloperError("promotion_merge_main_protection_unqualified")
+
     async def run(self, request: MergeRequest) -> MergeRunResult:
         if (
             request.promotion.repository != self.repository
@@ -170,6 +216,7 @@ class PromotionMergeRuntime:
         ):
             raise DeveloperError("promotion_merge_ci_changed")
 
+        await self._require_protected_main()
         body = {
             "sha": request.publication.pr_head_sha,
             "merge_method": request.merge_method,
