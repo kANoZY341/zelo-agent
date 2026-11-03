@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 import httpx
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from app.agent_computer_service import AgentComputerService
 from app.agent_computers import OpenBotComputerBackend
@@ -289,6 +289,11 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
 
         try:
             submit.submit(child.id, request("files_read", child_activation=activations[0].id), None)
+        except ValidationError as error:
+            require(
+                "computer_parent_space_binding_invalid" in str(error),
+                "parent substitution refused for an unrelated schema reason",
+            )
         except DomainError as error:
             require(
                 error.status_code == 409 and error.message == "computer_space_activation_invalid",
