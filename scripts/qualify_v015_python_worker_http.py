@@ -8,6 +8,7 @@ This never enables Shell, Browser, Computer, external Skill merge or Media right
 It neither touches the normal Zelo runtime database nor starts a public listener.
 """
 
+import argparse
 import asyncio
 import os
 import secrets
@@ -316,4 +317,5 @@ async def run():
 
 
 if __name__ == "__main__":
+    argparse.ArgumentParser(description=__doc__).parse_args()
     asyncio.run(run())
