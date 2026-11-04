@@ -232,6 +232,7 @@ def test_due_selection_skips_campaign_with_active_wake_lease(settings, database)
         )
 
         scheduler = client.app.state.scheduler
+        scheduler.clock = lambda: now
         assert scheduler._next_due_id() == second_schedule["id"]
         assert scheduler._next_due_id() != first_schedule["id"]
 
