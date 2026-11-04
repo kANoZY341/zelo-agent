@@ -188,7 +188,7 @@ class SkillPublicationOneAttemptService:
             raise ValueError("skill_publication_single_attempt_transport_mismatch")
         self.transport = fences.blob.transport
 
-    async def _require_protected_main(self, repository: str) -> Literal["team", "solo"]:
+    async def _require_protected_main(self, repository: str) -> tuple[Literal["team", "solo"], int]:
         """Require provider-enforced strict checks before any merge side effect.
 
         A caller-supplied config flag is not a substitute for an attested
@@ -240,6 +240,7 @@ class SkillPublicationOneAttemptService:
             type(reviews) is not dict
             or type(reviews.get("required_approving_review_count")) is not int
             or reviews.get("dismiss_stale_reviews") is not True
+            or reviews.get("require_code_owner_reviews") is not False
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
         count = reviews["required_approving_review_count"]
@@ -269,7 +270,119 @@ class SkillPublicationOneAttemptService:
             )
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
-        return mode
+        return mode, count
+
+    async def _require_team_reviews(
+        self,
+        repository: str,
+        pr_number: int,
+        head_sha: str,
+        base_sha: str,
+        required_count: int,
+    ) -> None:
+        """Observe independent, current-head human reviews through the send transport."""
+        endpoint = f"/repos/{repository}/pulls/{pr_number}"
+        try:
+            pr = await self.transport.request("GET", endpoint)
+        except Exception:
+            raise DeveloperError("skill_publication_team_reviews_unavailable") from None
+        if (
+            type(pr) is not dict
+            or type(pr.get("number")) is not int
+            or pr["number"] != pr_number
+            or pr.get("state") != "open"
+            or pr.get("merged") is not False
+            or pr.get("draft") is not False
+            or type(pr.get("head")) is not dict
+            or pr["head"].get("sha") != head_sha
+            or type(pr["head"].get("repo")) is not dict
+            or pr["head"]["repo"].get("full_name") != repository
+            or type(pr.get("base")) is not dict
+            or pr["base"].get("ref") != "main"
+            or pr["base"].get("sha") != base_sha
+            or type(pr.get("user")) is not dict
+            or type(pr["user"].get("login")) is not str
+            or not pr["user"]["login"]
+        ):
+            raise DeveloperError("skill_publication_team_reviews_unqualified")
+        author = pr["user"]["login"].casefold()
+        latest: dict[str, tuple[datetime, int, str, str, str]] = {}
+        seen_ids: set[int] = set()
+        for page in range(1, 11):
+            try:
+                rows = await self.transport.request(
+                    "GET", endpoint + f"/reviews?per_page=20&page={page}"
+                )
+            except Exception:
+                raise DeveloperError("skill_publication_team_reviews_unavailable") from None
+            if type(rows) is not list or len(rows) > 20 or (page == 10 and len(rows) == 20):
+                raise DeveloperError("skill_publication_team_reviews_unqualified")
+            for row in rows:
+                if type(row) is not dict:
+                    raise DeveloperError("skill_publication_team_reviews_unqualified")
+                if row.get("state") == "PENDING" and row.get("submitted_at") is None:
+                    continue
+                user = row.get("user")
+                review_id = row.get("id")
+                submitted = row.get("submitted_at")
+                commit_id = row.get("commit_id")
+                if (
+                    type(review_id) is not int
+                    or review_id <= 0
+                    or review_id in seen_ids
+                    or type(user) is not dict
+                    or type(user.get("login")) is not str
+                    or not user["login"]
+                    or type(user.get("type")) is not str
+                    or type(submitted) is not str
+                    or type(commit_id) is not str
+                    or not _SHA.fullmatch(commit_id)
+                    or row.get("state")
+                    not in {"APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED"}
+                ):
+                    raise DeveloperError("skill_publication_team_reviews_unqualified")
+                try:
+                    at = datetime.fromisoformat(submitted.replace("Z", "+00:00"))
+                except ValueError:
+                    raise DeveloperError("skill_publication_team_reviews_unqualified") from None
+                if at.tzinfo is None:
+                    raise DeveloperError("skill_publication_team_reviews_unqualified")
+                seen_ids.add(review_id)
+                login = user["login"].casefold()
+                if login == author or user["type"] != "User" or row["state"] == "COMMENTED":
+                    continue
+                item = (at, review_id, row["state"], commit_id, user["login"])
+                if login not in latest or item[:2] > latest[login][:2]:
+                    latest[login] = item
+            if len(rows) < 20:
+                break
+        candidates = [
+            item for item in latest.values() if item[2] in {"APPROVED", "CHANGES_REQUESTED"}
+        ]
+        if len(candidates) > 20:
+            raise DeveloperError("skill_publication_team_reviews_unqualified")
+        approved = 0
+        for _, _, state, commit_id, login in candidates:
+            try:
+                permission = await self.transport.request(
+                    "GET", f"/repos/{repository}/collaborators/{login}/permission"
+                )
+            except Exception:
+                raise DeveloperError("skill_publication_team_reviews_unavailable") from None
+            if (
+                type(permission) is not dict
+                or permission.get("permission") not in {"admin", "write", "read", "none"}
+                or type(permission.get("user")) is not dict
+                or type(permission["user"].get("login")) is not str
+                or permission["user"]["login"].casefold() != login.casefold()
+            ):
+                raise DeveloperError("skill_publication_team_reviews_unqualified")
+            if permission["permission"] in {"admin", "write"}:
+                if state == "CHANGES_REQUESTED":
+                    raise DeveloperError("skill_publication_team_reviews_unqualified")
+                approved += state == "APPROVED" and commit_id == head_sha
+        if approved < required_count:
+            raise DeveloperError("skill_publication_team_reviews_unqualified")
 
     def get_attempt(
         self, claim_id: str, principal: OperatorPrincipal
@@ -555,7 +668,15 @@ class SkillPublicationOneAttemptService:
         # Provider-side strict CI enforcement is mandatory: a configured
         # switch and approved PR/head alone cannot serialize base advancement.
         # No branch protection API access means zero GitHub merge attempts.
-        policy_mode = await self._require_protected_main(fence.repository)
+        policy_mode, required_reviews = await self._require_protected_main(fence.repository)
+        if policy_mode == "team":
+            await self._require_team_reviews(
+                fence.repository,
+                fence.pr_number,
+                fence.pr_head_sha,
+                fence.pr_base_sha,
+                required_reviews,
+            )
 
         # This is the irreversible retry fence. Commit before the first PUT.
         # If a crash happens after commit but before sending, treat its
@@ -643,8 +764,19 @@ class SkillPublicationOneAttemptService:
         # Branch protection can change during the local attempt transaction.
         # Recheck at the external use point; a refusal consumes this one-use
         # attempt, so no later caller can send under a stale policy.
-        if await self._require_protected_main(fence.repository) != policy_mode:
+        if await self._require_protected_main(fence.repository) != (
+            policy_mode,
+            required_reviews,
+        ):
             raise DeveloperError("skill_publication_main_protection_changed")
+        if policy_mode == "team":
+            await self._require_team_reviews(
+                fence.repository,
+                fence.pr_number,
+                fence.pr_head_sha,
+                fence.pr_base_sha,
+                required_reviews,
+            )
 
         # EXACTLY ONE possible externally visible write after durable commit.
         # Serialize the final source/claim check with the local PUT call. A
