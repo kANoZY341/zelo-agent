@@ -188,9 +188,7 @@ class SkillPublicationOneAttemptService:
             raise ValueError("skill_publication_single_attempt_transport_mismatch")
         self.transport = fences.blob.transport
 
-    async def _require_protected_main(
-        self, repository: str
-    ) -> tuple[Literal["team", "solo"], int]:
+    async def _require_protected_main(self, repository: str) -> tuple[Literal["team", "solo"], int]:
         """Require provider-enforced strict checks before any merge side effect.
 
         A caller-supplied config flag is not a substitute for an attested

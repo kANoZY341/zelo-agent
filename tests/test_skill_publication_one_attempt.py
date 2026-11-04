@@ -1199,9 +1199,7 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
         "pr_drift",
     ),
 )
-def test_team_review_preflight_refuses_before_attempt(
-    database, proposal_case, tmp_path, mutation
-):
+def test_team_review_preflight_refuses_before_attempt(database, proposal_case, tmp_path, mutation):
     _store, claim, request, transport, _fence, service, _template = _setup_one(
         database, proposal_case, tmp_path
     )
