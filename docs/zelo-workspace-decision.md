@@ -1,6 +1,17 @@
 # Zelo workspace direction
 
-## Latest priority — Core first; UI parked (2 October 2026)
+## Current release status — 4 November 2026
+
+The smaller [Zelo Core v0.15.0 release](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+is published from audited `main` `5e8425eb826eb727957f7d9e38cd134450c55cfb`.
+Its qualification, exact-SHA owner decision and one-time manual tag exception
+are recorded in [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166).
+The UI remains parked under the existing owner decision. Optional
+Computer/Space, external Skill publication, Browser/Shell, OCR/REA activation
+and Media remain outside the supported release profile. Their future
+activation requires separate qualification and an operator decision.
+
+## Historical priority — Core first; UI parked (2 October 2026)
 
 Ahmad reports that the UI still needs major work and directs Core development to
 continue now, with UI redesign/integration revisited at the end. This supersedes
