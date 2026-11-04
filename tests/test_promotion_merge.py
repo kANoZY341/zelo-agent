@@ -233,6 +233,25 @@ def test_generic_merge_refuses_unqualified_learned_skill_artifacts_before_put(tm
     assert verifier.calls == []
 
 
+def test_generic_merge_rejects_previously_published_workflow_change(tmp_path):
+    settings, request, ci = fixture(tmp_path)
+    base_entry = request.promotion.review.candidate_manifest[0]
+    workflow_entry = base_entry.model_copy(update={"path": ".github/workflows/ci.yml"})
+    review = request.promotion.review.model_copy(update={"candidate_manifest": [workflow_entry]})
+    guarded = request.model_copy(
+        update={"promotion": request.promotion.model_copy(update={"review": review})}
+    )
+    endpoint = f"/repos/{guarded.promotion.repository}/pulls/7"
+    transport = ScriptedTransport([("GET", endpoint, open_pr(guarded))])
+    verifier = FakeCIVerifier(ci)
+
+    with pytest.raises(DeveloperError, match="promotion_workflow_forbidden"):
+        asyncio.run(PromotionMergeRuntime(settings, verifier, transport).run(guarded))
+
+    assert transport.calls == [("GET", endpoint, None)]
+    assert verifier.calls == []
+
+
 def test_generic_merge_can_modify_unrelated_skills_sibling(tmp_path):
     settings, request, ci = fixture(tmp_path)
     other_file = request.promotion.review.candidate_manifest[0].model_copy(

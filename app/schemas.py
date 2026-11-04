@@ -388,7 +388,7 @@ class DeveloperPayload(StrictModel):
 class DeveloperRunInput(TaskInput):
     kind: Literal["developer_run"]
     payload: DeveloperPayload
-    timeout_seconds: float = Field(default=900.0, ge=1.0, le=3600, allow_inf_nan=False)
+    timeout_seconds: float = Field(default=1800.0, ge=1.0, le=3600, allow_inf_nan=False)
 
 
 AgentExecutableTask = Annotated[
@@ -431,7 +431,7 @@ class PromotionPayload(StrictModel):
 class PromotionRunInput(TaskInput):
     kind: Literal["promotion_run"]
     payload: PromotionPayload
-    timeout_seconds: float = Field(default=300.0, ge=1.0, le=900.0, allow_inf_nan=False)
+    timeout_seconds: float = Field(default=1800.0, ge=1.0, le=3600.0, allow_inf_nan=False)
 
 
 class MergePayload(StrictModel):

@@ -8,6 +8,7 @@ from app.developer_process import DeveloperError
 from app.promotion_ci import PromotionCIVerifier
 from app.promotion_contracts import MergeRequest, MergeRunResult
 from app.promotion_github import GhApiTransport, GitHubTransport, publisher_identity
+from app.promotion_review import validate_manifest_path
 from app.skill_learning import SKILL_PROCEDURE_ARTIFACT_ROOT
 
 HEX = set("0123456789abcdef")
@@ -199,6 +200,9 @@ class PromotionMergeRuntime:
         # generic PR merge action, even if the generic CI is green.
         if _publishes_unqualified_learned_skill(request):
             raise DeveloperError("promotion_merge_skill_publication_unqualified")
+        # Older promotions may have published before the workflow-path restriction.
+        for entry in request.promotion.review.candidate_manifest:
+            validate_manifest_path(entry.path)
 
         fresh_ci = await self.ci_verifier.verify(
             request.promotion,

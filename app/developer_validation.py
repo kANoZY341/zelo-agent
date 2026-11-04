@@ -1,14 +1,18 @@
 """Deterministic, cache-free content manifest of the trusted validation inputs."""
 
+import asyncio
 import hashlib
 import json
 import os
 import stat
+import time
+from collections.abc import Callable
 from pathlib import Path
 
-from app.developer_process import DeveloperError
+from app.developer_process import DeveloperError, ProcessResult, run_process
+from app.developer_sandbox import sandbox
 
-VALIDATION_VERSION = "trusted-venv-content-manifest-v3"
+VALIDATION_VERSION = "trusted-venv-content-manifest-v5"
 INPUTS = ("requirements.txt", "requirements-dev.txt", "pyproject.toml", "uv.lock", "poetry.lock")
 PYCACHE_PREFIX = "/tmp/zelo-python-cache"
 
@@ -16,6 +20,82 @@ PYCACHE_PREFIX = "/tmp/zelo-python-cache"
 def python_command(*arguments: str) -> list[str]:
     """Run validation from source, never from excluded bytecode caches."""
     return ["/opt/zelo-venv/bin/python", "-I", "-X", f"pycache_prefix={PYCACHE_PREFIX}", *arguments]
+
+
+PYTEST_PHASES = (
+    (
+        "developer",
+        (
+            "tests/test_developer.py",
+            "tests/test_developer_validation_profile.py",
+        ),
+    ),
+    (
+        "developer_boundary",
+        (
+            "tests/test_developer_boundary.py",
+            "--deselect=tests/test_developer_boundary.py::test_external_worker_git_inspection_ignores_repository_program_config",
+        ),
+    ),
+    ("worker_concurrency", ("tests/test_worker_concurrency.py",)),
+)
+PREFLIGHT_TEST_FILES = (
+    "tests/test_developer.py",
+    "tests/test_developer_validation_profile.py",
+    "tests/test_developer_boundary.py",
+    "tests/test_worker_concurrency.py",
+)
+
+
+def use_partitioned_pytest(source_repository: Path) -> bool:
+    """Only the trusted full Zelo source selects the fixed Core preflight."""
+    return all((source_repository / name).is_file() for name in PREFLIGHT_TEST_FILES)
+
+
+async def run_pytest_profile(
+    repo: Path,
+    *,
+    venv: Path,
+    timeout: float,
+    stdout_limit: int,
+    stderr_limit: int,
+    verify_boundary: Callable[[], None],
+    partitioned: bool,
+) -> ProcessResult:
+    """Run the sandbox-compatible Core preflight inside one bounded step."""
+    started = time.monotonic()
+    stdout = bytearray()
+    stderr = bytearray()
+    phases = PYTEST_PHASES if partitioned else (("serial", ()),)
+    for name, arguments in phases:
+        await asyncio.to_thread(verify_boundary)
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise DeveloperError("process_timeout")
+        if len(stdout) >= stdout_limit or len(stderr) >= stderr_limit:
+            raise DeveloperError("process_output_limit")
+        command = python_command(
+            "-m", "pytest", "-q", "--tb=short", "--maxfail=1", "-p", "no:cacheprovider", *arguments
+        )
+        result = await run_process(
+            sandbox(repo, command, venv=venv),
+            cwd=repo,
+            timeout=remaining,
+            stdout_limit=stdout_limit - len(stdout),
+            stderr_limit=stderr_limit - len(stderr),
+        )
+        stdout.extend(("\n== pytest " + name + " ==\n").encode() + result.stdout)
+        stderr.extend(result.stderr)
+        if len(stdout) > stdout_limit or len(stderr) > stderr_limit:
+            raise DeveloperError("process_output_limit")
+        await asyncio.to_thread(verify_boundary)
+        if time.monotonic() - started > timeout:
+            raise DeveloperError("process_timeout")
+        if result.exit_code:
+            return ProcessResult(
+                result.exit_code, bytes(stdout), bytes(stderr), time.monotonic() - started
+            )
+    return ProcessResult(0, bytes(stdout), bytes(stderr), time.monotonic() - started)
 
 
 def validation_manifest(venv: Path, project: Path) -> str:

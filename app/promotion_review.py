@@ -34,6 +34,8 @@ def validate_manifest_path(value: str) -> str:
         or str(path) != value
     ):
         raise DeveloperError("promotion_path_invalid")
+    if value == ".github/workflows" or value.startswith(".github/workflows/"):
+        raise DeveloperError("promotion_workflow_forbidden")
     return value
 
 

@@ -900,7 +900,7 @@ Use the authenticated existing tasks API:
     "instruction": "Describe the requested Zelo Core change here.",
     "validation_profile": "zelo_core"
   },
-  "timeout_seconds": 900
+  "timeout_seconds": 1800
 }
 ```
 
@@ -1039,15 +1039,23 @@ so a later boundary result does not discard an original worker or validation fai
 
 | Limit | Default |
 | --- | --- |
-| Overall attempt, including preparation/validation/review | 900 seconds |
+| Overall attempt, including preparation/validation/review | 1,800 seconds |
 | Worker | 600 seconds |
-| Each validation command | 600 seconds |
+| Validation profile, including all three pytest phases | 900 seconds |
 | Each Git operation | 15 seconds |
-| Worker/Git stdout | 256 KiB |
+| Worker/Git subprocess stdout | 256 KiB |
 | Subprocess stderr | 16 KiB |
 | Validation stdout | 32 KiB |
 | JSONL line / event count | 16 KiB / 1024 |
 | Review diff / stat / changed paths | 32 KiB / 8 KiB / 200 |
+
+The trusted full Zelo source runs a fixed sandbox-compatible Core preflight:
+Developer tests, Developer boundary tests, then Worker concurrency tests.
+The one Developer boundary case requiring a trusted host Codex executable is
+deselected inside Bubblewrap. Small test repositories without these suites
+retain serial pytest. The preflight does not replace full exact-head CI; CI
+runs the entire repository suite before merge. Older approval-bound validation
+identities do not silently adopt this profile.
 
 The earlier task/configured overall deadline applies. Output is limited while
 streaming; overflow fails the attempt. Timeout/cancellation sends group SIGTERM,
@@ -1163,7 +1171,13 @@ validation identities, candidate manifest, review fingerprint, configured
 repository, branch, commit metadata, and PR metadata. Before publication Zelo
 re-inventories the retained workspace, reruns the fixed trusted validation
 profile, reconstructs the exact Git tree and commit, and confirms the protected
-primary checkout did not change.
+primary checkout did not change. The Promotion Task defaults to a 1,800-second
+overall deadline so that the Core preflight can finish before
+GitHub publication; its approval remains bound to the exact Task deadline.
+Autonomous promotion rejects changes under `.github/workflows/`, keeping the
+required CI workflow outside the candidate's promotable manifest. CI names
+the test directories explicitly and ignores candidate pytest config-file options;
+merge rechecks the manifest even for older published promotions.
 
 Only the operator-configured repository is valid. The branch must use the
 `zelo/promotion/` prefix. GitHub access uses the operator-owned `gh`
