@@ -109,7 +109,7 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
     def revoke_activation(activation_id: str, request: Request) -> dict[str, bool]:
         authorized(request)
         state["revoked_activations"].add(activation_id)
-        return {"revoked": True}
+        return {"eligible_for_mediation": False}
 
     def body(action: str, activation: str) -> dict:
         return {"task": {"payload": {"action": action, "space_activation_id": activation}}}
@@ -177,6 +177,23 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
                 json={"resource_record_id": resource["id"]},
             )
             assert activation.status_code == 201, activation.text
+            revocable_intent = client.post(
+                f"/agents/{child['id']}/space-intents",
+                json={
+                    "space_id": "workroom",
+                    "resource_kind": "files",
+                    "resource_id": "documents",
+                    "operations": ["list", "read"],
+                    "ttl_seconds": 600,
+                },
+            )
+            assert revocable_intent.status_code == 201, revocable_intent.text
+            revocable_activation = client.post(
+                f"/agents/{child['id']}/space-intents/{revocable_intent.json()['id']}/activate",
+                json={"resource_record_id": resource["id"]},
+            )
+            assert revocable_activation.status_code == 201, revocable_activation.text
+            assert revocable_activation.json()["id"] != activation.json()["id"]
             wrong_intent = client.post(
                 f"/agents/{parent['id']}/space-intents",
                 json={
@@ -248,6 +265,10 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
             substituted_body["task"]["payload"]["parent_space_activation_id"] = (
                 wrong_activation.json()["id"]
             )
+            revocable_body = body("files_read")
+            revocable_body["task"]["payload"]["space_activation_id"] = revocable_activation.json()[
+                "id"
+            ]
             qualifier.qualify_http(
                 client,
                 child_id=child["id"],
@@ -255,6 +276,8 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
                 read_body=read_body,
                 list_body=body("files_list"),
                 substituted_body=substituted_body,
+                revocable_body=revocable_body,
+                revocable_activation_id=revocable_activation.json()["id"],
                 expected_text="owner-provided evidence",
             )
             assert client.get("/tasks").json()["total"] == 2
