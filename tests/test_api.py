@@ -76,7 +76,7 @@ def test_developer_approval_succeeds_through_asgi_threadpool(
 
 def test_root_and_health_are_public(client: TestClient) -> None:
     client.headers.pop("Authorization")
-    assert client.get("/").json() == {"name": "Zelo Agent", "version": "0.14.0", "status": "online"}
+    assert client.get("/").json() == {"name": "Zelo Agent", "version": "0.15.0", "status": "online"}
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}

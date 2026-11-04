@@ -1,5 +1,15 @@
 # Zelo live project status
 
+**4 November smaller v0.15.0 Core release candidate:** The Managing Director
+approved the [narrow Core profile](v0.15-core-release-scope.md), with
+unqualified optional authority disabled or unavailable. This supersedes the
+full-scope requirement described in the dated entries below, without turning
+their partial or failed proofs into passes. Starting public `main` is
+`80ac221511353b9989613d1aa9187ad3a5da3225`; [post-merge CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41744382390)
+passed. Version, final candidate CI, operational recovery/smoke, independent
+audit and exact-SHA release decision remain ahead. Latest published release
+is still `v0.14.0`; no v0.15 tag exists.
+
 **4 November exact-main checkpoint:** Public `main` is
 `e62fbf0ecd8dcadf84c6a6fe5ff521058461e5d8` after
 [PR #318](https://github.com/kANoZY341/zelo-agent/pull/318). Its distinct
@@ -30,14 +40,16 @@ inserts. Populated upgrade, foreign-key, injected rollback and downgrade
 refusal checks are part of the candidate. No production database was touched;
 exact-head CI, the full audit and v0.15 release remain open.
 
-**2 November current v0.15 scope:** The owner explicitly deferred the Media
+**2 November scope checkpoint (historical):** The owner explicitly deferred the Media
 PNG thumbnail/native Reader from v0.15. Media remains unavailable and
 unqualified; its failed proofs and spent one-use decisions are preserved.
 This is a scope decision, not a Media PASS or release approval.
-Space/Computer, Skill publication, non-Media Workers, curated integrations,
-release verification, independent audit and the final operator decision
-remain mandatory. v0.15 is **HOLD**; the release interlock stays closed.
-See the [current closeout decision](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred).
+At that checkpoint, Space/Computer, Skill publication, non-Media Workers and
+curated integrations were still mandatory. The 4 November smaller-scope
+decision above supersedes that requirement for disabled optional lanes.
+Release verification, independent audit and the final operator decision
+remain mandatory; the release interlock stays closed.
+See the [historical Media deferral](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred) and the [current Core scope](v0.15-core-release-scope.md).
 
 **29 October integration and ninth-path preparation:** [PR #283](https://github.com/kANoZY341/zelo-agent/pull/283) merged the narrowly scoped Docker nullable OOM default correction as main `14b0641fff6a51f0faf6822cbf685ddd52b4eec1` (tree `aa9ab97646b8ac611f41aa772d7c9d8481174f68`). [PR CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40780296539) and distinct [main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/40782574947) each passed 6,881 tests with two skipped. A new read-only eight-refusal ledger and one-use ninth-path code are under review; neither grants an attempt. Eight of eight refusals remain terminal, no ninth attempt is authorized, and v0.15 is **HOLD**. See the [issue #166 integration receipt](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6483006388).
 

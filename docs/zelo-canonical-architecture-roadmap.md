@@ -1,5 +1,13 @@
 # Zelo — Canonical Architecture and Roadmap to v1.0
 
+**4 November v0.15 scope decision:** The Managing Director chose a
+[smaller Core release profile](v0.15-core-release-scope.md). The unqualified
+optional Computer/Space, external Skill, Browser, Shell, OCR/REA and Media
+lanes remain off or unavailable for v0.15.0, with their open evidence retained.
+Final candidate recovery, runtime, independent audit and exact-SHA operator
+decision still precede tagging. The dated full-scope checkpoints below are
+historical; they do not describe the newly approved release scope.
+
 **4 November v0.15 checkpoint:** `main` is
 `e62fbf0ecd8dcadf84c6a6fe5ff521058461e5d8`; the distinct
 [post-merge CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41583122015)
@@ -30,14 +38,16 @@ keys, injected rollback, and downgrade refusal. This is a bounded schema
 correction, not channel activation, full security audit or v0.15 release
 evidence.
 
-**2 November current v0.15 scope:** The owner explicitly deferred the Media
+**2 November scope checkpoint (historical):** The owner explicitly deferred the Media
 PNG thumbnail/native Reader from v0.15. Media remains unavailable and
 unqualified; its failed proofs and spent one-use decisions are preserved.
 This is a scope decision, not a Media PASS or release approval.
-Space/Computer, Skill publication, non-Media Workers, curated integrations,
-release verification, independent audit and the final operator decision
-remain mandatory. v0.15 is **HOLD**; the release interlock stays closed.
-See the [current closeout decision](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred).
+At that checkpoint, Space/Computer, Skill publication, non-Media Workers and
+curated integrations were mandatory. The 4 November smaller-scope decision
+above supersedes that requirement for disabled optional lanes. Release
+verification, independent audit and the final operator decision remain
+mandatory; the release interlock stays closed.
+See the [historical Media deferral](v0.15-release-closeout.md#2-november-2026-owner-scope-decision--media-deferred) and the [current Core scope](v0.15-core-release-scope.md).
 
 **28 October eighth Reader refusal:** The one-use decision at reviewed main
 `90afa73d7383ddba39553e7cfd40233c91375e77` was consumed. The
