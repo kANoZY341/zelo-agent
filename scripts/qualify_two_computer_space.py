@@ -11,12 +11,18 @@ import asyncio
 import json
 import os
 import secrets
+import socket
 import subprocess
 import tempfile
+import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
+import uvicorn
+from fastapi import FastAPI
 from pydantic import SecretStr, ValidationError
 
 from app.agent_computer_service import AgentComputerService
@@ -26,6 +32,7 @@ from app.agent_execution import AgentExecutionService
 from app.agent_factory import AgentFactory, default_agent_registry
 from app.agent_instances import AgentInstanceService
 from app.agent_space_resources import AgentSpaceResourceService
+from app.application import create_app
 from app.campaign_control import CampaignControlService
 from app.campaigns import CampaignService
 from app.computer_observer import (
@@ -44,7 +51,6 @@ from app.runner import Runner
 from app.schemas import (
     AgentComputerPermissionPatch,
     AgentDelegationCreate,
-    AgentDelegationRevoke,
     AgentInstanceCreate,
     AgentTaskCreate,
     CampaignBudgetReserve,
@@ -102,6 +108,111 @@ def source_sha() -> str:
     dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)
     require(not dirty, "qualification checkout is dirty")
     return sha
+
+
+@contextmanager
+def loopback_core_server(app: FastAPI) -> Iterator[str]:
+    """Run the normal Core app over TCP and close its private listener on exit."""
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(2048)
+    port = listener.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=port, lifespan="on", log_level="error")
+    )
+    thread = threading.Thread(target=lambda: asyncio.run(server.serve(sockets=[listener])))
+    thread.start()
+    try:
+        deadline = time.monotonic() + 15
+        while not server.started:
+            require(thread.is_alive(), "Core HTTP server failed to start")
+            require(time.monotonic() < deadline, "Core HTTP server startup timed out")
+            time.sleep(0.05)
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=15)
+        listener.close()
+        require(not thread.is_alive(), "Core HTTP server failed to stop")
+
+
+def qualify_http(
+    client: httpx.Client,
+    *,
+    child_id: str,
+    delegation_id: str,
+    read_body: dict[str, object],
+    list_body: dict[str, object],
+    substituted_body: dict[str, object],
+    expected_text: str,
+) -> None:
+    """Exercise the persisted native Space route through normal Core TCP HTTP."""
+    health = client.get("/health")
+    require(
+        health.status_code == 200 and health.json().get("status") == "healthy",
+        "Core HTTP health failed",
+    )
+    unauthenticated = httpx.get(client.base_url.join("/tasks"), timeout=5, trust_env=False)
+    require(unauthenticated.status_code == 401, "Core HTTP authentication bypassed")
+    task_url = f"/agents/{child_id}/tasks"
+
+    def total() -> int:
+        page = client.get("/tasks")
+        require(page.status_code == 200, "Core HTTP Task list failed")
+        return int(page.json()["total"])
+
+    before = total()
+    substituted = client.post(task_url, json=substituted_body)
+    require(substituted.status_code in (409, 422), "parent activation substituted for child")
+    require(
+        "computer_parent_space_binding_invalid" in substituted.text
+        or "computer_space_activation_invalid" in substituted.text,
+        "parent substitution refused for an unrelated reason",
+    )
+    require(total() == before, "refused substitution created a Task")
+    print("CORE_HTTP_PARENT_SUBSTITUTION_DENIED=PASS", flush=True)
+
+    for action, body in (("files_read", read_body), ("files_list", list_body)):
+        response = client.post(task_url, json=body)
+        require(response.status_code == 201, f"Core HTTP {action} not admitted")
+        task_id = response.json()["id"]
+        deadline = time.monotonic() + 120
+        while True:
+            fetched = client.get(f"/tasks/{task_id}")
+            require(fetched.status_code == 200, f"Core HTTP {action} Task unreadable")
+            done = fetched.json()
+            if done["status"] in ("succeeded", "failed", "cancelled"):
+                break
+            require(time.monotonic() < deadline, f"Core HTTP {action} Task timed out")
+            time.sleep(0.05)
+        require(done["status"] == "succeeded", f"Core HTTP {action} Task failed")
+        if action == "files_read":
+            require(done["result"]["files_read"]["text"] == expected_text, "HTTP read mismatch")
+        else:
+            paths = [entry["path"] for entry in done["result"]["files_list"]["entries"]]
+            require(paths == ["notes.txt"], "HTTP list mismatch")
+        events = client.get(f"/tasks/{task_id}/events")
+        require(events.status_code == 200, "Core HTTP Task audit unreadable")
+        expected_event = (
+            "space_file_read_completed" if action == "files_read" else "space_file_list_completed"
+        )
+        require(
+            expected_event in [event["event"] for event in events.json()],
+            f"Core HTTP {action} audit missing",
+        )
+    print("CORE_HTTP_NATIVE_READ_LIST=PASS", flush=True)
+
+    before = total()
+    revoked = client.post(
+        f"/agents/delegations/{delegation_id}/revoke",
+        json={"reason": "End disposable R1 qualification"},
+    )
+    require(revoked.status_code == 200, "Core HTTP delegation revocation failed")
+    denied = client.post(task_url, json=read_body)
+    require(denied.status_code == 409, "revoked delegation admitted HTTP Task")
+    require("Agent delegation is not active" in denied.text, "unrelated revocation refusal")
+    require(total() == before, "revoked delegation created an HTTP Task")
+    print("CORE_HTTP_POST_REVOCATION_DENIED=PASS", flush=True)
 
 
 def namespace_containers(tag: str) -> list[str]:
@@ -242,7 +353,7 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                 resource="agent_steps",
                 owner_id=parent.id,
                 idempotency_key="r1-pair-budget",
-                units=3,
+                units=5,
                 ttl_seconds=3600,
             ),
         )
@@ -259,7 +370,7 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                 required_capabilities=["computer_read"],
                 max_depth=1,
                 budget_resource="agent_steps",
-                budget_units=3,
+                budget_units=5,
             ),
         )
         runner = Runner(
@@ -331,9 +442,25 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                     "private listing mismatch",
                 )
         print("REAL_DELEGATED_SPACE_READ_LIST=PASS", flush=True)
-        delegations.revoke(
-            delegation.id, AgentDelegationRevoke(reason="End disposable R1 qualification")
-        )
+        read_body = request("files_read").model_dump(mode="json")
+        substituted_body = request("files_read").model_dump(mode="json")
+        substituted_body["task"]["payload"]["space_activation_id"] = activations[0].id
+        with loopback_core_server(create_app(settings)) as base_url:
+            with httpx.Client(
+                base_url=base_url,
+                headers={"Authorization": "Bearer " + settings.operator_token.get_secret_value()},
+                timeout=10,
+                trust_env=False,
+            ) as client:
+                qualify_http(
+                    client,
+                    child_id=child.id,
+                    delegation_id=delegation.id,
+                    read_body=read_body,
+                    list_body=request("files_list").model_dump(mode="json"),
+                    substituted_body=substituted_body,
+                    expected_text=FIXTURE,
+                )
         try:
             submit.submit(child.id, request("files_read"), None)
         except DomainError as error:
