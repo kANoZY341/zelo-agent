@@ -160,6 +160,27 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
     )
     # The final pre-PUT policy observation uses a separate provider GET.
     transport.responses.append(deepcopy(transport.responses[-1]))
+    base = f"/repos/{request.publication.repository}/pulls/{request.publication.pr_number}"
+    pr = merge_tests.open_pr(request)
+    pr["draft"] = False
+    pr["user"] = {"login": "author", "type": "User"}
+    review = {
+        "id": 1,
+        "user": {"login": "reviewer", "type": "User"},
+        "state": "APPROVED",
+        "submitted_at": "2026-11-05T00:00:00Z",
+        "commit_id": request.publication.pr_head_sha,
+    }
+    transport.responses[13:13] = [
+        ("GET", base, deepcopy(pr)),
+        ("GET", base + "/reviews?per_page=100&page=1", [deepcopy(review)]),
+    ]
+    transport.responses.extend(
+        [
+            ("GET", base, deepcopy(pr)),
+            ("GET", base + "/reviews?per_page=100&page=1", [deepcopy(review)]),
+        ]
+    )
     template = deepcopy(transport.responses)
     transport.calls = []
     return (
@@ -345,11 +366,13 @@ def _solo_source(database, request, store, claim, *, ignored_artifact=False):
 
 
 def _solo_policy(transport):
-    for index in (12, 13):
+    for index in (12, 15):
         reviews = transport.responses[index][2]["required_pull_request_reviews"]
         reviews["required_approving_review_count"] = 0
         reviews["require_last_push_approval"] = False
         reviews.pop("bypass_pull_request_allowances")
+    for index in (17, 16, 14, 13):
+        del transport.responses[index]
 
 
 def _add_success_response(request, transport, template, *, merge_sha="f" * 40):
@@ -603,7 +626,7 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _failures(database) == 0
     assert service.get_failure(claim.id, OPERATOR) is None
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
-    assert len(transport.calls) == 23
+    assert len(transport.calls) == 27
     assert transport.responses == []
     assert store.get_promotion_link(claim.proposal_id) is None
 
@@ -1150,7 +1173,7 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
         database, proposal_case, tmp_path
     )
     first = transport.responses[12]
-    second = transport.responses[13]
+    second = transport.responses[15]
     assert first[1] == second[1] and first[1].endswith("/branches/main/protection")
     second[2]["required_status_checks"]["strict"] = False
 
@@ -1158,6 +1181,64 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
     assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "self_review",
+        "bot_review",
+        "stale_head",
+        "dismissed",
+        "superseded",
+        "malformed_reviews",
+        "pr_drift",
+    ),
+)
+def test_team_review_preflight_refuses_before_attempt(
+    database, proposal_case, tmp_path, mutation
+):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    pr = transport.responses[13][2]
+    reviews = transport.responses[14][2]
+    if mutation == "self_review":
+        reviews[0]["user"]["login"] = "author"
+    elif mutation == "bot_review":
+        reviews[0]["user"]["type"] = "Bot"
+    elif mutation == "stale_head":
+        reviews[0]["commit_id"] = "a" * 40
+    elif mutation == "dismissed":
+        reviews[0]["state"] = "DISMISSED"
+    elif mutation == "superseded":
+        reviews.append(
+            {
+                **deepcopy(reviews[0]),
+                "id": 2,
+                "state": "CHANGES_REQUESTED",
+                "submitted_at": "2026-11-05T00:01:00Z",
+            }
+        )
+    elif mutation == "malformed_reviews":
+        transport.responses[14] = ("GET", transport.responses[14][1], {})
+    else:
+        pr["head"]["sha"] = "a" * 40
+    with pytest.raises(DeveloperError, match="skill_publication_team_reviews_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (0, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_team_review_drift_after_attempt_refuses_put(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    transport.responses[17][2][0]["state"] = "DISMISSED"
+    with pytest.raises(DeveloperError, match="skill_publication_team_reviews_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (1, 0)
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
     with pytest.raises(ValueError, match="single_attempt_already_recorded"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
