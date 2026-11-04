@@ -163,10 +163,9 @@ def qualify_http(
 
     before = total()
     substituted = client.post(task_url, json=substituted_body)
-    require(substituted.status_code in (409, 422), "parent activation substituted for child")
+    require(substituted.status_code == 409, "parent activation substituted for child")
     require(
-        "computer_parent_space_binding_invalid" in substituted.text
-        or "computer_space_activation_invalid" in substituted.text,
+        "computer_space_activation_invalid" in substituted.text,
         "parent substitution refused for an unrelated reason",
     )
     require(total() == before, "refused substitution created a Task")
@@ -345,6 +344,23 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                 )
             )
         require(activations[0].id != activations[1].id, "Space approvals collapsed")
+        wrong_intent = resources.intents.create(
+            instance_id=parent.id,
+            space_id="workroom",
+            resource_kind="files",
+            resource_id="documents",
+            operations=("list", "read"),
+            ttl_seconds=600,
+        )
+        wrong_parent_activation = resources.activate(
+            instance_id=parent.id,
+            intent_id=wrong_intent.id,
+            resource_record_id=resource.id,
+        )
+        require(
+            wrong_parent_activation.id not in (activations[0].id, activations[1].id),
+            "substitution approval not distinct",
+        )
         controls = CampaignControlService(db)
         controls.set_budget(campaign.id, "agent_steps", CampaignBudgetSet(limit_units=100))
         budget = controls.reserve_budget(
@@ -445,6 +461,9 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
         read_body = request("files_read").model_dump(mode="json")
         substituted_body = request("files_read").model_dump(mode="json")
         substituted_body["task"]["payload"]["space_activation_id"] = activations[0].id
+        substituted_body["task"]["payload"]["parent_space_activation_id"] = (
+            wrong_parent_activation.id
+        )
         with loopback_core_server(create_app(settings)) as base_url:
             with httpx.Client(
                 base_url=base_url,

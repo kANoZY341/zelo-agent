@@ -159,6 +159,22 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
                 json={"resource_record_id": resource["id"]},
             )
             assert activation.status_code == 201, activation.text
+            wrong_intent = client.post(
+                f"/agents/{parent['id']}/space-intents",
+                json={
+                    "space_id": "workroom",
+                    "resource_kind": "files",
+                    "resource_id": "documents",
+                    "operations": ["list", "read"],
+                    "ttl_seconds": 600,
+                },
+            )
+            assert wrong_intent.status_code == 201, wrong_intent.text
+            wrong_activation = client.post(
+                f"/agents/{parent['id']}/space-intents/{wrong_intent.json()['id']}/activate",
+                json={"resource_record_id": resource["id"]},
+            )
+            assert wrong_activation.status_code == 201, wrong_activation.text
             budget_limit = client.put(
                 f"/campaigns/{campaign['id']}/budgets/agent_steps", json={"limit_units": 10}
             )
@@ -211,6 +227,9 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
             read_body = body("files_read")
             substituted_body = body("files_read")
             substituted_body["task"]["payload"]["space_activation_id"] = parent_activation["id"]
+            substituted_body["task"]["payload"]["parent_space_activation_id"] = (
+                wrong_activation.json()["id"]
+            )
             qualifier.qualify_http(
                 client,
                 child_id=child["id"],
