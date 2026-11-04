@@ -54,8 +54,8 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - name: Run parallel test suite (eight workers)
-        run: .venv/bin/python -m pytest -q -n 8 --dist=loadgroup --ignore=tests/test_developer_boundary.py --ignore=tests/test_worker_concurrency.py --durations=30
+        run: .venv/bin/python -m pytest -c /dev/null -q -n 8 --dist=loadgroup --ignore=tests/test_developer_boundary.py --ignore=tests/test_worker_concurrency.py tests --durations=30
       - name: Run installed Codex sandbox checks (serial)
-        run: .venv/bin/python -m pytest -q tests/test_developer_boundary.py --durations=30
+        run: .venv/bin/python -m pytest -c /dev/null -q tests/test_developer_boundary.py --durations=30
       - name: Run worker concurrency tests (serial)
-        run: .venv/bin/python -m pytest -q tests/test_worker_concurrency.py --durations=30
+        run: .venv/bin/python -m pytest -c /dev/null -q tests/test_worker_concurrency.py --durations=30

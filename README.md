@@ -1175,7 +1175,9 @@ primary checkout did not change. The Promotion Task defaults to a 1,800-second
 overall deadline so that the Core preflight can finish before
 GitHub publication; its approval remains bound to the exact Task deadline.
 Autonomous promotion rejects changes under `.github/workflows/`, keeping the
-required CI workflow outside the candidate's promotable manifest.
+required CI workflow outside the candidate's promotable manifest. CI names
+the test directories explicitly and ignores candidate pytest config-file options;
+merge rechecks the manifest even for older published promotions.
 
 Only the operator-configured repository is valid. The branch must use the
 `zelo/promotion/` prefix. GitHub access uses the operator-owned `gh`
