@@ -1,6 +1,18 @@
 # Zelo live project status
 
-**4 November smaller v0.15.0 Core release candidate:** The Managing Director
+**4 November 2026 published release:** [Zelo Core v0.15.0](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+is the latest stable release. Its annotated tag targets audited `main`
+`5e8425eb826eb727957f7d9e38cd134450c55cfb`. Separate
+[main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41810785562),
+disposable host startup and recovery, independent source audit, exact-SHA
+owner decision and publication verification are recorded in
+[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6628709457).
+The release uses the smaller Core profile; optional Computer/Space, external
+Skill publication, Browser/Shell, OCR/REA activation and Media remain
+unqualified or disabled. Issues #131 and #132 remain open for deferred work.
+The dated HOLD entries below describe earlier checkpoints.
+
+**4 November smaller v0.15.0 Core release candidate (historical):** The Managing Director
 approved the [narrow Core profile](v0.15-core-release-scope.md), with
 unqualified optional authority disabled or unavailable. This supersedes the
 full-scope requirement described in the dated entries below, without turning

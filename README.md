@@ -1,10 +1,10 @@
-# Zelo Core v0.15.0 — Core release candidate
+# Zelo Core v0.15.0
 
 The Managing Director approved a [smaller v0.15.0 Core scope](docs/v0.15-core-release-scope.md)
-on 4 November 2026. The source version is advanced for candidate testing;
-the latest published release remains `v0.14.0` until the final exact-main
-audit, release decision and tag. Browser, Shell, Computer backend, external
-Skill publication, OCR/REA activation and Media are outside the supported
+on 4 November 2026. The [v0.15.0 release](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+was published from audited `main` `5e8425eb826eb727957f7d9e38cd134450c55cfb`.
+Browser, Shell, Computer backend, external Skill publication, OCR/REA
+activation and Media are outside the supported
 v0.15.0 runtime profile and remain disabled by default or unavailable.
 
 Zelo Core is the trusted local authority and execution runtime for Zelo. v0.14
@@ -17,11 +17,11 @@ The canonical company chain is Managing Director -> Zelo CEO -> VP -> Director
 approval, scheduling, budget, validation, promotion, merge and release
 boundaries remain in force.
 
-The published release remains v0.14.0. **v0.15 Core release is the
-immediate engineering priority** (4 November 2026), with release gated by
+The latest published release is `v0.15.0`. Its qualification, exact-SHA owner
+decision and one-time manual tag exception are recorded in
 [the v0.15 closeout ledger](docs/v0.15-release-closeout.md) and
 [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166). Existing
-v0.16/v0.17 code does not mean those versions, or v0.15, are released.
+v0.16/v0.17 code does not mean those versions are released.
 The [live project status](docs/zelo-project-status.md) records implementation
 and qualification evidence. UI #61 and unrelated later features are parked.
 
