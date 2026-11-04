@@ -260,6 +260,16 @@ def test_manifest_paths_reject_ambiguous_or_git_metadata_paths(value):
         validate_manifest_path(value)
 
 
+def test_review_rejects_workflow_file_from_candidate(developer_case):
+    reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
+    workflow = repo / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: bypass\n")
+
+    with pytest.raises(DeveloperError, match="promotion_workflow_forbidden"):
+        create_review(reviewer, task_id, attempt_id, request)
+
+
 def test_review_requires_inactive_owned_workspace_and_successful_validation(developer_case):
     reviewer, repo, request, task_id, attempt_id = owned_candidate(developer_case)
     (repo / "candidate.txt").write_text("candidate\n")

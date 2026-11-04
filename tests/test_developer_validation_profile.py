@@ -1,16 +1,86 @@
 """A passing Developer validation must include every Core preflight phase."""
 
 import asyncio
+import time
+
+import pytest
 
 from app.config import Settings
 from app.developer_contracts import DeveloperRequest
-from app.developer_process import ProcessResult
+from app.developer_process import DeveloperError, ProcessResult
 from app.developer_validation import (
     VALIDATION_VERSION,
     run_pytest_profile,
     use_partitioned_pytest,
 )
+from app.promotion_review import validate_manifest_path
 from app.schemas import DeveloperRunInput, PromotionRunInput
+
+
+@pytest.mark.parametrize("path", [".github/workflows/ci.yml", ".github/workflows/alternate.yaml"])
+def test_promotion_rejects_candidate_workflow_paths(path):
+    with pytest.raises(DeveloperError, match="promotion_workflow_forbidden"):
+        validate_manifest_path(path)
+
+
+def test_profile_fails_when_final_boundary_check_exceeds_deadline(tmp_path, monkeypatch):
+    import app.developer_validation as module
+
+    async def fake_run(argv, **kwargs):
+        return ProcessResult(0, b"passed\n", b"", 0)
+
+    checks = 0
+
+    def verify_boundary():
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            time.sleep(0.05)
+
+    monkeypatch.setattr(module, "sandbox", lambda _repo, command, **_kwargs: command)
+    monkeypatch.setattr(module, "run_process", fake_run)
+    with pytest.raises(DeveloperError, match="process_timeout"):
+        asyncio.run(
+            run_pytest_profile(
+                tmp_path,
+                venv=tmp_path,
+                timeout=0.02,
+                stdout_limit=32768,
+                stderr_limit=16384,
+                verify_boundary=verify_boundary,
+                partitioned=False,
+            )
+        )
+
+
+def test_profile_boundary_hash_does_not_block_event_loop(tmp_path, monkeypatch):
+    import app.developer_validation as module
+
+    async def fake_run(argv, **kwargs):
+        return ProcessResult(0, b"passed\n", b"", 0)
+
+    def verify_boundary():
+        time.sleep(0.05)
+
+    async def observe():
+        profile = asyncio.create_task(
+            run_pytest_profile(
+                tmp_path,
+                venv=tmp_path,
+                timeout=1,
+                stdout_limit=32768,
+                stderr_limit=16384,
+                verify_boundary=verify_boundary,
+                partitioned=False,
+            )
+        )
+        await asyncio.sleep(0.01)
+        assert not profile.done()
+        await profile
+
+    monkeypatch.setattr(module, "sandbox", lambda _repo, command, **_kwargs: command)
+    monkeypatch.setattr(module, "run_process", fake_run)
+    asyncio.run(observe())
 
 
 def test_full_source_runs_fixed_core_preflight(tmp_path, monkeypatch):

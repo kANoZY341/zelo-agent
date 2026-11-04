@@ -1,5 +1,6 @@
 """Deterministic, cache-free content manifest of the trusted validation inputs."""
 
+import asyncio
 import hashlib
 import json
 import os
@@ -67,7 +68,7 @@ async def run_pytest_profile(
     stderr = bytearray()
     phases = PYTEST_PHASES if partitioned else (("serial", ()),)
     for name, arguments in phases:
-        verify_boundary()
+        await asyncio.to_thread(verify_boundary)
         remaining = timeout - (time.monotonic() - started)
         if remaining <= 0:
             raise DeveloperError("process_timeout")
@@ -87,7 +88,9 @@ async def run_pytest_profile(
         stderr.extend(result.stderr)
         if len(stdout) > stdout_limit or len(stderr) > stderr_limit:
             raise DeveloperError("process_output_limit")
-        verify_boundary()
+        await asyncio.to_thread(verify_boundary)
+        if time.monotonic() - started > timeout:
+            raise DeveloperError("process_timeout")
         if result.exit_code:
             return ProcessResult(
                 result.exit_code, bytes(stdout), bytes(stderr), time.monotonic() - started
