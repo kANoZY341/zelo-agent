@@ -17,10 +17,15 @@ from app.community_review_git_scope import verified_git_review_scope
 
 
 def _digest(value: object) -> str:
-    return hashlib.sha256(json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
-        allow_nan=False,
-    ).encode("ascii")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("ascii")
+    ).hexdigest()
 
 
 class OcrRealDiffRefusal(ValueError):
@@ -86,8 +91,11 @@ class OcrRealDiffResult(BaseModel):
     comment_sha256: tuple[str, ...]
     adapter_status: Literal["accepted", "invalid"]
     target_status: Literal[
-        "not_applicable", "missed", "needs_adjudication",
-        "detected_with_manual_adjudication", "invalid_review",
+        "not_applicable",
+        "missed",
+        "needs_adjudication",
+        "detected_with_manual_adjudication",
+        "invalid_review",
     ]
     clean_negative: bool
     supported_other_count: int = Field(ge=0, le=64)
@@ -105,8 +113,10 @@ class OcrRealDiffResult(BaseModel):
         if self.receipt_sha256 != _digest(self.model_dump(mode="json", exclude={"receipt_sha256"})):
             raise ValueError("ocr_real_diff_receipt_digest_invalid")
         if self.adapter_status == "invalid" and (
-            self.comment_sha256 or self.review_evidence_sha256 is not None
-            or self.target_status != "invalid_review" or self.clean_negative
+            self.comment_sha256
+            or self.review_evidence_sha256 is not None
+            or self.target_status != "invalid_review"
+            or self.clean_negative
         ):
             raise ValueError("ocr_real_diff_invalid_result_inconsistent")
         return self
@@ -127,8 +137,10 @@ def _evaluate_case(
 ) -> OcrRealDiffResult:
     """Score one verified Git diff; used with fixture pins by contract tests."""
 
-    if type(raw_review) is not bytes or type(adjudications) is not tuple or any(
-        type(item) is not OcrCommentAdjudication for item in adjudications
+    if (
+        type(raw_review) is not bytes
+        or type(adjudications) is not tuple
+        or any(type(item) is not OcrCommentAdjudication for item in adjudications)
     ):
         raise OcrRealDiffRefusal("ocr_real_diff_input_invalid")
     scope = verified_git_review_scope(repo, base_sha=case.base_sha, head_sha=case.head_sha)
@@ -208,9 +220,10 @@ def _evaluate_case(
         "runtime_authority_granted": False,
         "approval_or_merge_authority": False,
     }
-    return OcrRealDiffResult(**values, receipt_sha256=_digest({
-        "schema_version": "zelo-ocr-real-diff-quality-v1", **values
-    }))
+    return OcrRealDiffResult(
+        **values,
+        receipt_sha256=_digest({"schema_version": "zelo-ocr-real-diff-quality-v1", **values}),
+    )
 
 
 def evaluate_pinned_ocr_case(

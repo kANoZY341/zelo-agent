@@ -18,9 +18,13 @@ from app.ocr_real_diff_quality import (
 
 
 def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(
-        ["/usr/bin/git", *args], cwd=repo, check=True, capture_output=True, timeout=10
-    ).stdout.decode().strip()
+    return (
+        subprocess.run(
+            ["/usr/bin/git", *args], cwd=repo, check=True, capture_output=True, timeout=10
+        )
+        .stdout.decode()
+        .strip()
+    )
 
 
 @pytest.fixture
@@ -49,26 +53,34 @@ def real_git_case(tmp_path: Path):
 
 
 def _raw(comments: list[dict] | None = None) -> bytes:
-    return json.dumps({
-        "schema_version": "zelo-ocr-line-review-input-v1",
-        "summary": "Review of committed change",
-        "comments": [] if comments is None else comments,
-    }).encode()
+    return json.dumps(
+        {
+            "schema_version": "zelo-ocr-line-review-input-v1",
+            "summary": "Review of committed change",
+            "comments": [] if comments is None else comments,
+        }
+    ).encode()
 
 
 def _comment(
     content: str = "Downgrade drops the populated table and loses existing records",
 ) -> dict:
     return {
-        "path": "migration.py", "start_line": 2, "end_line": 2,
-        "severity": "high", "category": "bug", "content": content,
+        "path": "migration.py",
+        "start_line": 2,
+        "end_line": 2,
+        "severity": "high",
+        "category": "bug",
+        "content": content,
     }
 
 
 def _comment_hash(comment: dict) -> str:
-    return hashlib.sha256(json.dumps(
-        comment, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("ascii")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(comment, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+            "ascii"
+        )
+    ).hexdigest()
 
 
 def test_valid_anchor_requires_explicit_semantic_adjudication(real_git_case):
@@ -85,35 +97,50 @@ def test_adjudication_is_bound_to_exact_comment_and_target_line(real_git_case):
     repo, case = real_git_case
     comment = _comment()
     adjudication = OcrCommentAdjudication(
-        comment_sha256=_comment_hash(comment), verdict="known_defect",
+        comment_sha256=_comment_hash(comment),
+        verdict="known_defect",
         rationale="This specifically identifies loss of persisted records on downgrade.",
     )
-    result = _evaluate_case(
-        _raw([comment]), repo, case=case, adjudications=(adjudication,)
-    )
+    result = _evaluate_case(_raw([comment]), repo, case=case, adjudications=(adjudication,))
     assert result.target_status == "detected_with_manual_adjudication"
     assert result.unadjudicated_count == 0
     assert not result.independent_semantic_quality_proven
-    assert result.receipt_sha256 == hashlib.sha256(json.dumps(
-        result.model_dump(mode="json", exclude={"receipt_sha256"}),
-        sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("ascii")).hexdigest()
+    assert (
+        result.receipt_sha256
+        == hashlib.sha256(
+            json.dumps(
+                result.model_dump(mode="json", exclude={"receipt_sha256"}),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("ascii")
+        ).hexdigest()
+    )
 
     with pytest.raises(OcrRealDiffRefusal, match="ocr_adjudication_comment_unknown"):
-        _evaluate_case(_raw([comment]), repo, case=case, adjudications=(
-            adjudication.model_copy(update={"comment_sha256": "0" * 64}),
-        ))
+        _evaluate_case(
+            _raw([comment]),
+            repo,
+            case=case,
+            adjudications=(adjudication.model_copy(update={"comment_sha256": "0" * 64}),),
+        )
 
 
 def test_valid_but_wrong_finding_can_be_marked_unsupported(real_git_case):
     repo, case = real_git_case
     comment = _comment("Rename the function for style consistency")
-    result = _evaluate_case(_raw([comment]), repo, case=case, adjudications=(
-        OcrCommentAdjudication(
-            comment_sha256=_comment_hash(comment), verdict="unsupported",
-            rationale="The name follows the migration interface and is not a defect.",
+    result = _evaluate_case(
+        _raw([comment]),
+        repo,
+        case=case,
+        adjudications=(
+            OcrCommentAdjudication(
+                comment_sha256=_comment_hash(comment),
+                verdict="unsupported",
+                rationale="The name follows the migration interface and is not a defect.",
+            ),
         ),
-    ))
+    )
     assert result.target_status == "missed"
     assert result.unsupported_count == 1
     assert not result.clean_negative
@@ -121,10 +148,13 @@ def test_valid_but_wrong_finding_can_be_marked_unsupported(real_git_case):
 
 def test_invalid_review_is_not_a_clean_negative_or_a_semantic_miss(real_git_case):
     repo, case = real_git_case
-    negative = case.model_copy(update={
-        "case_id": "fixture_clean", "known_defect_path": None,
-        "known_defect_line": None,
-    })
+    negative = case.model_copy(
+        update={
+            "case_id": "fixture_clean",
+            "known_defect_path": None,
+            "known_defect_line": None,
+        }
+    )
     invalid = _evaluate_case(b"{invalid", repo, case=negative, adjudications=())
     assert invalid.adapter_status == "invalid"
     assert invalid.target_status == "invalid_review"

@@ -63,8 +63,10 @@ def main(argv: list[str] | None = None) -> int:
                 OcrCommentAdjudication.model_validate(item, strict=True) for item in payload
             )
         result = evaluate_pinned_ocr_case(
-            _read(options.raw_review, MAX_BYTES), options.repo,
-            case_id=options.case, adjudications=labels,
+            _read(options.raw_review, MAX_BYTES),
+            options.repo,
+            case_id=options.case,
+            adjudications=labels,
         )
     except (OSError, UnicodeError, ValueError, ValidationError, CommunityGitScopeRefusal) as error:
         # Do not print private paths, raw model output or Git diagnostics.
