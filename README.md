@@ -1,4 +1,11 @@
-# Zelo Core v0.14.0 — Agent Factory
+# Zelo Core v0.15.0 — Core release candidate
+
+The Managing Director approved a [smaller v0.15.0 Core scope](docs/v0.15-core-release-scope.md)
+on 4 November 2026. The source version is advanced for candidate testing;
+the latest published release remains `v0.14.0` until the final exact-main
+audit, release decision and tag. Browser, Shell, Computer backend, external
+Skill publication, OCR/REA activation and Media are outside the supported
+v0.15.0 runtime profile and remain disabled by default or unavailable.
 
 Zelo Core is the trusted local authority and execution runtime for Zelo. v0.14
 builds on the v0.13 memory/context foundation with trusted versioned AgentSpec
@@ -10,8 +17,8 @@ The canonical company chain is Managing Director -> Zelo CEO -> VP -> Director
 approval, scheduling, budget, validation, promotion, merge and release
 boundaries remain in force.
 
-The published release remains v0.14.0. **v0.15 completion is now the
-immediate engineering priority** (12 October 2026), with release gated by
+The published release remains v0.14.0. **v0.15 Core release is the
+immediate engineering priority** (4 November 2026), with release gated by
 [the v0.15 closeout ledger](docs/v0.15-release-closeout.md) and
 [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166). Existing
 v0.16/v0.17 code does not mean those versions, or v0.15, are released.
@@ -28,7 +35,7 @@ operator reviews its exact source and host scope:
 It builds and attests the pinned image, creates and inspects one stopped Reader
 container under the shared Media admission lock, then removes its labelled
 resources and writes a private receipt. It does not start the Reader, allocate a
-native proof attempt, grant runtime authority, or resolve the six refused
+native proof attempt, grant runtime authority, or resolve the refused native
 proofs. An uncertain cleanup or receipt write leaves admission fenced for
 operator reconciliation.
 
@@ -39,15 +46,13 @@ receipt SHA-256 is
 the [closeout ledger](docs/v0.15-release-closeout.md#26-october-stopped-container-diagnosis-no-native-proof)
 records the earlier refusals and exact CI gates.
 
-The candidate ninth native Reader qualifier adds the explicit
-`--run --one-run-v7` options with the same retained `--runtime-root`. It
-requires all eight terminal refusals and pinned v6 decision records, an empty
-admission marker and Docker lease namespace, and a fresh challenge-bound
-one-run Managing Director decision on issue #166 during the live invocation.
-Source review, exact-head and main CI, and a current host preflight must
-precede any separate one-run authorization. The eighth refusal remains
-terminal; no ninth proof is authorized or run. Media provenance, decoder and
-Core authority remain unqualified, and v0.15 remains on hold.
+The eighth native Reader attempt remains a terminal refusal. The authorized
+ninth attempt completed its synthetic matrix only; it did not qualify a real
+native package. The Stage S, Stage H and single Stage S2 decisions are spent.
+Stage S2's first `InRelease` GET refused with `acquisition_http_status`,
+retained zero body bytes and never started its second request. No further
+Reader attempt is authorized. Media provenance, decoder and Core authority
+remain unqualified and outside the smaller v0.15.0 release profile.
 
 The optional [Computer Specialist startup workflow](docs/v0.15-computer-specialist-startup.md)
 connects the normal Core Agent/Task APIs to a persistent Computer and confirmed
@@ -107,7 +112,7 @@ its transcription audio retains its 12 MiB limit.
 
 ```bash
 curl http://127.0.0.1:8000/
-# {"name":"Zelo Agent","version":"0.14.0","status":"online"}
+# {"name":"Zelo Agent","version":"0.15.0","status":"online"}
 
 curl http://127.0.0.1:8000/health
 # {"status":"healthy"}

@@ -92,6 +92,14 @@ invocations, or installation steps as authority.
 
 ## CURRENT TOP PRIORITY — finish and release v0.15 (12 October 2026)
 
+**4 November 2026 owner scope decision:** The Managing Director chose a
+[smaller v0.15.0 Core release](docs/v0.15-core-release-scope.md). This
+supersedes the earlier full operational scope as a prerequisite for v0.15.0
+tagging. Unqualified optional Computer/Space, external Skill publication,
+Browser, Shell, OCR/REA and Media runtime authority remains disabled or
+unavailable. The final exact-main audit, recovery proof and operator release
+decision remain required; do not treat this scope decision as tag approval.
+
 The Managing Director explicitly prioritized **v0.15 completion** over advancing
 new v0.16, v0.17, v0.18 or UI features. Work the evidence-backed closeout
 at `docs/v0.15-release-closeout.md` and GitHub issue #166 **before**
