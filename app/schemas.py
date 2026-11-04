@@ -748,6 +748,7 @@ class TaskResponse(StrictModel):
     selected_model: str | None = None
     config_version: str | None = None
     developer_spec: DeveloperRequest | None = None
+    legacy_developer_spec_unavailable: bool = False
     research_spec: WorkerSelectionSnapshot | None = None
     python_spec: WorkerSelectionSnapshot | None = None
     api_spec: ApiExecutionSpec | None = None

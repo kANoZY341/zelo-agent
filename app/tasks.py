@@ -696,6 +696,16 @@ def _project_task_result(
 
 
 def snapshot(session: Session, task: Task) -> TaskResponse:
+    # Old terminal Developer specs remain stored, but cannot pass current authority validation.
+    developer_spec = task.developer_spec
+    legacy_developer_spec_unavailable = (
+        task.kind == "developer_run"
+        and task.status in TERMINAL_STATES
+        and isinstance(developer_spec, dict)
+        and "worker_selection" not in developer_spec
+        and isinstance(developer_spec.get("worker"), dict)
+        and "auth_location" in developer_spec["worker"]
+    )
     values = {
         "id": task.id,
         "campaign_id": _task_campaign_id(session, task),
@@ -713,7 +723,8 @@ def snapshot(session: Session, task: Task) -> TaskResponse:
         "selected_alias": task.selected_alias,
         "selected_model": task.selected_model,
         "config_version": task.config_version,
-        "developer_spec": task.developer_spec,
+        "developer_spec": None if legacy_developer_spec_unavailable else developer_spec,
+        "legacy_developer_spec_unavailable": legacy_developer_spec_unavailable,
         "research_spec": task.research_spec,
         "python_spec": task.python_spec,
         "api_spec": task.api_spec,
