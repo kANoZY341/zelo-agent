@@ -1,14 +1,16 @@
 # Zelo — Canonical Architecture and Roadmap to v1.0
 
-**4 November v0.15 scope decision:** The Managing Director chose a
-[smaller Core release profile](v0.15-core-release-scope.md). The unqualified
-optional Computer/Space, external Skill, Browser, Shell, OCR/REA and Media
-lanes remain off or unavailable for v0.15.0, with their open evidence retained.
-Final candidate recovery, runtime, independent audit and exact-SHA operator
-decision still precede tagging. The dated full-scope checkpoints below are
-historical; they do not describe the newly approved release scope.
+**4 November v0.15 publication:** The Managing Director chose a
+[smaller Core release profile](v0.15-core-release-scope.md) and approved
+audited `main` `5e8425eb826eb727957f7d9e38cd134450c55cfb`. The
+[v0.15.0 release](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+is published; [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6628709457)
+records recovery, runtime, independent audit, exact-SHA decision and tag
+verification. Unqualified optional Computer/Space, external Skill, Browser,
+Shell, OCR/REA and Media lanes remain off or unavailable for this release.
+The dated HOLD checkpoints below are historical.
 
-**4 November v0.15 checkpoint:** `main` is
+**4 November v0.15 checkpoint (historical):** `main` is
 `e62fbf0ecd8dcadf84c6a6fe5ff521058461e5d8`; the distinct
 [post-merge CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41583122015)
 passed at that SHA. Migrations 0050 and 0051 below are now integrated.

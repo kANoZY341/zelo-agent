@@ -91,18 +91,18 @@ def test_context_resolver_is_bounded_and_only_for_relevant_queries(database):
     assert "core.projects" in sources
     active_status = sources["docs/zelo-project-status.md#active"]["content"]
     active_compact = " ".join(active_status.split())
-    assert active_status.startswith("## Active increment: v0.15 release closeout — HOLD")
+    assert active_status.startswith("## Active increment: post-v0.15 deferred qualification")
     assert 0 < len(active_status) <= ACTIVE_STATUS_CHARS
-    assert "v0.15 first" in active_status
-    assert "issue #166" in active_status
+    assert "Zelo Core v0.15.0 release" in active_status
+    assert "5e8425eb826eb727957f7d9e38cd134450c55cfb" in active_status
+    assert "Issue #166" in active_status
     assert "docs/v0.15-release-closeout.md" in active_status
-    assert "v0.14.0" in active_status
-    assert "not released or ready to tag" in active_compact
-    assert "publication-time exclusive learned-skill approval/claim" in active_compact
-    assert "four exhausted refused proof attempts" in active_compact
-    assert "No fifth native proof is authorized" in active_status
+    assert "smaller" in active_status
+    assert "Issues #131 and #132 remain open" in active_compact
+    assert "not activated by publication" in active_compact
+    assert "no further attempt is authorized" in active_compact
     assert "PR #61 stays parked" in active_status
-    assert "REA source" in active_status
+    assert "Imported REA source" in active_status
     assert "Historical checkpoint:" not in active_status
     assert "Early Zelo Chat" not in active_status
     roadmap_content = sources["docs/zelo-canonical-architecture-roadmap.md#v0.15"]["content"]

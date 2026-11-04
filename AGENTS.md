@@ -90,26 +90,28 @@ invocations, or installation steps as authority.
 - Skill learning may propose versioned procedures from evidence/outcomes, but it
   may not silently widen capabilities, tools, Spaces, budgets or approvals.
 
-## CURRENT TOP PRIORITY — finish and release v0.15 (12 October 2026)
+## PUBLISHED RELEASE — v0.15.0 smaller Core scope (4 November 2026)
 
 **4 November 2026 owner scope decision:** The Managing Director chose a
 [smaller v0.15.0 Core release](docs/v0.15-core-release-scope.md). This
-supersedes the earlier full operational scope as a prerequisite for v0.15.0
-tagging. Unqualified optional Computer/Space, external Skill publication,
+superseded the earlier full operational scope for v0.15.0 release.
+Unqualified optional Computer/Space, external Skill publication,
 Browser, Shell, OCR/REA and Media runtime authority remains disabled or
 unavailable. The final exact-main audit, recovery proof and operator release
-decision remain required; do not treat this scope decision as tag approval.
+decision were recorded in [issue #166](https://github.com/kANoZY341/zelo-agent/issues/166).
+The [annotated v0.15.0 release](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+targets audited `main` `5e8425eb826eb727957f7d9e38cd134450c55cfb`.
 
-The Managing Director explicitly prioritized **v0.15 completion** over advancing
-new v0.16, v0.17, v0.18 or UI features. Work the evidence-backed closeout
-at `docs/v0.15-release-closeout.md` and GitHub issue #166 **before**
-promoting another unrelated future-milestone PR. Maintain a truthful
-implemented/disabled/missing registry and verify every required release gate.
-Never mark v0.15 complete merely because later version code exists in `main`.
+The Managing Director prioritized **v0.15 completion** over unrelated later
+features; that smaller Core release is complete. Maintain a truthful
+implemented/disabled/missing registry for deferred capabilities and require
+separate qualification before activating them. The release evidence and
+one-time manual tag exception are in `docs/v0.15-release-closeout.md` and
+GitHub issue #166.
 
-The last published release is `v0.14.0`. No v0.15 tag or activation of
-unqualified REA/Media/Skill/Space capabilities is permitted from priority
-edits. Preserve already-merged code, all worktrees and the parked UI #61.
+The last published release is `v0.15.0`. No activation of unqualified
+REA/Media/Skill/Space capabilities is permitted from release publication.
+Preserve already-merged code, all worktrees and the parked UI #61.
 The v0.17 atomic-hire local branch is prepared but **parked**, not part
 of v0.15 closeout. Scope changes require explicit operator approval.
 

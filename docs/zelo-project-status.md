@@ -1,6 +1,18 @@
 # Zelo live project status
 
-**4 November smaller v0.15.0 Core release candidate:** The Managing Director
+**4 November 2026 published release:** [Zelo Core v0.15.0](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+is the latest stable release. Its annotated tag targets audited `main`
+`5e8425eb826eb727957f7d9e38cd134450c55cfb`. Separate
+[main CI](https://github.com/kANoZY341/zelo-agent/actions/runs/41810785562),
+disposable host startup and recovery, independent source audit, exact-SHA
+owner decision and publication verification are recorded in
+[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166#issuecomment-6628709457).
+The release uses the smaller Core profile; optional Computer/Space, external
+Skill publication, Browser/Shell, OCR/REA activation and Media remain
+unqualified or disabled. Issues #131 and #132 remain open for deferred work.
+The dated HOLD entries below describe earlier checkpoints.
+
+**4 November smaller v0.15.0 Core release candidate (historical):** The Managing Director
 approved the [narrow Core profile](v0.15-core-release-scope.md), with
 unqualified optional authority disabled or unavailable. This supersedes the
 full-scope requirement described in the dated entries below, without turning
@@ -481,31 +493,28 @@ result constitutes v0.15 release qualification.
 This file records implementation and qualifications, while the canonical
 architecture and roadmap remain in `docs/zelo-canonical-architecture-roadmap.md`.
 
-## Active increment: v0.15 release closeout — HOLD
+## Active increment: post-v0.15 deferred qualification
 
-The Managing Director directed completion of **v0.15 first**. Tracker:
-[issue #166](https://github.com/kANoZY341/zelo-agent/issues/166) and
-`docs/v0.15-release-closeout.md`. The last published version is still
-`v0.14.0`; v0.15.0 is **not released or ready to tag**.
+The Managing Director approved and published the smaller
+[Zelo Core v0.15.0 release](https://github.com/kANoZY341/zelo-agent/releases/tag/v0.15.0)
+from audited `main` `5e8425eb826eb727957f7d9e38cd134450c55cfb`.
+[Issue #166](https://github.com/kANoZY341/zelo-agent/issues/166) is closed;
+`docs/v0.15-release-closeout.md` records the exact-SHA decision, passing
+release gates and one-time manual tag exception.
 
-18 October: #209–#213 passed reviewed CI for bounded Python, API and
-Research work; earlier failed runs remain recorded. API send authority is
-under qualification. R3 and release remain HOLD.
+The release supports default Core authority. Optional Computer/Space,
+external learned-Skill publication, Browser/Shell, OCR/REA activation and
+Media were not activated by publication. The API Worker has no approved
+endpoint by default. Issues #131 and #132 remain open for deferred authority
+and curated-integration qualification. Media's refused native attempts and
+spent source decisions remain terminal; no further attempt is authorized by
+the v0.15 release decision.
 
-Priority release blockers include complete Space/Core permission scope and
-negative path tests; publication-time exclusive learned-skill approval/claim;
-exact-head qualification of all included Workers and third-party adapters;
-Media native-reader's four exhausted refused proof attempts; and independent
-full-repo review. No fifth native proof is authorized. The Managing Director
-reaffirmed the full originally planned v0.15 build; a disabled native Reader
-cannot close the release.
-
-New v0.16, v0.17, v0.18 and UI feature promotion is paused except for necessary
-security/regression repairs. Existing code and branches are preserved:
-PR #61 stays parked, the local v0.17 atomic-hire branch stays unmerged,
+PR #61 stays parked. The local v0.17 atomic-hire branch remains unmerged,
 and merged ahead-of-version company/channel code does not imply release.
-Never classify imported REA source, OCR/ECC candidates, read-only Space
-status projections or speculative tool permissions as activated runtime.
+Imported REA source, OCR/ECC candidates and read-only Space projections are
+not activated runtime. A separate reviewed operator decision is required
+before enabling any deferred capability.
 
 ## Historical checkpoint: 10 October — v0.15 publication refusal and inert v0.16 channels
 
