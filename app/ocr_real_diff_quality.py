@@ -39,13 +39,17 @@ class OcrRealDiffCase(BaseModel):
     base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     known_defect_path: str | None = None
-    known_defect_line: int | None = Field(default=None, ge=1, le=1_000_000)
+    known_defect_span: tuple[int, int] | None = None
     historical_case: bool
 
     @model_validator(mode="after")
     def check_target(self):
-        if (self.known_defect_path is None) != (self.known_defect_line is None):
+        if (self.known_defect_path is None) != (self.known_defect_span is None):
             raise ValueError("ocr_real_diff_target_incomplete")
+        if self.known_defect_span is not None and not (
+            1 <= self.known_defect_span[0] <= self.known_defect_span[1] <= 1_000_000
+        ):
+            raise ValueError("ocr_real_diff_target_span_invalid")
         return self
 
 
@@ -57,7 +61,7 @@ _CASES = {
         base_sha="d3ebcdadc2c9631eecbc9691158ee2f01e5aa711",
         head_sha="1b6d47be81cbe67d315192f90403ef67f29ae188",
         known_defect_path="migrations/versions/0049_skill_publication_promotion_receipt_link.py",
-        known_defect_line=175,
+        known_defect_span=(165, 175),
         historical_case=True,
     ),
     "browser_297_clean": OcrRealDiffCase(
@@ -145,7 +149,9 @@ def _evaluate_case(
         raise OcrRealDiffRefusal("ocr_real_diff_input_invalid")
     scope = verified_git_review_scope(repo, base_sha=case.base_sha, head_sha=case.head_sha)
     known_lines = scope.allowed_lines().get(case.known_defect_path, frozenset())
-    if case.known_defect_path is not None and case.known_defect_line not in known_lines:
+    if case.known_defect_span is not None and not any(
+        case.known_defect_span[0] <= line <= case.known_defect_span[1] for line in known_lines
+    ):
         raise OcrRealDiffRefusal("ocr_real_diff_known_defect_not_in_diff")
     raw_hash = hashlib.sha256(raw_review).hexdigest()
     try:
@@ -181,7 +187,8 @@ def _evaluate_case(
         if (
             case.known_defect_path is None
             or comment.path != case.known_defect_path
-            or not comment.start_line <= case.known_defect_line <= comment.end_line
+            or comment.end_line < case.known_defect_span[0]
+            or comment.start_line > case.known_defect_span[1]
         ):
             raise OcrRealDiffRefusal("ocr_adjudication_target_anchor_invalid")
         known_count += 1

@@ -38,7 +38,9 @@ def real_git_case(tmp_path: Path):
     _git(repo, "add", "--all")
     _git(repo, "-c", "commit.gpgsign=false", "commit", "-qm", "base")
     base = _git(repo, "rev-parse", "HEAD")
-    (repo / "migration.py").write_text("def downgrade():\n    drop_table('records')\n")
+    (repo / "migration.py").write_text(
+        "def downgrade():\n    drop_table('records')\n    audit('downgrade')\n"
+    )
     _git(repo, "add", "--all")
     _git(repo, "-c", "commit.gpgsign=false", "commit", "-qm", "head")
     head = _git(repo, "rev-parse", "HEAD")
@@ -47,7 +49,7 @@ def real_git_case(tmp_path: Path):
         base_sha=base,
         head_sha=head,
         known_defect_path="migration.py",
-        known_defect_line=2,
+        known_defect_span=(2, 3),
         historical_case=False,
     )
 
@@ -64,11 +66,12 @@ def _raw(comments: list[dict] | None = None) -> bytes:
 
 def _comment(
     content: str = "Downgrade drops the populated table and loses existing records",
+    line: int = 2,
 ) -> dict:
     return {
         "path": "migration.py",
-        "start_line": 2,
-        "end_line": 2,
+        "start_line": line,
+        "end_line": line,
         "severity": "high",
         "category": "bug",
         "content": content,
@@ -126,6 +129,24 @@ def test_adjudication_is_bound_to_exact_comment_and_target_line(real_git_case):
         )
 
 
+def test_known_defect_can_be_anchored_elsewhere_in_changed_block(real_git_case):
+    repo, case = real_git_case
+    comment = _comment(line=3)
+    result = _evaluate_case(
+        _raw([comment]),
+        repo,
+        case=case,
+        adjudications=(
+            OcrCommentAdjudication(
+                comment_sha256=_comment_hash(comment),
+                verdict="known_defect",
+                rationale="The comment identifies destructive record loss in this downgrade block.",
+            ),
+        ),
+    )
+    assert result.target_status == "detected_with_manual_adjudication"
+
+
 def test_valid_but_wrong_finding_can_be_marked_unsupported(real_git_case):
     repo, case = real_git_case
     comment = _comment("Rename the function for style consistency")
@@ -152,7 +173,7 @@ def test_invalid_review_is_not_a_clean_negative_or_a_semantic_miss(real_git_case
         update={
             "case_id": "fixture_clean",
             "known_defect_path": None,
-            "known_defect_line": None,
+            "known_defect_span": None,
         }
     )
     invalid = _evaluate_case(b"{invalid", repo, case=negative, adjudications=())
