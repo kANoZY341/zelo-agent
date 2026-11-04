@@ -148,6 +148,7 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
                 "required_pull_request_reviews": {
                     "required_approving_review_count": 1,
                     "dismiss_stale_reviews": True,
+                    "require_code_owner_reviews": False,
                     "require_last_push_approval": True,
                     "bypass_pull_request_allowances": {
                         "users": [],
@@ -171,14 +172,28 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
         "submitted_at": "2026-11-05T00:00:00Z",
         "commit_id": request.publication.pr_head_sha,
     }
+    permission = {
+        "permission": "write",
+        "user": {"login": "reviewer"},
+    }
     transport.responses[13:13] = [
         ("GET", base, deepcopy(pr)),
-        ("GET", base + "/reviews?per_page=100&page=1", [deepcopy(review)]),
+        ("GET", base + "/reviews?per_page=20&page=1", [deepcopy(review)]),
+        (
+            "GET",
+            f"/repos/{request.publication.repository}/collaborators/reviewer/permission",
+            deepcopy(permission),
+        ),
     ]
     transport.responses.extend(
         [
             ("GET", base, deepcopy(pr)),
-            ("GET", base + "/reviews?per_page=100&page=1", [deepcopy(review)]),
+            ("GET", base + "/reviews?per_page=20&page=1", [deepcopy(review)]),
+            (
+                "GET",
+                f"/repos/{request.publication.repository}/collaborators/reviewer/permission",
+                deepcopy(permission),
+            ),
         ]
     )
     template = deepcopy(transport.responses)
@@ -366,12 +381,12 @@ def _solo_source(database, request, store, claim, *, ignored_artifact=False):
 
 
 def _solo_policy(transport):
-    for index in (12, 15):
+    for index in (12, 16):
         reviews = transport.responses[index][2]["required_pull_request_reviews"]
         reviews["required_approving_review_count"] = 0
         reviews["require_last_push_approval"] = False
         reviews.pop("bypass_pull_request_allowances")
-    for index in (17, 16, 14, 13):
+    for index in (19, 18, 17, 15, 14, 13):
         del transport.responses[index]
 
 
@@ -626,7 +641,7 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _failures(database) == 0
     assert service.get_failure(claim.id, OPERATOR) is None
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
-    assert len(transport.calls) == 27
+    assert len(transport.calls) == 29
     assert transport.responses == []
     assert store.get_promotion_link(claim.proposal_id) is None
 
@@ -823,7 +838,7 @@ def test_post_put_changed_base_commit_is_unresolved_and_never_retried(
     _add_success_response(request, transport, template)
     # The provider may accept the exact head but merge against a different
     # base in the race between GET and PUT. Never record success or retry.
-    transport.responses[20][2]["parents"][0]["sha"] = "e" * 40
+    transport.responses[22][2]["parents"][0]["sha"] = "e" * 40
     with pytest.raises(DeveloperError, match="single_attempt_outcome_unresolved"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -1073,6 +1088,7 @@ def test_parallel_dispatch_requests_cannot_issue_two_external_puts(
         "last_push_approval_optional",
         "last_push_approval_missing",
         "last_push_approval_type_confusion",
+        "code_owner_review_required",
         "review_bypass_missing",
         "review_bypass_users_missing",
         "review_bypass_teams",
@@ -1140,6 +1156,8 @@ def test_unsafe_main_branch_protection_refuses_before_external_merge(
         del policy["required_pull_request_reviews"]["require_last_push_approval"]
     elif mutation == "last_push_approval_type_confusion":
         policy["required_pull_request_reviews"]["require_last_push_approval"] = 1
+    elif mutation == "code_owner_review_required":
+        policy["required_pull_request_reviews"]["require_code_owner_reviews"] = True
     elif mutation == "review_bypass_missing":
         del policy["required_pull_request_reviews"]["bypass_pull_request_allowances"]
     elif mutation == "review_bypass_null":
@@ -1173,7 +1191,7 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
         database, proposal_case, tmp_path
     )
     first = transport.responses[12]
-    second = transport.responses[15]
+    second = transport.responses[16]
     assert first[1] == second[1] and first[1].endswith("/branches/main/protection")
     second[2]["required_status_checks"]["strict"] = False
 
@@ -1236,7 +1254,7 @@ def test_team_review_drift_after_attempt_refuses_put(database, proposal_case, tm
     _store, claim, request, transport, _fence, service, _template = _setup_one(
         database, proposal_case, tmp_path
     )
-    transport.responses[17][2][0]["state"] = "DISMISSED"
+    transport.responses[18][2][0]["state"] = "DISMISSED"
     with pytest.raises(DeveloperError, match="skill_publication_team_reviews_unqualified"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -1244,6 +1262,60 @@ def test_team_review_drift_after_attempt_refuses_put(database, proposal_case, tm
     with pytest.raises(ValueError, match="single_attempt_already_recorded"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_read_only_review_does_not_qualify_team_approval(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    transport.responses[15][2]["permission"] = "read"
+    with pytest.raises(DeveloperError, match="skill_publication_team_reviews_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (0, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_other_writer_change_request_blocks_team_send(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    transport.responses[14][2].append(
+        {
+            "id": 2,
+            "user": {"login": "blocker", "type": "User"},
+            "state": "CHANGES_REQUESTED",
+            "submitted_at": "2026-11-05T00:01:00Z",
+            "commit_id": request.publication.pr_head_sha,
+        }
+    )
+    transport.responses.insert(
+        16,
+        (
+            "GET",
+            f"/repos/{request.publication.repository}/collaborators/blocker/permission",
+            {"permission": "write", "user": {"login": "blocker"}},
+        ),
+    )
+    with pytest.raises(DeveloperError, match="skill_publication_team_reviews_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert _rows(database) == (0, 0)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_later_comment_keeps_prior_team_approval(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    comment = deepcopy(transport.responses[14][2][0])
+    comment["id"] = 2
+    comment["state"] = "COMMENTED"
+    comment["submitted_at"] = "2026-11-05T00:01:00Z"
+    transport.responses[14][2].append(deepcopy(comment))
+    transport.responses[18][2].append(comment)
+    _add_success_response(request, transport, template)
+    receipt = asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert isinstance(receipt, SkillPublicationMergeReceipt)
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
 
 
 def test_team_review_preflight_reads_bounded_second_page(database, proposal_case, tmp_path):
@@ -1259,14 +1331,15 @@ def test_team_review_preflight_reads_bounded_second_page(database, proposal_case
             "submitted_at": "2026-11-05T00:00:00Z",
             "commit_id": request.publication.pr_head_sha,
         }
-        for index in range(100)
+        for index in range(20)
     ]
     second = deepcopy(transport.responses[14][2])
-    second[0]["id"] = 101
+    second[0]["id"] = 21
     transport.responses = [
         transport.responses[13],
-        ("GET", base + "/reviews?per_page=100&page=1", first),
-        ("GET", base + "/reviews?per_page=100&page=2", second),
+        ("GET", base + "/reviews?per_page=20&page=1", first),
+        ("GET", base + "/reviews?per_page=20&page=2", second),
+        transport.responses[15],
     ]
     asyncio.run(
         service._require_team_reviews(
@@ -1277,7 +1350,7 @@ def test_team_review_preflight_reads_bounded_second_page(database, proposal_case
             1,
         )
     )
-    assert len(transport.calls) == 3
+    assert len(transport.calls) == 4
 
 
 def test_promotion_approval_revoked_during_final_policy_get_refuses_put(

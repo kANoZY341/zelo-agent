@@ -240,6 +240,7 @@ class SkillPublicationOneAttemptService:
             type(reviews) is not dict
             or type(reviews.get("required_approving_review_count")) is not int
             or reviews.get("dismiss_stale_reviews") is not True
+            or reviews.get("require_code_owner_reviews") is not False
         ):
             raise DeveloperError("skill_publication_main_protection_unqualified")
         count = reviews["required_approving_review_count"]
@@ -305,16 +306,16 @@ class SkillPublicationOneAttemptService:
         ):
             raise DeveloperError("skill_publication_team_reviews_unqualified")
         author = pr["user"]["login"].casefold()
-        latest: dict[str, tuple[datetime, int, str, str]] = {}
+        latest: dict[str, tuple[datetime, int, str, str, str]] = {}
         seen_ids: set[int] = set()
-        for page in range(1, 4):
+        for page in range(1, 11):
             try:
                 rows = await self.transport.request(
-                    "GET", endpoint + f"/reviews?per_page=100&page={page}"
+                    "GET", endpoint + f"/reviews?per_page=20&page={page}"
                 )
             except Exception:
                 raise DeveloperError("skill_publication_team_reviews_unavailable") from None
-            if type(rows) is not list or len(rows) > 100 or (page == 3 and len(rows) == 100):
+            if type(rows) is not list or len(rows) > 20 or (page == 10 and len(rows) == 20):
                 raise DeveloperError("skill_publication_team_reviews_unqualified")
             for row in rows:
                 if type(row) is not dict:
@@ -348,17 +349,36 @@ class SkillPublicationOneAttemptService:
                     raise DeveloperError("skill_publication_team_reviews_unqualified")
                 seen_ids.add(review_id)
                 login = user["login"].casefold()
-                if login == author or user["type"] != "User":
+                if login == author or user["type"] != "User" or row["state"] == "COMMENTED":
                     continue
-                item = (at, review_id, row["state"], commit_id)
+                item = (at, review_id, row["state"], commit_id, user["login"])
                 if login not in latest or item[:2] > latest[login][:2]:
                     latest[login] = item
-            if len(rows) < 100:
+            if len(rows) < 20:
                 break
-        approved = sum(
-            state == "APPROVED" and commit_id == head_sha
-            for _, _, state, commit_id in latest.values()
-        )
+        candidates = [item for item in latest.values() if item[2] in {"APPROVED", "CHANGES_REQUESTED"}]
+        if len(candidates) > 20:
+            raise DeveloperError("skill_publication_team_reviews_unqualified")
+        approved = 0
+        for _, _, state, commit_id, login in candidates:
+            try:
+                permission = await self.transport.request(
+                    "GET", f"/repos/{repository}/collaborators/{login}/permission"
+                )
+            except Exception:
+                raise DeveloperError("skill_publication_team_reviews_unavailable") from None
+            if (
+                type(permission) is not dict
+                or permission.get("permission") not in {"admin", "write", "read", "none"}
+                or type(permission.get("user")) is not dict
+                or type(permission["user"].get("login")) is not str
+                or permission["user"]["login"].casefold() != login.casefold()
+            ):
+                raise DeveloperError("skill_publication_team_reviews_unqualified")
+            if permission["permission"] in {"admin", "write"}:
+                if state == "CHANGES_REQUESTED":
+                    raise DeveloperError("skill_publication_team_reviews_unqualified")
+                approved += state == "APPROVED" and commit_id == head_sha
         if approved < required_count:
             raise DeveloperError("skill_publication_team_reviews_unqualified")
 
