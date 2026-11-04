@@ -246,7 +246,6 @@ def create_skill_developer_task(
             DeveloperRunInput(
                 kind="developer_run",
                 payload=DeveloperPayload(instruction=instruction),
-                timeout_seconds=900,
             ),
             f"skill-review:{claim.id}:{intent.intent_fingerprint}",
             review_instruction=context,

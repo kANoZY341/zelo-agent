@@ -3,6 +3,7 @@
 import pytest
 
 from app.auth import OperatorPrincipal
+from app.schemas import DeveloperRunInput
 from app.skill_publication_intent import prepare_skill_publication_intent
 from tests import test_skill_learning_store as learning_tests
 from tests.test_skill_publication_intent import accepted_case
@@ -369,6 +370,7 @@ def test_claim_developer_task_binds_exact_review_context(
     assert replay.json()["id"] == created.json()["id"]
     task = created.json()
     assert task["kind"] == "developer_run"
+    assert task["timeout_seconds"] == DeveloperRunInput.model_fields["timeout_seconds"].default
     with database.read() as session:
         from app.models import Task
         from app.skill_publication_claim import SkillPublicationClaimService
