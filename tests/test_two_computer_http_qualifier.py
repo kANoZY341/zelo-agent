@@ -40,6 +40,7 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
         "revoked": False,
         "revoked_activations": set(),
         "refusals": 0,
+        "retry_calls": 0,
     }
 
     def authorized(request: Request) -> None:
@@ -73,17 +74,37 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
             )
             raise HTTPException(409, reason)
         task_id = str(len(state["tasks"]) + 1)
-        if payload["action"] == "files_read":
+        if payload.get("path") == qualifier.MISSING_PATH:
+            result = None
+            status = "failed"
+            error = "computer_space_read_denied"
+        elif payload["action"] == "files_read":
             result = {"files_read": {"text": "private fixture"}}
+            status = "succeeded"
+            error = None
         else:
             result = {"files_list": {"entries": [{"path": "notes.txt"}]}}
+            status = "succeeded"
+            error = None
         state["tasks"][task_id] = {
             "id": task_id,
-            "status": "succeeded",
+            "status": status,
             "result": result,
+            "error": error,
+            "attempts": [{"number": 1}],
             "action": payload["action"],
+            "activation_id": payload["space_activation_id"],
         }
         return JSONResponse(status_code=201, content=state["tasks"][task_id])
+
+    @app.post("/tasks/{task_id}/retry")
+    def retry_task(task_id: str, request: Request) -> dict:
+        authorized(request)
+        state["retry_calls"] += 1
+        if state["tasks"][task_id]["activation_id"] in state["revoked_activations"]:
+            state["refusals"] += 1
+            raise HTTPException(409, "computer_space_activation_invalid")
+        raise HTTPException(500, "unexpected_retry_admission")
 
     @app.get("/tasks/{task_id}")
     def get_task(task_id: str, request: Request) -> dict:
@@ -114,6 +135,8 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
     def body(action: str, activation: str) -> dict:
         return {"task": {"payload": {"action": action, "space_activation_id": activation}}}
 
+    retry_body = body("files_read", "retry-child")
+    retry_body["task"]["payload"]["path"] = qualifier.MISSING_PATH
     with qualifier.loopback_core_server(app) as base_url:
         with httpx.Client(
             base_url=base_url,
@@ -130,13 +153,16 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
                 substituted_body=body("files_read", "parent"),
                 revocable_body=body("files_read", "revocable-child"),
                 revocable_activation_id="revocable-child",
+                retry_body=retry_body,
+                retry_activation_id="retry-child",
                 expected_text="private fixture",
             )
 
-    assert len(state["tasks"]) == 2
-    assert state["refusals"] == 3
+    assert len(state["tasks"]) == 3
+    assert state["refusals"] == 4
+    assert state["retry_calls"] == 1
     assert state["revoked"] is True
-    assert state["revoked_activations"] == {"revocable-child"}
+    assert state["revoked_activations"] == {"revocable-child", "retry-child"}
 
 
 def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
@@ -194,6 +220,26 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
             )
             assert revocable_activation.status_code == 201, revocable_activation.text
             assert revocable_activation.json()["id"] != activation.json()["id"]
+            retry_intent = client.post(
+                f"/agents/{child['id']}/space-intents",
+                json={
+                    "space_id": "workroom",
+                    "resource_kind": "files",
+                    "resource_id": "documents",
+                    "operations": ["list", "read"],
+                    "ttl_seconds": 600,
+                },
+            )
+            assert retry_intent.status_code == 201, retry_intent.text
+            retry_activation = client.post(
+                f"/agents/{child['id']}/space-intents/{retry_intent.json()['id']}/activate",
+                json={"resource_record_id": resource["id"]},
+            )
+            assert retry_activation.status_code == 201, retry_activation.text
+            assert retry_activation.json()["id"] not in {
+                activation.json()["id"],
+                revocable_activation.json()["id"],
+            }
             wrong_intent = client.post(
                 f"/agents/{parent['id']}/space-intents",
                 json={
@@ -269,6 +315,9 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
             revocable_body["task"]["payload"]["space_activation_id"] = revocable_activation.json()[
                 "id"
             ]
+            retry_body = body("files_read")
+            retry_body["task"]["payload"]["space_activation_id"] = retry_activation.json()["id"]
+            retry_body["task"]["payload"]["path"] = qualifier.MISSING_PATH
             qualifier.qualify_http(
                 client,
                 child_id=child["id"],
@@ -278,6 +327,8 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
                 substituted_body=substituted_body,
                 revocable_body=revocable_body,
                 revocable_activation_id=revocable_activation.json()["id"],
+                retry_body=retry_body,
+                retry_activation_id=retry_activation.json()["id"],
                 expected_text="owner-provided evidence",
             )
-            assert client.get("/tasks").json()["total"] == 2
+            assert client.get("/tasks").json()["total"] == 3
