@@ -56,7 +56,9 @@ def _raw(comments: list[dict] | None = None) -> bytes:
     }).encode()
 
 
-def _comment(content: str = "Downgrade drops the populated table and loses existing records") -> dict:
+def _comment(
+    content: str = "Downgrade drops the populated table and loses existing records",
+) -> dict:
     return {
         "path": "migration.py", "start_line": 2, "end_line": 2,
         "severity": "high", "category": "bug", "content": content,
@@ -138,6 +140,8 @@ def test_invalid_review_is_not_a_clean_negative_or_a_semantic_miss(real_git_case
 def test_real_git_identity_is_required_before_scoring(real_git_case):
     repo, case = real_git_case
     with pytest.raises(CommunityGitScopeRefusal, match="ocr_git_review_head_stale"):
-        _evaluate_case(_raw(), repo, case=case.model_copy(update={"head_sha": "0" * 40}), adjudications=())
+        _evaluate_case(
+            _raw(), repo, case=case.model_copy(update={"head_sha": "0" * 40}), adjudications=()
+        )
     with pytest.raises(OcrRealDiffRefusal, match="ocr_real_diff_case_unknown"):
         evaluate_pinned_ocr_case(_raw(), repo, case_id="fixture_destructive_migration")

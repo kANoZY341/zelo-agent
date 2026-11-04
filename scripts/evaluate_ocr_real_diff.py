@@ -39,10 +39,16 @@ def _read(path: Path, limit: int) -> bytes:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", required=True, choices=[x.case_id for x in pinned_ocr_real_diff_cases()])
-    parser.add_argument("--repo", required=True, type=Path, help="Disposable checkout at the pinned HEAD")
+    parser.add_argument(
+        "--case", required=True, choices=[x.case_id for x in pinned_ocr_real_diff_cases()]
+    )
+    parser.add_argument(
+        "--repo", required=True, type=Path, help="Disposable checkout at the pinned HEAD"
+    )
     parser.add_argument("--raw-review", required=True, type=Path, help="Local raw OCR JSON file")
-    parser.add_argument("--adjudications", type=Path, help="Optional JSON array of manual comment labels")
+    parser.add_argument(
+        "--adjudications", type=Path, help="Optional JSON array of manual comment labels"
+    )
     options = parser.parse_args(argv)
     try:
         labels = ()
@@ -53,14 +59,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             if type(payload) is not list or len(payload) > 64:
                 raise OcrRealDiffRefusal("ocr_adjudication_shape_invalid")
-            labels = tuple(OcrCommentAdjudication.model_validate(item, strict=True) for item in payload)
+            labels = tuple(
+                OcrCommentAdjudication.model_validate(item, strict=True) for item in payload
+            )
         result = evaluate_pinned_ocr_case(
             _read(options.raw_review, MAX_BYTES), options.repo,
             case_id=options.case, adjudications=labels,
         )
     except (OSError, UnicodeError, ValueError, ValidationError, CommunityGitScopeRefusal) as error:
         # Do not print private paths, raw model output or Git diagnostics.
-        code = str(error) if isinstance(error, (OcrRealDiffRefusal, CommunityGitScopeRefusal)) else "ocr_real_diff_input_invalid"
+        code = (
+            str(error)
+            if isinstance(error, (OcrRealDiffRefusal, CommunityGitScopeRefusal))
+            else "ocr_real_diff_input_invalid"
+        )
         print(code, file=sys.stderr)
         return 1
     print(result.model_dump_json())

@@ -132,9 +132,8 @@ def _evaluate_case(
     ):
         raise OcrRealDiffRefusal("ocr_real_diff_input_invalid")
     scope = verified_git_review_scope(repo, base_sha=case.base_sha, head_sha=case.head_sha)
-    if case.known_defect_path is not None and case.known_defect_line not in scope.allowed_lines().get(
-        case.known_defect_path, frozenset()
-    ):
+    known_lines = scope.allowed_lines().get(case.known_defect_path, frozenset())
+    if case.known_defect_path is not None and case.known_defect_line not in known_lines:
         raise OcrRealDiffRefusal("ocr_real_diff_known_defect_not_in_diff")
     raw_hash = hashlib.sha256(raw_review).hexdigest()
     try:
