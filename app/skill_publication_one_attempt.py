@@ -356,7 +356,9 @@ class SkillPublicationOneAttemptService:
                     latest[login] = item
             if len(rows) < 20:
                 break
-        candidates = [item for item in latest.values() if item[2] in {"APPROVED", "CHANGES_REQUESTED"}]
+        candidates = [
+            item for item in latest.values() if item[2] in {"APPROVED", "CHANGES_REQUESTED"}
+        ]
         if len(candidates) > 20:
             raise DeveloperError("skill_publication_team_reviews_unqualified")
         approved = 0
