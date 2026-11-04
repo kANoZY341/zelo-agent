@@ -144,6 +144,8 @@ def qualify_http(
     read_body: dict[str, object],
     list_body: dict[str, object],
     substituted_body: dict[str, object],
+    revocable_body: dict[str, object],
+    revocable_activation_id: str,
     expected_text: str,
 ) -> None:
     """Exercise the persisted native Space route through normal Core TCP HTTP."""
@@ -162,6 +164,23 @@ def qualify_http(
         return int(page.json()["total"])
 
     before = total()
+    withdrawn = client.post(
+        f"/agents/{child_id}/space-activations/{revocable_activation_id}/revoke"
+    )
+    require(withdrawn.status_code == 200, "Core HTTP Space revocation failed")
+    require(
+        withdrawn.json().get("eligible_for_mediation") is False,
+        "Core HTTP Space revocation stayed eligible",
+    )
+    denied_activation = client.post(task_url, json=revocable_body)
+    require(denied_activation.status_code == 409, "revoked Space activation admitted Task")
+    require(
+        "computer_space_activation_invalid" in denied_activation.text,
+        "revoked Space activation refused for unrelated reason",
+    )
+    require(total() == before, "revoked Space activation created a Task")
+    print("CORE_HTTP_SPACE_ACTIVATION_REVOCATION_DENIED=PASS", flush=True)
+
     substituted = client.post(task_url, json=substituted_body)
     require(substituted.status_code == 409, "parent activation substituted for child")
     require(
@@ -361,6 +380,23 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
             wrong_parent_activation.id not in (activations[0].id, activations[1].id),
             "substitution approval not distinct",
         )
+        revocable_intent = resources.intents.create(
+            instance_id=child.id,
+            space_id="workroom",
+            resource_kind="files",
+            resource_id="documents",
+            operations=("list", "read"),
+            ttl_seconds=600,
+        )
+        revocable_activation = resources.activate(
+            instance_id=child.id,
+            intent_id=revocable_intent.id,
+            resource_record_id=resource.id,
+        )
+        require(
+            revocable_activation.id not in (activations[0].id, activations[1].id),
+            "revocation approval not distinct",
+        )
         controls = CampaignControlService(db)
         controls.set_budget(campaign.id, "agent_steps", CampaignBudgetSet(limit_units=100))
         budget = controls.reserve_budget(
@@ -478,6 +514,10 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                     read_body=read_body,
                     list_body=request("files_list").model_dump(mode="json"),
                     substituted_body=substituted_body,
+                    revocable_body=request(
+                        "files_read", child_activation=revocable_activation.id
+                    ).model_dump(mode="json"),
+                    revocable_activation_id=revocable_activation.id,
                     expected_text=FIXTURE,
                 )
         try:
