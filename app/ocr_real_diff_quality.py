@@ -88,6 +88,8 @@ class OcrRealDiffResult(BaseModel):
     case_id: str
     base_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    known_defect_path: str | None
+    known_defect_span: tuple[int, int] | None
     diff_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     raw_review_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     review_evidence_sha256: str | None = None
@@ -210,6 +212,8 @@ def _evaluate_case(
         "case_id": case.case_id,
         "base_sha": case.base_sha,
         "head_sha": case.head_sha,
+        "known_defect_path": case.known_defect_path,
+        "known_defect_span": case.known_defect_span,
         "diff_sha256": scope.diff_sha256,
         "raw_review_sha256": raw_hash,
         "review_evidence_sha256": evidence_hash,

@@ -108,6 +108,8 @@ def test_adjudication_is_bound_to_exact_comment_and_target_line(real_git_case):
     assert result.target_status == "detected_with_manual_adjudication"
     assert result.unadjudicated_count == 0
     assert not result.independent_semantic_quality_proven
+    assert result.known_defect_path == "migration.py"
+    assert result.known_defect_span == (2, 3)
     assert (
         result.receipt_sha256
         == hashlib.sha256(
@@ -127,6 +129,14 @@ def test_adjudication_is_bound_to_exact_comment_and_target_line(real_git_case):
             case=case,
             adjudications=(adjudication.model_copy(update={"comment_sha256": "0" * 64}),),
         )
+
+    old_rubric = _evaluate_case(
+        _raw([comment]),
+        repo,
+        case=case.model_copy(update={"known_defect_span": (2, 2)}),
+        adjudications=(adjudication,),
+    )
+    assert old_rubric.receipt_sha256 != result.receipt_sha256
 
 
 def test_known_defect_can_be_anchored_elsewhere_in_changed_block(real_git_case):
