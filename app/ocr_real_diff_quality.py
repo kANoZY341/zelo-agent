@@ -55,7 +55,7 @@ _CASES = {
     "migration_0049_data_loss": OcrRealDiffCase(
         case_id="migration_0049_data_loss",
         base_sha="d3ebcdadc2c9631eecbc9691158ee2f01e5aa711",
-        head_sha="b0f2da6d9c18afd657113731059c11f5c3bbd60b",
+        head_sha="1b6d47be81cbe67d315192f90403ef67f29ae188",
         known_defect_path="migrations/versions/0049_skill_publication_promotion_receipt_link.py",
         known_defect_line=175,
         historical_case=True,
