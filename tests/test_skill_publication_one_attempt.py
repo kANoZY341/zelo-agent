@@ -823,7 +823,7 @@ def test_post_put_changed_base_commit_is_unresolved_and_never_retried(
     _add_success_response(request, transport, template)
     # The provider may accept the exact head but merge against a different
     # base in the race between GET and PUT. Never record success or retry.
-    transport.responses[16][2]["parents"][0]["sha"] = "e" * 40
+    transport.responses[20][2]["parents"][0]["sha"] = "e" * 40
     with pytest.raises(DeveloperError, match="single_attempt_outcome_unresolved"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -1182,6 +1182,9 @@ def test_main_protection_drift_after_attempt_blocks_external_merge(
     assert _rows(database) == (1, 0)
     assert _failures(database) == 0
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+    with pytest.raises(ValueError, match="single_attempt_already_recorded"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
 
 
 @pytest.mark.parametrize(
@@ -1243,6 +1246,40 @@ def test_team_review_drift_after_attempt_refuses_put(database, proposal_case, tm
     with pytest.raises(ValueError, match="single_attempt_already_recorded"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_team_review_preflight_reads_bounded_second_page(database, proposal_case, tmp_path):
+    _store, _claim, request, transport, _fence, service, _template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    base = transport.responses[13][1]
+    first = [
+        {
+            "id": index + 1,
+            "user": {"login": f"member{index}", "type": "User"},
+            "state": "COMMENTED",
+            "submitted_at": "2026-11-05T00:00:00Z",
+            "commit_id": request.publication.pr_head_sha,
+        }
+        for index in range(100)
+    ]
+    second = deepcopy(transport.responses[14][2])
+    second[0]["id"] = 101
+    transport.responses = [
+        transport.responses[13],
+        ("GET", base + "/reviews?per_page=100&page=1", first),
+        ("GET", base + "/reviews?per_page=100&page=2", second),
+    ]
+    asyncio.run(
+        service._require_team_reviews(
+            request.publication.repository,
+            request.publication.pr_number,
+            request.publication.pr_head_sha,
+            request.publication.pr_base_sha,
+            1,
+        )
+    )
+    assert len(transport.calls) == 3
 
 
 def test_promotion_approval_revoked_during_final_policy_get_refuses_put(
