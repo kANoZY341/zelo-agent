@@ -498,10 +498,12 @@ def test_authority_fingerprint_changes_when_auth_bind_widens(developer_case, mon
     assert not runtime.supervisor.matches(approved.worker_selection)
 
 
-def test_sandbox_version_changes_when_validation_venv_bind_widens(developer_case, monkeypatch):
+def test_sandbox_version_changes_when_validation_venv_bind_widens(
+    developer_case, monkeypatch, tmp_path
+):
     runtime = developer_case
     approved = request(runtime)
-    venv = runtime.settings.workspace_root / "trusted-venv"
+    venv = tmp_path / "trusted-venv"
     venv.mkdir()
     baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     baseline_version = approved.sandbox_version
@@ -582,10 +584,12 @@ def test_sandbox_version_changes_when_extra_host_bind_is_added(developer_case, m
     assert not runtime.compatible(approved, 60)
 
 
-def test_sandbox_version_changes_when_isolated_network_is_dropped(developer_case, monkeypatch):
+def test_sandbox_version_changes_when_isolated_network_is_dropped(
+    developer_case, monkeypatch, tmp_path
+):
     runtime = developer_case
     approved = request(runtime)
-    venv = runtime.settings.workspace_root / "trusted-venv-network"
+    venv = tmp_path / "trusted-venv-network"
     venv.mkdir()
     baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     baseline_version = approved.sandbox_version
@@ -605,10 +609,10 @@ def test_sandbox_version_changes_when_isolated_network_is_dropped(developer_case
     assert not runtime.compatible(approved, 60)
 
 
-def test_policy_changes_when_unshare_pid_is_dropped(developer_case, monkeypatch):
+def test_policy_changes_when_unshare_pid_is_dropped(developer_case, monkeypatch, tmp_path):
     runtime = developer_case
     approved = request(runtime)
-    venv = runtime.settings.workspace_root / "trusted-venv-pid"
+    venv = tmp_path / "trusted-venv-pid"
     venv.mkdir()
     baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     baseline_version = approved.sandbox_version
@@ -627,10 +631,10 @@ def test_policy_changes_when_unshare_pid_is_dropped(developer_case, monkeypatch)
     assert not runtime.compatible(approved, 60)
 
 
-def test_policy_changes_when_die_with_parent_is_dropped(developer_case, monkeypatch):
+def test_policy_changes_when_die_with_parent_is_dropped(developer_case, monkeypatch, tmp_path):
     runtime = developer_case
     approved = request(runtime)
-    venv = runtime.settings.workspace_root / "trusted-venv-lifecycle"
+    venv = tmp_path / "trusted-venv-lifecycle"
     venv.mkdir()
     baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     baseline_version = approved.sandbox_version
@@ -649,10 +653,10 @@ def test_policy_changes_when_die_with_parent_is_dropped(developer_case, monkeypa
     assert not runtime.compatible(approved, 60)
 
 
-def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch):
+def test_policy_changes_when_sandbox_cwd_changes(developer_case, monkeypatch, tmp_path):
     runtime = developer_case
     approved = request(runtime)
-    venv = runtime.settings.workspace_root / "trusted-venv-cwd"
+    venv = tmp_path / "trusted-venv-cwd"
     venv.mkdir()
     baseline_argv = sandbox(runtime.source_repository, ["/usr/bin/python3"], venv=venv)
     baseline_version = approved.sandbox_version
