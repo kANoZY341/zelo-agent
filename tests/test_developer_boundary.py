@@ -6,6 +6,7 @@ import json
 import marshal
 import os
 import py_compile
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,30 @@ pytestmark = pytest.mark.developer_boundary
 def linux_boundary_required():
     if not Path("/usr/bin/bwrap").is_file():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
+
+
+@pytest.fixture(scope="module")
+def external_validation_venv(tmp_path_factory):
+    source = ROOT / ".venv"
+    if not source.is_relative_to(Path("/workspace")):
+        return source
+    # Nested validation exposes the trusted venv inside /workspace; copy it out.
+    target = tmp_path_factory.mktemp("external-validation-venv") / "venv"
+    shutil.copytree(
+        source, target, symlinks=True, ignore=shutil.ignore_patterns(".venv", "__pycache__")
+    )
+    return target
+
+
+@pytest.fixture(autouse=True)
+def nested_validation_host_root(monkeypatch, tmp_path, external_validation_venv):
+    if not ROOT.is_relative_to(Path("/workspace")):
+        return
+    # Tests that start another runtime need a host venv outside the candidate tree.
+    host_root = tmp_path / "trusted-host"
+    host_root.mkdir()
+    (host_root / ".venv").symlink_to(external_validation_venv, target_is_directory=True)
+    monkeypatch.setattr("app.developer.ROOT", host_root)
 
 
 def spec(runtime, timeout=60):
@@ -112,14 +137,16 @@ def test_review_rejects_non_utf8_filename(developer_case):
         asyncio.run(developer_case.review(repo, request))
 
 
-def test_validation_venv_alias_is_trusted_and_symlink_rejected(developer_case):
+def test_validation_venv_alias_is_trusted_and_symlink_rejected(
+    developer_case, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     result = asyncio.run(
         run_process(
             sandbox(
                 repo,
                 ["/workspace/.venv/bin/python", "-I", "-c", "import pytest, ruff"],
-                venv=ROOT / ".venv",
+                venv=external_validation_venv,
             ),
             cwd=repo,
             timeout=5,
@@ -131,7 +158,7 @@ def test_validation_venv_alias_is_trusted_and_symlink_rejected(developer_case):
         (repo / ".venv").rmdir()
     (repo / ".venv").symlink_to(ROOT / ".venv", target_is_directory=True)
     with pytest.raises(DeveloperError, match="validation_environment_invalid"):
-        sandbox(repo, ["/bin/true"], venv=ROOT / ".venv")
+        sandbox(repo, ["/bin/true"], venv=external_validation_venv)
 
 
 def test_full_runtime_result_review_and_audit(developer_case, database):
@@ -212,7 +239,9 @@ def test_interrupted_developer_recovery_releases_only_claimed_capacity(developer
     assert events.count("worker_capacity_released") == 1
 
 
-def test_sandbox_private_files_environment_and_network(developer_case, monkeypatch):
+def test_sandbox_private_files_environment_and_network(
+    developer_case, monkeypatch, external_validation_venv
+):
     runtime = developer_case
     repo, request = prepared(runtime)
     source = runtime.source_repository
@@ -252,7 +281,7 @@ print('BOUNDARY_OK')
 """
     result = asyncio.run(
         run_process(
-            sandbox(repo, [VENV + "/bin/python", "-I", "-c", code], venv=ROOT / ".venv"),
+            sandbox(repo, [VENV + "/bin/python", "-I", "-c", code], venv=external_validation_venv),
             cwd=repo,
             timeout=10,
         )
@@ -330,7 +359,9 @@ def test_real_codex_command_profile_hides_fake_auth(developer_case):
 
 
 @pytest.mark.parametrize("module", ["ruff", "pytest"])
-def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
+def test_validation_tools_not_shadowed(
+    developer_case, module, monkeypatch, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     (repo / f"{module}.py").write_text("raise RuntimeError('SHADOW_MODULE_EXECUTED')\n")
     monkeypatch.setenv("PYTEST_PLUGINS", "unapproved_plugin")
@@ -339,7 +370,11 @@ def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
     args = ["--version"] if module == "ruff" else ["-q", "test_example.py"]
     result = asyncio.run(
         run_process(
-            sandbox(repo, [VENV + "/bin/python", "-I", "-m", module, *args], venv=ROOT / ".venv"),
+            sandbox(
+                repo,
+                [VENV + "/bin/python", "-I", "-m", module, *args],
+                venv=external_validation_venv,
+            ),
             cwd=repo,
             timeout=10,
         )
@@ -348,7 +383,9 @@ def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
     assert b"SHADOW_MODULE_EXECUTED" not in result.stdout + result.stderr
 
 
-def test_validation_uses_source_not_excluded_cached_bytecode(developer_case):
+def test_validation_uses_source_not_excluded_cached_bytecode(
+    developer_case, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     source = repo / "cached_validation_module.py"
     source.write_text("VALUE = 'source'\n")
@@ -365,7 +402,7 @@ def test_validation_uses_source_not_excluded_cached_bytecode(developer_case):
     )
     result = asyncio.run(
         run_process(
-            sandbox(repo, python_command("-c", code), venv=ROOT / ".venv"),
+            sandbox(repo, python_command("-c", code), venv=external_validation_venv),
             cwd=repo,
             timeout=10,
         )
