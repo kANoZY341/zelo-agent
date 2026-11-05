@@ -777,6 +777,13 @@ class SkillPublicationOneAttemptService:
                 fence.pr_base_sha,
                 required_reviews,
             )
+            # Review fetches can wait on the provider while protection changes.
+            # Observe the policy again after those awaits, before the merge PUT.
+            if await self._require_protected_main(fence.repository) != (
+                policy_mode,
+                required_reviews,
+            ):
+                raise DeveloperError("skill_publication_main_protection_changed")
 
         # EXACTLY ONE possible externally visible write after durable commit.
         # Serialize the final source/claim check with the local PUT call. A
