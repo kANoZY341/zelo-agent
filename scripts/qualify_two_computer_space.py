@@ -72,6 +72,7 @@ CHILD_DIGEST = "sha256:c233f25e08f394e8aed40d39d27c55d3c1103601016d26faeadce4f15
 SUBNET = "172.30.254.0/24"
 GATEWAY = "172.30.254.1"
 FIXTURE = "two native computers, two independent approvals"
+MISSING_PATH = "qualifier-missing.txt"
 _DOCKER_CONFIG: Path | None = None
 
 
@@ -146,6 +147,8 @@ def qualify_http(
     substituted_body: dict[str, object],
     revocable_body: dict[str, object],
     revocable_activation_id: str,
+    retry_body: dict[str, object],
+    retry_activation_id: str,
     expected_text: str,
 ) -> None:
     """Exercise the persisted native Space route through normal Core TCP HTTP."""
@@ -219,6 +222,44 @@ def qualify_http(
             f"Core HTTP {action} audit missing",
         )
     print("CORE_HTTP_NATIVE_READ_LIST=PASS", flush=True)
+
+    failed_submission = client.post(task_url, json=retry_body)
+    require(failed_submission.status_code == 201, "Core HTTP missing-file Task not admitted")
+    failed_task_id = failed_submission.json()["id"]
+    deadline = time.monotonic() + 120
+    while True:
+        fetched = client.get(f"/tasks/{failed_task_id}")
+        require(fetched.status_code == 200, "Core HTTP missing-file Task unreadable")
+        failed = fetched.json()
+        if failed["status"] in ("succeeded", "failed", "cancelled"):
+            break
+        require(time.monotonic() < deadline, "Core HTTP missing-file Task timed out")
+        time.sleep(0.05)
+    require(
+        failed["status"] == "failed" and failed["error"] == "computer_space_read_denied",
+        "Core HTTP missing-file Task did not fail with bounded denial",
+    )
+    require(len(failed["attempts"]) == 1, "missing-file Task attempt count changed")
+    before = total()
+    withdrawn_retry = client.post(
+        f"/agents/{child_id}/space-activations/{retry_activation_id}/revoke"
+    )
+    require(withdrawn_retry.status_code == 200, "Core HTTP retry activation revocation failed")
+    require(
+        withdrawn_retry.json().get("eligible_for_mediation") is False,
+        "Core HTTP retry activation stayed eligible",
+    )
+    retried = client.post(f"/tasks/{failed_task_id}/retry")
+    require(retried.status_code == 409, "revoked Space activation admitted retry")
+    require(
+        "computer_space_activation_invalid" in retried.text,
+        "revoked Space retry refused for unrelated reason",
+    )
+    retained = client.get(f"/tasks/{failed_task_id}")
+    require(retained.status_code == 200, "refused retry Task unreadable")
+    require(retained.json() == failed, "refused retry changed failed Task or attempts")
+    require(total() == before, "refused retry changed Task total")
+    print("CORE_HTTP_SPACE_RETRY_AFTER_REVOCATION_DENIED=PASS", flush=True)
 
     before = total()
     revoked = client.post(
@@ -397,6 +438,28 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
             revocable_activation.id not in (activations[0].id, activations[1].id),
             "revocation approval not distinct",
         )
+        retry_intent = resources.intents.create(
+            instance_id=child.id,
+            space_id="workroom",
+            resource_kind="files",
+            resource_id="documents",
+            operations=("list", "read"),
+            ttl_seconds=600,
+        )
+        retry_activation = resources.activate(
+            instance_id=child.id,
+            intent_id=retry_intent.id,
+            resource_record_id=resource.id,
+        )
+        require(
+            retry_activation.id
+            not in (
+                activations[0].id,
+                activations[1].id,
+                revocable_activation.id,
+            ),
+            "retry approval not distinct",
+        )
         controls = CampaignControlService(db)
         controls.set_budget(campaign.id, "agent_steps", CampaignBudgetSet(limit_units=100))
         budget = controls.reserve_budget(
@@ -500,6 +563,10 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
         substituted_body["task"]["payload"]["parent_space_activation_id"] = (
             wrong_parent_activation.id
         )
+        retry_body = request("files_read", child_activation=retry_activation.id).model_dump(
+            mode="json"
+        )
+        retry_body["task"]["payload"]["path"] = MISSING_PATH
         with loopback_core_server(create_app(settings)) as base_url:
             with httpx.Client(
                 base_url=base_url,
@@ -518,6 +585,8 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                         "files_read", child_activation=revocable_activation.id
                     ).model_dump(mode="json"),
                     revocable_activation_id=revocable_activation.id,
+                    retry_body=retry_body,
+                    retry_activation_id=retry_activation.id,
                     expected_text=FIXTURE,
                 )
         try:
