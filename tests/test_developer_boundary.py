@@ -262,6 +262,60 @@ print('BOUNDARY_OK')
     assert (repo / "boundary-write.txt").read_text() == "safe"
 
 
+def test_validation_venv_absolute_self_alias_stays_read_only_and_scoped(developer_case, tmp_path):
+    repo, _ = prepared(developer_case)
+    package = repo / "app"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    for name in ("developer_process.py", "developer_sandbox.py", "developer_validation.py"):
+        (package / name).write_bytes((ROOT / "app" / name).read_bytes())
+    venv = tmp_path / "trusted-venv"
+    (venv / "bin").mkdir(parents=True)
+    for name in ("pyvenv.cfg", "bin/python", "bin/ruff", "bin/pytest"):
+        (venv / name).write_text("trusted fixture bytes\n")
+    (venv / ".venv").symlink_to(venv, target_is_directory=True)
+    sibling = tmp_path / "private-sibling"
+    sibling.write_text("not-mounted")
+    code = f"""import sys
+from pathlib import Path
+sys.path.insert(0, '/workspace')
+from app.developer_validation import validation_manifest
+alias = Path('/workspace/.venv/.venv')
+assert alias.resolve(strict=True).samefile('/workspace/.venv')
+assert len(validation_manifest(Path('/workspace/.venv'), Path('/workspace'))) == 64
+assert not Path({str(sibling)!r}).exists()
+try:
+    (alias / 'forbidden').write_text('x')
+except OSError:
+    pass
+else:
+    raise AssertionError('trusted venv alias writable')
+print('VENV_ALIAS_OK')
+"""
+    result = asyncio.run(
+        run_process(
+            sandbox(
+                repo,
+                ["/usr/bin/python3", "-I", "-c", code],
+                venv=venv,
+            ),
+            cwd=repo,
+            timeout=10,
+        )
+    )
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout == b"VENV_ALIAS_OK\n"
+    assert not (venv / "forbidden").exists()
+
+
+def test_validation_venv_canonical_alias_rejects_candidate_tree(developer_case):
+    repo, _ = prepared(developer_case)
+    candidate_venv = repo / "candidate-venv"
+    candidate_venv.mkdir()
+    with pytest.raises(DeveloperError, match="validation_environment_invalid"):
+        sandbox(repo, ["/usr/bin/python3"], venv=candidate_venv)
+
+
 def test_real_codex_command_profile_hides_fake_auth(developer_case):
     runtime = developer_case
     binary = runtime.settings.developer_codex_executable

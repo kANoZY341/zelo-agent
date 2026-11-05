@@ -12,7 +12,7 @@ from pathlib import Path
 from app.developer_process import DeveloperError, ProcessResult, run_process
 from app.developer_sandbox import sandbox
 
-VALIDATION_VERSION = "trusted-venv-content-manifest-v5"
+VALIDATION_VERSION = "trusted-venv-content-manifest-v6"
 INPUTS = ("requirements.txt", "requirements-dev.txt", "pyproject.toml", "uv.lock", "poetry.lock")
 PYCACHE_PREFIX = "/tmp/zelo-python-cache"
 
@@ -155,7 +155,10 @@ def validation_manifest(venv: Path, project: Path) -> str:
                 path = Path(directory) / name
                 if path.is_symlink():
                     target = path.resolve(strict=True)
-                    if not target.is_relative_to(root):
+                    # A read-only sandbox alias may have a different absolute path
+                    # while naming this exact trusted venv root. No other
+                    # out-of-tree directory symlink is admitted.
+                    if not target.is_relative_to(root) and not target.samefile(root):
                         raise DeveloperError("validation_environment_invalid")
                     digest.update(json.dumps([str(path.relative_to(venv)), str(target)]).encode())
             for name in sorted(files):

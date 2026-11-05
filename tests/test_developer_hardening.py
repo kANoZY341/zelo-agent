@@ -265,6 +265,16 @@ def test_validation_manifest_excludes_only_byte_caches(developer_case, validatio
     assert validation_manifest(validation_tree, source) == before
 
 
+def test_validation_manifest_still_refuses_outside_directory_alias(
+    developer_case, validation_tree, tmp_path
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (validation_tree / "outside").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(DeveloperError, match="validation_environment_invalid"):
+        validation_manifest(validation_tree, developer_case.source_repository)
+
+
 @pytest.mark.developer_boundary
 def test_dependency_change_during_worker_stops_validation(
     developer_case, validation_tree, monkeypatch
