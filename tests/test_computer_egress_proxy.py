@@ -563,3 +563,94 @@ def test_proxy_close_terminates_active_tunnel(database):
             await echo_server.wait_closed()
 
     asyncio.run(scenario())
+
+
+def test_revoked_waiting_connect_does_not_resolve_or_open_upstream(database):
+    policy, instance = setup_policy(database)
+    resolver_calls: list[tuple[str, int]] = []
+    connector_calls: list[tuple[str, int]] = []
+
+    async def scenario():
+        async def echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            try:
+                await reader.read()
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        echo_server = await asyncio.start_server(echo, "127.0.0.1", 0)
+        echo_port = echo_server.sockets[0].getsockname()[1]
+
+        async def connector(host: str, port: int):
+            connector_calls.append((host, port))
+            return await asyncio.open_connection("127.0.0.1", echo_port)
+
+        second_authorized = asyncio.Event()
+        authorize = policy.authorize_credentials
+        authorization_count = 0
+
+        def tracked_authorize(*args, **kwargs):
+            nonlocal authorization_count
+            result = authorize(*args, **kwargs)
+            authorization_count += 1
+            if authorization_count == 2:
+                second_authorized.set()
+            return result
+
+        policy.authorize_credentials = tracked_authorize
+        proxy = ComputerEgressProxy(
+            policy,
+            host="127.0.0.1",
+            port=0,
+            resolver_factory=lambda: FakeResolver(resolver_calls),
+            connector=connector,
+            max_connections=1,
+        )
+        await proxy.start()
+        first_writer = None
+        second_writer = None
+        try:
+            password = policy.derive_password(instance.id)
+            request = (
+                "CONNECT example.com:443 HTTP/1.1\r\n"
+                f"Proxy-Authorization: {auth_header(instance.id, password)}\r\n"
+                "\r\n"
+            ).encode("ascii")
+
+            first_reader, first_writer = await asyncio.open_connection(
+                "127.0.0.1", proxy.bound_port
+            )
+            first_writer.write(request)
+            await first_writer.drain()
+            assert (await read_headers(first_reader)).startswith(
+                b"HTTP/1.1 200 Connection Established"
+            )
+
+            second_reader, second_writer = await asyncio.open_connection(
+                "127.0.0.1", proxy.bound_port
+            )
+            second_writer.write(request)
+            await second_writer.drain()
+            await asyncio.wait_for(second_authorized.wait(), timeout=3)
+
+            with database.transaction() as session:
+                row = session.get(AgentComputerPermission, instance.id)
+                assert row is not None
+                row.browser = False
+                row.updated_at = utcnow()
+
+            first_writer.close()
+            await first_writer.wait_closed()
+            assert (await read_headers(second_reader)).startswith(b"HTTP/1.1 403 Forbidden")
+            assert resolver_calls == [("example.com", 443)]
+            assert connector_calls == [("93.184.216.34", 443)]
+        finally:
+            for writer in (first_writer, second_writer):
+                if writer is not None:
+                    writer.close()
+                    await writer.wait_closed()
+            await proxy.aclose()
+            echo_server.close()
+            await echo_server.wait_closed()
+
+    asyncio.run(scenario())

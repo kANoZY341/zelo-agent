@@ -142,7 +142,9 @@ async def candidate_ocr_scope(
                 "--unified=0",
             )
             if name.encode() in tracked:
-                patch = await runtime.git(repo, request, *args, request.base_sha, "--", name)
+                patch = await runtime.git(
+                    repo, request, *args, request.base_sha, "--", f":(literal){name}"
+                )
             else:
                 result = await run_process(
                     sandbox(
