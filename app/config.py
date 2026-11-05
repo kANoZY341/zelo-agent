@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     developer_git_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
     developer_stdout_bytes: int = Field(default=262144, ge=1024, le=1048576)
     developer_stderr_bytes: int = Field(default=16384, ge=1024, le=65536)
-    developer_jsonl_line_bytes: int = Field(default=16384, ge=256, le=65536)
+    developer_jsonl_line_bytes: int = Field(default=65536, ge=256, le=65536)
     developer_jsonl_events: int = Field(default=1024, ge=4, le=4096)
     developer_diff_bytes: int = Field(default=32768, ge=1024, le=131072)
     developer_changed_files: int = Field(default=200, ge=1, le=1000)

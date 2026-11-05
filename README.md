@@ -1025,6 +1025,8 @@ JSONL must be valid UTF-8 JSON with bounded lines/events, an allowlisted Codex
 lifecycle, a final completed agent-message summary and a successful `turn.completed`
 event. Reasoning and raw command/event text are not persisted. Unknown event types
 fail closed; their bounded diagnostic contains only safe event/item type labels.
+The default per-event capture limit is 64 KiB; the separate 256 KiB total
+stdout limit and event-count limit still apply.
 Only reported usage counters are retained; Zelo invents no costs or model metadata.
 Results contain the workspace location, review data, validation outcomes, UTC
 lifecycle timestamps and a monotonic overall duration. Terminal audit events are
@@ -1046,7 +1048,7 @@ so a later boundary result does not discard an original worker or validation fai
 | Worker/Git subprocess stdout | 256 KiB |
 | Subprocess stderr | 16 KiB |
 | Validation stdout | 32 KiB |
-| JSONL line / event count | 16 KiB / 1024 |
+| JSONL line / event count | 64 KiB / 1024 |
 | Review diff / stat / changed paths | 32 KiB / 8 KiB / 200 |
 
 The trusted full Zelo source runs a fixed sandbox-compatible Core preflight:

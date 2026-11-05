@@ -365,6 +365,47 @@ def test_jsonl_limits(developer_case, field, value):
         parse_jsonl(stream(FINAL, DONE), limits)
 
 
+def test_default_jsonl_limit_accepts_large_private_review_event(developer_case):
+    private_body = "PRIVATE_REVIEW_OUTPUT" * 1000
+    data = stream(
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "read",
+                "type": "command_execution",
+                "aggregated_output": private_body,
+            },
+        },
+        FINAL,
+        DONE,
+    )
+    assert 16384 < len(data.splitlines()[0]) < 65536
+
+    summary, count, _, _ = parse_jsonl(data, request(developer_case).limits)
+
+    assert count == 3
+    assert summary == FINAL["item"]["text"]
+    assert private_body not in summary
+
+
+def test_default_jsonl_limit_refuses_oversized_event(developer_case):
+    data = stream(
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "read",
+                "type": "command_execution",
+                "aggregated_output": "PRIVATE_REVIEW_OUTPUT" * 4000,
+            },
+        },
+        FINAL,
+        DONE,
+    )
+
+    with pytest.raises(DeveloperError, match="jsonl_line_limit"):
+        parse_jsonl(data, request(developer_case).limits)
+
+
 @pytest.mark.parametrize("field", ["repository", "executable", "command", "path", "flags"])
 def test_api_cannot_select_execution_inputs(field):
     with pytest.raises(ValueError):
@@ -696,6 +737,8 @@ def test_approval_binds_specification(developer_case, database, field):
             target[keys[-1]] = ["testing"]
         elif field == "worker_selection.excluded_worker_ids":
             target[keys[-1]] = ["other_worker"]
+        elif field == "limits.line_bytes":
+            target[keys[-1]] = value - 1
         else:
             target[keys[-1]] = value + 1 if isinstance(value, (int, float)) else value + "changed"
         if field == "base_sha":
