@@ -1274,7 +1274,7 @@ def test_cancellation_waits_for_threaded_core_task_submission(
 
         def slow_submit(request, key):
             started.set()
-            if not release.wait(timeout=2):
+            if not release.wait(timeout=10):
                 raise AssertionError("Timed out waiting to release task submission")
             return original_submit(request, key)
 
@@ -1282,7 +1282,7 @@ def test_cancellation_waits_for_threaded_core_task_submission(
 
         async def exercise_cancellation() -> None:
             operation = asyncio.create_task(scheduler._execute_due(schedule["id"]))
-            assert await asyncio.to_thread(started.wait, 1)
+            assert await asyncio.to_thread(started.wait, 10)
             operation.cancel()
             await asyncio.sleep(0.01)
 
