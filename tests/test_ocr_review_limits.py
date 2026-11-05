@@ -30,6 +30,7 @@ def test_migration_review_instruction_covers_populated_downgrade():
     instruction = scope.instruction()
     assert "populated valid rows" in instruction
     assert "lost audit evidence" in instruction
+    assert "alternate write forms and conflict resolution" in instruction
 
 
 def test_sparse_anchor_instruction_refuses_overflow_instead_of_truncation():
