@@ -37,6 +37,11 @@ def linux_boundary_required():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
 
 
+@pytest.fixture(autouse=True)
+def use_nested_validation_host_root(nested_validation_host_root):
+    pass
+
+
 def spec(runtime, timeout=60):
     return runtime.request("Make a harmless change", "zelo_core", timeout)
 
@@ -112,14 +117,16 @@ def test_review_rejects_non_utf8_filename(developer_case):
         asyncio.run(developer_case.review(repo, request))
 
 
-def test_validation_venv_alias_is_trusted_and_symlink_rejected(developer_case):
+def test_validation_venv_alias_is_trusted_and_symlink_rejected(
+    developer_case, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     result = asyncio.run(
         run_process(
             sandbox(
                 repo,
                 ["/workspace/.venv/bin/python", "-I", "-c", "import pytest, ruff"],
-                venv=ROOT / ".venv",
+                venv=external_validation_venv,
             ),
             cwd=repo,
             timeout=5,
@@ -131,7 +138,7 @@ def test_validation_venv_alias_is_trusted_and_symlink_rejected(developer_case):
         (repo / ".venv").rmdir()
     (repo / ".venv").symlink_to(ROOT / ".venv", target_is_directory=True)
     with pytest.raises(DeveloperError, match="validation_environment_invalid"):
-        sandbox(repo, ["/bin/true"], venv=ROOT / ".venv")
+        sandbox(repo, ["/bin/true"], venv=external_validation_venv)
 
 
 def test_full_runtime_result_review_and_audit(developer_case, database):
@@ -212,7 +219,9 @@ def test_interrupted_developer_recovery_releases_only_claimed_capacity(developer
     assert events.count("worker_capacity_released") == 1
 
 
-def test_sandbox_private_files_environment_and_network(developer_case, monkeypatch):
+def test_sandbox_private_files_environment_and_network(
+    developer_case, monkeypatch, external_validation_venv
+):
     runtime = developer_case
     repo, request = prepared(runtime)
     source = runtime.source_repository
@@ -252,7 +261,7 @@ print('BOUNDARY_OK')
 """
     result = asyncio.run(
         run_process(
-            sandbox(repo, [VENV + "/bin/python", "-I", "-c", code], venv=ROOT / ".venv"),
+            sandbox(repo, [VENV + "/bin/python", "-I", "-c", code], venv=external_validation_venv),
             cwd=repo,
             timeout=10,
         )
@@ -330,7 +339,9 @@ def test_real_codex_command_profile_hides_fake_auth(developer_case):
 
 
 @pytest.mark.parametrize("module", ["ruff", "pytest"])
-def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
+def test_validation_tools_not_shadowed(
+    developer_case, module, monkeypatch, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     (repo / f"{module}.py").write_text("raise RuntimeError('SHADOW_MODULE_EXECUTED')\n")
     monkeypatch.setenv("PYTEST_PLUGINS", "unapproved_plugin")
@@ -339,7 +350,11 @@ def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
     args = ["--version"] if module == "ruff" else ["-q", "test_example.py"]
     result = asyncio.run(
         run_process(
-            sandbox(repo, [VENV + "/bin/python", "-I", "-m", module, *args], venv=ROOT / ".venv"),
+            sandbox(
+                repo,
+                [VENV + "/bin/python", "-I", "-m", module, *args],
+                venv=external_validation_venv,
+            ),
             cwd=repo,
             timeout=10,
         )
@@ -348,7 +363,9 @@ def test_validation_tools_not_shadowed(developer_case, module, monkeypatch):
     assert b"SHADOW_MODULE_EXECUTED" not in result.stdout + result.stderr
 
 
-def test_validation_uses_source_not_excluded_cached_bytecode(developer_case):
+def test_validation_uses_source_not_excluded_cached_bytecode(
+    developer_case, external_validation_venv
+):
     repo, _ = prepared(developer_case)
     source = repo / "cached_validation_module.py"
     source.write_text("VALUE = 'source'\n")
@@ -365,7 +382,7 @@ def test_validation_uses_source_not_excluded_cached_bytecode(developer_case):
     )
     result = asyncio.run(
         run_process(
-            sandbox(repo, python_command("-c", code), venv=ROOT / ".venv"),
+            sandbox(repo, python_command("-c", code), venv=external_validation_venv),
             cwd=repo,
             timeout=10,
         )

@@ -513,7 +513,7 @@ def test_capacity_deferral_honors_pending_cancellation(settings, database):
 
 
 def test_real_runtime_slot_contention_defers_with_bounded_backoff_and_retries(
-    developer_case, database
+    developer_case, database, nested_validation_host_root
 ):
     if not Path("/usr/bin/bwrap").is_file():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
