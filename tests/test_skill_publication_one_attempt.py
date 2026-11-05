@@ -196,6 +196,7 @@ def _setup_one(database, proposal_case, tmp_path, *, approved_source=True):
             ),
         ]
     )
+    transport.responses.append(deepcopy(transport.responses[16]))
     template = deepcopy(transport.responses)
     transport.calls = []
     return (
@@ -386,7 +387,7 @@ def _solo_policy(transport):
         reviews["required_approving_review_count"] = 0
         reviews["require_last_push_approval"] = False
         reviews.pop("bypass_pull_request_allowances")
-    for index in (19, 18, 17, 15, 14, 13):
+    for index in (20, 19, 18, 17, 15, 14, 13):
         del transport.responses[index]
 
 
@@ -641,7 +642,7 @@ def test_single_permitted_put_has_durable_pre_send_attempt_and_verified_receipt(
     assert _failures(database) == 0
     assert service.get_failure(claim.id, OPERATOR) is None
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 1
-    assert len(transport.calls) == 29
+    assert len(transport.calls) == 30
     assert transport.responses == []
     assert store.get_promotion_link(claim.proposal_id) is None
 
@@ -838,7 +839,7 @@ def test_post_put_changed_base_commit_is_unresolved_and_never_retried(
     _add_success_response(request, transport, template)
     # The provider may accept the exact head but merge against a different
     # base in the race between GET and PUT. Never record success or retry.
-    transport.responses[22][2]["parents"][0]["sha"] = "e" * 40
+    transport.responses[23][2]["parents"][0]["sha"] = "e" * 40
     with pytest.raises(DeveloperError, match="single_attempt_outcome_unresolved"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
     assert _rows(database) == (1, 0)
@@ -1366,7 +1367,7 @@ def test_promotion_approval_revoked_during_final_policy_get_refuses_put(
         nonlocal protection_gets
         if method == "GET" and endpoint.endswith("/branches/main/protection"):
             protection_gets += 1
-            if protection_gets == 2:
+            if protection_gets == 3:
                 with database.transaction() as session:
                     approval = session.scalar(
                         select(Approval).where(Approval.task_id == request.promotion_task_id)
@@ -1377,7 +1378,7 @@ def test_promotion_approval_revoked_during_final_policy_get_refuses_put(
     transport.request = revoke_during_final_policy_get
     with pytest.raises(ValueError, match="single_attempt_source_approval_invalid"):
         asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
-    assert protection_gets == 2
+    assert protection_gets == 3
     assert _rows(database) == (1, 0)
     assert _failures(database) == 0
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
@@ -1662,4 +1663,31 @@ def test_cancel_before_send_refuses_put_after_durable_attempt(
     assert paused
     assert _rows(database) == (1, 0)
     assert _failures(database) == 0
+    assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
+
+
+def test_main_protection_drift_during_final_review_refuses_put(database, proposal_case, tmp_path):
+    _store, claim, request, transport, _fence, service, template = _setup_one(
+        database, proposal_case, tmp_path
+    )
+    _add_success_response(request, transport, template)
+    unqualified = deepcopy(transport.responses[16][2])
+    unqualified["required_status_checks"]["strict"] = False
+    original_request = transport.request
+    review_reads = 0
+
+    async def change_policy_after_review(method, endpoint, body=None):
+        nonlocal review_reads
+        if method == "GET" and endpoint.endswith("/branches/main/protection") and review_reads == 2:
+            return unqualified
+        response = await original_request(method, endpoint, body)
+        if method == "GET" and "/reviews?per_page=20&page=1" in endpoint:
+            review_reads += 1
+        return response
+
+    transport.request = change_policy_after_review
+    with pytest.raises(DeveloperError, match="skill_publication_main_protection_unqualified"):
+        asyncio.run(service.run_once(claim.id, request, CONFIRM, OPERATOR))
+    assert review_reads == 2
+    assert _rows(database) == (1, 0)
     assert sum(method == "PUT" for method, _, _ in transport.calls) == 0
