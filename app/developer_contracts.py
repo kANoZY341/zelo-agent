@@ -207,7 +207,7 @@ class DeveloperRequest(Contract):
     worker_selection: WorkerSelectionSnapshot
     reviewer: ReviewerBinding | None = None
     validation_profile: Literal["zelo_core"] = "zelo_core"
-    validation_version: str = "trusted-venv-content-manifest-v5"
+    validation_version: str = "trusted-venv-content-manifest-v6"
     sandbox_version: str
     limits: Limits
 

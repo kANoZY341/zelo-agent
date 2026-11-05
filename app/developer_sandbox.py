@@ -24,6 +24,7 @@ SANDBOX_POLICY_SCHEMA = "zelo-linux-sandbox-v1"
 _REPO_SOURCE = "$REPO"
 _GIT_SOURCE = "$GIT"
 _VENV_SOURCE = "$VENV"
+_VENV_CANONICAL = "$VENV_CANONICAL"
 _AUTH_SOURCE = "$AUTH"
 _GITCONFIG_SOURCE = "$DEVELOPER_GITCONFIG"
 _CODEX_FD = "$CODEX_FD"
@@ -95,6 +96,8 @@ def sandbox_plan(
             (
                 _bind(_VENV_SOURCE, VENV, mode="--ro-bind"),
                 _bind(_VENV_SOURCE, REPO + "/.venv", mode="--ro-bind"),
+                # Absolute self-links in trusted venvs must resolve inside the sandbox.
+                _bind(_VENV_SOURCE, _VENV_CANONICAL, mode="--ro-bind"),
             )
         )
     if include_codex:
@@ -135,7 +138,11 @@ def sandbox_plan(
             "writable": False,
             "git_inspection": git_inspection,
         },
-        "venv": {"present": include_venv, "paths": (VENV, REPO + "/.venv"), "writable": False},
+        "venv": {
+            "present": include_venv,
+            "paths": (VENV, REPO + "/.venv", _VENV_CANONICAL),
+            "writable": False,
+        },
         "codex": {
             "present": include_codex,
             "path": "/opt/zelo-codex",
@@ -177,13 +184,33 @@ def _render_operation(
             return str(Path(__file__).with_name("developer_gitconfig"))
         return source
 
+    def resolve_dest(dest: str) -> str:
+        if dest != _VENV_CANONICAL:
+            return dest
+        assert venv is not None
+        try:
+            canonical = venv.resolve(strict=True)
+        except OSError:
+            raise DeveloperError("validation_environment_unavailable") from None
+        if (
+            not canonical.is_dir()
+            or canonical == Path("/")
+            or canonical.is_relative_to(Path(REPO))
+            or canonical.is_relative_to(Path(VENV))
+            or canonical.is_relative_to(Path(CODEX).parent)
+            or canonical.is_relative_to(Path(ENGINE))
+            or (repo is not None and canonical.is_relative_to(repo))
+        ):
+            raise DeveloperError("validation_environment_invalid")
+        return str(canonical)
+
     op = operation["op"]
     if op in {"--bind", "--ro-bind"}:
         source = resolve_source(str(operation["source"]))
         when = operation.get("when")
         if when == "exists" and not Path(source).exists():
             return []
-        return [str(op), source, str(operation["dest"])]
+        return [str(op), source, resolve_dest(str(operation["dest"]))]
     if op == "--file":
         fd_ref = operation["fd_ref"]
         if fd_ref == _CODEX_FD:
