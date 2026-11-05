@@ -40,6 +40,7 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
         "revoked": False,
         "revoked_activations": set(),
         "refusals": 0,
+        "traversal_refusals": 0,
         "retry_calls": 0,
     }
 
@@ -61,6 +62,9 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
         authorized(request)
         body = await request.json()
         payload = body["task"]["payload"]
+        if payload.get("path") == "../outside-space.txt":
+            state["traversal_refusals"] += 1
+            raise HTTPException(422, "computer_path_invalid")
         if (
             state["revoked"]
             or payload["space_activation_id"] == "parent"
@@ -160,6 +164,7 @@ def test_http_qualification_rejects_substitution_and_revoked_work() -> None:
 
     assert len(state["tasks"]) == 3
     assert state["refusals"] == 4
+    assert state["traversal_refusals"] == 1
     assert state["retry_calls"] == 1
     assert state["revoked"] is True
     assert state["revoked_activations"] == {"revocable-child", "retry-child"}
