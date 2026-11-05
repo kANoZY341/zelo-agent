@@ -296,3 +296,60 @@ def test_scope_preflight_changes_cannot_accept_a_stale_snapshot(developer_case):
         run_review(runtime, repo, request, lambda *_: None)
     assert not reviewer.calls
     assert list(runtime.root().iterdir()) == [repo.parent]
+
+
+def test_bracketed_tracked_path_cannot_borrow_neighbor_changed_line(developer_case):
+    from app.developer_ocr_review import candidate_ocr_scope
+    from tests.developer_helpers import fixture_commit
+
+    source = developer_case.source_repository
+    for route in ("[id]", "i"):
+        path = source / "routes" / route / "route.ts"
+        path.parent.mkdir(parents=True)
+        path.write_text("export const value = 1;\n")
+    fixture_commit(source)
+
+    repo, request = _prepared(developer_case)
+    bracketed = repo / "routes" / "[id]" / "route.ts"
+    bracketed.chmod(0o755)
+    neighbor = repo / "routes" / "i" / "route.ts"
+    neighbor.write_text("export const value = 2;\n")
+
+    with pytest.raises(DeveloperError, match="ocr_review_scope_unavailable"):
+        asyncio.run(
+            candidate_ocr_scope(
+                developer_case,
+                repo,
+                request,
+                changed_files=("routes/[id]/route.ts", "routes/i/route.ts"),
+                ignored_paths=(),
+                candidate_content_sha256="a" * 64,
+            )
+        )
+
+
+def test_bracketed_tracked_text_change_keeps_its_own_anchor(developer_case):
+    from app.developer_ocr_review import candidate_ocr_scope
+    from tests.developer_helpers import fixture_commit
+
+    source = developer_case.source_repository
+    for route in ("[id]", "i"):
+        path = source / "routes" / route / "route.ts"
+        path.parent.mkdir(parents=True)
+        path.write_text("export const value = 1;\n")
+    fixture_commit(source)
+
+    repo, request = _prepared(developer_case)
+    bracketed = repo / "routes" / "[id]" / "route.ts"
+    bracketed.write_text("export const value = 2;\n")
+    scope = asyncio.run(
+        candidate_ocr_scope(
+            developer_case,
+            repo,
+            request,
+            changed_files=("routes/[id]/route.ts",),
+            ignored_paths=(),
+            candidate_content_sha256="a" * 64,
+        )
+    )
+    assert scope.changed_lines == (("routes/[id]/route.ts", frozenset({1})),)
