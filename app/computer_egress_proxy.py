@@ -326,6 +326,10 @@ class ComputerEgressProxy:
                     await self._reply(writer, 503, "Busy")
                     return
 
+                if not self.policy.matches(authorization):
+                    await self._reply(writer, 403, "Forbidden")
+                    return
+
                 resolver = self.resolver_factory()
                 deadline = asyncio.get_running_loop().time() + min(
                     self.connection_seconds,
