@@ -6,7 +6,6 @@ import json
 import marshal
 import os
 import py_compile
-import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -38,28 +37,9 @@ def linux_boundary_required():
         pytest.skip("Linux Bubblewrap prerequisite not installed")
 
 
-@pytest.fixture(scope="module")
-def external_validation_venv(tmp_path_factory):
-    source = ROOT / ".venv"
-    if not source.is_relative_to(Path("/workspace")):
-        return source
-    # Nested validation exposes the trusted venv inside /workspace; copy it out.
-    target = tmp_path_factory.mktemp("external-validation-venv") / "venv"
-    shutil.copytree(
-        source, target, symlinks=True, ignore=shutil.ignore_patterns(".venv", "__pycache__")
-    )
-    return target
-
-
 @pytest.fixture(autouse=True)
-def nested_validation_host_root(monkeypatch, tmp_path, external_validation_venv):
-    if not ROOT.is_relative_to(Path("/workspace")):
-        return
-    # Tests that start another runtime need a host venv outside the candidate tree.
-    host_root = tmp_path / "trusted-host"
-    host_root.mkdir()
-    (host_root / ".venv").symlink_to(external_validation_venv, target_is_directory=True)
-    monkeypatch.setattr("app.developer.ROOT", host_root)
+def use_nested_validation_host_root(nested_validation_host_root):
+    pass
 
 
 def spec(runtime, timeout=60):

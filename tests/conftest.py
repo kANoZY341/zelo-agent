@@ -1,5 +1,6 @@
 """Isolated, migrated test databases live only under ignored runtime/."""
 
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +12,43 @@ from app.config import ROOT, Settings
 from app.database import Database
 from app.main import create_app
 from tests.developer_helpers import developer_case  # noqa: F401
+
+
+@pytest.fixture(scope="module")
+def external_validation_venv(tmp_path_factory):
+    source = ROOT / ".venv"
+    if not source.is_relative_to(Path("/workspace")):
+        return source
+    # Nested validation exposes the trusted venv inside /workspace; copy it out.
+    target = tmp_path_factory.mktemp("external-validation-venv") / "venv"
+    shutil.copytree(
+        source, target, symlinks=True, ignore=shutil.ignore_patterns(".venv", "__pycache__")
+    )
+    # Preserve relative links and rebase absolute links that target this venv.
+    for link in target.rglob("*"):
+        if not link.is_symlink() or not link.readlink().is_absolute():
+            continue
+        original_target = (source / link.relative_to(target)).resolve(strict=True)
+        for ancestor in (original_target, *original_target.parents):
+            if ancestor.samefile(source):
+                link.unlink()
+                link.symlink_to(
+                    target / original_target.relative_to(ancestor),
+                    target_is_directory=original_target.is_dir(),
+                )
+                break
+    return target
+
+
+@pytest.fixture
+def nested_validation_host_root(monkeypatch, tmp_path, external_validation_venv):
+    if not ROOT.is_relative_to(Path("/workspace")):
+        return
+    # A test starting another runtime needs a host venv outside the candidate tree.
+    host_root = tmp_path / "trusted-host"
+    host_root.mkdir()
+    (host_root / ".venv").symlink_to(external_validation_venv, target_is_directory=True)
+    monkeypatch.setattr("app.developer.ROOT", host_root)
 
 
 @pytest.hookimpl(tryfirst=True)
