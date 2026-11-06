@@ -57,6 +57,7 @@ def test_migration_from_empty_database(settings) -> None:
             "whatsapp_verified_ingress",
             "whatsapp_reply_intents",
             "whatsapp_reply_decisions",
+            "whatsapp_send_attempts",
             "channel_operator_account_selections",
             "channel_operator_account_revocations",
             "rea_operator_target_selections",
@@ -223,7 +224,7 @@ def test_migration_preserves_foreign_key_dependents(settings, starting_revision)
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert (
                 session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0053_whatsapp_reply_intents"
+                == "0054_whatsapp_send_attempt"
             )
             assert "tool_call" in next(
                 constraint["sqltext"]
@@ -450,7 +451,7 @@ def test_failed_migration_rolls_back_and_can_retry(
 
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0053_whatsapp_reply_intents"
+                "0054_whatsapp_send_attempt"
             )
             assert session.scalar(text("SELECT COUNT(*) FROM tasks")) == before_counts["tasks"]
             assert session.scalar(text("PRAGMA foreign_keys")) == 1

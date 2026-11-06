@@ -1035,6 +1035,34 @@ class WhatsAppReplyDecisionRecord(Base):
     transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class WhatsAppSendAttemptRecord(Base):
+    """One committed possible send; unresolved and never automatically retried."""
+
+    __tablename__ = "whatsapp_send_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "length(intent_fingerprint)=64 AND intent_fingerprint NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_send_attempt_intent_fingerprint",
+        ),
+        CheckConstraint("operator_id='ahmad'", name="ck_whatsapp_send_attempt_operator"),
+        CheckConstraint("phase='send_outcome_unresolved'", name="ck_whatsapp_send_attempt_phase"),
+        CheckConstraint("send_may_have_occurred=1", name="ck_whatsapp_send_attempt_possible_send"),
+        CheckConstraint("automatic_retry_allowed=0", name="ck_whatsapp_send_attempt_no_retry"),
+        CheckConstraint("transport_authority=0", name="ck_whatsapp_send_attempt_no_transport"),
+        {"sqlite_with_rowid": False},
+    )
+
+    intent_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("whatsapp_reply_decisions.intent_fingerprint"), primary_key=True
+    )
+    operator_id: Mapped[str] = mapped_column(String(64))
+    claimed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    phase: Mapped[str] = mapped_column(String(32), default="send_outcome_unresolved")
+    send_may_have_occurred: Mapped[bool] = mapped_column(Boolean, default=True)
+    automatic_retry_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 

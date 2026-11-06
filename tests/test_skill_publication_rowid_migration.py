@@ -26,7 +26,7 @@ _SKILL_LEDGER_TABLES = (
     "skill_publication_promotion_receipt_links",
 )
 _PREVIOUS = "0050_channel_ledger_replace_guards"
-_HEAD = "0053_whatsapp_reply_intents"
+_HEAD = "0054_whatsapp_send_attempt"
 
 
 def _upgrade(database: Database, target: str) -> None:
