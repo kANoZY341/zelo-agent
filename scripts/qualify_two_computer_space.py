@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -817,7 +817,10 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
         db.close()
 
 
-def run_qualification(docker_config: Path) -> None:
+def run_qualification(
+    docker_config: Path,
+    case: Callable[[IsolationSettings, list[str]], Awaitable[tuple[str, str, str]]] = qualify,
+) -> None:
     global _DOCKER_CONFIG
     _DOCKER_CONFIG = docker_config
     require(__debug__, "optimized mode is unsupported")
@@ -961,7 +964,7 @@ def run_qualification(docker_config: Path) -> None:
                 skill_publication_external_merge_enabled=False,
                 scheduler_enabled=False,
             )
-            parent_id, child_id, backend_id = asyncio.run(qualify(settings, instance_ids))
+            parent_id, child_id, backend_id = asyncio.run(case(settings, instance_ids))
             print("PARENT_AGENT_INSTANCE=" + parent_id, flush=True)
             print("CHILD_AGENT_INSTANCE=" + child_id, flush=True)
             print("CORE_BACKEND_IDENTITY=" + backend_id, flush=True)
