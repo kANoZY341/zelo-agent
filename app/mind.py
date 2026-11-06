@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import Field, TypeAdapter, ValidationError
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.context import ContextResolver
@@ -654,6 +655,7 @@ class MindService:
         alias: str,
         model: str,
         usage: dict[str, int | None],
+        admission: Callable[[Session, ConversationTurn, bool], None] | None = None,
     ) -> ConversationTurn:
         with self.database.transaction() as session:
             conversation = session.get(Conversation, conversation_id)
@@ -671,6 +673,8 @@ class MindService:
                         "Idempotency key was already used with a different conversation turn",
                         409,
                     )
+                if admission is not None:
+                    admission(session, duplicate, False)
                 session.expunge(duplicate)
                 return duplicate
 
@@ -700,6 +704,8 @@ class MindService:
             if conversation.title == "New conversation":
                 conversation.title = self._title(text)
             session.flush()
+            if admission is not None:
+                admission(session, turn, True)
             session.expunge(turn)
             return turn
 
@@ -751,11 +757,18 @@ class MindService:
         campaign_id: str | None = None,
         before_side_effect: Callable[[], Awaitable[None]] | None = None,
         after_persist: Callable[[ConversationTurn], Awaitable[None]] | None = None,
+        admission: Callable[[Session, ConversationTurn, bool], None] | None = None,
     ) -> ConversationTurnResponse:
         async with self._lock(conversation_id):
             existing = self._existing_turn(conversation_id, idempotency_key, text)
             if existing is not None:
                 self._require_saved_campaign_binding(existing, campaign_id)
+                if admission is not None:
+                    with self.database.transaction() as session:
+                        current = session.get(ConversationTurn, existing.id)
+                        if current is None:
+                            raise DomainError("Conversation turn disappeared", 409)
+                        admission(session, current, False)
                 if before_side_effect is not None:
                     await before_side_effect()
                 if after_persist is not None:
@@ -800,6 +813,7 @@ class MindService:
                 alias=alias,
                 model=model,
                 usage=usage,
+                admission=admission,
             )
             if after_persist is not None:
                 await after_persist(turn)
