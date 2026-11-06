@@ -483,11 +483,13 @@ export default function Home() {
       };
       audio.onended = finish;
       audio.onerror = () => {
+        if (spokenAudioRef.current !== audio) return;
         finish();
         setError("voice_playback_failed");
       };
       await audio.play();
     } catch (voiceError) {
+      if (voiceSynthesisAbortRef.current !== controller) return;
       const aborted =
         voiceError instanceof DOMException && voiceError.name === "AbortError";
       stopVoicePlayback();
