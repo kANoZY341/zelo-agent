@@ -112,6 +112,19 @@ def test_operator_prepares_and_decides_exact_verified_reply(settings, database):
             )
 
 
+def test_unicode_reply_can_be_prepared(settings, database):
+    provider = Provider(action={"type": "reply", "content": "مرحبا أحمد 👋"})
+    with TestClient(create_app(settings, provider=provider)) as client:
+        adapter, _, _ = setup(database, client.app.state.mind)
+        raw = body()
+        turn = asyncio.run(adapter.admit(raw, signed(raw)))
+        prepared, created = WhatsAppReplyIntentStore(database).prepare(
+            turn.id, principal=OperatorPrincipal()
+        )
+        assert created
+        assert prepared.conversation_turn_id == turn.id
+
+
 def test_revocation_after_prepare_blocks_decision(settings, database):
     with TestClient(create_app(settings, provider=Provider())) as client:
         adapter, _, ingress = setup(database, client.app.state.mind)

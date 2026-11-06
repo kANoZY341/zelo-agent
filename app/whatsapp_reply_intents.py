@@ -101,7 +101,7 @@ class WhatsAppReplyIntentStore:
             turn.idempotency_key != f"channel:{verified.message_fingerprint}"
             or hashlib.sha256(turn.user_content.encode("utf-8")).hexdigest() != verified.text_sha256
             or turn.core_task_id is not None
-            or not hmac.compare_digest(action.content, turn.assistant_content)
+            or action.content != turn.assistant_content
         ):
             raise PermissionError("whatsapp_reply_only")
         reply = ChannelDeliveryIntent(
