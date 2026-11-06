@@ -54,6 +54,7 @@ def test_migration_from_empty_database(settings) -> None:
             "skill_learning_promotion_links",
             "channel_thread_bindings",
             "channel_ingress_observations",
+            "whatsapp_verified_ingress",
             "channel_operator_account_selections",
             "channel_operator_account_revocations",
             "rea_operator_target_selections",
