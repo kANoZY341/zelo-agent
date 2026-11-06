@@ -513,7 +513,7 @@ def test_populated_0052_upgrade_keeps_verified_turn_and_prepares_reply(settings)
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0053_whatsapp_reply_intents"
+                "0054_whatsapp_send_attempt"
             )
             assert session.get(ConversationTurn, turn_id).assistant_content == "Old verified reply"
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []

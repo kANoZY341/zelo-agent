@@ -240,6 +240,91 @@ class WhatsAppReplyIntentStore:
             session.flush()
             return self._decision(record), True
 
+    def _project_outbound_in_session(
+        self,
+        session: Session,
+        intent_fingerprint: str,
+        *,
+        principal: OperatorPrincipal,
+        app_secret: bytes,
+        identity_secret: bytes,
+        waba_id: str,
+        phone_number_id: str,
+        recipient_wa_id: str,
+        inbound_message_id: str,
+    ) -> WhatsAppOutboundProjection:
+        """Recheck exact outbound facts against one current database snapshot."""
+
+        _operator(principal)
+        if type(intent_fingerprint) is not str or len(intent_fingerprint) != 64:
+            raise ValueError("whatsapp_reply_intent_identity_invalid")
+        validate_whatsapp_provider_identity(
+            waba_id, phone_number_id, recipient_wa_id, inbound_message_id
+        )
+        current_secret_identity = whatsapp_app_secret_identity(app_secret, identity_secret)
+        row = session.get(WhatsAppReplyIntentRecord, intent_fingerprint)
+        if row is None:
+            raise LookupError("whatsapp_reply_intent_not_found")
+        verified, binding, reply = self._current(session, row.conversation_turn_id)
+        self._prepared(row, verified, binding, reply)
+        saved = session.get(WhatsAppReplyDecisionRecord, intent_fingerprint)
+        if saved is None or self._decision(saved).decision != "approve":
+            raise PermissionError("whatsapp_outbound_approval_required")
+        provider_account = f"{waba_id}:{phone_number_id}"
+        provider_thread = f"{provider_account}:{recipient_wa_id}"
+        identities = (
+            (verified.app_secret_identity, current_secret_identity),
+            (
+                binding.account_key,
+                derive_opaque_channel_key(
+                    identity_secret,
+                    channel="whatsapp",
+                    purpose="account",
+                    raw_identifier=provider_account,
+                ),
+            ),
+            (
+                binding.sender_key,
+                derive_opaque_channel_key(
+                    identity_secret,
+                    channel="whatsapp",
+                    purpose="sender",
+                    raw_identifier=recipient_wa_id,
+                ),
+            ),
+            (
+                binding.thread_key,
+                derive_opaque_channel_key(
+                    identity_secret,
+                    channel="whatsapp",
+                    purpose="thread",
+                    raw_identifier=provider_thread,
+                ),
+            ),
+            (
+                verified.message_key,
+                derive_opaque_channel_key(
+                    identity_secret,
+                    channel="whatsapp",
+                    purpose="message",
+                    raw_identifier=inbound_message_id,
+                ),
+            ),
+        )
+        if any(
+            not hmac.compare_digest(saved_key, current_key) for saved_key, current_key in identities
+        ):
+            raise PermissionError("whatsapp_outbound_identity_mismatch")
+        return WhatsAppOutboundProjection(
+            intent_fingerprint=intent_fingerprint,
+            waba_id=waba_id,
+            phone_number_id=phone_number_id,
+            recipient_wa_id=recipient_wa_id,
+            inbound_message_id=inbound_message_id,
+            text=reply.text,
+            text_sha256=reply.text_sha256,
+        )
+
     def project_outbound(
         self,
         intent_fingerprint: str,
@@ -254,74 +339,15 @@ class WhatsAppReplyIntentStore:
     ) -> WhatsAppOutboundProjection:
         """Project one approved exact reply; this never grants send authority."""
 
-        _operator(principal)
-        if type(intent_fingerprint) is not str or len(intent_fingerprint) != 64:
-            raise ValueError("whatsapp_reply_intent_identity_invalid")
-        validate_whatsapp_provider_identity(
-            waba_id, phone_number_id, recipient_wa_id, inbound_message_id
-        )
-        current_secret_identity = whatsapp_app_secret_identity(app_secret, identity_secret)
         with self.database.read() as session:
-            row = session.get(WhatsAppReplyIntentRecord, intent_fingerprint)
-            if row is None:
-                raise LookupError("whatsapp_reply_intent_not_found")
-            verified, binding, reply = self._current(session, row.conversation_turn_id)
-            self._prepared(row, verified, binding, reply)
-            saved = session.get(WhatsAppReplyDecisionRecord, intent_fingerprint)
-            if saved is None or self._decision(saved).decision != "approve":
-                raise PermissionError("whatsapp_outbound_approval_required")
-            provider_account = f"{waba_id}:{phone_number_id}"
-            provider_thread = f"{provider_account}:{recipient_wa_id}"
-            identities = (
-                (verified.app_secret_identity, current_secret_identity),
-                (
-                    binding.account_key,
-                    derive_opaque_channel_key(
-                        identity_secret,
-                        channel="whatsapp",
-                        purpose="account",
-                        raw_identifier=provider_account,
-                    ),
-                ),
-                (
-                    binding.sender_key,
-                    derive_opaque_channel_key(
-                        identity_secret,
-                        channel="whatsapp",
-                        purpose="sender",
-                        raw_identifier=recipient_wa_id,
-                    ),
-                ),
-                (
-                    binding.thread_key,
-                    derive_opaque_channel_key(
-                        identity_secret,
-                        channel="whatsapp",
-                        purpose="thread",
-                        raw_identifier=provider_thread,
-                    ),
-                ),
-                (
-                    verified.message_key,
-                    derive_opaque_channel_key(
-                        identity_secret,
-                        channel="whatsapp",
-                        purpose="message",
-                        raw_identifier=inbound_message_id,
-                    ),
-                ),
-            )
-            if any(
-                not hmac.compare_digest(saved_key, current_key)
-                for saved_key, current_key in identities
-            ):
-                raise PermissionError("whatsapp_outbound_identity_mismatch")
-            return WhatsAppOutboundProjection(
-                intent_fingerprint=intent_fingerprint,
+            return self._project_outbound_in_session(
+                session,
+                intent_fingerprint,
+                principal=principal,
+                app_secret=app_secret,
+                identity_secret=identity_secret,
                 waba_id=waba_id,
                 phone_number_id=phone_number_id,
                 recipient_wa_id=recipient_wa_id,
                 inbound_message_id=inbound_message_id,
-                text=reply.text,
-                text_sha256=reply.text_sha256,
             )
