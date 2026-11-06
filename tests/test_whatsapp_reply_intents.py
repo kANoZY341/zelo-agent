@@ -1,6 +1,7 @@
 """Offline, operator-only WhatsApp reply intent and decision evidence."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -123,6 +124,142 @@ def test_unicode_reply_can_be_prepared(settings, database):
         )
         assert created
         assert prepared.conversation_turn_id == turn.id
+
+
+def test_approved_reply_projects_exact_ephemeral_outbound_identity(settings, database):
+    from tests.test_whatsapp_verified_ingress import APP_SECRET, IDENTITY_SECRET
+
+    provider = Provider(action={"type": "reply", "content": "مرحبا أحمد 👋"})
+    with TestClient(create_app(settings, provider=provider)) as client:
+        adapter, _, _ = setup(database, client.app.state.mind)
+        raw = body()
+        turn = asyncio.run(adapter.admit(raw, signed(raw)))
+        store = WhatsAppReplyIntentStore(database)
+        prepared, _ = store.prepare(turn.id, principal=OperatorPrincipal())
+        store.decide(prepared.intent_fingerprint, "approve", principal=OperatorPrincipal())
+        arguments = dict(
+            principal=OperatorPrincipal(),
+            app_secret=APP_SECRET,
+            identity_secret=IDENTITY_SECRET,
+            waba_id="123456789012",
+            phone_number_id="987654321",
+            recipient_wa_id="15550001111",
+            inbound_message_id="wamid.HBgLNTQ5MTExAA==",
+        )
+        projection = store.project_outbound(prepared.intent_fingerprint, **arguments)
+        assert projection.intent_fingerprint == prepared.intent_fingerprint
+        assert projection.waba_id == arguments["waba_id"]
+        assert projection.phone_number_id == arguments["phone_number_id"]
+        assert projection.recipient_wa_id == arguments["recipient_wa_id"]
+        assert projection.inbound_message_id == arguments["inbound_message_id"]
+        assert projection.text == "مرحبا أحمد 👋"
+        assert projection.text_sha256 == prepared.text_sha256
+        assert projection.transport_authority is False
+        assert store.project_outbound(prepared.intent_fingerprint, **arguments) == projection
+        assert "15550001111" not in repr(projection)
+        assert "مرحبا" not in repr(projection)
+        for suffix in ("", "-wal", "-shm"):
+            db_file = Path(f"{database.path}{suffix}")
+            if db_file.exists():
+                durable_bytes = db_file.read_bytes()
+                for field in (
+                    "waba_id",
+                    "phone_number_id",
+                    "recipient_wa_id",
+                    "inbound_message_id",
+                ):
+                    assert arguments[field].encode("utf-8") not in durable_bytes
+        with database.read() as session:
+            assert session.scalar(select(func.count()).select_from(WhatsAppReplyIntentRecord)) == 1
+            assert (
+                session.scalar(select(func.count()).select_from(WhatsAppReplyDecisionRecord)) == 1
+            )
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_value", "error"),
+    [
+        ("waba_id", "123456789013", PermissionError),
+        ("phone_number_id", "987654322", PermissionError),
+        ("recipient_wa_id", "15550001112", PermissionError),
+        ("inbound_message_id", "wamid.HBgLNTQ5MTExAB==", PermissionError),
+        ("app_secret", bytes(range(32, 64)), PermissionError),
+        ("identity_secret", bytes(range(96, 128)), PermissionError),
+        ("waba_id", "not-an-id", ValueError),
+        ("recipient_wa_id", "١٥٥٥٠٠٠١١١١", ValueError),
+        ("inbound_message_id", "not-a-wamid", ValueError),
+    ],
+)
+def test_outbound_projection_refuses_wrong_or_malformed_identity(
+    settings, database, field, bad_value, error
+):
+    from tests.test_whatsapp_verified_ingress import APP_SECRET, IDENTITY_SECRET
+
+    with TestClient(create_app(settings, provider=Provider())) as client:
+        adapter, _, _ = setup(database, client.app.state.mind)
+        raw = body()
+        turn = asyncio.run(adapter.admit(raw, signed(raw)))
+        store = WhatsAppReplyIntentStore(database)
+        prepared, _ = store.prepare(turn.id, principal=OperatorPrincipal())
+        store.decide(prepared.intent_fingerprint, "approve", principal=OperatorPrincipal())
+        arguments = dict(
+            principal=OperatorPrincipal(),
+            app_secret=APP_SECRET,
+            identity_secret=IDENTITY_SECRET,
+            waba_id="123456789012",
+            phone_number_id="987654321",
+            recipient_wa_id="15550001111",
+            inbound_message_id="wamid.HBgLNTQ5MTExAA==",
+        )
+        arguments[field] = bad_value
+        with pytest.raises(error):
+            store.project_outbound(prepared.intent_fingerprint, **arguments)
+        with database.read() as session:
+            assert session.scalar(select(func.count()).select_from(WhatsAppReplyIntentRecord)) == 1
+            assert (
+                session.scalar(select(func.count()).select_from(WhatsAppReplyDecisionRecord)) == 1
+            )
+
+
+@pytest.mark.parametrize("state", ["undecided", "rejected", "revoked", "edited", "nonoperator"])
+def test_outbound_projection_requires_live_approved_exact_reply(settings, database, state):
+    from tests.test_whatsapp_verified_ingress import APP_SECRET, IDENTITY_SECRET
+
+    with TestClient(create_app(settings, provider=Provider())) as client:
+        adapter, _, ingress = setup(database, client.app.state.mind)
+        raw = body()
+        turn = asyncio.run(adapter.admit(raw, signed(raw)))
+        store = WhatsAppReplyIntentStore(database)
+        prepared, _ = store.prepare(turn.id, principal=OperatorPrincipal())
+        if state != "undecided":
+            store.decide(
+                prepared.intent_fingerprint,
+                "reject" if state == "rejected" else "approve",
+                principal=OperatorPrincipal(),
+            )
+        if state == "revoked":
+            ChannelOperatorAccountStore(database).revoke(
+                account_key=ingress.account_key, principal=OperatorPrincipal()
+            )
+        if state == "edited":
+            with database.transaction() as session:
+                session.get(ConversationTurn, turn.id).assistant_content = "Changed reply"
+        with pytest.raises(PermissionError):
+            store.project_outbound(
+                prepared.intent_fingerprint,
+                principal=None if state == "nonoperator" else OperatorPrincipal(),
+                app_secret=APP_SECRET,
+                identity_secret=IDENTITY_SECRET,
+                waba_id="123456789012",
+                phone_number_id="987654321",
+                recipient_wa_id="15550001111",
+                inbound_message_id="wamid.HBgLNTQ5MTExAA==",
+            )
+        with database.read() as session:
+            assert session.scalar(select(func.count()).select_from(WhatsAppReplyIntentRecord)) == 1
+            assert session.scalar(
+                select(func.count()).select_from(WhatsAppReplyDecisionRecord)
+            ) == (0 if state == "undecided" else 1)
 
 
 def test_revocation_after_prepare_blocks_decision(settings, database):
