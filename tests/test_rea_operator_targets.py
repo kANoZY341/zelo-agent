@@ -378,7 +378,7 @@ def test_upgrading_existing_0037_account_data_retains_history(settings):
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0052_whatsapp_verified_ingress"
+                "0053_whatsapp_reply_intents"
             )
             assert (
                 session.scalar(text("SELECT count(*) FROM channel_operator_account_selections"))

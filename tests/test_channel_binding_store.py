@@ -433,7 +433,7 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0052_whatsapp_verified_ingress"
+                "0053_whatsapp_reply_intents"
             )
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             foreign_keys = session.execute(

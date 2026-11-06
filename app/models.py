@@ -988,6 +988,53 @@ class VerifiedWhatsAppIngressRecord(Base):
     conversation_turn_id: Mapped[str] = mapped_column(ForeignKey("conversation_turns.id"))
 
 
+class WhatsAppReplyIntentRecord(Base):
+    """Operator-prepared exact reply to one verified WhatsApp turn; no send authority."""
+
+    __tablename__ = "whatsapp_reply_intents"
+    __table_args__ = (
+        UniqueConstraint("verified_message_fingerprint"),
+        UniqueConstraint("conversation_turn_id"),
+        CheckConstraint("operator_id='ahmad'", name="ck_whatsapp_reply_intent_operator"),
+        CheckConstraint("transport_authority=0", name="ck_whatsapp_reply_intent_no_transport"),
+        {"sqlite_with_rowid": False},
+    )
+
+    intent_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    verified_message_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("whatsapp_verified_ingress.message_fingerprint")
+    )
+    conversation_turn_id: Mapped[str] = mapped_column(ForeignKey("conversation_turns.id"))
+    thread_fingerprint: Mapped[str] = mapped_column(String(64))
+    account_key: Mapped[str] = mapped_column(String(64))
+    recipient_key: Mapped[str] = mapped_column(String(64))
+    thread_key: Mapped[str] = mapped_column(String(64))
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    operator_id: Mapped[str] = mapped_column(String(64))
+    prepared_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class WhatsAppReplyDecisionRecord(Base):
+    """One immutable operator choice; no provider dispatch or delivery claim."""
+
+    __tablename__ = "whatsapp_reply_decisions"
+    __table_args__ = (
+        CheckConstraint("decision IN ('approve','reject')", name="ck_whatsapp_reply_decision"),
+        CheckConstraint("operator_id='ahmad'", name="ck_whatsapp_reply_decision_operator"),
+        CheckConstraint("transport_authority=0", name="ck_whatsapp_reply_decision_no_transport"),
+        {"sqlite_with_rowid": False},
+    )
+
+    intent_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("whatsapp_reply_intents.intent_fingerprint"), primary_key=True
+    )
+    decision: Mapped[str] = mapped_column(String(16))
+    operator_id: Mapped[str] = mapped_column(String(64))
+    decided_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 
