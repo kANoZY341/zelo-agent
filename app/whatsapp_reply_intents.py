@@ -5,6 +5,7 @@ import hmac
 from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,7 @@ from app.auth import OperatorPrincipal
 from app.channel_binding_store import ChannelBindingStore
 from app.channel_contracts import ChannelDeliveryIntent, channel_message_fingerprint
 from app.channel_operator_accounts import ChannelOperatorAccountStore
+from app.mind import MindReplyAction
 from app.models import (
     ChannelOperatorAccountRevocationRecord,
     ChannelOperatorAccountSelectionRecord,
@@ -91,12 +93,15 @@ class WhatsAppReplyIntentStore:
             raise PermissionError("whatsapp_reply_account_revoked")
         if not hmac.compare_digest(chosen.app_secret_identity, verified.app_secret_identity):
             raise PermissionError("whatsapp_reply_secret_mismatch")
+        try:
+            action = MindReplyAction.model_validate(turn.mind_action, strict=True)
+        except ValidationError:
+            raise PermissionError("whatsapp_reply_only") from None
         if (
             turn.idempotency_key != f"channel:{verified.message_fingerprint}"
             or hashlib.sha256(turn.user_content.encode("utf-8")).hexdigest() != verified.text_sha256
-            or turn.mind_action.get("type") != "reply"
             or turn.core_task_id is not None
-            or not turn.assistant_content
+            or not hmac.compare_digest(action.content, turn.assistant_content)
         ):
             raise PermissionError("whatsapp_reply_only")
         reply = ChannelDeliveryIntent(

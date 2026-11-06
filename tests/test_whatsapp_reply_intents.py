@@ -143,6 +143,28 @@ def test_unverified_turn_and_nonoperator_cannot_prepare(settings, database):
             store.prepare(turn.id, principal=OperatorPrincipal())
 
 
+@pytest.mark.parametrize("mutation", ["edited_text", "extra_task"])
+def test_saved_action_must_match_reply_before_prepare(settings, database, mutation):
+    with TestClient(create_app(settings, provider=Provider())) as client:
+        adapter, _, _ = setup(database, client.app.state.mind)
+        raw = body()
+        turn = asyncio.run(adapter.admit(raw, signed(raw)))
+        with database.transaction() as session:
+            saved = session.get(ConversationTurn, turn.id)
+            if mutation == "edited_text":
+                saved.assistant_content = "Different saved reply"
+            else:
+                saved.mind_action = {
+                    "type": "reply",
+                    "content": saved.assistant_content,
+                    "task": {"kind": "echo", "text": "unexpected"},
+                }
+        with pytest.raises(PermissionError, match="reply_only"):
+            WhatsAppReplyIntentStore(database).prepare(turn.id, principal=OperatorPrincipal())
+        with database.read() as session:
+            assert session.scalar(select(func.count()).select_from(WhatsAppReplyIntentRecord)) == 0
+
+
 def test_changed_saved_reply_cannot_reuse_prepared_intent(settings, database):
     with TestClient(create_app(settings, provider=Provider())) as client:
         adapter, _, _ = setup(database, client.app.state.mind)
@@ -151,7 +173,17 @@ def test_changed_saved_reply_cannot_reuse_prepared_intent(settings, database):
         store = WhatsAppReplyIntentStore(database)
         prepared, _ = store.prepare(turn.id, principal=OperatorPrincipal())
         with database.transaction() as session:
-            session.get(ConversationTurn, turn.id).assistant_content = "Edited reply"
+            saved = session.get(ConversationTurn, turn.id)
+            saved.assistant_content = "Edited reply"
+        with pytest.raises(PermissionError, match="reply_only"):
+            store.prepare(turn.id, principal=OperatorPrincipal())
+        with pytest.raises(PermissionError, match="reply_only"):
+            store.decide(prepared.intent_fingerprint, "approve", principal=OperatorPrincipal())
+        with database.transaction() as session:
+            session.get(ConversationTurn, turn.id).mind_action = {
+                "type": "reply",
+                "content": "Edited reply",
+            }
         with pytest.raises(ValueError, match="intent_conflict"):
             store.prepare(turn.id, principal=OperatorPrincipal())
         with pytest.raises(ValueError, match="intent_conflict"):
