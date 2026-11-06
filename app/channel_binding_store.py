@@ -15,6 +15,7 @@ from app.models import (
     ChannelIngressObservationRecord,
     ChannelThreadBindingRecord,
     Conversation,
+    VerifiedWhatsAppIngressRecord,
     utcnow,
 )
 from app.storage import SessionStore
@@ -182,6 +183,8 @@ class ChannelBindingStore:
             ):
                 raise ValueError("channel_binding_identity_invalid")
 
+            if session.get(VerifiedWhatsAppIngressRecord, fingerprint) is not None:
+                raise ValueError("channel_message_already_verified")
             existing = session.get(ChannelIngressObservationRecord, fingerprint)
             if existing is not None:
                 stored = self._verified_observation(existing)

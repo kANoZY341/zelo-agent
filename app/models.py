@@ -948,6 +948,46 @@ class ChannelOperatorAccountRevocationRecord(Base):
     revoked_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class VerifiedWhatsAppIngressRecord(Base):
+    """Signed, bound text admitted atomically with a reply-only Mind turn."""
+
+    __tablename__ = "whatsapp_verified_ingress"
+    __table_args__ = (
+        UniqueConstraint(
+            "thread_fingerprint", "message_key", name="uq_whatsapp_verified_message_identity"
+        ),
+        UniqueConstraint("conversation_turn_id", name="uq_whatsapp_verified_turn"),
+        CheckConstraint(
+            "length(message_fingerprint)=64 AND message_fingerprint NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_verified_message_fingerprint",
+        ),
+        CheckConstraint(
+            "length(message_key)=64 AND message_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_verified_message_key",
+        ),
+        CheckConstraint(
+            "length(text_sha256)=64 AND text_sha256 NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_verified_text_sha256",
+        ),
+        CheckConstraint(
+            "length(app_secret_identity)=64 AND app_secret_identity NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_verified_secret_identity",
+        ),
+        {"sqlite_with_rowid": False},
+    )
+
+    message_fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    thread_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("channel_thread_bindings.thread_fingerprint")
+    )
+    message_key: Mapped[str] = mapped_column(String(64))
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    provider_received_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    admitted_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    app_secret_identity: Mapped[str] = mapped_column(String(64))
+    conversation_turn_id: Mapped[str] = mapped_column(ForeignKey("conversation_turns.id"))
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 

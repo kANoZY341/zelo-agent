@@ -1364,6 +1364,15 @@ against a still-current operator choice and live trusted secret/registry
 binding before any replay or Mind admission. Replay freshness and outbound
 approval remain independent later gates.
 
+The offline Core-only reply admission seam in
+`docs/v0.16-whatsapp-verified-text-admission.md` composes those choices with
+a signed text event, a bounded freshness window and an append-only verified
+message-to-Mind-turn link. Its policy check runs in the same transaction as
+the Mind turn insert, so account revocation during model generation refuses
+admission. It accepts replies only, with no Core task submission. No webhook,
+live provider credential setup or outbound transport is connected; the
+provider and operator controls still require live qualification.
+
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
 
