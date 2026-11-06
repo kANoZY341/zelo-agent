@@ -351,6 +351,57 @@ async def qualify_multispace(
         require(tasks.list_tasks(limit=100, offset=0).total == before, "withdrawal created a Task")
         await run_matched("files_read", "workroom")
         print("PRIVATE_WITHDRAWAL_PRESERVED_WORKROOM=PASS", flush=True)
+
+        task, created = submit.submit(
+            child.id,
+            request(
+                "files_read",
+                parent_space="workroom",
+                child_space="workroom",
+                path=FIXTURES["workroom"][0],
+            ),
+            None,
+        )
+        require(created and task.status == State.PENDING, "use-time race Task not queued")
+        claimed = tasks.claim()
+        require(
+            claimed is not None and claimed.task_id == task.id, "use-time race Task not claimed"
+        )
+        original_control = backend.control
+        injected = False
+
+        async def revoke_after_control_lookup(instance_id: str):
+            nonlocal injected
+            control = await original_control(instance_id)
+            require(control.holder == "bot", "real Computer control lookup changed")
+            if not injected:
+                injected = True
+                resources.revoke(
+                    instance_id=parent.id,
+                    activation_id=approvals["workroom"][0].id,
+                )
+            return control
+
+        backend.control = revoke_after_control_lookup
+        try:
+            await runner._run(claimed)
+        finally:
+            backend.control = original_control
+        require(injected, "owner withdrawal did not occur inside control await")
+        denied = tasks.get(task.id)
+        require(
+            denied.status == State.FAILED
+            and denied.result is None
+            and denied.error == "computer_space_read_denied",
+            "use-time withdrawal reached the Space file",
+        )
+        require(
+            "space_file_read_completed"
+            not in [item.event for item in tasks.events(task.id, 100, 0)],
+            "use-time withdrawal wrote a completion audit",
+        )
+        print("REVOKE_AFTER_REAL_CONTROL_REFUSED_AT_USE=PASS", flush=True)
+
         for instance in (parent, child):
             stopped = await service.stop(instance.id)
             require(stopped.state == "stopped", "Computer stop failed")
