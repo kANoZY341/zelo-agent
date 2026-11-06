@@ -18,6 +18,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from copy import deepcopy
 from pathlib import Path
 
 import httpx
@@ -167,6 +168,17 @@ def qualify_http(
         return int(page.json()["total"])
 
     before = total()
+    traversal_body = deepcopy(read_body)
+    traversal_body["task"]["payload"]["path"] = "../outside-space.txt"
+    traversal = client.post(task_url, json=traversal_body)
+    require(traversal.status_code == 422, "traversal path admitted over Core HTTP")
+    require(
+        "computer_path_invalid" in traversal.text,
+        "traversal refused for an unrelated reason",
+    )
+    require(total() == before, "traversal created a Task")
+    print("CORE_HTTP_TRAVERSAL_REFUSED_BEFORE_TASK=PASS", flush=True)
+
     withdrawn = client.post(
         f"/agents/{child_id}/space-activations/{revocable_activation_id}/revoke"
     )
@@ -557,6 +569,48 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                     "private listing mismatch",
                 )
         print("REAL_DELEGATED_SPACE_READ_LIST=PASS", flush=True)
+        root = Path(resource.root_path)
+        outside = settings.runtime_dir / "outside-space.txt"
+        outside.write_text("outside private content")
+        symlink = root / "linked.txt"
+        hardlink = root / "shadow.txt"
+        try:
+            for path, link in (("linked.txt", symlink), ("notes.txt", hardlink)):
+                if link == symlink:
+                    link.symlink_to(outside)
+                else:
+                    link.hardlink_to(root / "notes.txt")
+                try:
+                    unsafe = request("files_read").model_dump(mode="json")
+                    unsafe["task"]["payload"]["path"] = path
+                    task, created = submit.submit(
+                        child.id, AgentTaskCreate.model_validate(unsafe), None
+                    )
+                    require(created and task.status == State.PENDING, "unsafe read not admitted")
+                    claimed = tasks.claim()
+                    require(
+                        claimed is not None and claimed.task_id == task.id,
+                        "wrong unsafe read Task claimed",
+                    )
+                    await runner._run(claimed)
+                    denied = tasks.get(task.id)
+                    require(
+                        denied.status == State.FAILED
+                        and denied.error == "computer_space_read_denied"
+                        and denied.result is None,
+                        "unsafe file read did not fail closed",
+                    )
+                    require(
+                        "space_file_read_completed"
+                        not in [event.event for event in tasks.events(task.id, 100, 0)],
+                        "unsafe file read emitted completion audit",
+                    )
+                finally:
+                    link.unlink(missing_ok=True)
+        finally:
+            outside.unlink(missing_ok=True)
+        print("NATIVE_SYMLINK_AND_HARDLINK_READ_REFUSED=PASS", flush=True)
+
         read_body = request("files_read").model_dump(mode="json")
         substituted_body = request("files_read").model_dump(mode="json")
         substituted_body["task"]["payload"]["space_activation_id"] = activations[0].id
