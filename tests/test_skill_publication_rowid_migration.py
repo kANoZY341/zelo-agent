@@ -26,7 +26,7 @@ _SKILL_LEDGER_TABLES = (
     "skill_publication_promotion_receipt_links",
 )
 _PREVIOUS = "0050_channel_ledger_replace_guards"
-_CURRENT = "0051_skill_publication_rowid_guards"
+_HEAD = "0052_whatsapp_verified_ingress"
 
 
 def _upgrade(database: Database, target: str) -> None:
@@ -144,7 +144,7 @@ def test_populated_claim_survives_upgrade_with_schema_and_references(settings) -
         database.migrate()
         database.check_schema()
         with database.read() as session:
-            assert session.scalar(text("SELECT version_num FROM alembic_version")) == _CURRENT
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == _HEAD
             assert session.execute(text("PRAGMA foreign_key_check")).all() == []
             assert session.scalar(text("SELECT count(*) FROM skill_publication_claims")) == 1
             for table, names in before_objects.items():

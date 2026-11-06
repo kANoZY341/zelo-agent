@@ -71,6 +71,28 @@ def bind(database):
     return store, conversation_id, binding
 
 
+def seed_legacy_observation(database, store):
+    """Populate a pre-0052 database without querying the new verified table."""
+
+    ingress = message()
+    with database.transaction() as session:
+        session.add(
+            ChannelIngressObservationRecord(
+                message_fingerprint=ingress.message_fingerprint(),
+                thread_fingerprint=ingress.conversation_fingerprint(),
+                message_key=ingress.message_key,
+                text_sha256=ingress.text_sha256,
+                provider_received_at=ingress.provider_received_at,
+                observed_at=ingress.provider_received_at,
+                operator_id="ahmad",
+                state="unverified",
+                mind_executed=False,
+                delivery_authority=False,
+            )
+        )
+    return store.get_observation(ingress.message_fingerprint(), principal=OperatorPrincipal())
+
+
 def test_operator_binding_requires_existing_conversation(database):
     store = ChannelBindingStore(database)
     with pytest.raises(LookupError, match="channel_conversation_not_found"):
@@ -405,7 +427,7 @@ def test_populated_channel_ledger_survives_guard_upgrade_and_refuses_downgrade(s
             config.attributes["connection"] = connection
             command.upgrade(config, "0049_skill_publication_promotion_receipt_link")
         store, _id, binding = bind(database)
-        observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+        observed = seed_legacy_observation(database, store)
 
         database.migrate()
         database.check_schema()
@@ -498,7 +520,7 @@ def test_channel_ledger_rebuild_rolls_back_midway_and_can_retry(settings):
             config.attributes["connection"] = connection
             command.upgrade(config, "0049_skill_publication_promotion_receipt_link")
         store, _id, binding = bind(database)
-        observed, _ = store.observe_unverified(message(), principal=OperatorPrincipal())
+        observed = seed_legacy_observation(database, store)
 
         with database.engine.connect() as connection:
 

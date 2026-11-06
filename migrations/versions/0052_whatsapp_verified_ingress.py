@@ -62,6 +62,22 @@ def upgrade() -> None:
         "conversation_turn_id=NEW.conversation_turn_id) "
         "BEGIN SELECT RAISE(ABORT, 'Verified WhatsApp ingress is append-only'); END"
     )
+    op.execute(
+        "CREATE TRIGGER whatsapp_verified_ingress_no_unverified_insert "
+        "BEFORE INSERT ON whatsapp_verified_ingress "
+        "WHEN EXISTS (SELECT 1 FROM channel_ingress_observations "
+        "WHERE message_fingerprint=NEW.message_fingerprint OR "
+        "(thread_fingerprint=NEW.thread_fingerprint AND message_key=NEW.message_key)) "
+        "BEGIN SELECT RAISE(ABORT, 'Channel message already observed unverified'); END"
+    )
+    op.execute(
+        "CREATE TRIGGER channel_ingress_observations_no_verified_insert "
+        "BEFORE INSERT ON channel_ingress_observations "
+        "WHEN EXISTS (SELECT 1 FROM whatsapp_verified_ingress "
+        "WHERE message_fingerprint=NEW.message_fingerprint OR "
+        "(thread_fingerprint=NEW.thread_fingerprint AND message_key=NEW.message_key)) "
+        "BEGIN SELECT RAISE(ABORT, 'Channel message already verified'); END"
+    )
 
 
 def downgrade() -> None:

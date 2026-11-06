@@ -6,6 +6,7 @@ execution is exposed. A trusted caller must supply the server-owned secrets.
 
 import hmac
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -46,6 +47,7 @@ def whatsapp_app_secret_identity(app_secret: bytes, identity_secret: bytes) -> s
     return hmac.digest(identity_secret, _IDENTITY_DOMAIN + app_secret, "sha256").hex()
 
 
+@dataclass(frozen=True, slots=True)
 class VerifiedWhatsAppTextAdmission:
     """Check signed, selected, bound text at Mind's write transaction.
 
@@ -54,21 +56,24 @@ class VerifiedWhatsAppTextAdmission:
     current trusted secret are required anew for every admission and retry.
     """
 
-    def __init__(
-        self,
-        database: SessionStore,
-        mind: MindService,
-        *,
-        app_secret: bytes,
-        identity_secret: bytes,
-        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-    ) -> None:
-        self.database = database
-        self.mind = mind
-        self.app_secret = app_secret
-        self.identity_secret = identity_secret
-        self.app_secret_identity = whatsapp_app_secret_identity(app_secret, identity_secret)
-        self.clock = clock
+    mind: MindService = field(repr=False)
+    app_secret: bytes = field(kw_only=True, repr=False)
+    identity_secret: bytes = field(kw_only=True, repr=False)
+    clock: Callable[[], datetime] = field(
+        default=lambda: datetime.now(UTC), kw_only=True, repr=False
+    )
+    app_secret_identity: str = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "app_secret_identity",
+            whatsapp_app_secret_identity(self.app_secret, self.identity_secret),
+        )
+
+    @property
+    def database(self) -> SessionStore:
+        return self.mind.database
 
     def _fresh(self, ingress: ChannelTextIngress) -> None:
         now = self.clock()

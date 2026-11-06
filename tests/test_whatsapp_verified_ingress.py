@@ -111,7 +111,6 @@ def setup(database, mind, *, select_account=True, bind_thread=True, secret=APP_S
             principal=OPERATOR,
         )
     adapter = VerifiedWhatsAppTextAdmission(
-        database,
         mind,
         app_secret=APP_SECRET,
         identity_secret=IDENTITY_SECRET,
@@ -301,3 +300,94 @@ def test_verified_ledger_refuses_replace_and_update(settings, database):
                         {"fingerprint": ingress.message_fingerprint(), "digest": "a" * 64},
                     )
         assert counts(database) == (1, 1)
+
+
+def test_unverified_observation_cannot_follow_verified_admission(settings, database):
+    provider = Provider()
+    with TestClient(create_app(settings, provider=provider)) as client:
+        adapter, _, ingress = setup(database, client.app.state.mind)
+        raw = body()
+        first = asyncio.run(adapter.admit(raw, signed(raw)))
+        with pytest.raises(ValueError, match="channel_message_already_verified"):
+            ChannelBindingStore(database).observe_unverified(ingress, principal=OPERATOR)
+        assert asyncio.run(adapter.admit(raw, signed(raw))).id == first.id
+        assert counts(database) == (1, 1)
+
+
+def test_database_refuses_cross_ledger_observation_after_verified(settings, database):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    provider = Provider()
+    with TestClient(create_app(settings, provider=provider)) as client:
+        adapter, _, ingress = setup(database, client.app.state.mind)
+        raw = body()
+        asyncio.run(adapter.admit(raw, signed(raw)))
+        with pytest.raises(IntegrityError, match="already verified"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        "INSERT INTO channel_ingress_observations "
+                        "(message_fingerprint,thread_fingerprint,message_key,text_sha256,"
+                        "provider_received_at,observed_at,operator_id,state,mind_executed,"
+                        "delivery_authority) "
+                        "VALUES (:fingerprint,:thread,:message,:digest,:received,:received,"
+                        "'ahmad','unverified',0,0)"
+                    ),
+                    {
+                        "fingerprint": ingress.message_fingerprint(),
+                        "thread": ingress.conversation_fingerprint(),
+                        "message": ingress.message_key,
+                        "digest": ingress.text_sha256,
+                        "received": ingress.provider_received_at,
+                    },
+                )
+
+
+def test_adapter_credentials_cannot_drift_from_selected_secret(settings, database):
+    from dataclasses import FrozenInstanceError
+
+    provider = Provider()
+    with TestClient(create_app(settings, provider=provider)) as client:
+        adapter, _, _ = setup(database, client.app.state.mind)
+        with pytest.raises(FrozenInstanceError):
+            adapter.app_secret = OTHER_APP_SECRET
+        raw = body()
+        with pytest.raises(ValueError, match="signature"):
+            asyncio.run(adapter.admit(raw, signed(raw, OTHER_APP_SECRET)))
+        assert provider.calls == 0
+        assert counts(database) == (0, 0)
+
+
+def test_database_refuses_verified_insert_after_unverified_observation(settings, database):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    provider = Provider()
+    with TestClient(create_app(settings, provider=provider)) as client:
+        mind = client.app.state.mind
+        _, conversation_id, ingress = setup(database, mind)
+        ChannelBindingStore(database).observe_unverified(ingress, principal=OPERATOR)
+        turn = asyncio.run(mind.send_turn(conversation_id, ingress.text, ingress.idempotency_key()))
+        with pytest.raises(IntegrityError, match="already observed unverified"):
+            with database.transaction() as session:
+                session.execute(
+                    text(
+                        "INSERT INTO whatsapp_verified_ingress "
+                        "(message_fingerprint,thread_fingerprint,message_key,text_sha256,"
+                        "provider_received_at,admitted_at,app_secret_identity,"
+                        "conversation_turn_id) "
+                        "VALUES (:fingerprint,:thread,:message,:digest,:received,:admitted,"
+                        ":secret,:turn)"
+                    ),
+                    {
+                        "fingerprint": ingress.message_fingerprint(),
+                        "thread": ingress.conversation_fingerprint(),
+                        "message": ingress.message_key,
+                        "digest": ingress.text_sha256,
+                        "received": ingress.provider_received_at,
+                        "admitted": NOW,
+                        "secret": whatsapp_app_secret_identity(APP_SECRET, IDENTITY_SECRET),
+                        "turn": turn.id,
+                    },
+                )
