@@ -246,3 +246,99 @@ def test_reply_evidence_rejects_sql_update_delete_replace(settings, database, ta
             with pytest.raises(IntegrityError, match="append-only"):
                 with database.transaction() as session:
                     session.execute(text(statement), {"fingerprint": prepared.intent_fingerprint})
+
+
+def test_populated_0052_upgrade_keeps_verified_turn_and_prepares_reply(settings):
+    import hashlib
+
+    from alembic import command
+
+    from app.database import Database, migration_config
+    from app.models import (
+        ChannelOperatorAccountSelectionRecord,
+        ChannelThreadBindingRecord,
+        Conversation,
+        VerifiedWhatsAppIngressRecord,
+    )
+    from app.whatsapp_opaque_ingress import prepare_unverified_whatsapp_ingress
+    from app.whatsapp_verified_ingress import whatsapp_app_secret_identity
+    from tests.test_whatsapp_verified_ingress import APP_SECRET, IDENTITY_SECRET, NOW
+
+    database = Database(settings.database_path)
+    try:
+        with database.engine.connect() as connection:
+            config = migration_config()
+            config.attributes["connection"] = connection
+            command.upgrade(config, "0052_whatsapp_verified_ingress")
+        raw = body()
+        ingress = prepare_unverified_whatsapp_ingress(
+            raw, signed(raw), app_secret=APP_SECRET, identity_secret=IDENTITY_SECRET
+        )
+        with database.transaction() as session:
+            conversation = Conversation(title="Old verified conversation")
+            session.add(conversation)
+            session.flush()
+            session.add(
+                ChannelOperatorAccountSelectionRecord(
+                    account_key=ingress.account_key,
+                    app_secret_identity=whatsapp_app_secret_identity(APP_SECRET, IDENTITY_SECRET),
+                    operator_id="ahmad",
+                    provider_authenticated=False,
+                    mind_admission_authority=False,
+                    delivery_authority=False,
+                )
+            )
+            session.add(
+                ChannelThreadBindingRecord(
+                    thread_fingerprint=ingress.conversation_fingerprint(),
+                    channel="whatsapp",
+                    account_key=ingress.account_key,
+                    sender_key=ingress.sender_key,
+                    thread_key=ingress.thread_key,
+                    conversation_id=conversation.id,
+                    operator_id="ahmad",
+                    provider_authenticated=False,
+                    transport_authority=False,
+                )
+            )
+            turn = ConversationTurn(
+                conversation_id=conversation.id,
+                number=1,
+                idempotency_key=ingress.idempotency_key(),
+                user_content=ingress.text,
+                assistant_content="Old verified reply",
+                mind_action={"type": "reply", "content": "Old verified reply"},
+                selected_alias="fixture",
+                selected_model="fixture",
+                usage={},
+            )
+            session.add(turn)
+            session.flush()
+            turn_id = turn.id
+            session.add(
+                VerifiedWhatsAppIngressRecord(
+                    message_fingerprint=ingress.message_fingerprint(),
+                    thread_fingerprint=ingress.conversation_fingerprint(),
+                    message_key=ingress.message_key,
+                    text_sha256=hashlib.sha256(ingress.text.encode()).hexdigest(),
+                    provider_received_at=NOW,
+                    admitted_at=NOW,
+                    app_secret_identity=whatsapp_app_secret_identity(APP_SECRET, IDENTITY_SECRET),
+                    conversation_turn_id=turn_id,
+                )
+            )
+        database.migrate()
+        database.check_schema()
+        with database.read() as session:
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
+                "0053_whatsapp_reply_intents"
+            )
+            assert session.get(ConversationTurn, turn_id).assistant_content == "Old verified reply"
+            assert session.execute(text("PRAGMA foreign_key_check")).all() == []
+            assert session.scalar(text("PRAGMA integrity_check")) == "ok"
+        prepared, created = WhatsAppReplyIntentStore(database).prepare(
+            turn_id, principal=OperatorPrincipal()
+        )
+        assert created and prepared.conversation_turn_id == turn_id
+    finally:
+        database.close()
