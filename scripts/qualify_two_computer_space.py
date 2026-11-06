@@ -138,6 +138,151 @@ def loopback_core_server(app: FastAPI) -> Iterator[str]:
         require(not thread.is_alive(), "Core HTTP server failed to stop")
 
 
+def qualify_profile_views(
+    client: httpx.Client,
+    *,
+    parent_id: str,
+    child_id: str,
+    parent_activation_id: str,
+    child_activation_id: str,
+    resource_record_id: str,
+    resource_root_path: str,
+    project_id: str,
+    forbidden_content: str,
+) -> None:
+    """Read both live Specialist projections without creating Core authority."""
+    instance_ids = (parent_id, child_id)
+
+    def authority_snapshot() -> tuple[
+        dict[str, object], tuple[tuple[str, dict[str, object], dict[str, object]], ...]
+    ]:
+        task_rows: list[dict[str, object]] = []
+        total: int | None = None
+        while total is None or len(task_rows) < total:
+            tasks = client.get("/tasks", params={"limit": 100, "offset": len(task_rows)})
+            require(tasks.status_code == 200, "profile Task page unavailable")
+            page = tasks.json()
+            require(total is None or page["total"] == total, "profile Task count changed")
+            total = page["total"]
+            items = page["items"]
+            require(items or len(task_rows) == total, "profile Task page incomplete")
+            task_rows.extend(items)
+        require(
+            len(task_rows) == total and len({row["id"] for row in task_rows}) == total,
+            "profile Task snapshot incomplete",
+        )
+        rows = []
+        for instance_id in instance_ids:
+            activations = client.get(f"/agents/{instance_id}/space-activations")
+            computer = client.get(f"/agents/{instance_id}/computer")
+            require(
+                activations.status_code == computer.status_code == 200,
+                "profile authority snapshot unavailable",
+            )
+            rows.append((instance_id, activations.json(), computer.json()["permissions"]))
+        return {"total": total, "items": task_rows}, tuple(rows)
+
+    before = authority_snapshot()
+    activation_pages = {instance_id: page for instance_id, page, _ in before[1]}
+    for instance_id, activation_id, agent_id, expected_instructions in (
+        (
+            parent_id,
+            parent_activation_id,
+            "space_read_manager",
+            space_read_manager_spec().instructions,
+        ),
+        (
+            child_id,
+            child_activation_id,
+            "computer_observer",
+            computer_observer_spec().instructions,
+        ),
+    ):
+        base = f"/agents/{instance_id}/specialist-profile"
+        for path in (base, base + "/space-access"):
+            absent = httpx.get(client.base_url.join(path), timeout=5, trust_env=False)
+            denied = client.get(path, headers={"Authorization": "Bearer invalid"})
+            require(
+                absent.status_code == denied.status_code == 401,
+                "Specialist projection bypassed operator auth",
+            )
+        profile_reply = client.get(base)
+        access_reply = client.get(base + "/space-access")
+        require(
+            profile_reply.status_code == access_reply.status_code == 200,
+            "Specialist projection unavailable",
+        )
+        profile, access = profile_reply.json(), access_reply.json()
+        require(
+            forbidden_content not in profile_reply.text + access_reply.text
+            and resource_root_path not in profile_reply.text + access_reply.text
+            and "root_path" not in profile_reply.text + access_reply.text,
+            "Specialist projection exposed private file bytes or host path",
+        )
+        require(
+            profile["agent_instance_id"] == instance_id
+            and profile["agent_id"] == agent_id
+            and profile["project_id"] == project_id
+            and profile["registry_binding_current"]
+            and profile["inspection_state"] == "current"
+            and profile["authority_source"] == "zelo_agent_factory_registry"
+            and profile["instruction_origin"] == "trusted_agent_spec"
+            and profile["spec_instructions"] == expected_instructions
+            and profile["memory_namespace"] == "agent/" + agent_id
+            and [row["space_id"] for row in profile["declared_spaces"]] == ["workroom"]
+            and all(not row["effective_access_verified"] for row in profile["declared_spaces"])
+            and all(not row["verified_for_task_execution"] for row in profile["declared_tools"])
+            and all(not row["effective_execution_granted"] for row in profile["skill_declarations"])
+            and profile["effective_space_access"] == []
+            and profile["effective_worker_or_tool_grants"] == []
+            and not profile["qualified_skill_learning_activation"]
+            and not profile["operation_or_permission_mutated"]
+            and not profile["upstream_dot_runtime_loaded"],
+            "Specialist profile claimed authority or wrong Agent identity",
+        )
+        receipts = {row["id"]: row for row in activation_pages[instance_id]["items"]}
+        routes = {row["activation_id"]: row for row in access["routes"]}
+        require(
+            activation_pages[instance_id]["total"] == len(receipts)
+            and activation_id in receipts
+            and len(access["routes"]) == len(routes)
+            and routes.keys() == receipts.keys()
+            and access["agent_instance_id"] == instance_id
+            and access["inspection_state"] == "current"
+            and access["provenance"] == "zelo_core_owner_confirmation"
+            and not access["projection_is_authority"]
+            and not access["upstream_dot_runtime_loaded"],
+            "Specialist Space projection omitted or added an activation",
+        )
+        for route_id, route in routes.items():
+            receipt = receipts[route_id]
+            require(
+                receipt["agent_instance_id"] == instance_id
+                and receipt["project_id"] == project_id
+                and receipt["resource_record_id"] == resource_record_id
+                and route["intent_id"] == receipt["intent_id"]
+                and route["resource_record_id"] == resource_record_id
+                and route["space_id"] == "workroom"
+                and route["resource_id"] == "documents"
+                and set(route["declared_operations"]) == {"list", "read"}
+                and route["eligible_operation"] == "read"
+                and route["expires_at"] == receipt["expires_at"]
+                and route["owner_confirmation_recorded"]
+                and route["reason"]
+                == (
+                    "eligible_for_scoped_file_task"
+                    if receipt["eligible_for_mediation"]
+                    else "owner_revoked"
+                )
+                and route["eligible_for_scoped_file_task"] == receipt["eligible_for_mediation"]
+                and not route["automatic_worker_authority"]
+                and not route["model_context_admitted"],
+                "Specialist Space route crossed scope or claimed authority",
+            )
+    require(authority_snapshot() == before, "Specialist GET changed Task or owner grants")
+    print("CORE_HTTP_SPECIALIST_PROFILE_READ_ONLY=PASS", flush=True)
+
+
 def qualify_http(
     client: httpx.Client,
     *,
@@ -628,6 +773,17 @@ async def qualify(settings: IsolationSettings, instance_ids: list[str]) -> tuple
                 timeout=10,
                 trust_env=False,
             ) as client:
+                qualify_profile_views(
+                    client,
+                    parent_id=parent.id,
+                    child_id=child.id,
+                    parent_activation_id=activations[0].id,
+                    child_activation_id=activations[1].id,
+                    resource_record_id=resource.id,
+                    resource_root_path=resource.root_path,
+                    project_id=project.id,
+                    forbidden_content=FIXTURE,
+                )
                 qualify_http(
                     client,
                     child_id=child.id,

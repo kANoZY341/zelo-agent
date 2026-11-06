@@ -323,6 +323,17 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
             retry_body = body("files_read")
             retry_body["task"]["payload"]["space_activation_id"] = retry_activation.json()["id"]
             retry_body["task"]["payload"]["path"] = qualifier.MISSING_PATH
+            qualifier.qualify_profile_views(
+                client,
+                parent_id=parent["id"],
+                child_id=child["id"],
+                parent_activation_id=parent_activation["id"],
+                child_activation_id=activation.json()["id"],
+                resource_record_id=resource["id"],
+                resource_root_path=resource["root_path"],
+                project_id=project["id"],
+                forbidden_content="owner-provided evidence",
+            )
             qualifier.qualify_http(
                 client,
                 child_id=child["id"],
@@ -337,3 +348,14 @@ def test_normal_core_tcp_runs_dual_approved_space_and_refuses_revocation(
                 expected_text="owner-provided evidence",
             )
             assert client.get("/tasks").json()["total"] == 3
+            qualifier.qualify_profile_views(
+                client,
+                parent_id=parent["id"],
+                child_id=child["id"],
+                parent_activation_id=parent_activation["id"],
+                child_activation_id=activation.json()["id"],
+                resource_record_id=resource["id"],
+                resource_root_path=resource["root_path"],
+                project_id=project["id"],
+                forbidden_content="owner-provided evidence",
+            )
