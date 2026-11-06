@@ -17,6 +17,24 @@ _MIN_TIMESTAMP = 946684800  # 2000-01-01 UTC, not a replay-window policy
 _MAX_TIMESTAMP = 4102444800  # 2100-01-01 UTC, not a freshness assertion
 
 
+def validate_whatsapp_provider_identity(
+    waba_id: str,
+    phone_number_id: str,
+    recipient_wa_id: str,
+    inbound_message_id: str,
+) -> None:
+    """Apply the signed text parser's exact raw-ID grammar before Core projection."""
+
+    for value, rule in (
+        (waba_id, _ACCOUNT_ID),
+        (phone_number_id, _ACCOUNT_ID),
+        (recipient_wa_id, _SENDER_ID),
+        (inbound_message_id, _MESSAGE_ID),
+    ):
+        if type(value) is not str or rule.fullmatch(value) is None:
+            raise ValueError("whatsapp_provider_identity_invalid")
+
+
 @dataclass(frozen=True, repr=False)
 class UntrustedWhatsAppTextEvent:
     """Signed provider *claims*; explicit Core account binding still required.

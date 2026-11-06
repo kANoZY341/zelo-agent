@@ -1373,6 +1373,14 @@ admission. It accepts replies only, with no Core task submission. No webhook,
 live provider credential setup or outbound transport is connected; the
 provider and operator controls still require live qualification.
 
+The separate offline reply-intent and operator-decision ledger in
+`docs/v0.16-whatsapp-reply-intent.md` records one exact verified reply and
+Ahmad's approve/reject decision without sending it. The private outbound
+identity projection in `docs/v0.16-whatsapp-outbound-projection.md` rechecks
+trusted raw provider IDs against those opaque records for a future sender.
+Neither record nor projection grants transport authority, live account
+ownership, a webhook, delivery status or retry permission.
+
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
 
