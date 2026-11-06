@@ -83,7 +83,7 @@ def _classify(
     ):
         return "invalid_success_shape", None
     message_status = message.get("message_status")
-    if message_status is not None and message_status not in (
+    if "message_status" in message and message_status not in (
         "accepted",
         "held_for_quality_assessment",
     ):

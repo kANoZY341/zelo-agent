@@ -431,3 +431,17 @@ def test_http_200_without_body_is_not_a_message_link(settings, database):
     )
     assert observed.outcome == "invalid_success_shape"
     assert observed.response_message_key is None
+
+
+def test_explicit_null_message_status_is_invalid_shape(settings, database):
+    fingerprint, _ = _claimed(settings, database)
+    body = json.dumps(
+        {
+            "messaging_product": "whatsapp",
+            "contacts": [{"input": "15550001111", "wa_id": "15550001111"}],
+            "messages": [{"id": OUTBOUND_WAMID, "message_status": None}],
+        }
+    ).encode()
+    observed = _observe(database, fingerprint, body=body)
+    assert observed.outcome == "invalid_success_shape"
+    assert observed.response_message_key is None
