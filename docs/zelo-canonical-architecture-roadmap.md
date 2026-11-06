@@ -1391,6 +1391,11 @@ preserves uncertain outcomes without retry and proves neither a real Meta
 exchange nor delivery. Live sender, provider response provenance and signed
 status qualification remain separate gates.
 
+On 7 November 2026 the owner confirmed there is no Meta business account and
+chose to defer that setup while other work proceeds. The WhatsApp code above
+remains offline and grants no live send or delivery authority. This decision
+does not by itself qualify a reduced v0.16 release scope.
+
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:
 
