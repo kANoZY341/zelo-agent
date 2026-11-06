@@ -1,6 +1,7 @@
 """Offline, operator-only WhatsApp reply intent and decision evidence."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -157,6 +158,17 @@ def test_approved_reply_projects_exact_ephemeral_outbound_identity(settings, dat
         assert store.project_outbound(prepared.intent_fingerprint, **arguments) == projection
         assert "15550001111" not in repr(projection)
         assert "مرحبا" not in repr(projection)
+        for suffix in ("", "-wal", "-shm"):
+            db_file = Path(f"{database.path}{suffix}")
+            if db_file.exists():
+                durable_bytes = db_file.read_bytes()
+                for field in (
+                    "waba_id",
+                    "phone_number_id",
+                    "recipient_wa_id",
+                    "inbound_message_id",
+                ):
+                    assert arguments[field].encode("utf-8") not in durable_bytes
         with database.read() as session:
             assert session.scalar(select(func.count()).select_from(WhatsAppReplyIntentRecord)) == 1
             assert (
