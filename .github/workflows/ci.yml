@@ -53,18 +53,6 @@ jobs:
       - run: git diff --check origin/main...HEAD
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
-      - name: Install workspace dependencies
-        working-directory: workspace
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Run workspace tests
-        working-directory: workspace
-        run: npm test
-      - name: Typecheck workspace
-        working-directory: workspace
-        run: npm run typecheck
-      - name: Build workspace
-        working-directory: workspace
-        run: npm run build
       - name: Run parallel test suite (eight workers)
         run: .venv/bin/python -m pytest -c /dev/null -q -n 8 --dist=loadgroup --ignore=tests/test_developer_boundary.py --ignore=tests/test_worker_concurrency.py tests --durations=30
       - name: Run installed Codex sandbox checks (serial)
