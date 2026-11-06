@@ -289,10 +289,46 @@ async def qualify_multispace(
                 await run_matched(action, space_id)
         print("MATCHED_NATIVE_TWO_SPACE_READ_LIST=PASS", flush=True)
 
+        queued_private = []
+        for action in ("files_read", "files_list"):
+            task, created = submit.submit(
+                child.id,
+                request(
+                    action,
+                    parent_space="private-room",
+                    child_space="private-room",
+                    path=FIXTURES["private-room"][0],
+                ),
+                None,
+            )
+            require(created and task.status == State.PENDING, "private Task not queued")
+            queued_private.append((task.id, action))
+
         resources.revoke(
             instance_id=parent.id,
             activation_id=approvals["private-room"][0].id,
         )
+        for task_id, action in queued_private:
+            require(tasks.claim() is None, "withdrawn private approval was claimed")
+            denied = tasks.get(task_id)
+            require(
+                denied.status == State.CANCELLED
+                and denied.error == "computer_execution_spec_invalid"
+                and denied.attempts == [],
+                "withdrawn private approval did not cancel queued Task",
+            )
+            events = [item.event for item in tasks.events(task_id, 100, 0)]
+            completed_event = (
+                "space_file_read_completed"
+                if action == "files_read"
+                else "space_file_list_completed"
+            )
+            require(
+                "execution_denied" in events and completed_event not in events,
+                "withdrawn private approval audit changed",
+            )
+        print("QUEUED_PRIVATE_READ_LIST_CANCELLED_AT_CLAIM=PASS", flush=True)
+
         before = tasks.list_tasks(limit=100, offset=0).total
         try:
             submit.submit(
