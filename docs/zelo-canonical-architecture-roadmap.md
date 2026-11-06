@@ -1384,7 +1384,12 @@ one-use send-attempt claim in `docs/v0.16-whatsapp-send-attempt.md` rechecks the
 approved exact reply and trusted provider identity inside the serialized
 SQLite writer, then records an unresolved possible send and permanently
 refuses a second claim. It performs no HTTP request and grants no transport
-authority; live sender and status qualification remain separate gates.
+authority. A private response-shape observation in
+`docs/v0.16-whatsapp-response-observation.md` records one bounded supplied
+HTTP result and an optional keyed outgoing message ID after the claim. It
+preserves uncertain outcomes without retry and proves neither a real Meta
+exchange nor delivery. Live sender, provider response provenance and signed
+status qualification remain separate gates.
 
 Deliver staged conversational presence through the shared Zelo conversation and
 authority contracts:

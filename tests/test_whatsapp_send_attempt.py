@@ -296,7 +296,7 @@ def test_populated_0053_upgrade_preserves_approved_reply_and_allows_claim(settin
         database.check_schema()
         with database.read() as session:
             assert session.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0054_whatsapp_send_attempt"
+                "0055_whatsapp_send_response"
             )
             assert session.get(ConversationTurn, turn_id).assistant_content == "Old exact reply"
             assert session.scalar(text("SELECT COUNT(*) FROM whatsapp_reply_intents")) == 1

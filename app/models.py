@@ -1063,6 +1063,55 @@ class WhatsAppSendAttemptRecord(Base):
     transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class WhatsAppSendResponseRecord(Base):
+    """One untrusted HTTP response-shape observation; no delivery authority."""
+
+    __tablename__ = "whatsapp_send_responses"
+    __table_args__ = (
+        CheckConstraint(
+            "length(intent_fingerprint)=64 AND intent_fingerprint NOT GLOB '*[^0-9a-f]*'",
+            name="ck_whatsapp_send_response_intent",
+        ),
+        CheckConstraint(
+            "response_message_key IS NULL OR "
+            "(length(response_message_key)=64 AND response_message_key NOT GLOB '*[^0-9a-f]*')",
+            name="ck_whatsapp_send_response_message_key",
+        ),
+        CheckConstraint(
+            "http_status IS NULL OR http_status BETWEEN 100 AND 599",
+            name="ck_whatsapp_send_response_http_status",
+        ),
+        CheckConstraint(
+            "outcome IN ('success_shape','invalid_success_shape','http_non_success','no_response')",
+            name="ck_whatsapp_send_response_outcome",
+        ),
+        CheckConstraint(
+            "(outcome='success_shape' AND http_status IS NOT NULL AND http_status=200 "
+            "AND response_message_key IS NOT NULL) "
+            "OR (outcome='invalid_success_shape' AND http_status IS NOT NULL AND http_status=200 "
+            "AND response_message_key IS NULL) "
+            "OR (outcome='http_non_success' AND http_status IS NOT NULL "
+            "AND http_status!=200 AND response_message_key IS NULL) "
+            "OR (outcome='no_response' AND http_status IS NULL "
+            "AND response_message_key IS NULL)",
+            name="ck_whatsapp_send_response_shape",
+        ),
+        CheckConstraint("delivery_confirmed=0", name="ck_whatsapp_send_response_no_delivery"),
+        CheckConstraint("transport_authority=0", name="ck_whatsapp_send_response_no_transport"),
+        {"sqlite_with_rowid": False},
+    )
+
+    intent_fingerprint: Mapped[str] = mapped_column(
+        ForeignKey("whatsapp_send_attempts.intent_fingerprint"), primary_key=True
+    )
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(32))
+    response_message_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+    delivery_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    transport_authority: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class SkillLearningProposalRecord(Base):
     """Frozen candidate. Status is projected from append-only events."""
 
