@@ -164,3 +164,75 @@ def test_retry_after_parent_withdrawal_does_not_create_new_attempt(database, set
     after = env["tasks"].get(task.id)
     assert after.status == State.CANCELLED and after.action_version == before.action_version
     assert after.attempts == before.attempts == []
+
+
+@pytest.mark.parametrize("action", ["files_read", "files_list"])
+def test_distinct_spaces_require_matching_parent_and_child_approvals(
+    database, settings, client, action
+):
+    env = _delegated_env(database, settings, client, space_permissions=("private-room", "workroom"))
+    private = env["resources"].provision(
+        instance_id=env["parent"].id,
+        space_id="private-room",
+        resource_id="documents",
+        operations=("list", "read"),
+        files=(("private-notes.txt", "private-room evidence"),),
+    )
+    assert private.id != env["resource"].id
+    approvals = []
+    for instance in (env["parent"], env["child"]):
+        intent = env["resources"].intents.create(
+            instance_id=instance.id,
+            space_id="private-room",
+            resource_kind="files",
+            resource_id="documents",
+            operations=("list", "read"),
+            ttl_seconds=600,
+        )
+        approvals.append(
+            env["resources"].activate(
+                instance_id=instance.id, intent_id=intent.id, resource_record_id=private.id
+            )
+        )
+    private_parent, private_child = approvals
+    for parent_id, child_id in (
+        (env["parent_approval"].id, private_child.id),
+        (private_parent.id, env["child_approval"].id),
+    ):
+        with pytest.raises(DomainError, match="computer_space_activation_invalid"):
+            env["submits"].submit(
+                env["child"].id,
+                _request(
+                    env,
+                    action,
+                    parent_space_activation_id=parent_id,
+                    space_activation_id=child_id,
+                ),
+                None,
+            )
+    assert env["tasks"].list_tasks(limit=100, offset=0).total == 0
+    assert env["backend"].calls == []
+
+    task, created = env["submits"].submit(
+        env["child"].id,
+        _request(
+            env,
+            action,
+            parent_space_activation_id=private_parent.id,
+            space_activation_id=private_child.id,
+            path="private-notes.txt" if action == "files_read" else "",
+        ),
+        None,
+    )
+    assert created
+    claimed = env["tasks"].claim()
+    assert claimed is not None and claimed.task_id == task.id
+    asyncio.run(env["runner"]._run(claimed))
+    done = env["tasks"].get(task.id)
+    assert done.status == State.SUCCEEDED, done.error
+    if action == "files_read":
+        assert done.result["files_read"]["text"] == "private-room evidence"
+    else:
+        assert [row["path"] for row in done.result["files_list"]["entries"]] == [
+            "private-notes.txt"
+        ]

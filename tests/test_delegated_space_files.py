@@ -31,9 +31,9 @@ def test_parent_approval_is_explicit_versioned_task_input():
     assert "parent_permission_version" in ComputerExecutionSpec.model_fields
 
 
-def _delegated_env(database, settings, client):
+def _delegated_env(database, settings, client, *, space_permissions=("workroom",)):
     project, _goal, campaign = create_project_goal_campaign(client, "Dual approved Space read")
-    child_spec = computer_agent_spec().model_copy(update={"space_permissions": ("workroom",)})
+    child_spec = computer_agent_spec().model_copy(update={"space_permissions": space_permissions})
     parent_spec = child_spec.model_copy(
         update={
             "agent_id": "space_read_manager",
