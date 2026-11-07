@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port ${PORT:-3000}",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "tsx --test tests/*.test.*",
+    "test": "node scripts/run-tests.mjs",
     "audit": "npm audit --audit-level=high"
   },
   "dependencies": {
